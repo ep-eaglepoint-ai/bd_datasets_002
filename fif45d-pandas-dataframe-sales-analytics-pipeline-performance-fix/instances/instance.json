@@ -1,0 +1,11 @@
+{
+            "instance_id": "FIF45D",
+            "problem_statement": "Noticed critical performance and data quality issues during quarterly sales analytics pipeline testing. The calculate_discounts function in process_sales.py takes 52 minutes to transform 100,000 records while the legacy Excel system completed in 90 seconds. Monitoring shows 31 rows/second with CPU at 12% on 16 cores, and memory growing from 180MB to 9.2GB before OOM termination. QA identified two failures: final_price values differ by $0.01-$0.02 on 15% of transactions, and output files sometimes contain more rows than input (10,000 input produced 21,847 rows). Must achieve sub-60s processing, exact penny-level match, and output rows equal input",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/fif45d-pandas-dataframe-sales-analytics-pipeline-performance-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
