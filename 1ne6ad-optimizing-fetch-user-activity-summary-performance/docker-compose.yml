@@ -4,3 +4,21 @@ services:
     command: pytest -q tests
     volumes:
       - .:/app
+    depends_on:
+      - db
+    environment:
+      POSTGRES_PORT: 5432
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: eventsdb
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

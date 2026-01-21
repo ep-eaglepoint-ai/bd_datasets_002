@@ -1,6 +1,6 @@
 {
             "instance_id": "1NE6AD",
-            "problem_statement": "",
+            "problem_statement": "The current implementation of fetch_user_activity_summary is inefficient because it retrieves all raw event data for application-side processing instead of leveraging database aggregation. By fetching every column—including the metadata—the function incurs unnecessary network I/O and creates a memory footprint that scales linearly with the number of events. Performing de-duplication and aggregation within a Python loop adds significant CPU overhead and object-creation costs that the database is better optimized to handle. As event volume increases, these factors contribute to rising latency and memory pressure, preventing the function from meeting performance targets for high-volume accounts.",
             "base_commit": "repository_before/",
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/1ne6ad-optimizing-fetch-user-activity-summary-performance",
