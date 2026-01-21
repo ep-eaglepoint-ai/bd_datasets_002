@@ -1,0 +1,11 @@
+{
+            "instance_id": "EZV6R3",
+            "problem_statement": "The existing Java Spring Boot text-processing REST endpoint is not production-ready despite appearing functional. It contains shared mutable state that makes it unsafe under concurrent access, incomplete and improperly ordered input validation that can lead to runtime failures, and multiple hidden logical bugs affecting core functionality such as word counting and string reversal. Error handling is inconsistent and risks exposing internal details, while the use of raw maps for request and response bodies weakens API contracts and maintainability. Inefficient string operations, unused code, and non-idiomatic Spring Boot usage further degrade performance and code quality. The code must be refactored to ensure correctness, thread safety, robust validation, predictable error handling, and clean API design, without changing the endpoint’s external behavior beyond well-defined error responses.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ezv6r3-spring-boot-text-api",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
