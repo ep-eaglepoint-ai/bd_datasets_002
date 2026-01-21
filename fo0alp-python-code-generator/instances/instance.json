@@ -1,0 +1,11 @@
+{
+            "instance_id": "FO0ALP",
+            "problem_statement": "he provided Python code generation system is fundamentally broken due to multiple syntax errors, logical flaws, and incorrect implementations that prevent it from creating functional modules from JSON configurations. A refactored solution is required that fixes these critical issues including JSON loading, type validation, property naming, and method generation while maintaining the system's core ability to produce Python classes with type-safe property accessors, input validation method",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/fo0alp-python-code-generator",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
