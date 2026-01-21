@@ -1,0 +1,12 @@
+{
+            "instance_id": "RK203I",
+            "problem_statement": "The solution does not meet the prompt requirements.
+It violates multiple core constraints: rate-limiter design, determinism, per-endpoint space guarantees, correctness under concurrency, and the actual token bucket behavior required by the Definition of Done.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/rk203i-secure-api-calls-with-rate-limiting",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
