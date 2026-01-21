@@ -1,0 +1,11 @@
+{
+            "instance_id": "NH4OF1",
+            "problem_statement": "This project requires the design of a minimal, foundational authentication system to demonstrate core credential-based authentication fundamentals. The system must be built using TypeScript and Next.js, implementing secure user registration and login exclusively with username/email and password via the better-auth library and MongoDB. The scope is strictly limited to these core features, explicitly excluding OAuth, magic links, external providers, and any non-essential abstractions to ensure clarity and correctness as a learning reference or application foundation.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/nh4of1-better-auth-implementation",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
