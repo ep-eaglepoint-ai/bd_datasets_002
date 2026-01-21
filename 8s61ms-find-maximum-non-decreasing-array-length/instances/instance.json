@@ -1,0 +1,11 @@
+{
+            "instance_id": "8S61MS",
+            "problem_statement": "Implement a function that determines the maximum length of a non-decreasing array achievable through segment consolidation operations.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/8s61ms-find-maximum-non-decreasing-array-length",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
