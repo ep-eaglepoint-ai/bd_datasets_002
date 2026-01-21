@@ -1,0 +1,11 @@
+{
+            "instance_id": "LLAIAW",
+            "problem_statement": "It violates multiple hard constraints (complexity, correctness, architecture, cryptography, determinism, and API semantics). While the code appears sophisticated, much of it is theatrical rather than correct. Several claims made in comments are mathematically and technically false.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/llaiaw-optimize-access-fetch-with-quantum-resistant-cache",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
