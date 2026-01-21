@@ -1,0 +1,11 @@
+{
+            "instance_id": "V2IXPS",
+            "problem_statement": "You are tasked with designing a comprehensive testing strategy for a React client component, StripePaymentForm, which simulates adding funds to a wallet. The component accepts a payment amount and provides callbacks for success or failure. It also performs input formatting for card number, expiry date, and CVV, and displays appropriate toast notifications for success or errors. While the component simulates payment processing, it is critical that its functionality is verified through rigorous testing at multiple levels—unit tests for internal logic, integration tests for UI interaction and state changes, and end-to-end tests simulating real user workflows. The challenge is to create a testing framework that ensures correctness, reliability, and maintainability without relying on a real payment gateway, while providing clear feedback on all edge cases including invalid inputs, simultaneous form submissions, and asynchronous behavior.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/v2ixps-testing-strategy-for-stripe-payment-gateway",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
