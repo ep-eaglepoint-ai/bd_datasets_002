@@ -1,0 +1,260 @@
+{
+  "run_id": "880ddc77",
+  "started_at": "2025-12-21T17:37:12.768382",
+  "finished_at": "2025-12-21T17:37:13.073312",
+  "duration_seconds": 0.30493,
+  "success": true,
+  "error": null,
+  "environment": {
+    "python_version": "3.11.14",
+    "platform": "Linux-6.12.54-linuxkit-aarch64-with-glibc2.41",
+    "os": "Linux",
+    "os_release": "6.12.54-linuxkit",
+    "architecture": "aarch64",
+    "hostname": "b6a08e4cebdb",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": 1,
+      "tests": [
+        {
+          "nodeid": "tests/test_after.py::test_after_matches_reference_vectors",
+          "name": "test_after_matches_reference_vectors",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_before.py::test_before_matches_reference_vectors",
+          "name": "test_before_matches_reference_vectors",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_calc_score_equivalence.py::test_public_api_docstring_and_name_match",
+          "name": "test_public_api_docstring_and_name_match",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_calc_score_equivalence.py::test_equivalence_on_handpicked_adversarial_inputs",
+          "name": "test_equivalence_on_handpicked_adversarial_inputs",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_calc_score_equivalence.py::test_equivalence_randomized_fuzz_deterministic",
+          "name": "test_equivalence_randomized_fuzz_deterministic",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_matches_reference_vectors",
+          "name": "test_matches_reference_vectors",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_empty_events",
+          "name": "test_empty_events",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_none_values",
+          "name": "test_none_values",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_invalid_weight",
+          "name": "test_invalid_weight",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_negative_weight",
+          "name": "test_negative_weight",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_different_tiers",
+          "name": "test_different_tiers",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_invalid_date",
+          "name": "test_invalid_date",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_multiple_events",
+          "name": "test_multiple_events",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_helper_functions_exist",
+          "name": "test_helper_functions_exist",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_parsing_duplication_reduced",
+          "name": "test_parsing_duplication_reduced",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_code_uses_helper_functions",
+          "name": "test_code_uses_helper_functions",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_line_count_within_limit",
+          "name": "test_line_count_within_limit",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_structure.py::test_helper_function_exists",
+          "name": "test_helper_function_exists",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_structure.py::test_parsing_duplication_reduced",
+          "name": "test_parsing_duplication_reduced",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_structure.py::test_line_count_not_excessive",
+          "name": "test_line_count_not_excessive",
+          "outcome": "passed"
+        }
+      ],
+      "summary": {
+        "total": 20,
+        "passed": 17,
+        "failed": 3,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "alence.py::test_equivalence_on_handpicked_adversarial_inputs PASSED [ 20%]\ntests/test_calc_score_equivalence.py::test_equivalence_randomized_fuzz_deterministic PASSED [ 25%]\ntests/test_score.py::test_matches_reference_vectors PASSED               [ 30%]\ntests/test_score.py::test_empty_events PASSED                            [ 35%]\ntests/test_score.py::test_none_values PASSED                             [ 40%]\ntests/test_score.py::test_invalid_weight PASSED                          [ 45%]\ntests/test_score.py::test_negative_weight PASSED                         [ 50%]\ntests/test_score.py::test_different_tiers PASSED                         [ 55%]\ntests/test_score.py::test_invalid_date PASSED                            [ 60%]\ntests/test_score.py::test_multiple_events PASSED                         [ 65%]\ntests/test_score.py::test_helper_functions_exist FAILED                  [ 70%]\ntests/test_score.py::test_parsing_duplication_reduced FAILED             [ 75%]\ntests/test_score.py::test_code_uses_helper_functions FAILED              [ 80%]\ntests/test_score.py::test_line_count_within_limit PASSED                 [ 85%]\ntests/test_structure.py::test_helper_function_exists PASSED              [ 90%]\ntests/test_structure.py::test_parsing_duplication_reduced PASSED         [ 95%]\ntests/test_structure.py::test_line_count_not_excessive PASSED            [100%]\n\n=================================== FAILURES ===================================\n_________________________ test_helper_functions_exist __________________________\ntests/test_score.py:131: in test_helper_functions_exist\n    assert len(helpers) >= 1, (\nE   AssertionError: Refactored code must have at least one helper function. Found 0 helper functions: []\nE   assert 0 >= 1\nE    +  where 0 = len([])\n_______________________ test_parsing_duplication_reduced _______________________\ntests/test_score.py:211: in test_parsing_duplication_reduced\n    assert float_calls_in_loop < 2, (\nE   AssertionError: Before version has duplicated float() parsing patterns in calc_score. Found 2 float() calls in event loop. This is expected to fail - the refactored version should reduce this duplication by extracting parsing logic into helper functions.\nE   assert 2 < 2\n_______________________ test_code_uses_helper_functions ________________________\ntests/test_score.py:236: in test_code_uses_helper_functions\n    assert has_helper_calls, (\nE   AssertionError: Refactored code must use helper functions to reduce duplication. The calc_score function should call helper functions instead of duplicating parsing logic.\nE   assert False\n=========================== short test summary info ============================\nFAILED tests/test_score.py::test_helper_functions_exist - AssertionError: Ref...\nFAILED tests/test_score.py::test_parsing_duplication_reduced - AssertionError...\nFAILED tests/test_score.py::test_code_uses_helper_functions - AssertionError:...\n========================= 3 failed, 17 passed in 0.05s =========================\n",
+      "stderr": ""
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_after.py::test_after_matches_reference_vectors",
+          "name": "test_after_matches_reference_vectors",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_before.py::test_before_matches_reference_vectors",
+          "name": "test_before_matches_reference_vectors",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_calc_score_equivalence.py::test_public_api_docstring_and_name_match",
+          "name": "test_public_api_docstring_and_name_match",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_calc_score_equivalence.py::test_equivalence_on_handpicked_adversarial_inputs",
+          "name": "test_equivalence_on_handpicked_adversarial_inputs",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_calc_score_equivalence.py::test_equivalence_randomized_fuzz_deterministic",
+          "name": "test_equivalence_randomized_fuzz_deterministic",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_matches_reference_vectors",
+          "name": "test_matches_reference_vectors",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_empty_events",
+          "name": "test_empty_events",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_none_values",
+          "name": "test_none_values",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_invalid_weight",
+          "name": "test_invalid_weight",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_negative_weight",
+          "name": "test_negative_weight",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_different_tiers",
+          "name": "test_different_tiers",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_invalid_date",
+          "name": "test_invalid_date",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_multiple_events",
+          "name": "test_multiple_events",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_helper_functions_exist",
+          "name": "test_helper_functions_exist",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_parsing_duplication_reduced",
+          "name": "test_parsing_duplication_reduced",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_code_uses_helper_functions",
+          "name": "test_code_uses_helper_functions",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_score.py::test_line_count_within_limit",
+          "name": "test_line_count_within_limit",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_structure.py::test_helper_function_exists",
+          "name": "test_helper_function_exists",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_structure.py::test_parsing_duplication_reduced",
+          "name": "test_parsing_duplication_reduced",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_structure.py::test_line_count_not_excessive",
+          "name": "test_line_count_not_excessive",
+          "outcome": "passed"
+        }
+      ],
+      "summary": {
+        "total": 20,
+        "passed": 20,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.14, pytest-8.3.3, pluggy-1.6.0 -- /usr/local/bin/python\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 20 items\n\ntests/test_after.py::test_after_matches_reference_vectors PASSED         [  5%]\ntests/test_before.py::test_before_matches_reference_vectors PASSED       [ 10%]\ntests/test_calc_score_equivalence.py::test_public_api_docstring_and_name_match PASSED [ 15%]\ntests/test_calc_score_equivalence.py::test_equivalence_on_handpicked_adversarial_inputs PASSED [ 20%]\ntests/test_calc_score_equivalence.py::test_equivalence_randomized_fuzz_deterministic PASSED [ 25%]\ntests/test_score.py::test_matches_reference_vectors PASSED               [ 30%]\ntests/test_score.py::test_empty_events PASSED                            [ 35%]\ntests/test_score.py::test_none_values PASSED                             [ 40%]\ntests/test_score.py::test_invalid_weight PASSED                          [ 45%]\ntests/test_score.py::test_negative_weight PASSED                         [ 50%]\ntests/test_score.py::test_different_tiers PASSED                         [ 55%]\ntests/test_score.py::test_invalid_date PASSED                            [ 60%]\ntests/test_score.py::test_multiple_events PASSED                         [ 65%]\ntests/test_score.py::test_helper_functions_exist PASSED                  [ 70%]\ntests/test_score.py::test_parsing_duplication_reduced PASSED             [ 75%]\ntests/test_score.py::test_code_uses_helper_functions PASSED              [ 80%]\ntests/test_score.py::test_line_count_within_limit PASSED                 [ 85%]\ntests/test_structure.py::test_helper_function_exists PASSED              [ 90%]\ntests/test_structure.py::test_parsing_duplication_reduced PASSED         [ 95%]\ntests/test_structure.py::test_line_count_not_excessive PASSED            [100%]\n\n============================== 20 passed in 0.03s ==============================\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": true,
+      "before_total": 20,
+      "before_passed": 17,
+      "before_failed": 3,
+      "after_total": 20,
+      "after_passed": 20,
+      "after_failed": 0
+    }
+  }
+}

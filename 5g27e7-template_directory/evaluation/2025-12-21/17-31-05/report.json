@@ -1,0 +1,94 @@
+{
+  "run_id": "f5d1e517",
+  "started_at": "2025-12-21T17:31:04.712788",
+  "finished_at": "2025-12-21T17:31:05.048956",
+  "duration_seconds": 0.336168,
+  "success": false,
+  "error": "Some tests failed or evaluation incomplete",
+  "environment": {
+    "python_version": "3.11.14",
+    "platform": "Linux-6.12.54-linuxkit-aarch64-with-glibc2.41",
+    "os": "Linux",
+    "os_release": "6.12.54-linuxkit",
+    "architecture": "aarch64",
+    "hostname": "212627f7080d",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "parameters": {},
+  "metrics": {
+    "before": {
+      "structure": {
+        "file_path": "/app/repository_before/app/score.py",
+        "lines": 78,
+        "float_calls_in_loop": 2,
+        "int_calls_in_loop": 0,
+        "duplication_info": {
+          "float_calls_total": 2,
+          "int_calls_total": 2,
+          "float_calls_in_loop": 2,
+          "int_calls_in_loop": 0
+        }
+      },
+      "test_results": {
+        "success": false,
+        "exit_code": 4,
+        "tests": [],
+        "summary": {
+          "raw_output": ""
+        },
+        "duration": 0
+      }
+    },
+    "after": {
+      "structure": {
+        "file_path": "/app/repository_after/app/score.py",
+        "lines": 79,
+        "float_calls_in_loop": 0,
+        "int_calls_in_loop": 0,
+        "duplication_info": {
+          "float_calls_total": 0,
+          "int_calls_total": 2,
+          "float_calls_in_loop": 0,
+          "int_calls_in_loop": 0
+        }
+      },
+      "test_results": {
+        "success": false,
+        "exit_code": 4,
+        "tests": [],
+        "summary": {
+          "raw_output": ""
+        },
+        "duration": 0
+      }
+    },
+    "structure_tests": {
+      "success": false,
+      "exit_code": 4,
+      "tests": [],
+      "summary": {
+        "raw_output": ""
+      },
+      "duration": 0
+    },
+    "equivalence_tests": {
+      "success": false,
+      "exit_code": 4,
+      "tests": [],
+      "summary": {
+        "raw_output": ""
+      },
+      "duration": 0
+    },
+    "comparison": {
+      "line_change": 1,
+      "float_calls_reduction": 2,
+      "int_calls_reduction": 0,
+      "before_tests_passed": false,
+      "after_tests_passed": false,
+      "structure_tests_passed": false,
+      "equivalence_tests_passed": false
+    }
+  }
+}
