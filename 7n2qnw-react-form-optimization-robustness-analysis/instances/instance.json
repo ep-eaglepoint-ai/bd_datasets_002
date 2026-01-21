@@ -1,11 +1,10 @@
 {
-            "instance_id": "7N2QNW",
-            "problem_statement": "",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/7n2qnw-react-form-optimization-robustness-analysis",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "7N2QNW",
+  "problem_statement": "The provided CategoryForm React component is used to create, update, and delete categories in a multi-tenant application. While the code is functional and readable, it contains multiple latent design issues related to performance, robustness, idempotence, and idiomatic React usage. These issues may not appear during normal usage but can surface under stress conditions such as rapid user interaction, slow or unreliable networks, component unmounting during in-flight requests, or scale growth. Your task is to identify and reason about these weaknesses without immediately rewriting the entire component.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/7n2qnw-react-form-optimization-robustness-analysis",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": []
+}
