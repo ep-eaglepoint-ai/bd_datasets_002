@@ -1,11 +1,10 @@
 {
-            "instance_id": "83NYOV",
-            "problem_statement": "",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/83nyov-fixing-e-commerce-schema",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "83NYOV",
+  "problem_statement": "The provided Prisma schema for an e-commerce system is critically flawed in both concept and execution. Affected models include Store, Billboard, Category, Product, Size, Color, Order, and OrderItem. Key issues include circular ownership (Billboard → Category → Product → Store → Billboard), over-coupled entities where Product references Store, Category, Size, and Color redundantly, missing @relation directives and relation names, undefined or inconsistent cascade behavior (onDelete rules missing), missing critical models such as User and lack of tenant enforcement, and redundant foreign keys along with arrays that lack relation names. The impact is that Prisma will auto-infer relations incorrectly, causing migration failures, broken queries, and an unstable schema.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/83nyov-fixing-e-commerce-schema",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": []
+}
