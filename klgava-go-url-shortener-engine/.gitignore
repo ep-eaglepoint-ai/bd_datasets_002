@@ -9,3 +9,19 @@ node_modules/
 
 # OS
 .DS_Store
+
+
+evaluation/reports/
+
+# Go
+bin/
+*.exe
+*.test
+*.out
+*.log
+app
+coverage.out
+go.sum
+vendor/
+
+
