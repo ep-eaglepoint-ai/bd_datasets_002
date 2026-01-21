@@ -1,0 +1,11 @@
+{
+            "instance_id": "XE62AR",
+            "problem_statement": "Given a cyclic integer array nums of length n and an integer k, partition the array into at most k non-overlapping, contiguous subarrays. Because the array is cyclic, subarrays may wrap around from index n-1 to index 0.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xe62ar-cyclic-array-partition-optimization-with-dp",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
