@@ -1,6 +1,6 @@
 {
             "instance_id": "FOK769",
-            "problem_statement": "",
+            "problem_statement": "The current React-based code editor executes user-written JavaScript using eval(), exposing the platform to critical security and stability risks. Users can accidentally or maliciously overwrite global state, freeze the application with infinite loops, or access sensitive browser APIs like localStorage and authentication tokens. A secure, isolated, browser-based JavaScript sandbox is required to safely execute user code while capturing console output, handling errors gracefully, and preserving the integrity of the editor and application state.",
             "base_commit": "repository_before/",
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/fok769-secure-js-sandbox-for-code-editor",

@@ -19,12 +19,7 @@
 ## Metadata
 - Programming Languages: Javascript
 - Frameworks: React
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+
 
 ## Structure
 - repository_before/: baseline code (`__init__.py`)
