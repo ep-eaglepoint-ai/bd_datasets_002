@@ -1,6 +1,10 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
-    volumes:
-      - .:/app
+    working_dir: /app/repository_after
+    command: sh -c "rm -rf node_modules package-lock.json && npm install && npx vitest run"
+
+  evaluation:
+    build: .
+    working_dir: /app
+    command: node evaluation/evaluation.js

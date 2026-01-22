@@ -1,0 +1,8 @@
+node_modules
+.git
+.DS_Store
+dist
+coverage
+repository_after/node_modules
+repository_after/dist
+repository_after/coverage
