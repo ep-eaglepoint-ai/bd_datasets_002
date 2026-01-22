@@ -5,13 +5,13 @@
 ### Test repository_before/
 
 ```bash
-docker compose run --rm -e REPO_PATH=repository_before app pytest tests/test_performance.py
+docker compose run --rm -e REPO_PATH=repository_before app pytest tests/
 ```
 
 ### Test repository_after
 
 ```bash
-docker compose run --rm -e REPO_PATH=repository_after app pytest tests/test_performance.py
+docker compose run --rm -e REPO_PATH=repository_after app pytest tests/
 ```
 
 ### Generate evaluation report
