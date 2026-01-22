@@ -1,0 +1,19 @@
+{
+  "name": "0sexu2-advancedpdfbufferorchestrator",
+  "version": "1.0.0",
+  "description": "**Category:** sft",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "ts-node": "^10.9.2"
+  }
+}
