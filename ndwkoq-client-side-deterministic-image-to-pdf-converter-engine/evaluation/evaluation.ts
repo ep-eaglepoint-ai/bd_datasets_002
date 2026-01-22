@@ -333,9 +333,17 @@ async function main() {
     mkdirSync(reportsDir, { recursive: true });
     
     const reportFile = `${reportsDir}/report.json`;
+    const reportContent = JSON.stringify(results, null, 2);
     
-    writeFileSync(reportFile, JSON.stringify(results, null, 2));
+    // Save to timestamped location
+    writeFileSync(reportFile, reportContent);
     console.log(`\nResults saved to: ${reportFile}`);
+    
+    // Also save to fixed location for CI/CD artifact collection
+    const fixedReportPath = '/app/evaluation/report.json';
+    writeFileSync(fixedReportPath, reportContent);
+    console.log(`Results also saved to: ${fixedReportPath}`);
+    
   } catch (error: any) {
     console.error('Failed to save results:', error);
   }
