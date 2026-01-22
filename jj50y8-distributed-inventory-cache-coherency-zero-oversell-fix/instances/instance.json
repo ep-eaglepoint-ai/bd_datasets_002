@@ -1,0 +1,11 @@
+{
+            "instance_id": "JJ50Y8",
+            "problem_statement": "During flash-sale level concurrency, our inventory cache becomes inconsistent with the database, causing overselling (more successful purchases than available stock), “phantom availability” where UI shows in-stock but checkout fails, and non-monotonic reads where stock appears to increase without purchases; additionally, cache performance collapses under write-heavy load. We need to fix the race condition between cache and database inventory updates so inventory is always accurate (zero oversell), reads are consistent, and the system maintains required latency/throughput while remaining auditable and resilient to Redis failures.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/jj50y8-distributed-inventory-cache-coherency-zero-oversell-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
