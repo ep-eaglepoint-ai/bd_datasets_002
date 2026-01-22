@@ -1,0 +1,121 @@
+{
+  "run_id": "zqb2qa4e",
+  "started_at": "2026-01-22T14:02:16.129Z",
+  "finished_at": "2026-01-22T14:02:26.881Z",
+  "duration_seconds": 10.752,
+  "success": true,
+  "error": null,
+  "environment": {
+    "node_version": "v22.18.0",
+    "platform": "win32",
+    "os": "Windows_NT",
+    "os_release": "10.0.26200",
+    "architecture": "x64",
+    "hostname": "PC-Eyoba",
+    "git_commit": "267184f9",
+    "git_branch": "epyqas-typescript-authentication"
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": 1,
+      "tests": [],
+      "summary": {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "repository_after::TC-02: Database and Identity Logic > should create and persist a user",
+          "name": "should create and persist a user",
+          "outcome": "passed",
+          "message": "should create and persist a user"
+        },
+        {
+          "nodeid": "repository_after::TC-02: Database and Identity Logic > REQ-03: should find user by username (interchangeable identifier)",
+          "name": "REQ-03: should find user by username (interchangeable identifier)",
+          "outcome": "passed",
+          "message": "REQ-03: should find user by username (interchangeable identifier)"
+        },
+        {
+          "nodeid": "repository_after::TC-02: Database and Identity Logic > REQ-03: should find user by email (interchangeable identifier)",
+          "name": "REQ-03: should find user by email (interchangeable identifier)",
+          "outcome": "passed",
+          "message": "REQ-03: should find user by email (interchangeable identifier)"
+        },
+        {
+          "nodeid": "repository_after::TC-02: Database and Identity Logic > should find user by case-insensitive identifier",
+          "name": "should find user by case-insensitive identifier",
+          "outcome": "passed",
+          "message": "should find user by case-insensitive identifier"
+        },
+        {
+          "nodeid": "repository_after::TC-03: API Authentication Flow > REQ-04: registration should create session",
+          "name": "REQ-04: registration should create session",
+          "outcome": "passed",
+          "message": "REQ-04: registration should create session"
+        },
+        {
+          "nodeid": "repository_after::TC-03: API Authentication Flow > REQ-03 & REQ-04: login with email should create session",
+          "name": "REQ-03 & REQ-04: login with email should create session",
+          "outcome": "passed",
+          "message": "REQ-03 & REQ-04: login with email should create session"
+        },
+        {
+          "nodeid": "repository_after::TC-03: API Authentication Flow > REQ-05: logout should clear session",
+          "name": "REQ-05: logout should clear session",
+          "outcome": "passed",
+          "message": "REQ-05: logout should clear session"
+        },
+        {
+          "nodeid": "repository_after::TC-01: Password Hashing and Verification > should hash password manually using pbkdf2 and salt",
+          "name": "should hash password manually using pbkdf2 and salt",
+          "outcome": "passed",
+          "message": "should hash password manually using pbkdf2 and salt"
+        },
+        {
+          "nodeid": "repository_after::TC-01: Password Hashing and Verification > should verify correct password",
+          "name": "should verify correct password",
+          "outcome": "passed",
+          "message": "should verify correct password"
+        },
+        {
+          "nodeid": "repository_after::TC-01: Password Hashing and Verification > should fail with incorrect password",
+          "name": "should fail with incorrect password",
+          "outcome": "passed",
+          "message": "should fail with incorrect password"
+        },
+        {
+          "nodeid": "repository_after::TC-01: Password Hashing and Verification > should produce different salts/hashes for same password (determinism of salt generation)",
+          "name": "should produce different salts/hashes for same password (determinism of salt generation)",
+          "outcome": "passed",
+          "message": "should produce different salts/hashes for same password (determinism of salt generation)"
+        }
+      ],
+      "summary": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": true,
+      "before_total": 0,
+      "before_passed": 0,
+      "before_failed": 0,
+      "after_total": 11,
+      "after_passed": 11,
+      "after_failed": 0
+    }
+  }
+}
