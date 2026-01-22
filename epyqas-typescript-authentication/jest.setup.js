@@ -5,7 +5,7 @@ const path = require('node:path');
 process.env.SESSION_SECRET = 'test-secret-1234567890-test-secret';
 
 // Clear test data directory
-const dataDir = path.join(__dirname, 'data');
+const dataDir = path.join(__dirname, 'repository_after', 'data');
 if (fs.existsSync(dataDir)) {
   fs.rmSync(dataDir, { recursive: true, force: true });
 }
