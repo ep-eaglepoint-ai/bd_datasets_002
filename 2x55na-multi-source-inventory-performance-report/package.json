@@ -7,7 +7,7 @@
         "repository_after"
     ],
     "scripts": {
-        "test": "vitest run",
+        "test": "npx vitest run",
         "evaluate": "node evaluation/evaluation.js"
     },
     "devDependencies": {

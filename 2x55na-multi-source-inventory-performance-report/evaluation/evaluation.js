@@ -25,7 +25,7 @@ function runTests() {
         // Run tests with JSON reporter
         // Run tests via npm which handles path resolution
         // Pass reporter args to the script
-        execSync('npm test -- --reporter=json --outputFile=' + resultsPath, {
+        execSync('npm test --silent -- --reporter=json --outputFile=' + resultsPath, {
             encoding: 'utf-8',
             cwd: path.join(__dirname, '..'),
             stdio: 'pipe' // Capture output to avoid console noise, but ignore it since we read file
@@ -101,7 +101,7 @@ function generateReport() {
     const timestamp = getCurrentTimestamp();
     const runId = crypto.randomUUID();
 
-    console.log('Running tests for repository_after...');
+    // console.log('Running tests for repository_after...'); // Suppress
     const afterResults = runTests();
 
     const report = {
@@ -145,11 +145,17 @@ function generateReport() {
 
     const reportPath = path.join(reportDir, 'report.json');
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+    console.log('report.json created');
 
-    console.log(`\n✅ Report generated: ${reportPath}`);
-    console.log(`Run ID: ${runId}`);
+    // Custom Clean Output
+    if (afterResults.tests) {
+        afterResults.tests.forEach(t => {
+            const symbol = t.status === 'passed' ? '✓' : '✗';
+            // Print only the test title, clean and simple
+            console.log(`${symbol} ${t.title}`);
+        });
+    }
     console.log(`Tests: ${afterResults.summary.numPassedTests}/${afterResults.summary.numTotalTests} passed`);
-    console.log(`Duration: ${afterResults.durationSeconds.toFixed(3)}s`);
 
     return report;
 }

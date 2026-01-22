@@ -9,5 +9,6 @@ export default defineConfig({
     },
     test: {
         globals: true,
+        reporters: ['./minimal-reporter.js'],
     }
 });

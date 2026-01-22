@@ -10,8 +10,6 @@ docker compose build app
 docker compose run --rm app npm test
 ```
 
-### Run rep
-
 ### Run evaluation
 ```bash
 docker compose run --rm evaluate

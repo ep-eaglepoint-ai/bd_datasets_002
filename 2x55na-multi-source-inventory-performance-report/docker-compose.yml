@@ -1,14 +1,14 @@
 services:
   app:
     build: .
-    command: sh -c "npm install --no-audit --no-fund --quiet --no-update-notifier && npm test"
+    command: sh -c "npm install --no-audit --no-fund --quiet --no-update-notifier --silent && npm test --silent"
     volumes:
       - .:/app
       - /app/node_modules
 
   evaluate:
     build: .
-    command: sh -c "npm install --no-audit --no-fund --quiet --no-update-notifier && npm run evaluate"
+    command: sh -c "npm install --no-audit --no-fund --quiet --no-update-notifier --silent && npm run evaluate --silent"
     volumes:
       - .:/app
       - /app/node_modules
