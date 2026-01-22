@@ -114,22 +114,33 @@ async function serveApp() {
 }
 
 async function waitForApp() {
-  const maxAttempts = 30;
+  const maxAttempts = 60; // Increased attempts
   const delay = 1000;
   
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const browser = await chromium.launch({ headless: true });
       const page = await browser.newPage();
-      await page.goto(`http://localhost:${serverPort}`, { timeout: 5000, waitUntil: 'domcontentloaded' });
+      const response = await page.goto(`http://localhost:${serverPort}`, { 
+        timeout: 10000, 
+        waitUntil: 'networkidle' 
+      });
       await browser.close();
-      console.log(`App is ready on port ${serverPort}`);
-      return;
+      
+      if (response && response.status() === 200) {
+        console.log(`App is ready on port ${serverPort}`);
+        return;
+      } else {
+        throw new Error(`App returned status ${response ? response.status() : 'unknown'}`);
+      }
     } catch (err) {
       if (i < maxAttempts - 1) {
+        if (i % 5 === 0) {
+          console.log(`Waiting for app to start... (attempt ${i + 1}/${maxAttempts})`);
+        }
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        throw new Error('App failed to start');
+        throw new Error(`App failed to start after ${maxAttempts} attempts: ${err.message}`);
       }
     }
   }
@@ -163,22 +174,32 @@ async function main() {
       });
     }
     
+    console.log('Step 1: Building React app...');
     await buildApp();
+    
+    console.log('Step 2: Starting HTTP server...');
     await serveApp();
+    
+    console.log('Step 3: Waiting for app to be ready...');
     await waitForApp();
     
     // Set environment variable for tests
-    process.env.TEST_APP_URL = `http://localhost:${serverPort}`;
+    const testUrl = `http://localhost:${serverPort}`;
+    process.env.TEST_APP_URL = testUrl;
+    
+    console.log(`Step 4: Running tests against app at ${testUrl}...`);
+    console.log(`Repository: ${repoType}`);
+    console.log(`Test URL: ${testUrl}`);
     
     // Run Jest tests directly (not via npm test to avoid recursion)
-    console.log(`Running tests against app at http://localhost:${serverPort}...`);
-    const jest = spawn('npx', ['jest', '--testPathPattern=tests/sandbox.test.js', '--no-coverage', '--verbose'], {
+    const jest = spawn('npx', ['jest', '--testPathPattern=tests/sandbox.test.js', '--no-coverage', '--verbose', '--forceExit'], {
       cwd: projectRoot,
       stdio: 'inherit',
       shell: true,
       env: { 
         ...process.env, 
-        TEST_APP_URL: `http://localhost:${serverPort}`,
+        TEST_APP_URL: testUrl,
+        TEST_REPO: repoType,
         NODE_ENV: 'test'
       }
     });

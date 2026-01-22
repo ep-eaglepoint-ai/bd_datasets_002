@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 
 /**
  * Secure JavaScript Sandbox Component
@@ -11,7 +11,6 @@ import React, { useRef, useEffect, useCallback } from 'react';
 export function useSecureSandbox() {
   const iframeRef = useRef(null);
   const timeoutRef = useRef(null);
-  const consoleBackupRef = useRef(null);
 
   // Create sandbox HTML content that will be loaded in iframe
   const createSandboxHTML = useCallback((userCode) => {
@@ -109,94 +108,94 @@ export function useSecureSandbox() {
       // Execute user code with timeout protection
       let executionResult = null;
       let executionError = null;
+      let resultSent = false;
       
-      // Set up timeout protection
-      const startTime = Date.now();
-      const MAX_EXECUTION_TIME = 5000; // 5 seconds max
-      const timeoutId = setTimeout(() => {
-        executionError = {
-          message: 'Execution timeout: Possible infinite loop detected',
-          stack: ''
-        };
-        window.parent.postMessage({
-          type: 'sandbox-result',
-          logs: interceptedLogs,
-          result: null,
-          error: executionError
-        }, '*');
-      }, MAX_EXECUTION_TIME);
-      
-      // Use setTimeout to make execution interruptible (helps with some infinite loops)
-      setTimeout(() => {
-        try {
-          // Wrap user code in IIFE to prevent global pollution
-          // Use script tag injection instead of eval/Function
-          const script = document.createElement('script');
-          const wrappedCode = \`
-            (function() {
-              'use strict';
-              try {
-                \${userCode}
-              } catch (err) {
-                window.__sandboxError = {
-                  message: err.message,
-                  stack: err.stack
-                };
-              }
-            })();
-          \`;
-          
-          script.textContent = wrappedCode;
-          
-          // Use error handler
-          script.onerror = function(err) {
-            executionError = {
-              message: 'Script execution error: ' + (err.message || 'Unknown error'),
-              stack: ''
-            };
-            clearTimeout(timeoutId);
-            sendResult();
-          };
-          
-          document.body.appendChild(script);
-          
-          // Script executes synchronously when appended
-          // Check for errors after a brief moment
-          setTimeout(() => {
-            if (window.__sandboxError) {
-              executionError = window.__sandboxError;
-              delete window.__sandboxError;
-            }
-            
-            // Remove script after execution
-            try {
-              if (script.parentNode) {
-                document.body.removeChild(script);
-              }
-            } catch (e) {}
-            
-            clearTimeout(timeoutId);
-            sendResult();
-          }, 10);
-          
-        } catch (err) {
-          executionError = {
-            message: err.message,
-            stack: err.stack
-          };
-          clearTimeout(timeoutId);
-          sendResult();
-        }
-      }, 0);
-      
-      // Function to send result
+      // Function to send result (only once)
       function sendResult() {
+        if (resultSent) return;
+        resultSent = true;
+        clearTimeout(timeoutId);
         window.parent.postMessage({
           type: 'sandbox-result',
           logs: interceptedLogs,
           result: executionResult,
           error: executionError
         }, '*');
+      }
+      
+      // Set up timeout protection
+      const MAX_EXECUTION_TIME = 5000; // 5 seconds max
+      const timeoutId = setTimeout(() => {
+        if (!resultSent) {
+          executionError = {
+            message: 'Execution timeout: Possible infinite loop detected',
+            stack: ''
+          };
+          sendResult();
+        }
+      }, MAX_EXECUTION_TIME);
+      
+      // Execute code immediately
+      try {
+        // Wrap user code in IIFE to prevent global pollution
+        // Use script tag injection instead of eval/Function
+        const script = document.createElement('script');
+        const wrappedCode = \`
+          (function() {
+            'use strict';
+            try {
+              \${userCode}
+            } catch (err) {
+              window.__sandboxError = {
+                message: err.message,
+                stack: err.stack
+              };
+            }
+          })();
+        \`;
+        
+        script.textContent = wrappedCode;
+        
+        // Use error handler
+        script.onerror = function(err) {
+          if (!resultSent) {
+            executionError = {
+              message: 'Script execution error: ' + (err.message || 'Unknown error'),
+              stack: ''
+            };
+            sendResult();
+          }
+        };
+        
+        // Append script - executes synchronously
+        document.body.appendChild(script);
+        
+        // Check for errors and send result after script executes
+        // Use setTimeout to ensure script has executed and console logs are captured
+        setTimeout(() => {
+          if (window.__sandboxError) {
+            executionError = window.__sandboxError;
+            delete window.__sandboxError;
+          }
+          
+          // Remove script after execution
+          try {
+            if (script.parentNode) {
+              document.body.removeChild(script);
+            }
+          } catch (e) {}
+          
+          sendResult();
+        }, 100); // Small delay to ensure all console logs are captured
+        
+      } catch (err) {
+        if (!resultSent) {
+          executionError = {
+            message: err.message,
+            stack: err.stack
+          };
+          sendResult();
+        }
       }
     })();
   </script>
@@ -224,17 +223,23 @@ export function useSecureSandbox() {
       });
     }, 5000);
 
-    // Set up message listener
-    const messageHandler = (event) => {
+    // Set up message listener FIRST, before loading iframe
+    let messageHandler = null;
+    let handlerRemoved = false;
+    
+    messageHandler = (event) => {
       // Verify message is from our iframe (basic security check)
       if (event.data && event.data.type === 'sandbox-result') {
-        clearTimeout(timeoutRef.current);
-        window.removeEventListener('message', messageHandler);
-        onResult({
-          logs: event.data.logs || [],
-          result: event.data.result,
-          error: event.data.error ? event.data.error.message : null
-        });
+        if (!handlerRemoved) {
+          handlerRemoved = true;
+          clearTimeout(timeoutRef.current);
+          window.removeEventListener('message', messageHandler);
+          onResult({
+            logs: event.data.logs || [],
+            result: event.data.result,
+            error: event.data.error ? event.data.error.message : null
+          });
+        }
       }
     };
 
@@ -245,15 +250,22 @@ export function useSecureSandbox() {
       const sandboxHTML = createSandboxHTML(code);
       const blob = new Blob([sandboxHTML], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
-      iframeRef.current.src = url;
       
-      // Clean up blob URL after loading
-      iframeRef.current.onload = () => {
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      };
+      // Set iframe src immediately - message handler is already set up
+      if (iframeRef.current) {
+        iframeRef.current.src = url;
+        
+        // Clean up blob URL after loading
+        iframeRef.current.onload = () => {
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+      }
     } catch (err) {
-      clearTimeout(timeoutRef.current);
-      window.removeEventListener('message', messageHandler);
+      if (!handlerRemoved && messageHandler) {
+        handlerRemoved = true;
+        clearTimeout(timeoutRef.current);
+        window.removeEventListener('message', messageHandler);
+      }
       onResult({
         error: `Failed to initialize sandbox: ${err.message}`,
         logs: []

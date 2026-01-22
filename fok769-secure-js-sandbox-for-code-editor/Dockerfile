@@ -23,15 +23,22 @@ RUN apt-get update && apt-get install -y \
 # Copy package files first for better caching
 COPY package.json ./
 
-# Install root dependencies
-RUN npm install --no-audit --no-fund
+# Install root dependencies (ensure devDependencies are installed)
+# Explicitly set NODE_ENV to ensure devDependencies are installed
+RUN NODE_ENV=development npm install --no-audit --no-fund
+
+# Verify playwright is installed before proceeding
+RUN node -e "require('playwright'); console.log('Playwright found')" || (echo "ERROR: playwright not found after npm install" && npm list playwright && exit 1)
 
 # Install Playwright browsers (cache this layer)
 RUN npx playwright install chromium
 RUN npx playwright install-deps chromium || true
 
-# Copy project files
+# Copy project files (node_modules will be preserved from previous layer due to .dockerignore)
 COPY . /app
+
+# Final verification that playwright is still available
+RUN node -e "require('playwright'); console.log('Playwright verified after COPY')" || (echo "ERROR: playwright not found after COPY" && exit 1)
 
 # Default command
 CMD ["npm", "test"]
