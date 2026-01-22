@@ -1,42 +1,21 @@
-# EHOH5V - Fix_Race_Conditions_with_Lock-Free_Atomics
+# Lock-Free_Atomics
 
-**Category:** rl
+## Commands
 
-## Overview
-- Task ID: EHOH5V
-- Title: Fix_Race_Conditions_with_Lock-Free_Atomics
-- Category: rl
-- Repository: ep-eaglepoint-ai/bd_datasets_002
-- Branch: ehoh5v-fix-race-conditions-with-lock-free-atomics
+### Test repository_before/
 
-## Requirements
-- Lock-Free: Use Atomics.wait/notify with hashed state; PQ-encrypt hashes.
-- Verification: Test 1000 threads on same record; prove race-free in comments.
+```bash
+docker compose run --build --rm test-before
+```
 
-## Metadata
-- Programming Languages: - JavaScript, - TypeScript
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+### Test repository_after
 
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
+```bash
+docker compose run --build --rm test-after
+```
 
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+### Generate evaluation report
 
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+```bash
+docker compose run --build --rm evaluation
+```

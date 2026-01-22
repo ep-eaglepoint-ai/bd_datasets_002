@@ -1,6 +1,19 @@
 services:
-  app:
+  # Full evaluation (runs both before and after tests)
+  evaluation:
     build: .
-    command: pytest -q tests
+    command: ["node", "evaluation/evaluation.js"]
     volumes:
-      - .:/app
+      - .:/host:rw  # Mount for report output
+
+  # Test repository_before only (expected to FAIL)
+  test-before:
+    build: .
+    working_dir: /app/tests
+    command: ["npm", "run", "test:before"]
+
+  # Test repository_after only (expected to PASS)
+  test-after:
+    build: .
+    working_dir: /app/tests
+    command: ["npm", "run", "test:after"]
