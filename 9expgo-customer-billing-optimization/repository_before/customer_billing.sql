@@ -27,7 +27,7 @@ BEGIN
         FOR r_line IN
             SELECT *
             FROM invoice_lines
-            WHERE invoice_id = r_invoice.id
+            WHERE invoice_lines.invoice_id = r_invoice.id
         LOOP
             SELECT price
             INTO v_dummy

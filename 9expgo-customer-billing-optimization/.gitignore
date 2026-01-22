@@ -6,3 +6,9 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Evaluation reports
+evaluation/20*
+
+# Pytest
+.pytest_cache/

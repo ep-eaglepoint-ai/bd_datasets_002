@@ -27,13 +27,27 @@ def generate_run_id() -> str:
 
 def get_git_info():
     """Extract git info safely."""
-    git_info = {"commit": "unknown", "branch": "unknown"}
+    git_info = {"git_commit": "unknown", "git_branch": "unknown"}
     try:
-        git_info["commit"] = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
-        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
+        git_info["git_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()[:8]
+        git_info["git_branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
     except Exception:
         pass
     return git_info
+
+def get_environment_info():
+    """Get detailed environment information."""
+    git_info = get_git_info()
+    return {
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "architecture": platform.machine(),
+        "hostname": socket.gethostname(),
+        "git_commit": git_info["git_commit"],
+        "git_branch": git_info["git_branch"]
+    }
 
 def run_tests_native(test_files: list, repo_path: str, repo_name: str):
     """Run tests using standard pytest output and parse the console text."""
@@ -44,64 +58,97 @@ def run_tests_native(test_files: list, repo_path: str, repo_name: str):
     env = os.environ.copy()
     env["REPO_PATH"] = repo_path
 
+    # Run pytest with -v to get verbose output for parsing
     cmd = ["pytest", "-v", *test_files]
 
     try:
         result = subprocess.run(cmd, env=env, capture_output=True, text=True, encoding='utf-8')
-        output = result.stdout + result.stderr
+        stdout = result.stdout
+        stderr = result.stderr
+        exit_code = result.returncode
 
+        # Parse test results from stdout
         test_results = []
-        matches = re.findall(r"^(tests/.*::.*)\s+(PASSED|FAILED|ERROR|SKIPPED)", output, re.MULTILINE)
-
-        passed = 0
-        failed = 0
-        errors = 0
-        skipped = 0
+        matches = re.findall(r"^(tests/.*::\S+)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)", stdout, re.MULTILINE)
 
         for nodeid, status in matches:
+            outcome = status.lower()
             test_results.append({
-                "nodeid": f"{repo_name}::{nodeid}",
-                "name": nodeid,
-                "outcome": status.lower(),
-                "message": ""
+                "nodeid": nodeid,
+                "name": nodeid.split("::")[-1],
+                "outcome": outcome
             })
-            if status == "PASSED": passed += 1
-            elif status == "FAILED": failed += 1
-            elif status == "ERROR": errors += 1
-            elif status == "SKIPPED": skipped += 1
 
-        if not test_results:
-            summary_match = re.search(r"==.* ((\d+) passed)?.* ((\d+) failed)?.* ((\d+) error)?.*==", output)
-            if summary_match:
-                passed = int(summary_match.group(2)) if summary_match.group(2) else 0
-                failed = int(summary_match.group(4)) if summary_match.group(4) else 0
-                errors = int(summary_match.group(6)) if summary_match.group(6) else 0
+        summary = {
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "errors": 0,
+            "skipped": 0
+        }
+        
+        # Try to parse the summary line
+        # Example: =================== 4 passed, 4 xfailed, 1 xpassed in 3.01s ===================
+        last_line_match = re.search(r"==+ (.*) in [\d\.]+s ==+", stdout)
+        if last_line_match:
+            parts = last_line_match.group(1).split(", ")
+            for part in parts:
+                part = part.strip()
+                count_match = re.match(r"(\d+)\s+(\w+)", part)
+                if count_match:
+                    count = int(count_match.group(1))
+                    category = count_match.group(2)
+                    
+                    if category == "passed":
+                        summary["passed"] += count
+                    elif category == "failed":
+                        summary["failed"] += count
+                    elif category == "error":
+                        summary["errors"] += count
+                    elif category == "skipped":
+                        summary["skipped"] += count
+                    elif category == "xfailed":
+                        summary["failed"] += count  # Treat xfail as failure per requirements
+                    elif category == "xpassed":
+                         # Treat xpass as passed (unexpected pass is still a pass in terms of execution)
+                         # or keep separate? Report format only has passed/failed/errors/skipped.
+                        summary["passed"] += count
+            
+            summary["total"] = sum(summary.values())
+        else:
+             # Fallback to manual counting if summary line missing
+            if len(test_results) > 0:
+                summary["passed"] = len([t for t in test_results if t['outcome'] in ['passed', 'xpass']])
+                summary["failed"] = len([t for t in test_results if t['outcome'] in ['failed', 'xfail', 'error']])
+                summary["errors"] = 0 # Included in failed/error outcome ideally
+                summary["skipped"] = len([t for t in test_results if t['outcome'] == 'skipped'])
+                summary["total"] = len(test_results)
+
+        # Force success to be False if there are failures, regardless of exit code
+        success = (summary["failed"] == 0 and summary["errors"] == 0)
 
         return {
-            "success": result.returncode == 0,
-            "exit_code": result.returncode,
+            "success": success,
+            "exit_code": exit_code,
             "tests": test_results,
-            "summary": {
-                "total": passed + failed + errors + skipped,
-                "passed": passed,
-                "failed": failed,
-                "errors": errors,
-                "skipped": skipped
-            },
-            "raw_output": output if not test_results else None
+            "summary": summary,
+            "stdout": stdout,
+            "stderr": stderr
         }
+
     except Exception as e:
         return {
             "success": False,
             "exit_code": 1,
             "tests": [],
             "summary": {"total": 0, "passed": 0, "failed": 0, "errors": 1, "skipped": 0},
-            "error": str(e)
+            "stdout": "",
+            "stderr": str(e)
         }
 
 def main():
-    SUCCESS_ICON = "[PASS]"
-    FAILURE_ICON = "[FAIL]"
+    SUCCESS_ICON = "✅"
+    FAILURE_ICON = "❌"
 
     run_id = generate_run_id()
     started_at = datetime.datetime.now(datetime.UTC)
@@ -129,40 +176,22 @@ def main():
         "after_failed": after_results["summary"]["failed"],
     }
 
-    # Expected: before tests fail (8 failed), after tests pass (15 passed)
+    # Success condition: after implementation tests passed
     success = after_results["success"]
-    verdict = "SUCCESS" if success else "FAILURE"
+    error_message = None if success else "After implementation tests failed"
 
-    git_info = get_git_info()
     report = {
-        "metadata": {
-            "run_id": run_id,
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "duration_seconds": round(duration, 6),
-        },
-        "environment": {
-            "platform": sys.platform,
-            "runtime": f"Python {sys.version.split()[0]}",
-            "architecture": platform.machine(),
-            "hostname": socket.gethostname(),
-            "git_commit": git_info["commit"],
-            "git_branch": git_info["branch"]
-        },
-        "verdict": {
-            "status": verdict,
-            "success": success,
-            "error": None if success else "After implementation tests failed"
-        },
+        "run_id": run_id,
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "duration_seconds": float(round(duration, 6)),
+        "success": success,
+        "error": error_message,
+        "environment": get_environment_info(),
         "results": {
             "before": before_results,
             "after": after_results,
             "comparison": comparison
-        },
-        "summary": {
-            "total_requirements": comparison["after_total"],
-            "satisfied_requirements": comparison["after_passed"],
-            "failed_requirements": comparison["after_failed"]
         }
     }
 
@@ -184,8 +213,9 @@ def main():
     print(f"\n{'='*60}")
     print("EVALUATION SUMMARY")
     print(f"{'='*60}")
+    
     print(f"\nBefore Implementation ({REPOSITORY_BEFORE}):")
-    print(f"  Overall: {SUCCESS_ICON if before_results['success'] else FAILURE_ICON + ' (Expected)'}")
+    print(f"  Overall: {SUCCESS_ICON if before_results['success'] else FAILURE_ICON}")
     print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
 
     print(f"\nAfter Implementation ({REPOSITORY_AFTER}):")
