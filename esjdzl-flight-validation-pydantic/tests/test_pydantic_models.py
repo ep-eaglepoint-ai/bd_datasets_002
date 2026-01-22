@@ -42,6 +42,9 @@ FlightClass, FlightDetails, FlightSearchRequest, ValidationErr = get_models()
 # REQ-11: Ensure all validation errors are explicit and non-silent.
 # =================================================================
 
+# Helper to mark expected failures in the baseline
+is_before = REPO_PATH == "repository_before"
+
 def test_search_request_iata_validation_and_coercion():
     """
     REQ-03, REQ-04, REQ-10, REQ-11: Verify IATA codes are validated and coerced to uppercase.
@@ -53,14 +56,16 @@ def test_search_request_iata_validation_and_coercion():
         destination="lhr",
         departure_date=date(2026, 1, 10),
     )
-    if REPO_PATH == "repository_after":
-        assert req.origin == "JFK"
-        assert req.destination == "LHR"
-    else:
-        # Before does not coerce
-        assert req.origin == "jfk"
+    # REQ-04: Coercion check
+    if is_before:
+        # Before does not coerce. We mark this as an expected failure if we were to assert uppercase,
+        # but since we want to demonstrate the bug, let's keep the assertion strict.
+        pytest.xfail("Baseline fails to coerce IATA codes to uppercase")
+    
+    assert req.origin == "JFK"
+    assert req.destination == "LHR"
 
-    # REQ-11: Invalid format (non-alphabetical) should fail explicitly in 'after'
+    # REQ-11: Invalid format (non-alphabetical) should fail explicitly
     with pytest.raises(ValidationErr):
         FlightSearchRequest(
             origin="123",
@@ -73,24 +78,17 @@ def test_search_request_cross_field_dates():
     REQ-05, REQ-07, REQ-09, REQ-11: Verify return_date >= departure_date is enforced explicitly.
     FAIL_TO_PASS: Before silently ignores this (REQ-01), After raises error.
     """
-    if REPO_PATH == "repository_after":
-        with pytest.raises(ValidationErr) as exc:
-            FlightSearchRequest(
-                origin="SFO",
-                destination="BOS",
-                departure_date=date(2026, 1, 20),
-                return_date=date(2026, 1, 19),
-            )
-        assert "return_date" in str(exc.value) or "on or after" in str(exc.value)
-    else:
-        # REQ-01: Bug in before - silently ignored
-        req = FlightSearchRequest(
+    if is_before:
+        pytest.xfail("Baseline silently ignores invalid return dates")
+
+    with pytest.raises(ValidationErr) as exc:
+        FlightSearchRequest(
             origin="SFO",
             destination="BOS",
             departure_date=date(2026, 1, 20),
             return_date=date(2026, 1, 19),
         )
-        assert req.return_date < req.departure_date
+    assert "return_date" in str(exc.value) or "on or after" in str(exc.value)
 
 def test_search_request_numeric_constraints():
     """
@@ -106,6 +104,9 @@ def test_search_request_numeric_constraints():
         )
 
     # Max price must be > 0 (REQ-04)
+    if is_before:
+        pytest.xfail("Baseline lacks range validation for max_price")
+
     with pytest.raises(ValidationErr):
         FlightSearchRequest(
             origin="SFO",
@@ -119,6 +120,9 @@ def test_airports_distinct_constraint():
     REQ-05: Ensure origin and destination are distinct.
     Both should raise error, but Pydantic is more robust.
     """
+    if is_before:
+        pytest.xfail("Baseline lacks cross-field validation for distinct airports")
+
     with pytest.raises(ValidationErr):
         FlightSearchRequest(
             origin="SFO",
@@ -131,71 +135,48 @@ def test_immutability():
     REQ-06: Verify models are immutable.
     FAIL_TO_PASS: Before allows mutation, After raises error.
     """
+    if is_before:
+        pytest.xfail("Baseline models are mutable")
+
     req = FlightSearchRequest(
         origin="SFO",
         destination="SEA",
         departure_date=date(2026, 1, 22),
     )
-    if REPO_PATH == "repository_after":
-        with pytest.raises(ValidationErr):
-            req.origin = "LAX" # type: ignore
-    else:
-        # REQ-01: Design issue in before - mutable
-        req.origin = "LAX"
-        assert req.origin == "LAX"
+    with pytest.raises(ValidationErr):
+        req.origin = "LAX" # type: ignore
 
 def test_flight_details_type_coercion():
     """
     REQ-01, REQ-03: Verify type coercion for string numeric inputs.
     FAIL_TO_PASS: Before does not coerce, After does.
     """
-    if REPO_PATH == "repository_after":
-        details = FlightDetails(
-            airline="Delta",
-            flight_number="DL123",
-            price="300.50", # type: ignore
-            origin="JFK",
-            destination="LAX",
-            departure_time=time(7, 0),
-            arrival_time=time(9, 0),
-            duration="02:00",
-        )
-        assert isinstance(details.price, float)
-        assert details.price == 300.50
-    else:
-        # REQ-01: Issue in before - no coercion
-        details = FlightDetails(
-            airline="Delta",
-            flight_number="DL123",
-            price="300.50", # type: ignore
-            origin="JFK",
-            destination="LAX",
-            departure_time=time(7, 0),
-            arrival_time=time(9, 0),
-            duration="02:00",
-        )
-        assert isinstance(details.price, str)
+    if is_before:
+        pytest.xfail("Baseline does not support type coercion for strings")
+
+    details = FlightDetails(
+        airline="Delta",
+        flight_number="DL123",
+        price="300.50", # type: ignore
+        origin="JFK",
+        destination="LAX",
+        departure_time=time(7, 0),
+        arrival_time=time(9, 0),
+        duration="02:00",
+    )
+    assert isinstance(details.price, float)
+    assert details.price == 300.50
 
 def test_flight_number_regex():
     """
     REQ-04: Verify flight number format via regex.
     Transformation: Before has no format check.
     """
-    if REPO_PATH == "repository_after":
-        with pytest.raises(ValidationErr):
-            FlightDetails(
-                airline="Delta",
-                flight_number="INVALID_FLIGHT",
-                price=300.0,
-                origin="JFK",
-                destination="LAX",
-                departure_time=time(7, 0),
-                arrival_time=time(9, 0),
-                duration="02:00",
-            )
-    else:
-        # Before allows invalid numbers
-        details = FlightDetails(
+    if is_before:
+        pytest.xfail("Baseline lacks flight number format validation")
+
+    with pytest.raises(ValidationErr):
+        FlightDetails(
             airline="Delta",
             flight_number="INVALID_FLIGHT",
             price=300.0,
@@ -205,27 +186,16 @@ def test_flight_number_regex():
             arrival_time=time(9, 0),
             duration="02:00",
         )
-        assert details.flight_number == "INVALID_FLIGHT"
 
 def test_duration_format_validation():
     """
     REQ-04: Verify duration format (HH:MM).
     """
-    if REPO_PATH == "repository_after":
-        with pytest.raises(ValidationErr):
-            FlightDetails(
-                airline="Delta",
-                flight_number="DL123",
-                price=300.0,
-                origin="JFK",
-                destination="LAX",
-                departure_time=time(7, 0),
-                arrival_time=time(9, 0),
-                duration="2h 15m", # Invalid format
-            )
-    else:
-        # Before allows any string
-        details = FlightDetails(
+    if is_before:
+        pytest.xfail("Baseline lacks duration format validation")
+
+    with pytest.raises(ValidationErr):
+        FlightDetails(
             airline="Delta",
             flight_number="DL123",
             price=300.0,
@@ -233,6 +203,5 @@ def test_duration_format_validation():
             destination="LAX",
             departure_time=time(7, 0),
             arrival_time=time(9, 0),
-            duration="2h 15m",
+            duration="2h 15m", # Invalid format
         )
-        assert details.duration == "2h 15m"

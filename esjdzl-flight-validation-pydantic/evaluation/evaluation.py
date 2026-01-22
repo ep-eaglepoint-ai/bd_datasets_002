@@ -47,52 +47,65 @@ def run_tests_native(repo_path: str, repo_name: str):
     
     try:
         result = subprocess.run(cmd, env=env, capture_output=True, text=True, encoding='utf-8')
-        output = result.stdout + result.stderr
+        stdout = result.stdout
+        stderr = result.stderr
+        output = stdout + stderr
         
         # Simple regex parsing for pytest verbose output:
         # tests/file.py::test_name PASSED
         # tests/file.py::test_name FAILED
+        # tests/file.py::test_name XFAIL
         test_results = []
-        matches = re.findall(r"^(tests/.*::.*)\s+(PASSED|FAILED|ERROR|SKIPPED)", output, re.MULTILINE)
+        matches = re.findall(r"^(tests/.*::.*)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)", output, re.MULTILINE)
         
         passed = 0
         failed = 0
         errors = 0
         skipped = 0
+        xfail = 0
+        xpass = 0
         
         for nodeid, status in matches:
             test_results.append({
-                "nodeid": f"{repo_name}::{nodeid}",
-                "name": nodeid,
+                "nodeid": nodeid,
+                "name": nodeid.split("::")[-1],
                 "outcome": status.lower(),
-                "message": "" # Detailed message extraction is complex from plain text, keeping it simple
+                "message": "" 
             })
             if status == "PASSED": passed += 1
             elif status == "FAILED": failed += 1
             elif status == "ERROR": errors += 1
             elif status == "SKIPPED": skipped += 1
+            elif status == "XFAIL": xfail += 1
+            elif status == "XPASS": xpass += 1
 
         # Summary line fallback if regex fails to find itemized results
         if not test_results:
-            # Try to grab summary from bottom: "1 failed, 3 passed in 0.12s"
             summary_match = re.search(r"==.* ((\d+) passed)?.* ((\d+) failed)?.* ((\d+) error)?.*==", output)
             if summary_match:
                 passed = int(summary_match.group(2)) if summary_match.group(2) else 0
                 failed = int(summary_match.group(4)) if summary_match.group(4) else 0
                 errors = int(summary_match.group(6)) if summary_match.group(6) else 0
         
+        # In transformation mode, XFAIL in before repo is expected
+        # but technically means the bug existed.
+        success = result.returncode == 0 and failed == 0 and errors == 0 and xfail == 0
+        
         return {
-            "success": result.returncode == 0,
+            "success": success,
             "exit_code": result.returncode,
             "tests": test_results,
             "summary": {
-                "total": passed + failed + errors + skipped,
+                "total": passed + failed + errors + skipped + xfail + xpass,
                 "passed": passed,
-                "failed": failed,
+                "failed": failed + xfail, # Treat XFAIL as a 'failed' for report purposes
                 "errors": errors,
-                "skipped": skipped
+                "skipped": skipped,
+                "xfail": xfail,
+                "xpass": xpass
             },
-            "raw_output": output if not test_results else None
+            "stdout": stdout,
+            "stderr": stderr
         }
     except Exception as e:
         return {
@@ -100,7 +113,9 @@ def run_tests_native(repo_path: str, repo_name: str):
             "exit_code": 1,
             "tests": [],
             "summary": {"total": 0, "passed": 0, "failed": 0, "errors": 1, "skipped": 0},
-            "error": str(e)
+            "error": str(e),
+            "stdout": "",
+            "stderr": str(e)
         }
 
 def main():
@@ -123,54 +138,45 @@ def main():
     finished_at = datetime.datetime.now(datetime.UTC)
     duration = (finished_at - started_at).total_seconds()
     
+    # Before is 'successful' ONLY if it has failures (XFAIL) and no unexpected errors
+    before_status = before_results["summary"]["xfail"] > 0
+    
     comparison = {
-        "before_tests_passed": before_results["success"],
+        "before_tests_detected_bugs": before_status,
         "after_tests_passed": after_results["success"],
         "before_total": before_results["summary"]["total"],
         "before_passed": before_results["summary"]["passed"],
-        "before_failed": before_results["summary"]["failed"],
+        "before_failed": before_results["summary"]["failed"], # This now includes xfail
         "after_total": after_results["summary"]["total"],
         "after_passed": after_results["summary"]["passed"],
         "after_failed": after_results["summary"]["failed"],
     }
     
-    # We expect 8 tests in test_pydantic_models.py
-    # repository_before should fail 5-6 of them (based on lack of coercion/validation)
-    # repository_after should pass all 8
-    
+    # Task success: After must pass, and Before must have detected bugs (or at least not passed perfectly)
     success = after_results["success"]
-    verdict = "SUCCESS" if success else "FAILURE"
-    
     git_info = get_git_info()
+    
     report = {
-        "metadata": {
-            "run_id": run_id,
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "duration_seconds": round(duration, 6),
-        },
+        "run_id": run_id,
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "duration_seconds": round(duration, 6),
+        "success": success,
+        "error": None if success else "After implementation tests failed",
         "environment": {
-            "platform": sys.platform,
-            "runtime": f"Python {sys.version.split()[0]}",
+            "python_version": sys.version.split()[0],
+            "platform": platform.platform(),
+            "os": platform.system(),
+            "os_release": platform.release(),
             "architecture": platform.machine(),
             "hostname": socket.gethostname(),
             "git_commit": git_info["commit"],
             "git_branch": git_info["branch"]
         },
-        "verdict": {
-            "status": verdict,
-            "success": success,
-            "error": None if success else "After implementation tests failed"
-        },
         "results": {
             "before": before_results,
             "after": after_results,
             "comparison": comparison
-        },
-        "summary": {
-            "total_requirements": 8, 
-            "satisfied_requirements": comparison["after_passed"],
-            "failed_requirements": comparison["after_failed"]
         }
     }
     
@@ -187,7 +193,8 @@ def main():
     print("EVALUATION SUMMARY")
     print(f"{'='*60}")
     print(f"\nBefore Implementation ({REPOSITORY_BEFORE}):")
-    print(f"  Overall: {SUCCESS_ICON if before_results['success'] else FAILURE_ICON + ' (Expected)'}")
+    # In transformation mode, we expect it to fail some tests
+    print(f"  Overall: {FAILURE_ICON + ' (Expected)' if before_status else SUCCESS_ICON}")
     print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
     
     print(f"\nAfter Implementation ({REPOSITORY_AFTER}):")

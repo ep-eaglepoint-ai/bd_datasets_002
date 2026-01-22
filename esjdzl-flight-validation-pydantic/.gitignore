@@ -1,17 +1,51 @@
 # Python
 __pycache__/
-*.pyc
-.venv/
-.env
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Node
-node_modules/
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
 
 # OS
 .DS_Store
+Thumbs.db
 
-#vscode
-.vscode
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
 
-#pytest
-.pytest_cache
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Evaluation Reports
+evaluation/20[0-9][0-9]-[0-1][0-9]-[0-3][0-9]/

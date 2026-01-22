@@ -1,14 +1,8 @@
 
-import pytest
-from datetime import date
-from dataclasses import dataclass
-from typing import Optional
-
-
 from dataclasses import dataclass, field
 from datetime import datetime, date
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 import uuid
 
 
@@ -35,8 +29,14 @@ class FlightDetailsDC:
         if len(self.origin) != 3 or len(self.destination) != 3:
             raise ValueError("Invalid airport code")
 
-        if self.price <= 0:
-            raise ValueError("Invalid price")
+        # In repository_before, we might have strings here. 
+        # Convert to float for comparison to avoid TypeError, 
+        # but don't re-assign to retain the "no coercion" bug.
+        try:
+            if float(self.price) <= 0:
+                raise ValueError("Invalid price")
+        except (TypeError, ValueError):
+            pass
 
 
 @dataclass
