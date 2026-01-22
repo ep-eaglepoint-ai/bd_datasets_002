@@ -1,0 +1,11 @@
+{
+            "instance_id": "9E6LME",
+            "problem_statement": " 50 person startup needs to replace their spreadsheet-based meeting room booking system that caused scheduling conflicts during busy periods. The previous system allowed double-bookings when multiple employees tried to reserve the same room simultaneously during peak hours (8:45-9:15 AM daily standups). The new system must handle approximately 30 concurrent users during peak times while guaranteeing that no room can ever have overlapping active bookings. The solution requires a Node.js/Express backend with PostgreSQL, a React frontend, and must run via single docker-compose command with automatic database seeding.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9e6lme-fullstack-meeting-room-booking-system",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
