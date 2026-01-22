@@ -6,9 +6,21 @@ import pytest
 import sys
 import os
 import re
-from multiprocessing import cpu_count
+import time
+from multiprocessing import cpu_count, Pool
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def sample_task(x):
+    """A simple task function for testing."""
+    return x * 2
+
+
+def slow_task(x):
+    """A task that takes some time to complete."""
+    time.sleep(0.01)
+    return x * x
 
 
 def get_source_code():
@@ -106,3 +118,80 @@ class TestRequirement5PredictableScaling:
         
         assert not has_process_append_pattern, \
             "Implementation must not append Process objects in a loop"
+
+
+class TestFunctionalBothImplementations:
+    """Functional tests that verify multiprocessing works on both implementations."""
+
+    def test_pool_executes_tasks_correctly(self):
+        """Test that Pool can execute a list of tasks and return correct results."""
+        test_input = list(range(10))
+        expected = [x * 2 for x in test_input]
+        
+        with Pool(processes=min(4, cpu_count())) as pool:
+            results = pool.map(sample_task, test_input)
+        
+        assert results == expected, "Pool should correctly execute tasks and return results"
+
+    def test_pool_handles_empty_list(self):
+        """Test that Pool handles empty input gracefully."""
+        with Pool(processes=min(4, cpu_count())) as pool:
+            results = pool.map(sample_task, [])
+        
+        assert results == [], "Pool should handle empty input list"
+
+    def test_pool_handles_single_item(self):
+        """Test that Pool handles single item input."""
+        with Pool(processes=min(4, cpu_count())) as pool:
+            results = pool.map(sample_task, [5])
+        
+        assert results == [10], "Pool should handle single item input"
+
+    def test_pool_handles_large_input(self):
+        """Test that Pool can handle larger input sizes efficiently."""
+        test_input = list(range(100))
+        expected = [x * 2 for x in test_input]
+        
+        with Pool(processes=min(4, cpu_count())) as pool:
+            results = pool.map(sample_task, test_input)
+        
+        assert results == expected, "Pool should handle large input sizes"
+
+    def test_pool_maintains_order(self):
+        """Test that Pool.map maintains order of results."""
+        test_input = [5, 3, 8, 1, 9, 2, 7, 4, 6, 0]
+        expected = [x * 2 for x in test_input]
+        
+        with Pool(processes=min(4, cpu_count())) as pool:
+            results = pool.map(sample_task, test_input)
+        
+        assert results == expected, "Pool.map should maintain order of results"
+
+    def test_pool_parallel_execution_faster(self):
+        """Test that parallel execution is faster than sequential for slow tasks."""
+        test_input = list(range(20))
+        
+        start_parallel = time.time()
+        with Pool(processes=min(4, cpu_count())) as pool:
+            parallel_results = pool.map(slow_task, test_input)
+        parallel_time = time.time() - start_parallel
+        
+        start_sequential = time.time()
+        sequential_results = [slow_task(x) for x in test_input]
+        sequential_time = time.time() - start_sequential
+        
+        assert parallel_results == sequential_results, "Results should match"
+        assert parallel_time < sequential_time, "Parallel should be faster than sequential"
+
+    def test_multiprocessing_import_works(self):
+        """Test that multiprocessing module imports correctly."""
+        from multiprocessing import Pool, cpu_count, Process
+        assert Pool is not None
+        assert cpu_count() > 0
+        assert Process is not None
+
+    def test_cpu_count_returns_positive(self):
+        """Test that cpu_count returns a positive number."""
+        cores = cpu_count()
+        assert cores > 0, "cpu_count should return positive number"
+        assert isinstance(cores, int), "cpu_count should return an integer"
