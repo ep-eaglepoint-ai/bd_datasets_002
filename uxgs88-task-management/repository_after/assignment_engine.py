@@ -4,7 +4,13 @@ of tasks among workers with one-to-one assignments.
 """
 
 from typing import List, Tuple, Optional, Dict
-from functools import lru_cache
+
+# Try to import scipy once at module level
+try:
+    from scipy.optimize import linear_sum_assignment
+    HAS_SCIPY = True
+except ImportError:
+    HAS_SCIPY = False
 
 
 class TaskAssignmentEngine:
@@ -62,9 +68,8 @@ class TaskAssignmentEngine:
         """
         Count the total number of valid distributions.
         
-        Uses dynamic programming with memoization for efficiency.
-        Time complexity: O(num_workers * num_tasks * 2^num_workers) in worst case,
-        but optimized with memoization and early pruning.
+        Uses memoized recursive dynamic programming.
+        Optimized for up to 20 workers and 1000 tasks.
         
         Returns:
             Total number of valid one-to-one assignments
@@ -72,13 +77,8 @@ class TaskAssignmentEngine:
         if self.num_workers == 0 or self.num_tasks == 0:
             return 0
         
-        # Use memoized recursive DP
-        # State: (worker_idx, used_tasks_bitmask)
-        # Since num_tasks can be up to 1000, we can't use a full bitmask
-        # Instead, we'll use a set and memoize based on worker_idx and frozenset of used tasks
-        # But for efficiency with many tasks, we can optimize by only tracking used tasks
-        
-        # For up to 20 workers, we only use at most 20 tasks, so we can use a set
+        # Simple recursive DP with memoization
+        # For up to 20 workers, we only use at most 20 tasks
         memo = {}
         
         def count_recursive(worker_idx: int, used_tasks: frozenset) -> int:
@@ -109,16 +109,16 @@ class TaskAssignmentEngine:
         Returns:
             List of (worker_id, task_id) tuples representing the optimal assignment
         """
-        if self.skill_scores is None:
-            raise ValueError("skill_scores must be provided for max skill assignment")
-        
         if self.num_workers == 0 or self.num_tasks == 0:
             return []
         
-        # Try to use scipy's Hungarian algorithm implementation
-        try:
-            from scipy.optimize import linear_sum_assignment
-            
+        # Use default skill scores (all zeros) if not provided
+        skill_scores = self.skill_scores
+        if skill_scores is None:
+            skill_scores = [[0.0] * self.num_tasks for _ in range(self.num_workers)]
+        
+        # Use scipy's Hungarian algorithm if available, otherwise use fallback
+        if HAS_SCIPY:
             # Build cost matrix: num_workers x num_tasks
             # Use negative skill scores (Hungarian minimizes, we want to maximize)
             cost = []
@@ -126,7 +126,7 @@ class TaskAssignmentEngine:
                 row = []
                 for j in range(self.num_tasks):
                     if self.qualification_matrix[i][j]:
-                        row.append(-self.skill_scores[i][j])
+                        row.append(-skill_scores[i][j])
                     else:
                         row.append(10**9)  # Large penalty for invalid assignments
                 cost.append(row)
@@ -142,12 +142,11 @@ class TaskAssignmentEngine:
                     result.append((int(i), int(j)))
             
             return result
-            
-        except ImportError:
+        else:
             # Fallback: Implement Hungarian algorithm from scratch
-            return self._hungarian_algorithm()
+            return self._hungarian_algorithm(skill_scores)
     
-    def _hungarian_algorithm(self) -> List[Tuple[int, int]]:
+    def _hungarian_algorithm(self, skill_scores: List[List[float]]) -> List[Tuple[int, int]]:
         """
         Hungarian algorithm implementation for maximum weight matching.
         """
@@ -160,7 +159,7 @@ class TaskAssignmentEngine:
             row = []
             for j in range(m):
                 if self.qualification_matrix[i][j]:
-                    row.append(-self.skill_scores[i][j])
+                    row.append(-skill_scores[i][j])
                 else:
                     row.append(10**9)
             cost.append(row)
