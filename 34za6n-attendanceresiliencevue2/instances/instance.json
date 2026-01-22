@@ -1,0 +1,11 @@
+{
+            "instance_id": "34ZA6N",
+            "problem_statement": "The objective is to architect a resilient state management and UI layer for an enterprise attendance system. The focus is on managing the complex lifecycle of asynchronous data: handling granular loading/error indicators in Vuex, implementing optimistic updates with rollback capabilities, and utilizing Vuetify components to provide clear feedback during volatile network conditions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/34za6n-attendanceresiliencevue2",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
