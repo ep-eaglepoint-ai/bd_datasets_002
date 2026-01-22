@@ -1,18 +1,6 @@
 diff --git a/repository_after/__init__.py b/repository_after/__init__.py
 new file mode 100644
 index 0000000..e69de29
-diff --git a/repository_before/blog/__pycache__/__init__.cpython-312.pyc b/repository_after/blog/__pycache__/__init__.cpython-312.pyc
-index ad46ad5..20c0529 100644
-Binary files a/repository_before/blog/__pycache__/__init__.cpython-312.pyc and b/repository_after/blog/__pycache__/__init__.cpython-312.pyc differ
-diff --git a/repository_before/blog/__pycache__/models.cpython-312.pyc b/repository_after/blog/__pycache__/models.cpython-312.pyc
-index 899271f..884eeda 100644
-Binary files a/repository_before/blog/__pycache__/models.cpython-312.pyc and b/repository_after/blog/__pycache__/models.cpython-312.pyc differ
-diff --git a/repository_before/blog/__pycache__/serializers.cpython-312.pyc b/repository_after/blog/__pycache__/serializers.cpython-312.pyc
-index 4e4d681..a8338b5 100644
-Binary files a/repository_before/blog/__pycache__/serializers.cpython-312.pyc and b/repository_after/blog/__pycache__/serializers.cpython-312.pyc differ
-diff --git a/repository_before/blog/__pycache__/views.cpython-312.pyc b/repository_after/blog/__pycache__/views.cpython-312.pyc
-index 3d53d22..aaf5091 100644
-Binary files a/repository_before/blog/__pycache__/views.cpython-312.pyc and b/repository_after/blog/__pycache__/views.cpython-312.pyc differ
 diff --git a/repository_before/blog/views.py b/repository_after/blog/views.py
 index 16be555..d5ad352 100644
 --- a/repository_before/blog/views.py
