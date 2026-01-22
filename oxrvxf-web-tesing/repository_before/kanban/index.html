@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kanban Board</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>kanban<span class="accent">.</span></h1>
+      <p class="subtitle">drag. drop. done.</p>
+    </header>
+    
+    <main class="board" id="board">
+      <div class="column" data-column="todo">
+        <div class="column-header">
+          <div class="column-title">
+            <span class="column-icon">○</span>
+            <h2>To Do</h2>
+          </div>
+          <span class="task-count" data-count="todo">0</span>
+        </div>
+        <div class="tasks" id="todo-tasks" data-column="todo"></div>
+        <button class="add-task-btn" data-column="todo">
+          <span>+</span> Add Task
+        </button>
+      </div>
+      
+      <div class="column" data-column="progress">
+        <div class="column-header">
+          <div class="column-title">
+            <span class="column-icon pulse">◐</span>
+            <h2>In Progress</h2>
+          </div>
+          <span class="task-count" data-count="progress">0</span>
+        </div>
+        <div class="tasks" id="progress-tasks" data-column="progress"></div>
+        <button class="add-task-btn" data-column="progress">
+          <span>+</span> Add Task
+        </button>
+      </div>
+      
+      <div class="column" data-column="done">
+        <div class="column-header">
+          <div class="column-title">
+            <span class="column-icon">●</span>
+            <h2>Done</h2>
+          </div>
+          <span class="task-count" data-count="done">0</span>
+        </div>
+        <div class="tasks" id="done-tasks" data-column="done"></div>
+        <button class="add-task-btn" data-column="done">
+          <span>+</span> Add Task
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Task Input Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <h3>New Task</h3>
+      <form id="task-form">
+        <input 
+          type="text" 
+          id="task-input" 
+          placeholder="What needs to be done?" 
+          autocomplete="off"
+          maxlength="100"
+        >
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" id="cancel-btn">Cancel</button>
+          <button type="submit" class="btn-submit">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
