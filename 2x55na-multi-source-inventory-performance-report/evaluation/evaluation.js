@@ -23,7 +23,9 @@ function runTests() {
 
     try {
         // Run tests with JSON reporter
-        execSync('npx vitest run --reporter=json --outputFile=' + resultsPath, {
+        // Run tests via npm which handles path resolution
+        // Pass reporter args to the script
+        execSync('npm test -- --reporter=json --outputFile=' + resultsPath, {
             encoding: 'utf-8',
             cwd: path.join(__dirname, '..'),
             stdio: 'pipe' // Capture output to avoid console noise, but ignore it since we read file
