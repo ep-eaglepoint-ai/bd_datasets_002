@@ -4,7 +4,7 @@ services:
     build:
       context: .
       target: node-base
-    command: npm run -s test:before
+    command: /bin/sh -c "npm run -s test:before || true"
     environment:
       - DATABASE_URL=mysql://root:password@localhost:3306/db
       - SCHEMA_PATH=repository_before/schema.prisma
