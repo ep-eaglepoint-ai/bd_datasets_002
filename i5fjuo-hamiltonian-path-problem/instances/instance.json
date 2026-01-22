@@ -1,0 +1,11 @@
+{
+            "instance_id": "I5FJUO",
+            "problem_statement": "Implement an efficient Hamiltonian Path/Cycle solver for directed and undirected graphs using a backtracking algorithm enhanced with at least three pruning optimizations degree-based pruning, connectivity checks, and neighbor ordering to handle realistic problem sizes (10 nodes within 100ms, 15 nodes within 5 seconds) for a delivery route optimization scenario. The solution must find a path visiting every vertex exactly once, support weighted graphs for minimum-cost path identification, use linear memory for core data structures, and correctly report when no path exists. The implementation must include timing instrumentation and handle both Hamiltonian Path and Hamiltonian Cycle variants while ensuring no infinite loops or incorrect results.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/i5fjuo-hamiltonian-path-problem",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
