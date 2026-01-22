@@ -260,13 +260,9 @@ def run_evaluation():
 
 
 def generate_output_path():
-    """Generate output path in format: evaluation/YYYY-MM-DD/HH-MM-SS/report.json"""
-    now = datetime.now()
-    date_str = now.strftime("%Y-%m-%d")
-    time_str = now.strftime("%H-%M-%S")
-    
+    """Generate output path: evaluation/report.json"""
     project_root = Path(__file__).parent.parent
-    output_dir = project_root / "evaluation" / date_str / time_str
+    output_dir = project_root / "evaluation"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     return output_dir / "report.json"
@@ -281,7 +277,7 @@ def main():
         "--output", 
         type=str, 
         default=None, 
-        help="Output JSON file path (default: evaluation/YYYY-MM-DD/HH-MM-SS/report.json)"
+        help="Output JSON file path (default: evaluation/report.json)"
     )
     
     args = parser.parse_args()
