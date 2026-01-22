@@ -1,0 +1,16 @@
+{
+    "name": "2x55na-inventory-performance-report",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "workspaces": [
+        "repository_after"
+    ],
+    "scripts": {
+        "test": "vitest run",
+        "evaluate": "node evaluation/evaluation.js"
+    },
+    "devDependencies": {
+        "vitest": "^0.28.0"
+    }
+}

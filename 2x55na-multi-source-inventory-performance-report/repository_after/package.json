@@ -1,0 +1,16 @@
+{
+    "name": "inventory-health-view",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "vitest": "^0.28.0"
+    }
+}
