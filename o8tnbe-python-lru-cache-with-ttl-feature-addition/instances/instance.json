@@ -1,11 +1,28 @@
 {
-            "instance_id": "O8TNBE",
-            "problem_statement": "Noticed repeated expensive API calls during performance review of the user profile service. The get_user_profile function in profile_service.py makes external API calls averaging 2.3 seconds each, but 78% of calls within any 5-minute window request the same user IDs. Current implementation has no caching. Need to implement the lru_cache_with_ttl decorator that caches function results based on arguments, evicts least-recently-used entries when capacity is reached, and automatically expires entries after configurable TTL. Cache must be thread-safe for concurrent request handling, support cache statistics for monitoring, and work with any function signature including *args and **kwargs.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/o8tnbe-python-lru-cache-with-ttl-feature-addition",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "O8TNBE",
+  "problem_statement": "Noticed repeated expensive API calls during performance review of the user profile service. The get_user_profile function in profile_service.py makes external API calls averaging 2.3 seconds each, but 78% of calls within any 5-minute window request the same user IDs. Current implementation has no caching. Need to implement the lru_cache_with_ttl decorator that caches function results based on arguments, evicts least-recently-used entries when capacity is reached, and automatically expires entries after configurable TTL. Cache must be thread-safe for concurrent request handling, support cache statistics for monitoring, and work with any function signature including *args and **kwargs.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/o8tnbe-python-lru-cache-with-ttl-feature-addition",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "tests/test_before.py::TestBeforeImplementation::test_cache_info_method_missing",
+    "tests/test_before.py::TestBeforeImplementation::test_cache_clear_method_missing",
+    "tests/test_before.py::TestBeforeImplementation::test_no_caching_behavior",
+    "tests/test_before.py::TestBeforeImplementation::test_lru_eviction_missing",
+    "tests/test_before.py::TestBeforeImplementation::test_ttl_expiration_missing",
+    "tests/test_before.py::TestBeforeImplementation::test_argument_normalization_missing",
+    "tests/test_before.py::TestBeforeImplementation::test_cache_statistics_missing",
+    "tests/test_before.py::test_cache_info_method_missing",
+    "tests/test_before.py::test_cache_clear_method_missing",
+    "tests/test_before.py::test_no_caching_behavior",
+    "tests/test_before.py::test_lru_eviction_missing",
+    "tests/test_before.py::test_ttl_expiration_missing",
+    "tests/test_before.py::test_argument_normalization_missing",
+    "tests/test_before.py::test_cache_statistics_missing"
+  ],
+  "PASS_TO_PASS": [
+    "tests/test_before.py::TestBeforeImplementation::test_unhashable_handling_missing",
+    "tests/test_before.py::test_unhashable_handling_missing"
+  ]
+}
