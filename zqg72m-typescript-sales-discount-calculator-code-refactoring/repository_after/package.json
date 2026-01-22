@@ -1,5 +1,5 @@
 {
-  "name": "sales-discount-calculator-before",
+  "name": "sales-discount-calculator",
   "version": "1.0.0",
   "description": "Sales discount calculation module",
   "main": "dist/discountCalculator.js",
@@ -11,5 +11,3 @@
     "@types/node": "^20.0.0"
   }
 }
-
-
