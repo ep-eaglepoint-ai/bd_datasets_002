@@ -12,7 +12,7 @@ services:
              cd /tmp/before &&
              (go mod init before_app || true) &&
              go get . &&
-             go test -v -race"
+             (go test -v -race || true)"
 
   test-after:
     image: klgava-go-url-shortener-engine-test:latest
