@@ -1,0 +1,11 @@
+{
+            "instance_id": "SM9BI7",
+            "problem_statement": "The project involves refactoring a fragile, synchronous email sender into a robust, queue-based microservice. The core challenges are implementing reliable retries, idempotency tracking, and circuit breaker logic to handle external dependency failures gracefully.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sm9bi7-resilientemailnotificationservice",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
