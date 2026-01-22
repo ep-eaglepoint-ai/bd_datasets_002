@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "test:before": "jest tests/schema.test.ts",
-    "test:after": "npx prisma validate --schema=repository_after/prisma/schema.prisma && jest tests/schema.test.ts"
+    "test:before": "jest tests/schema.test.ts --reporters ./tests/simple_reporter.js",
+    "test:after": "npx prisma validate --schema=repository_after/prisma/schema.prisma && jest tests/schema.test.ts --verbose"
   },
   "keywords": [],
   "author": "",

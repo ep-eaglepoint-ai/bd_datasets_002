@@ -125,49 +125,33 @@ const parseJestOutput = (outputStr: string, isBefore: boolean) => {
   let failed = 0;
   let total = 0;
 
-  // Both now use Jest (or fail similarly)
-  // Parse Jest output "Tests:       6 passed, 6 total" or "Tests:       1 failed, 1 total"
+  // We want to capture the specific "Tests:" summary line.
+  // Example: "Tests:       6 failed, 1 passed, 7 total"
+  // Example: "Tests:       6 passed, 6 total"
+  const summaryLineMatch = outputStr.match(/^Tests:\s+(.+)$/m);
 
-  // Check for "Test Suites: 1 passed, 1 total" or "Test Suites: 1 failed, 1 total"
-  // Actually we care about individual tests
+  if (summaryLineMatch) {
+    const line = summaryLineMatch[1];
 
-  const testsMatch = outputStr.match(
-    /Tests:\s+(\d+\s+passed,\s+)?(\d+\s+failed,\s+)?(\d+)\s+total/,
-  );
-  // This regex is a bit simplistic for variations.
-  // Typical output: "Tests:       6 passed, 6 total"
-  // "Tests:       1 failed, 1 total"
-  // "Tests:       5 failed, 1 passed, 6 total"
+    const passedMatch = line.match(/(\d+)\s+passed/);
+    const failedMatch = line.match(/(\d+)\s+failed/);
+    const totalMatch = line.match(/(\d+)\s+total/);
 
-  // Robust parsing:
-  const passedMatch = outputStr.match(/(\d+)\s+passed/);
-  const failedMatch = outputStr.match(/(\d+)\s+failed/);
-  const totalMatch = outputStr.match(/(\d+)\s+total/);
-
-  if (totalMatch) {
-    total = parseInt(totalMatch[1]);
-  }
-
-  if (passedMatch) {
-    passed = parseInt(passedMatch[1]);
-  }
-
-  if (failedMatch) {
-    failed = parseInt(failedMatch[1]);
-  }
-
-  // If total is found but passed/failed logic doesn't sum up, adjust
-  if (total > 0 && passed + failed !== total) {
-    // e.g. "Tests: 6 total" but passed/failed lines are elusive?
-    // Usually jest prints "Passed: 6" or something.
-    // Actually the summary line is "Tests:       6 passed, 6 total"
-  }
-
-  // Fallback if regex fails but we know it failed (exit code non-zero)
-  if (total === 0 && outputStr.includes("FAIL")) {
-    // Assume at least one failure if it failed
-    failed = 1;
-    total = 1;
+    if (passedMatch) passed = parseInt(passedMatch[1]);
+    if (failedMatch) failed = parseInt(failedMatch[1]);
+    if (totalMatch) total = parseInt(totalMatch[1]);
+  } else {
+    // Fallback: If no "Tests:" line found (e.g. hard crash or minimal output),
+    // try to find global counts but be careful not to confuse Test Suites with Tests is hard without context.
+    // However, if we didn't find the Tests line, maybe we iterate all numerical matches?
+    // Let's rely on standard fallback for now
+    if (outputStr.includes("FAIL") || outputStr.includes("failed")) {
+      // If we can't parse numbers but it failed, assume 1 failed
+      if (total === 0) {
+        failed = 1;
+        total = 1;
+      }
+    }
   }
 
   return { passed, failed, total };

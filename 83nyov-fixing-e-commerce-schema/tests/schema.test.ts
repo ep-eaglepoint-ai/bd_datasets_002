@@ -18,7 +18,12 @@ describe("Schema Validation & Structure", () => {
   const schemaContent = fs.readFileSync(schemaPath, "utf8");
 
   it("should pass prisma validate", async () => {
-    await execAsync(`npx prisma validate --schema=${schemaPath}`);
+    try {
+      await execAsync(`npx prisma validate --schema=${schemaPath}`);
+    } catch (e) {
+      // Suppress detailed error output for cleaner logs as requested
+      throw new Error("Prisma validation failed");
+    }
   }, 30000);
 
   it("should have User model", () => {
