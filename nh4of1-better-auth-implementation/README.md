@@ -38,9 +38,15 @@
 - trajectory/: notes or write-up (Markdown)
 
 ## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+- Run verification tests:
+  ```bash
+  docker compose run --rm app npm test --prefix tests
+  ```
+- Run evaluation:
+  ```bash
+  docker compose run --rm app npx tsx evaluation/evaluation.ts
+  ```
+- With Docker (interactive): `docker compose up --build`
 
 ## Notes
 - Keep commits focused and small.
