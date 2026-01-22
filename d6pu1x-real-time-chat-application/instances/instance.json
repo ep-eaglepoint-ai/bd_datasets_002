@@ -1,0 +1,13 @@
+{
+            "instance_id": "D6PU1X",
+            "problem_statement": "Develop a real-time, session-scoped chat application that allows agents to create and switch between multiple conversations instantly.
+All conversations must remain fully isolated, stored only in memory, and reset at the start of each session.
+The system must stay responsive and predictable under rapid messaging, searching, and context switching without external state or persistence",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/d6pu1x-real-time-chat-application",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
