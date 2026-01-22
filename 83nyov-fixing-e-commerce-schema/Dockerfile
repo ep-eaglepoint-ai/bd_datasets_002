@@ -1,5 +1,10 @@
-FROM python:3.11-slim
+
+FROM node:20-slim AS node-base
+# Install OpenSSL for Prisma
+RUN apt-get update -y && apt-get install -y openssl
+
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+RUN npm install
+
+CMD ["npm", "test"]

@@ -1,6 +1,21 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  test-before:
+    image: ecommerce-fix-test
+    build:
+      context: .
+      target: node-base
+    command: npm run -s test:before
+    environment:
+      - DATABASE_URL=mysql://root:password@localhost:3306/db
     volumes:
       - .:/app
+      - /app/node_modules
+
+  test-after:
+    image: ecommerce-fix-test
+    command: npm run test:after
+    environment:
+      - DATABASE_URL=mysql://root:password@localhost:3306/db
+    volumes:
+      - .:/app
+      - /app/node_modules
