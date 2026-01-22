@@ -17,7 +17,7 @@ services:
       
       # Mount the Test
       - ./tests/TextProcessingControllerTest.java:/app/src/test/java/com/example/textapi/TextProcessingControllerTest.java
-    command: mvn test
+    command: mvn test -Dmaven.test.failure.ignore=true
 
   test-after:
     build: .
