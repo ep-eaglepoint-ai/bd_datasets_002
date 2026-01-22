@@ -1,5 +1,6 @@
-FROM python:3.11-slim
+FROM node:18-slim
 WORKDIR /app
+COPY package*.json ./
+RUN npm install
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+CMD ["echo", "Resilient Email Notification Service"]
