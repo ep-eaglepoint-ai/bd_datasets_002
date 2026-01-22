@@ -1,0 +1,11 @@
+{
+            "instance_id": "EMZMUO",
+            "problem_statement": "Build a standalone, browser-only React investment portfolio analytics dashboard that simulates realistic market behavior, transactions, dividends, and stock splits entirely in memory.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/emzmuo-investment-portfolio-analytics-dashboard",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
