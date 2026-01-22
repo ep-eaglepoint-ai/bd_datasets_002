@@ -1,1 +1,10 @@
-{}
+{
+  "instance_id": "o36njp",
+	"problem_statement": "The existing PostgreSQL function that calculates the average order amount is not suitable for production use due to hidden logical flaws, unnecessary performance overhead, and weak error-handling practices. These issues can lead to incorrect results, degraded performance under concurrency, and unreliable behavior in edge cases. Refactoring is required to ensure correctness, efficiency, maintainability, and compliance with PostgreSQL best practices and standard SQL error semantics.",
+	"base_commit": "repository_before/",
+	"test_patch": "tests/",
+	"github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/o36njp-avg-order-function-refactor",
+	"environment_setup": "Dockerfile",
+	"FAIL_TO_PASS": [],
+	"PASS_TO_PASS": []
+}
