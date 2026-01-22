@@ -1,0 +1,19 @@
+{
+  "name": "ndwkoq-client-side-deterministic-image-to-pdf-converter-engine",
+  "version": "1.0.0",
+  "description": "Client-side deterministic image to PDF converter engine",
+  "scripts": {
+    "evaluate": "cd evaluation && npm run evaluate",
+    "test": "cd tests && npm run test",
+    "dev": "cd repository_after && npm run dev",
+    "build": "cd repository_after && npm run build"
+  },
+  "keywords": [
+    "vue3",
+    "typescript",
+    "pdf",
+    "image-converter",
+    "client-side"
+  ],
+  "license": "MIT"
+}

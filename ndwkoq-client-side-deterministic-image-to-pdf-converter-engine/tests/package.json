@@ -1,0 +1,17 @@
+{
+  "name": "image-to-pdf-converter-tests",
+  "version": "1.0.0",
+  "description": "Test suite for Image to PDF Converter implementation",
+  "scripts": {
+    "test": "npx --yes ts-node test_after.ts"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "jspdf": "^2.5.1",
+    "browser-image-compression": "^2.0.2",
+    "vuedraggable": "^4.1.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.11.0"
+  }
+}
