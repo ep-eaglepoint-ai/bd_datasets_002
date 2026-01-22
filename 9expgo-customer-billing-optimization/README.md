@@ -17,11 +17,5 @@ docker compose run --rm -e REPO_PATH=repository_after billing pytest tests/test_
 ### Generate evaluation report
 
 ```bash
-docker compose run --rm billing ./run_evaluation.sh
-```
-
-Or directly:
-
-```bash
 docker compose run --rm billing python evaluation/evaluation.py
 ```

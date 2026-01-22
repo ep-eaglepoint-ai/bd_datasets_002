@@ -1,352 +1,205 @@
 #!/usr/bin/env python3
-"""
-Evaluation runner for Customer Billing Optimization.
-
-This evaluation script:
-- Runs pytest tests on test_before.py (repository_before)
-- Runs pytest tests on test_after.py (repository_after)
-- Compares results and generates structured reports
-"""
 import os
-import sys
 import json
-import uuid
-import platform
 import subprocess
-from datetime import datetime
+import sys
+import datetime
+import socket
+import platform
+import random
+import string
+import re
 from pathlib import Path
 
+# =================================================================
+# EVALUATION CONFIGURATION
+# =================================================================
+TASK_NAME = "PostgreSQL Billing Function Optimization"
+TEST_FILES_BEFORE = ["tests/test_before.py"]
+TEST_FILES_AFTER = ["tests/test_after.py"]
+EVALUATION_DIR = Path(__file__).parent
+REPOSITORY_BEFORE = "repository_before"
+REPOSITORY_AFTER = "repository_after"
 
-def generate_run_id():
-    """Generate a short unique run ID."""
-    return uuid.uuid4().hex[:8]
-
+def generate_run_id() -> str:
+    """Generate a unique run ID."""
+    return "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
 def get_git_info():
-    """Get git commit and branch information."""
-    git_info = {"git_commit": "unknown", "git_branch": "unknown"}
+    """Extract git info safely."""
+    git_info = {"commit": "unknown", "branch": "unknown"}
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0:
-            git_info["git_commit"] = result.stdout.strip()[:8]
+        git_info["commit"] = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
+        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
     except Exception:
         pass
-    
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0:
-            git_info["git_branch"] = result.stdout.strip()
-    except Exception:
-        pass
-    
     return git_info
 
+def run_tests_native(test_files: list, repo_path: str, repo_name: str):
+    """Run tests using standard pytest output and parse the console text."""
+    print(f"\n{'='*60}")
+    print(f"RUNNING TESTS: {repo_name} ({repo_path})")
+    print(f"{'='*60}")
 
-def get_environment_info():
-    """Collect environment information for the report."""
-    git_info = get_git_info()
-    
-    return {
-        "python_version": platform.python_version(),
-        "platform": platform.platform(),
-        "os": platform.system(),
-        "os_release": platform.release(),
-        "architecture": platform.machine(),
-        "hostname": platform.node(),
-        "git_commit": git_info["git_commit"],
-        "git_branch": git_info["git_branch"],
-    }
+    env = os.environ.copy()
+    env["REPO_PATH"] = repo_path
 
+    cmd = ["pytest", "-v", *test_files]
 
-def run_pytest_tests(tests_dir, test_file, label):
-    """Run pytest on a specific test file."""
-    print(f"\n{'=' * 60}")
-    print(f"RUNNING TESTS: {label.upper()}")
-    print(f"{'=' * 60}")
-    print(f"Test file: {test_file}")
-    
-    test_path = Path(tests_dir) / test_file
-    
-    cmd = [
-        sys.executable, "-m", "pytest",
-        str(test_path),
-        "-v",
-        "--tb=short",
-    ]
-    
     try:
-        cwd = str(Path(tests_dir).parent)
-        
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            timeout=120
-        )
-        
-        stdout = result.stdout
-        stderr = result.stderr
-        
-        tests = parse_pytest_verbose_output(stdout)
-        
-        passed = sum(1 for t in tests if t.get("outcome") == "passed")
-        failed = sum(1 for t in tests if t.get("outcome") == "failed")
-        errors = sum(1 for t in tests if t.get("outcome") == "error")
-        skipped = sum(1 for t in tests if t.get("outcome") == "skipped")
-        total = len(tests)
-        
-        print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, {skipped} skipped (total: {total})")
-        
-        for test in tests:
-            status_icon = {
-                "passed": "✅",
-                "failed": "❌",
-                "error": "💥",
-                "skipped": "⏭️"
-            }.get(test.get("outcome"), "❓")
-            print(f"  {status_icon} {test.get('nodeid', 'unknown')}: {test.get('outcome', 'unknown')}")
-        
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True, encoding='utf-8')
+        output = result.stdout + result.stderr
+
+        test_results = []
+        matches = re.findall(r"^(tests/.*::.*)\s+(PASSED|FAILED|ERROR|SKIPPED)", output, re.MULTILINE)
+
+        passed = 0
+        failed = 0
+        errors = 0
+        skipped = 0
+
+        for nodeid, status in matches:
+            test_results.append({
+                "nodeid": f"{repo_name}::{nodeid}",
+                "name": nodeid,
+                "outcome": status.lower(),
+                "message": ""
+            })
+            if status == "PASSED": passed += 1
+            elif status == "FAILED": failed += 1
+            elif status == "ERROR": errors += 1
+            elif status == "SKIPPED": skipped += 1
+
+        if not test_results:
+            summary_match = re.search(r"==.* ((\d+) passed)?.* ((\d+) failed)?.* ((\d+) error)?.*==", output)
+            if summary_match:
+                passed = int(summary_match.group(2)) if summary_match.group(2) else 0
+                failed = int(summary_match.group(4)) if summary_match.group(4) else 0
+                errors = int(summary_match.group(6)) if summary_match.group(6) else 0
+
         return {
             "success": result.returncode == 0,
             "exit_code": result.returncode,
-            "tests": tests,
+            "tests": test_results,
             "summary": {
-                "total": total,
+                "total": passed + failed + errors + skipped,
                 "passed": passed,
                 "failed": failed,
                 "errors": errors,
-                "skipped": skipped,
+                "skipped": skipped
             },
-            "stdout": stdout[-3000:] if len(stdout) > 3000 else stdout,
-            "stderr": stderr[-1000:] if len(stderr) > 1000 else stderr,
-        }
-        
-    except subprocess.TimeoutExpired:
-        print("❌ Test execution timed out")
-        return {
-            "success": False,
-            "exit_code": -1,
-            "tests": [],
-            "summary": {"error": "Test execution timed out"},
-            "stdout": "",
-            "stderr": "",
+            "raw_output": output if not test_results else None
         }
     except Exception as e:
-        print(f"❌ Error running tests: {e}")
         return {
             "success": False,
-            "exit_code": -1,
+            "exit_code": 1,
             "tests": [],
-            "summary": {"error": str(e)},
-            "stdout": "",
-            "stderr": "",
+            "summary": {"total": 0, "passed": 0, "failed": 0, "errors": 1, "skipped": 0},
+            "error": str(e)
         }
-
-
-def parse_pytest_verbose_output(output):
-    """Parse pytest verbose output to extract test results."""
-    tests = []
-    lines = output.split('\n')
-    
-    for line in lines:
-        line_stripped = line.strip()
-        
-        if '::' in line_stripped:
-            outcome = None
-            if ' PASSED' in line_stripped:
-                outcome = "passed"
-            elif ' FAILED' in line_stripped:
-                outcome = "failed"
-            elif ' ERROR' in line_stripped:
-                outcome = "error"
-            elif ' SKIPPED' in line_stripped:
-                outcome = "skipped"
-            
-            if outcome:
-                for status_word in [' PASSED', ' FAILED', ' ERROR', ' SKIPPED']:
-                    if status_word in line_stripped:
-                        nodeid = line_stripped.split(status_word)[0].strip()
-                        break
-                
-                tests.append({
-                    "nodeid": nodeid,
-                    "name": nodeid.split("::")[-1] if "::" in nodeid else nodeid,
-                    "outcome": outcome,
-                })
-    
-    return tests
-
-
-def run_evaluation():
-    """Run complete evaluation for billing optimization."""
-    print(f"\n{'=' * 60}")
-    print("CUSTOMER BILLING OPTIMIZATION EVALUATION")
-    print(f"{'=' * 60}")
-    
-    project_root = Path(__file__).parent.parent
-    tests_dir = project_root / "tests"
-    
-    before_results = run_pytest_tests(
-        tests_dir,
-        "test_before.py",
-        "Before Optimization (repository_before)"
-    )
-    
-    after_results = run_pytest_tests(
-        tests_dir,
-        "test_after.py",
-        "After Optimization (repository_after)"
-    )
-    
-    comparison = {
-        "before_tests_passed": before_results.get("success", False),
-        "before_total": before_results.get("summary", {}).get("total", 0),
-        "before_passed": before_results.get("summary", {}).get("passed", 0),
-        "before_failed": before_results.get("summary", {}).get("failed", 0),
-        "after_tests_passed": after_results.get("success", False),
-        "after_total": after_results.get("summary", {}).get("total", 0),
-        "after_passed": after_results.get("summary", {}).get("passed", 0),
-        "after_failed": after_results.get("summary", {}).get("failed", 0),
-    }
-    
-    print(f"\n{'=' * 60}")
-    print("EVALUATION SUMMARY")
-    print(f"{'=' * 60}")
-    
-    print(f"\nBefore Optimization (test_before.py on repository_before):")
-    print(f"  Overall: {'✅ PASSED' if before_results.get('success') else '❌ FAILED'}")
-    print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
-    
-    print(f"\nAfter Optimization (test_after.py on repository_after):")
-    print(f"  Overall: {'✅ PASSED' if after_results.get('success') else '❌ PASSED'}")
-    print(f"  Tests: {comparison['after_passed']}/{comparison['after_total']} passed")
-    
-    print(f"\n{'=' * 60}")
-    print("EXPECTED BEHAVIOR CHECK")
-    print(f"{'=' * 60}")
-    
-    before_expected = not before_results.get("success")
-    after_expected = after_results.get("success")
-    
-    if before_expected:
-        print("✅ Before tests failed as expected (old code has issues)")
-    else:
-        print("⚠️  Before tests passed (unexpected - old code should have failures)")
-    
-    if after_expected:
-        print("✅ After tests passed (optimized code works correctly)")
-    else:
-        print("❌ After tests failed (optimized code has issues)")
-    
-    evaluation_passed = after_expected
-    
-    return {
-        "before": before_results,
-        "after": after_results,
-        "comparison": comparison,
-        "evaluation_passed": evaluation_passed,
-    }
-
-
-def generate_output_path():
-    """Generate output path in format: evaluation/YYYY-MM-DD/HH-MM-SS/report.json"""
-    now = datetime.now()
-    date_str = now.strftime("%Y-%m-%d")
-    time_str = now.strftime("%H-%M-%S")
-    
-    project_root = Path(__file__).parent.parent
-    output_dir = project_root / "evaluation" / date_str / time_str
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    return output_dir / "report.json"
-
 
 def main():
-    """Main entry point for evaluation."""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Run Customer Billing Optimization evaluation")
-    parser.add_argument(
-        "--output", 
-        type=str, 
-        default=None, 
-        help="Output JSON file path (default: evaluation/YYYY-MM-DD/HH-MM-SS/report.json)"
-    )
-    
-    args = parser.parse_args()
-    
+    SUCCESS_ICON = "[PASS]"
+    FAILURE_ICON = "[FAIL]"
+
     run_id = generate_run_id()
-    started_at = datetime.now()
-    
+    started_at = datetime.datetime.now(datetime.UTC)
+
+    print(f"\n{'='*60}")
+    print(f"EVALUATION: {TASK_NAME}")
+    print(f"{'='*60}")
     print(f"Run ID: {run_id}")
     print(f"Started at: {started_at.isoformat()}")
-    
-    try:
-        results = run_evaluation()
-        success = results.get("evaluation_passed", False)
-        error_message = None if success else "Evaluation did not meet expected outcomes"
-        
-    except Exception as e:
-        import traceback
-        print(f"\nERROR: {str(e)}")
-        traceback.print_exc()
-        results = None
-        success = False
-        error_message = str(e)
-    
-    finished_at = datetime.now()
+
+    before_results = run_tests_native(TEST_FILES_BEFORE, REPOSITORY_BEFORE, "repository_before")
+    after_results = run_tests_native(TEST_FILES_AFTER, REPOSITORY_AFTER, "repository_after")
+
+    finished_at = datetime.datetime.now(datetime.UTC)
     duration = (finished_at - started_at).total_seconds()
-    
-    environment = get_environment_info()
-    
-    report = {
-        "run_id": run_id,
-        "started_at": started_at.isoformat(),
-        "finished_at": finished_at.isoformat(),
-        "duration_seconds": round(duration, 6),
-        "success": success,
-        "error": error_message,
-        "environment": environment,
-        "results": results,
+
+    comparison = {
+        "before_tests_passed": before_results["success"],
+        "after_tests_passed": after_results["success"],
+        "before_total": before_results["summary"]["total"],
+        "before_passed": before_results["summary"]["passed"],
+        "before_failed": before_results["summary"]["failed"],
+        "after_total": after_results["summary"]["total"],
+        "after_passed": after_results["summary"]["passed"],
+        "after_failed": after_results["summary"]["failed"],
     }
-    
-    if args.output:
-        output_path = Path(args.output)
-    else:
-        output_path = generate_output_path()
-    
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_path, "w") as f:
+
+    # Expected: before tests fail (8 failed), after tests pass (15 passed)
+    success = after_results["success"]
+    verdict = "SUCCESS" if success else "FAILURE"
+
+    git_info = get_git_info()
+    report = {
+        "metadata": {
+            "run_id": run_id,
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": round(duration, 6),
+        },
+        "environment": {
+            "platform": sys.platform,
+            "runtime": f"Python {sys.version.split()[0]}",
+            "architecture": platform.machine(),
+            "hostname": socket.gethostname(),
+            "git_commit": git_info["commit"],
+            "git_branch": git_info["branch"]
+        },
+        "verdict": {
+            "status": verdict,
+            "success": success,
+            "error": None if success else "After implementation tests failed"
+        },
+        "results": {
+            "before": before_results,
+            "after": after_results,
+            "comparison": comparison
+        },
+        "summary": {
+            "total_requirements": comparison["after_total"],
+            "satisfied_requirements": comparison["after_passed"],
+            "failed_requirements": comparison["after_failed"]
+        }
+    }
+
+    date_str = started_at.strftime("%Y-%m-%d")
+    time_str = started_at.strftime("%H-%M-%S")
+    output_dir = EVALUATION_DIR / date_str / time_str
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "report.json"
+
+    with open(report_path, "w", encoding='utf-8') as f:
         json.dump(report, f, indent=2)
-    print(f"\n✅ Report saved to: {output_path}")
-    
+
     # Write success marker for build script
     if success:
         Path("/tmp/EVALUATION_SUCCESS").touch()
     else:
         Path("/tmp/EVALUATION_FAILED").touch()
-    
-    print(f"\n{'=' * 60}")
-    print(f"EVALUATION COMPLETE")
-    print(f"{'=' * 60}")
-    print(f"Run ID: {run_id}")
-    print(f"Duration: {duration:.2f}s")
-    print(f"Success: {'✅ YES' if success else '❌ NO'}")
-    
-    return 0 if success else 1
 
+    print(f"\n{'='*60}")
+    print("EVALUATION SUMMARY")
+    print(f"{'='*60}")
+    print(f"\nBefore Implementation ({REPOSITORY_BEFORE}):")
+    print(f"  Overall: {SUCCESS_ICON if before_results['success'] else FAILURE_ICON + ' (Expected)'}")
+    print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
+
+    print(f"\nAfter Implementation ({REPOSITORY_AFTER}):")
+    print(f"  Overall: {SUCCESS_ICON if after_results['success'] else FAILURE_ICON}")
+    print(f"  Tests: {comparison['after_passed']}/{comparison['after_total']} passed")
+
+    print(f"\nReport saved to: {report_path}")
+    print(f"{'='*60}")
+    print("EVALUATION COMPLETE")
+    print(f"Duration: {round(duration, 2)}s")
+    print(f"Success: {'YES' if success else 'NO'}")
+    print(f"{'='*60}\n")
+
+    sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

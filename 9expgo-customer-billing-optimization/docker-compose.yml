@@ -15,8 +15,6 @@ services:
 
   billing:
     build: .
-    volumes:
-      - .:/app
     environment:
       - PYTHONPATH=/app
       - DB_HOST=postgres
