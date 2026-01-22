@@ -1,18 +1,23 @@
 # LRU Cache with TTL Optimization
 
-### Build image
+### Build Image
 ```bash
 docker compose build
 ```
 
+### Run Tests
+
 ```bash
-docker compose run --rm -e PYTHONPATH=/app/repository_before app pytest tests/test_before.py
+docker compose --profile test run --rm test-before
 ```
 
 ```bash
-docker compose run --rm -e PYTHONPATH=/app/repository_after app pytest tests/test_after.py
+docker compose --profile test run --rm test-after
 ```
 
+### Run Evaluation
+
+
 ```bash
-docker compose run --rm app python evaluation/evaluation.py
+docker compose --profile eval run --rm evaluation
 ```

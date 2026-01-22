@@ -78,4 +78,6 @@ def test_complex_arguments():
 
 if __name__ == "__main__":
     print("Running after implementation tests (these should PASS)...")
-    pytest.main([__file__, "-v"])
+    exit_code = pytest.main([__file__, "-v"])
+    # Exit with the actual test result code
+    exit(exit_code)

@@ -136,3 +136,66 @@ class TestBeforeImplementation:
         stats = test_func.cache_info()
         assert stats.hits == 1, "Expected 1 hit"
         assert stats.misses == 2, "Expected 2 misses"
+    
+    def test_thread_safety_missing(self):
+        """Test that thread safety is not implemented - SHOULD FAIL."""
+        results = []
+        call_count = 0
+        
+        @lru_cache_with_ttl(maxsize=10, ttl_seconds=60)
+        def test_func(x):
+            nonlocal call_count
+            call_count += 1
+            time.sleep(0.01)  # Small delay
+            return x * 2
+        
+        def worker(value):
+            results.append(test_func(value))
+        
+        # Multiple threads accessing same value
+        threads = []
+        for _ in range(5):
+            thread = threading.Thread(target=worker, args=(1,))
+            threads.append(thread)
+            thread.start()
+        
+        for thread in threads:
+            thread.join()
+        
+        # All results should be the same
+        assert all(result == 2 for result in results)
+        assert len(results) == 5
+        
+        # This should fail because cache_info doesn't exist or thread safety isn't implemented
+        stats = test_func.cache_info()
+        assert stats.hits + stats.misses == 5, "Expected proper thread-safe statistics"
+    
+    def test_metadata_preservation_missing(self):
+        """Test that function metadata preservation is not implemented - SHOULD FAIL."""
+        @lru_cache_with_ttl(maxsize=2, ttl_seconds=1)
+        def test_func(x):
+            """Test function docstring."""
+            return x * 2
+        
+        # This might fail if functools.wraps is not used
+        assert test_func.__name__ == 'test_func', "Function name should be preserved"
+        assert test_func.__doc__ == 'Test function docstring.', "Function docstring should be preserved"
+    
+    def test_complex_arguments_missing(self):
+        """Test that complex argument handling is not implemented - SHOULD FAIL."""
+        call_count = 0
+        
+        @lru_cache_with_ttl(maxsize=10, ttl_seconds=60)
+        def test_func(a, b, c=3):
+            nonlocal call_count
+            call_count += 1
+            return a + b + c
+        
+        # Test various argument combinations that should normalize to same key (but won't)
+        test_func(1, 2)
+        test_func(1, 2, c=3)
+        test_func(a=1, b=2)
+        test_func(1, b=2, c=3)
+        
+        # This should fail because function is called multiple times (no normalization)
+        assert call_count == 1, f"Expected 1 call (normalized), but got {call_count} calls"

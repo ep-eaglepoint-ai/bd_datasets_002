@@ -3,3 +3,29 @@ services:
     build: .
     volumes:
       - .:/app
+    profiles:
+      - default
+
+  test-before:
+    build: .
+    volumes:
+      - .:/app
+    command: python tests/test_before.py
+    profiles:
+      - test
+
+  test-after:
+    build: .
+    volumes:
+      - .:/app
+    command: python tests/test_after.py
+    profiles:
+      - test
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    command: python evaluation/evaluation.py
+    profiles:
+      - eval

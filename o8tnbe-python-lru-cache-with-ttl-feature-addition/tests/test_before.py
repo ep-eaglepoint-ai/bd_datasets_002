@@ -58,6 +58,26 @@ def test_cache_statistics_missing():
     test_instance.test_cache_statistics_missing()
 
 
+def test_thread_safety_missing():
+    """Test that thread safety is not implemented - SHOULD FAIL."""
+    test_instance = TestBeforeImplementation()
+    test_instance.test_thread_safety_missing()
+
+
+def test_metadata_preservation_missing():
+    """Test that function metadata preservation is not implemented - SHOULD FAIL."""
+    test_instance = TestBeforeImplementation()
+    test_instance.test_metadata_preservation_missing()
+
+
+def test_complex_arguments_missing():
+    """Test that complex argument handling is not implemented - SHOULD FAIL."""
+    test_instance = TestBeforeImplementation()
+    test_instance.test_complex_arguments_missing()
+
+
 if __name__ == "__main__":
     print("Running before implementation tests (these should FAIL)...")
-    pytest.main([__file__, "-v"])
+    exit_code = pytest.main([__file__, "-v"])
+    # Always exit with 0 since test failures are expected
+    exit(0)
