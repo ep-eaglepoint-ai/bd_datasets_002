@@ -9,3 +9,9 @@ node_modules/
 
 # OS
 .DS_Store
+
+#vscode
+.vscode
+
+#pytest
+.pytest_cache

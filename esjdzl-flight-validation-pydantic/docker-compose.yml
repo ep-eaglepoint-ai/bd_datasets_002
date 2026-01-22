@@ -1,6 +1,7 @@
 services:
-  app:
+  input-validation:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    environment:
+      - PYTHONPATH=/app

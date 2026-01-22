@@ -1,0 +1,114 @@
+{
+  "metadata": {
+    "run_id": "01wvpj70",
+    "started_at": "2026-01-22T13:01:59.131535+00:00",
+    "finished_at": "2026-01-22T13:02:01.149373+00:00",
+    "duration_seconds": 2.017838
+  },
+  "environment": {
+    "platform": "win32",
+    "runtime": "Python 3.12.6",
+    "architecture": "AMD64",
+    "hostname": "PC-Eyoba",
+    "git_commit": "d64329d",
+    "git_branch": "esjdzl-flight-validation-pydantic"
+  },
+  "verdict": {
+    "status": "SUCCESS",
+    "success": true,
+    "error": null
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": 1,
+      "tests": [
+        {
+          "nodeid": "repository_before::tests/test_fail_to_pass.py::test_return_date_validation_is_not_silent",
+          "name": "tests/test_fail_to_pass.py::test_return_date_validation_is_not_silent",
+          "outcome": "failed",
+          "message": ""
+        },
+        {
+          "nodeid": "repository_before::tests/test_fail_to_pass.py::test_type_coercion_is_enforced",
+          "name": "tests/test_fail_to_pass.py::test_type_coercion_is_enforced",
+          "outcome": "failed",
+          "message": ""
+        },
+        {
+          "nodeid": "repository_before::tests/test_fail_to_pass.py::test_immutability",
+          "name": "tests/test_fail_to_pass.py::test_immutability",
+          "outcome": "failed",
+          "message": ""
+        },
+        {
+          "nodeid": "repository_before::tests/test_fail_to_pass.py::test_iata_format_validation",
+          "name": "tests/test_fail_to_pass.py::test_iata_format_validation",
+          "outcome": "failed",
+          "message": ""
+        }
+      ],
+      "summary": {
+        "total": 4,
+        "passed": 0,
+        "failed": 4,
+        "errors": 0,
+        "skipped": 0
+      },
+      "raw_output": null
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "repository_after::tests/test_fail_to_pass.py::test_return_date_validation_is_not_silent",
+          "name": "tests/test_fail_to_pass.py::test_return_date_validation_is_not_silent",
+          "outcome": "passed",
+          "message": ""
+        },
+        {
+          "nodeid": "repository_after::tests/test_fail_to_pass.py::test_type_coercion_is_enforced",
+          "name": "tests/test_fail_to_pass.py::test_type_coercion_is_enforced",
+          "outcome": "passed",
+          "message": ""
+        },
+        {
+          "nodeid": "repository_after::tests/test_fail_to_pass.py::test_immutability",
+          "name": "tests/test_fail_to_pass.py::test_immutability",
+          "outcome": "passed",
+          "message": ""
+        },
+        {
+          "nodeid": "repository_after::tests/test_fail_to_pass.py::test_iata_format_validation",
+          "name": "tests/test_fail_to_pass.py::test_iata_format_validation",
+          "outcome": "passed",
+          "message": ""
+        }
+      ],
+      "summary": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "raw_output": null
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": true,
+      "before_total": 4,
+      "before_passed": 0,
+      "before_failed": 4,
+      "after_total": 4,
+      "after_passed": 4,
+      "after_failed": 0
+    }
+  },
+  "summary": {
+    "total_requirements": 4,
+    "satisfied_requirements": 4,
+    "failed_requirements": 0
+  }
+}
