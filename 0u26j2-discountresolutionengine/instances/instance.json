@@ -1,0 +1,11 @@
+{
+            "instance_id": "0U26J2",
+            "problem_statement": "The objective is to architect a high-precision, non-linear discount engine that evaluates a DAG of promotion rules with inter-dependencies. The engine must solve the complexity of rule-pruning, order-dependent stacking, and financial rounding errors while providing a full audit trail for every calculation. It must maintain ultra-low latency while supporting large-scale simulations against historical order data.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/0u26j2-discountresolutionengine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
