@@ -1,6 +1,71 @@
 services:
-  app:
+  # PostgreSQL database service for testing
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=db
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Run all tests against repository_before (expected to fail)
+  test-before:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - ./tests:/app/tests
+      - ./repository_after/prisma:/app/prisma
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./trajectory:/app/trajectory
+      - /app/node_modules
+    environment:
+      - REPOSITORY=repository_before
+      - DATABASE_URL=postgresql://user:pass@db:5432/db
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma migrate deploy --schema=./repository_after/prisma/schema.prisma || true && for test in tests/test_*.ts; do echo \"Running $$test against repository_before...\"; npx ts-node $$test || true; done"
+
+  # Run all tests against repository_after (expected to pass)
+  test-after:
+    build: .
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_after/prisma:/app/prisma
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./trajectory:/app/trajectory
+      - /app/node_modules
+    environment:
+      - REPOSITORY=repository_after
+      - DATABASE_URL=postgresql://user:pass@db:5432/db
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma migrate deploy --schema=./repository_after/prisma/schema.prisma || true && npx ts-node repository_after/prisma/seed.ts && for test in tests/test_*.ts; do echo \"Running $$test against repository_after...\"; npx ts-node $$test || true; done"
+
+  # Run evaluation script (tests both repositories and generates report)
+  evaluation:
+    build: .
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_after/prisma:/app/prisma
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./trajectory:/app/trajectory
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/db
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma migrate deploy --schema=./repository_after/prisma/schema.prisma || true && npx ts-node repository_after/prisma/seed.ts && npx ts-node evaluation/evaluation.ts"

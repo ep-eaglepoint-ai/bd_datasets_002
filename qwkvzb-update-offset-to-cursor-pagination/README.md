@@ -37,6 +37,11 @@
 - With Docker: `docker compose up --build --abort-on-container-exit`
 - Add dependencies to `requirements.txt`
 
+## Docker Commands
+- Test repository_before: `docker compose run --rm test-before`
+- Test repository_after: `docker compose run --rm test-after`
+- Run evaluation: `docker compose run --rm evaluation`
+
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
