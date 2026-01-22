@@ -1,0 +1,9 @@
+{
+  "name": "18yefb-optimize-transaction-logging",
+  "version": "1.0.0",
+  "description": "Optimize Transaction Logging with Compression and PQ Signing",
+  "scripts": {
+    "evaluate": "node evaluation/evaluation.js",
+    "test": "cd repository_after && npm test"
+  }
+}

@@ -1,12 +1,26 @@
 {
-            "instance_id": "18YEFB",
-            "problem_statement": "The solution violates time complexity, thread-safety, PQ security requirements, determinism guarantees, and verification requirements.
-It looks sophisticated, but it does not satisfy the formal constraints of the prompt.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/18yefb-optimize-transaction-logging-with-compression-and-pq",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "18YEFB",
+    "problem_statement": "The solution violates time complexity, thread-safety, PQ security requirements, determinism guarantees, and verification requirements. It looks sophisticated, but it does not satisfy the formal constraints of the prompt.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/18yefb-optimize-transaction-logging-with-compression-and-pq",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "tests/telecomTopUP.test.ts::sendLog should return compressed data",
+        "tests/telecomTopUP.test.ts::InlineCompressor should compress data",
+        "tests/telecomTopUP.test.ts::compression should be deterministic (same input = same output)",
+        "tests/telecomTopUP.test.ts::large logs should be truncated to 1KB for O(1) space",
+        "tests/telecomTopUP.test.ts::sendLog should return a signature",
+        "tests/telecomTopUP.test.ts::DilithiumPQSigner should sign data",
+        "tests/telecomTopUP.test.ts::signature should be deterministic (same input = same signature)",
+        "tests/telecomTopUP.test.ts::different inputs should produce different signatures",
+        "tests/telecomTopUP.test.ts::verifyLog should verify valid signatures",
+        "tests/telecomTopUP.test.ts::verifyLog should reject tampered data",
+        "tests/telecomTopUP.test.ts::verifyLog should reject invalid signatures",
+        "tests/telecomTopUP.test.ts::compression ratio should be greater than 50%",
+        "tests/telecomTopUP.test.ts::DilithiumPQSigner.verify should validate correct signatures",
+        "tests/telecomTopUP.test.ts::DilithiumPQSigner.verify should reject wrong signatures",
+        "tests/telecomTopUP.test.ts::telecomTopupRequest should process request with secure logging"
+    ],
+    "PASS_TO_PASS": []
+}
