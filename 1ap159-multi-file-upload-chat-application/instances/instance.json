@@ -1,0 +1,14 @@
+{
+            "instance_id": "1AP159",
+            "problem_statement": "Support agents need to share multiple files with customers directly inside a chat interface while receiving real-time feedback on upload progress.
+The existing chat application only supports plain text messages and lacks file upload visibility.
+This limitation reduces usability, transparency, and user confidence during large or multiple file transfers.
+The system must be refactored to support concurrent multi-file uploads with accurate progress tracking and responsive UI behavior.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/1ap159-multi-file-upload-chat-application",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
