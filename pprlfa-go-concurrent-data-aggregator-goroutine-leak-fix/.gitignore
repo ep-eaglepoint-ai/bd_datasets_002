@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 .env
-evaluation/reports/
+#evaluation/reports/
 # Node
 node_modules/
 
