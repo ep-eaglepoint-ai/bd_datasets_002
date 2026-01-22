@@ -1,0 +1,10 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "Overriding buildspec to fix YAML error"
+      - cd pprlfa-go-concurrent-data-aggregator-goroutine-leak-fix
+      - go mod tidy
+      - go test -v ./tests/...
+      - go run evaluation/evaluation.go
