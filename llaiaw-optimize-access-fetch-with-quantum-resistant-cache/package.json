@@ -1,0 +1,9 @@
+{
+  "name": "llaiaw-optimize-access-fetch-with-quantum-resistant-cache",
+  "version": "1.0.0",
+  "description": "Optimize Access Fetch with Quantum-Resistant Cache",
+  "scripts": {
+    "evaluate": "node evaluation/evaluation.js",
+    "test": "cd repository_after && npm test"
+  }
+}
