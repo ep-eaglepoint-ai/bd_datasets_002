@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "username": "testuser",
+      "email": "test@example.com",
+      "passwordHash": "dummy-hash",
+      "id": "l6vyecheo"
+    },
+    {
+      "username": "apiuser",
+      "email": "api@example.com",
+      "passwordHash": "64ece1f81b0a09c077f4e31556cceea1:2053bf3c4c0cba4b3dd2a36d623fa83fa45542459035921e4a97ef335fd7b98ad13414a92b5c9acf7eb92aacecf4ac810162bb1553ddb50ae0d7c32f1f0f649c",
+      "id": "3lbopt4k8"
+    }
+  ]
+}
