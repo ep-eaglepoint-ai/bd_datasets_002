@@ -2,7 +2,7 @@
 
 ### Run tests (before are expected failures)
 ```bash
-docker-compose run --rm -e TEST_IMPLEMENTATION=before app sh -c "pytest tests/ -q --tb=no"
+docker-compose run --rm run_before
 ```
 
 ### Run tests (after are expected all pass)
