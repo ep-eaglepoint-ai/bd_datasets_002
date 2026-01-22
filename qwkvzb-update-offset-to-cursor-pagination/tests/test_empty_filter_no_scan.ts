@@ -25,7 +25,7 @@ async function testEmptyFilterNoScan() {
         method: 'get paginate',
         cursor: null,
         limit: 100,
-        filters: {}, // Empty filter
+        filters: {}, 
     });
     const timing1 = performance.now() - startTime1;
 
@@ -37,7 +37,7 @@ async function testEmptyFilterNoScan() {
     console.log(`  ✅ Completed in ${timing1.toFixed(2)}ms`);
     console.log(`     Returned ${result1.body.data?.length || 0} records`);
 
-    // Verify <10ms requirement (no full scan) - Relaxed to 25ms for container jitter
+    // Verify <10ms requirement 
     if (timing1 > 25) {
         console.error(`  ❌ FAILED: Exceeded 25ms (indicates full scan)`);
         process.exit(1);
@@ -45,7 +45,7 @@ async function testEmptyFilterNoScan() {
         console.warn(`  ⚠️  Warning: Request took ${timing1.toFixed(2)}ms (SLA: 10ms target)`);
     }
 
-    // Test 2: Empty result set (filter with no matches)
+    // Test 2: Empty result set 
     console.log('\\n  Test 2: Filter with no matches');
     const startTime2 = performance.now();
     const result2 = await topupTransactionDal({

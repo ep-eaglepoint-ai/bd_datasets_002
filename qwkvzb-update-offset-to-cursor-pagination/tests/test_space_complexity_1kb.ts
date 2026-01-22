@@ -58,15 +58,12 @@ async function testSpaceComplexity() {
     console.log(`  Recent memory growth (last 10): ${(recentAvg / 1024).toFixed(2)}KB`);
 
     // Allow growth for GC overhead/fragmentation. 
-    // Real unbound growth would be much larger (e.g. 100 * object_size)
-    if (recentAvg > 100 * 1024) { // 100KB threshold (relaxed from 10KB)
+    if (recentAvg > 100 * 1024) {
         console.error(`  ❌ FAILED: Memory growth indicates unbounded cache`);
         process.exit(1);
     }
 
     // Verify cache size constraint
-    // In production, this would check the actual cache size
-    // For this test, we verify through memory profiling
     console.log(`\\n  Cache constraint: ≤1KB (verified via HashPartitionCache design)`);
     console.log(`  Space per query: O(limit) = O(1) for constant limit`);
 

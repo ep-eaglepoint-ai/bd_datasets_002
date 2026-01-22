@@ -34,7 +34,7 @@ class InMemoryDB {
 }
 
 async function testO1Complexity() {
-    console.log(' TEST: O(1) Complexity Proof (100M Row Simulation)\\n');
+    console.log('TEST: O(1) Complexity Proof (100M Row Simulation)\\n');
 
     const testOffsets = [
         { name: 'Page 1', offset: 0 },
@@ -46,7 +46,7 @@ async function testO1Complexity() {
     const results: Array<{ offset: number; timingMs: number }> = [];
 
     // Warmup Prisma connection
-    console.log('  🔥 Warming up connection...');
+    console.log('Preparing connection...');
     await topupTransactionDal({ method: 'get paginate', cursor: null, limit: 1, filters: {} });
 
     for (const test of testOffsets) {

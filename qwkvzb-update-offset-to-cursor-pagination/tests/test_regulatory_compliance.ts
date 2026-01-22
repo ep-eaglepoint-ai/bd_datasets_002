@@ -19,8 +19,8 @@ async function testRegulatoryCompliance() {
     const timings: number[] = [];
     const SLA_THRESHOLD = 10; // milliseconds
 
-    // Warmup Prisma connection
-    console.log('  🔥 Warming up connection...');
+    // Prepare connection
+    console.log('Preparing connection...');
     await topupTransactionDal({ method: 'get paginate', cursor: null, limit: 1, filters: {} });
 
     for (let i = 0; i < 20; i++) {
@@ -35,7 +35,7 @@ async function testRegulatoryCompliance() {
         timings.push(timing);
 
         if (timing > SLA_THRESHOLD) {
-            console.warn(`  ⚠️  Request ${i + 1} took ${timing.toFixed(2)}ms (SLA: ${SLA_THRESHOLD}ms) - slow but acceptable outlier`);
+            console.warn(`Request ${i + 1} took ${timing.toFixed(2)}ms (SLA: ${SLA_THRESHOLD}ms) - slow but acceptable outlier`);
         }
     }
 
@@ -101,7 +101,7 @@ async function testRegulatoryCompliance() {
     });
 
     if (page1.statusCode !== 200) {
-        console.log(`  ⚠️  Empty dataset, skipping integrity test`);
+        console.log(`Empty dataset, skipping integrity test`);
     } else {
         const page1Ids = (page1.body.data || []).map((r: any) => r.id);
 

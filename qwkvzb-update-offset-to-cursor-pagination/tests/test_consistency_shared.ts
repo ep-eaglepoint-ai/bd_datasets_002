@@ -22,7 +22,7 @@ function normalize(response: any) {
 }
 
 async function testConsistency() {
-    console.log('🧪 TEST: Repository Consistency (Before vs After)\n');
+    console.log('TEST: Repository Consistency (Before vs After)\n');
 
     // Warmup
     await dalBefore({ method: 'get paginate', page: 1, limit: 1, filters: {} });
@@ -56,7 +56,6 @@ async function testConsistency() {
 
     // Test 2: Filtering Consistency
     console.log('\n  Test 2: Filtering Consistency (id > 500)');
-    // Note: We pick a filter likely to return results
     const filter = { id: { gt: 500 } };
 
     // repository_before uses page: 1

@@ -87,7 +87,7 @@ async function testCursorValidation() {
     });
 
     if (!initialResult.body.nextCursor) {
-        console.log(`  ⚠️  No nextCursor available (empty dataset or last page)`);
+        console.log(`No nextCursor available (empty dataset or last page)`);
         console.log('\\n  ✅ PASSED: All cursor validation tests passed\\n');
         return;
     }

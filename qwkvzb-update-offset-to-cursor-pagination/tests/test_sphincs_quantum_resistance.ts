@@ -13,10 +13,10 @@ import { topupTransactionDal } from '../repository_after/topupTransaction.dal';
 import * as crypto from 'crypto';
 
 async function testQuantumResistance() {
-    console.log(' TEST: SPHINCS+ Quantum Resistance Verification\\n');
+    console.log('TEST: SPHINCS+ Quantum Resistance Verification\n');
 
     // Test 1: Verify hash-based signature (not factoring/discrete log)
-    console.log('  Test 1: Hash-based commitment scheme');
+    console.log('Test 1: Hash-based commitment scheme');
     const id = 12345;
     const createdAt = new Date();
 

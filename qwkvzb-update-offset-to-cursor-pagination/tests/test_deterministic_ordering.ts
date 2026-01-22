@@ -15,7 +15,7 @@ async function testDeterministicOrdering() {
     console.log(' TEST: Deterministic Ordering with Hash Tie-Breaking\\n');
 
     const RUNS = 10;
-    const filters = { status: 'completed' }; // Example filter
+    const filters = { status: 'completed' }; 
     const results: any[][] = [];
 
     console.log(`  Running ${RUNS} identical queries...`);

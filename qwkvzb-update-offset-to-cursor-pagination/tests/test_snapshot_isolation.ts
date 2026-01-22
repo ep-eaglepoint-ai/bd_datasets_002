@@ -12,12 +12,12 @@
 import { topupTransactionDal } from '../repository_after/topupTransaction.dal';
 
 async function testSnapshotIsolation() {
-    console.log(' TEST: Snapshot Isolation Without DB Support\\n');
+    console.log('TEST: Snapshot Isolation Without DB Support\n');
 
     // Get first page
-    console.log('  Step 1: Fetch first page (establish snapshot)');
+    console.log('Step 1: Fetch first page (establish snapshot)');
 
-    // Warmup
+    // Prepare
     await topupTransactionDal({ method: 'get paginate', cursor: null, limit: 1, filters: {} });
 
     const page1 = await topupTransactionDal({
@@ -38,7 +38,7 @@ async function testSnapshotIsolation() {
 
     const cursor1 = page1.body.nextCursor;
     if (!cursor1) {
-        console.log('  ⚠️  No more pages available (small dataset)');
+        console.log('No more pages available (small dataset)');
         console.log('\\n  ✅ PASSED: Snapshot isolation not testable (insufficient data)\\n');
         return;
     }
