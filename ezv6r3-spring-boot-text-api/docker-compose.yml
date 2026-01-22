@@ -24,7 +24,7 @@ services:
     volumes:
       - maven_data:/root/.m2
       - ./repository_after/TextProcessingController.java:/app/src/main/java/com/example/textapi/TextProcessingController.java
-      # Mount the Main App here too
+      # Mount the Main App (Required for Spring to start)
       - ./tests/TextApiApplication.java:/app/src/main/java/com/example/textapi/TextApiApplication.java
       - ./tests/TextProcessingControllerTest.java:/app/src/test/java/com/example/textapi/TextProcessingControllerTest.java
     command: mvn test
