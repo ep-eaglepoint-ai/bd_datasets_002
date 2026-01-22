@@ -38,9 +38,23 @@
 - Add dependencies to `requirements.txt`
 
 ## Docker Commands
-- Test repository_before: `docker compose run --rm test-before`
-- Test repository_after: `docker compose run --rm test-after`
-- Run evaluation: `docker compose run --rm evaluation`
+
+### Build image
+```bash
+docker compose build
+```
+### Run tests (before – expected some failures)
+```bash
+docker compose run --rm test-before
+```
+### Run tests (after – expected all passes)
+```bash
+docker compose run --rm test-after
+```
+### Run evaluation
+```bash
+docker compose run --rm evaluation
+```
 
 ## Notes
 - Keep commits focused and small.
