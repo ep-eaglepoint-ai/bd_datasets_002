@@ -62,7 +62,7 @@ def run_tests(repo_path: str):
             summary = {
                 "total": data.get("summary", {}).get("total", 0),
                 "passed": data.get("summary", {}).get("passed", 0),
-                "failed": data.get("summary", {}).get("failed", 0),
+                "failed": data.get("summary", {}).get("failed", 0) + data.get("summary", {}).get("xfailed", 0),
                 "errors": data.get("summary", {}).get("errors", 0),
                 "skipped": data.get("summary", {}).get("skipped", 0)
             }
@@ -138,15 +138,18 @@ def generate_evaluation_report():
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=2)
     
+    before_overall = "PASSED" if before_results['summary']['passed'] == before_results['summary']['total'] else "FAILED"
+    after_overall = "PASSED" if after_results['summary']['passed'] == after_results['summary']['total'] else "FAILED"
+
     # Human readable summary to console (no emojis for Windows)
     print("\n" + "="*60)
     print("EVALUATION SUMMARY")
     print("="*60)
     print(f"Before Implementation (repository_before):")
-    print(f"  Overall: {'PASSED' if before_results['success'] else 'FAILED'}")
+    print(f"  Overall: {before_overall}")
     print(f"  Tests: {before_results['summary']['passed']}/{before_results['summary']['total']} passed")
     print(f"\nAfter Implementation (repository_after):")
-    print(f"  Overall: {'PASSED' if after_results['success'] else 'FAILED'}")
+    print(f"  Overall: {after_overall}")
     print(f"  Tests: {after_results['summary']['passed']}/{after_results['summary']['total']} passed")
     print("="*60)
     print(f"Full report saved to: {report_path}")
