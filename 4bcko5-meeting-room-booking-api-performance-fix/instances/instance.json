@@ -1,0 +1,11 @@
+{
+            "instance_id": "4BCKO5",
+            "problem_statement": "The meeting room booking API shows severe performance degradation under production load. During peak usage with 200 concurrent users, the /api/rooms endpoint takes 8-12 seconds to respond instead of <100ms. Monitoring logs reveal 47 database queries executed for just 3 rooms. The /api/bookings/mine endpoint response time increases linearly with user booking count, and /api/rooms/:id/bookings performs full table scans despite date filtering. Database CPU spikes to 95% while application CPU remains at 5%. The codebase requires optimization to achieve sub-200ms response times while maintaining identical API behavior and all existing business logic.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/4bcko5-meeting-room-booking-api-performance-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
