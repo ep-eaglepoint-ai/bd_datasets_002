@@ -3,6 +3,7 @@ services:
     build: .
     volumes:
       - .:/app
+      - /app/node_modules
     environment:
       - REPO_PATH=repository_before
       - RUN_EVALUATION=${RUN_EVALUATION:-false}
@@ -11,6 +12,7 @@ services:
     build: .
     volumes:
       - .:/app
+      - /app/node_modules
     environment:
       - REPO_PATH=repository_after
       - RUN_EVALUATION=${RUN_EVALUATION:-false}
