@@ -5,10 +5,12 @@
 docker compose build app
 ``` 
 
-### Run repository_after
+### Run repository_after (Default)
 ```bash
- docker compose run --rm -e REPO_PATH=repository_after app npm test
+docker compose run --rm app npm test
 ```
+
+### Run rep
 
 ### Run evaluation
 ```bash
