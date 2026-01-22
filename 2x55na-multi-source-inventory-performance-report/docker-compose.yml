@@ -4,9 +4,11 @@ services:
     command: sh -c "npm install --no-audit --no-fund --quiet --no-update-notifier && npm test"
     volumes:
       - .:/app
+      - /app/node_modules
 
   evaluate:
     build: .
     command: sh -c "npm install --no-audit --no-fund --quiet --no-update-notifier && npm run evaluate"
     volumes:
       - .:/app
+      - /app/node_modules
