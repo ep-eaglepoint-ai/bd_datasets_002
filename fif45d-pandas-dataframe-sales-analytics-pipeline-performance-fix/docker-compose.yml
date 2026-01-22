@@ -1,6 +1,24 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    command: sh -c "python -m pytest tests/ -v --tb=short || exit 0"
     volumes:
       - .:/app
+    environment:
+      - TEST_MODE=before
+
+  test-after:
+    build: .
+    command: python -m pytest tests/ -v --tb=short
+    volumes:
+      - .:/app
+    environment:
+      - TEST_MODE=after
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
