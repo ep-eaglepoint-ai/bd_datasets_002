@@ -1,0 +1,11 @@
+{
+            "instance_id": "VVXHTU",
+            "problem_statement": "Accurate currency conversion is difficult to implement correctly due to floating-point precision errors, inconsistent exchange-rate sources, varying currency rounding rules, unreliable network conditions, and poor handling of edge cases such as missing rates, stale data, and offline usage. Many existing converters sacrifice financial correctness, transparency, and reliability, leading to inaccurate results and low user trust. A robust solution is needed that delivers precise, auditable, and resilient currency conversions with clear rate sourcing, correct rounding, and dependable behavior across online and offline scenarios",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vvxhtu-currency-converter-web-application-using-nuxt-3-vue-3-nitro",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
