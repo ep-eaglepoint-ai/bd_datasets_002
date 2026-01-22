@@ -1,5 +1,5 @@
-FROM python:3.11-slim
+FROM node:18-slim
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+RUN npm install
+CMD sh -c "if [ \"$RUN_EVALUATION\" = \"true\" ]; then npm run evaluate; else npm test; fi"

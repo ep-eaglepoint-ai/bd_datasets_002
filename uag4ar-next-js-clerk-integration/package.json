@@ -1,0 +1,12 @@
+{
+  "name": "repo-tests-runner",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "evaluate": "node evaluation/evaluation.js"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0"
+  }
+}
