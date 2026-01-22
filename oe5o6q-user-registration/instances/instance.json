@@ -1,0 +1,11 @@
+{
+            "instance_id": "OE5O6Q",
+            "problem_statement": "A user registration function is necessary to safely and reliably create new user accounts in a database while protecting data integrity, preventing duplicate or replayed requests, and ensuring consistent system behavior under concurrent access. This function acts as a single, controlled entry point for user creation, validating inputs, enforcing uniqueness rules, recording audit information, and guaranteeing that all related database changes either fully succeed or fully fail together, which is essential for security, correctness, and production stability.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/oe5o6q-user-registration",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
