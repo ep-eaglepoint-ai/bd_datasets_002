@@ -55,6 +55,13 @@ docker compose run --rm test-after
 ```bash
 docker compose run --rm evaluation
 ```
+## Regenerate patch
+
+From repo root:
+
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```
 
 ## Notes
 - Keep commits focused and small.
