@@ -1,6 +1,14 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
+    container_name: test-after
+    command: pytest -v tests
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    container_name: evaluation
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app
