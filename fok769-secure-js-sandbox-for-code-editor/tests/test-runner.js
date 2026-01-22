@@ -18,24 +18,36 @@ let serverPort = 3000;
 async function buildApp() {
   console.log(`Building React app from ${repoPath}...`);
   
+  // Check if package.json exists
+  const packageJson = path.join(repoPath, 'package.json');
+  if (!fs.existsSync(packageJson)) {
+    throw new Error(`package.json not found in ${repoPath}`);
+  }
+  
   return new Promise((resolve, reject) => {
     const build = spawn('npm', ['run', 'build'], {
       cwd: repoPath,
       stdio: 'inherit',
-      shell: true
+      shell: true,
+      env: { ...process.env, CI: 'true' } // Set CI to avoid interactive prompts
     });
     
     build.on('close', (code) => {
       if (code === 0) {
-        console.log('Build completed successfully');
-        resolve();
+        const buildDir = path.join(repoPath, 'build');
+        if (fs.existsSync(buildDir)) {
+          console.log('Build completed successfully');
+          resolve();
+        } else {
+          reject(new Error('Build directory was not created'));
+        }
       } else {
         reject(new Error(`Build failed with code ${code}`));
       }
     });
     
     build.on('error', (err) => {
-      reject(err);
+      reject(new Error(`Build process error: ${err.message}`));
     });
   });
 }
@@ -158,16 +170,27 @@ async function main() {
     // Set environment variable for tests
     process.env.TEST_APP_URL = `http://localhost:${serverPort}`;
     
-    // Run Jest tests
-    console.log('Running tests...');
-    const jest = spawn('npm', ['test', '--', 'tests/sandbox.test.js'], {
+    // Run Jest tests directly (not via npm test to avoid recursion)
+    console.log(`Running tests against app at http://localhost:${serverPort}...`);
+    const jest = spawn('npx', ['jest', '--testPathPattern=tests/sandbox.test.js', '--no-coverage', '--verbose'], {
       cwd: projectRoot,
       stdio: 'inherit',
       shell: true,
-      env: { ...process.env, TEST_APP_URL: `http://localhost:${serverPort}` }
+      env: { 
+        ...process.env, 
+        TEST_APP_URL: `http://localhost:${serverPort}`,
+        NODE_ENV: 'test'
+      }
+    });
+    
+    jest.on('error', (error) => {
+      console.error('Jest error:', error);
+      cleanup();
+      process.exit(1);
     });
     
     jest.on('close', (code) => {
+      console.log(`Tests completed with exit code: ${code}`);
       cleanup();
       process.exit(code);
     });
