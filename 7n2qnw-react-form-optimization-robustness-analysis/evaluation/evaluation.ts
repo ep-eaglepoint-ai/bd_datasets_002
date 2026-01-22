@@ -1,9 +1,7 @@
-
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
-// Removed uuid import to avoid dependency issues
+import { spawnSync } from 'child_process';
 
 function generateRunId(): string {
     return 'run-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -19,7 +17,7 @@ interface TestResult {
 }
 
 interface TestSummary {
-    passed: boolean; // Computed based on return code
+    passed: boolean;
     return_code: number;
     output: string;
     summary: {
@@ -31,7 +29,7 @@ interface TestSummary {
         numFailedTestSuites: number;
     };
     tests: TestResult[];
-    raw_output: string; // The JSON output from Jest
+    raw_output: string;
 }
 
 interface EvaluationReport {
@@ -55,46 +53,35 @@ interface EvaluationReport {
 
 function runJest(target: 'repository_before' | 'repository_after'): TestSummary {
     const env = { ...process.env, REPO_PATH: target };
-    // Run jest with --json to get structured output. 
-    // We also capture stdout/stderr for the 'output' field (human readable).
-    // Note: --verbose is for human readable, --json gives the data. 
-    // We might need two runs or just use the json output for stats and recreate the human output.
-    // For simplicity, let's run it once with --json and use the json for everything.
+    const result = spawnSync('npx', ['jest', '--json', '--verbose'], {
+        env,
+        encoding: 'utf8',
+        shell: true,
+        stdio: ['pipe', 'pipe', 'pipe']
+    });
 
-    // Actually, user wants "output" field to look like the console output.
-    // Jest's --json outputs the json to stdout.
-
-    let stdout = '';
-    let returnCode = 0;
-
-    try {
-        stdout = execSync('npx jest --json --verbose', { env, encoding: 'utf8' });
-    } catch (e: any) {
-        stdout = e.stdout || '';
-        returnCode = e.status || 1;
-    }
-
-    // output seems to capture the JSON. We need the json content.
-    // Jest with --json prints JSON to stdout. 
+    const stdout = result.stdout || '';
+    const returnCode = result.status || 0;
 
     let jsonResult: any = {};
     try {
         jsonResult = JSON.parse(stdout);
     } catch (e) {
-        console.error("Failed to parse Jest JSON output", stdout);
-        jsonResult = { testResults: [] };
+        const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try { jsonResult = JSON.parse(jsonMatch[0]); } catch { jsonResult = { testResults: [] }; }
+        } else { jsonResult = { testResults: [] }; }
     }
 
-    // Extract tests
     const tests: TestResult[] = [];
     if (jsonResult.testResults) {
         for (const suite of jsonResult.testResults) {
-            for (const assertion of suite.assertionResults) {
+            for (const assertion of suite.assertionResults || []) {
                 tests.push({
                     fullName: assertion.fullName,
                     status: assertion.status,
                     title: assertion.title,
-                    failureMessages: assertion.failureMessages,
+                    failureMessages: assertion.failureMessages || [],
                     location: assertion.location,
                     duration: assertion.duration
                 });
@@ -105,7 +92,7 @@ function runJest(target: 'repository_before' | 'repository_after'): TestSummary 
     return {
         passed: returnCode === 0,
         return_code: returnCode,
-        output: "See raw_output for full details", // We verify via JSON, text output is less critical if we have the structured data
+        output: "See raw_output for full details",
         summary: {
             numTotalTests: jsonResult.numTotalTests || 0,
             numPassedTests: jsonResult.numPassedTests || 0,
@@ -114,10 +101,9 @@ function runJest(target: 'repository_before' | 'repository_after'): TestSummary 
             numPassedTestSuites: jsonResult.numPassedTestSuites || 0,
             numFailedTestSuites: jsonResult.numFailedTestSuites || 0,
         },
-        summary_matrix: [[jsonResult.numPassedTests || 0, jsonResult.numFailedTests || 0]],
-        tests: tests,
+        tests,
         raw_output: JSON.stringify(jsonResult)
-    } as any;
+    };
 }
 
 // Main execution
@@ -132,9 +118,7 @@ const report: EvaluationReport = {
     },
     before: {} as any,
     after: {} as any,
-    comparison: {
-        passed_gate: false
-    },
+    comparison: { passed_gate: false },
     success: false,
     error: null
 };
@@ -146,7 +130,7 @@ try {
     console.log("Running after tests...");
     report.after = runJest('repository_after');
 
-    // Comparison logic
+    // Comparison logic: before should fail, after should pass
     if (!report.before.passed && report.after.passed) {
         report.comparison.passed_gate = true;
         report.success = true;
@@ -154,7 +138,6 @@ try {
         report.comparison.passed_gate = false;
         report.success = false;
     }
-
 } catch (e: any) {
     report.error = e.message;
     console.error("Evaluation failed:", e);
@@ -163,23 +146,17 @@ try {
     report.finished_at = end.toISOString();
     report.duration_seconds = (end.getTime() - start.getTime()) / 1000;
 
-    // Create directory
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-');
+    const dateStr = end.toISOString().split('T')[0];
+    const timeStr = end.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-');
     const dirPath = path.join(__dirname, dateStr, timeStr);
 
     fs.mkdirSync(dirPath, { recursive: true });
-
     const reportPath = path.join(dirPath, 'report.json');
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
     console.log(`Report generated at: ${reportPath}`);
-    // console.log(JSON.stringify(report, null, 2)); // Suppressed as per user request
+    console.log(report.success ? `Evaluation SUCCESS. Improvement detected.` : `Evaluation FAILED. Check report for details.`);
 
-    if (report.success) {
-        console.log(`Evaluation SUCCESS. Improvement detected.`);
-    } else {
-        console.log(`Evaluation FAILED. Check report for details.`);
-    }
+    // Always exit with code 0
+    process.exit(0);
 }

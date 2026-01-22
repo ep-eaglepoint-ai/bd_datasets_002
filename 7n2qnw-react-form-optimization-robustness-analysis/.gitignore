@@ -1,11 +1,17 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.env
-
-# Node
+# Node modules
 node_modules/
 
-# OS
+# Evaluation reports (generated at runtime)
+evaluation/*/
+
+# Build artifacts
+*.log
+*.tmp
 .DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
