@@ -1,0 +1,11 @@
+{
+            "instance_id": "8NBEOD",
+            "problem_statement": "The existing test_csv_to_json.py test suite relies on live HTTP requests, real environment variables, filesystem access, and a running API server, which makes the tests slow, flaky, and difficult to run in isolated or automated environments. These external dependencies introduce nondeterministic behavior, increase maintenance cost, and prevent reliable offline execution. Refactoring the tests to use mocking is necessary to isolate test behavior, ensure consistent and repeatable results, improve execution speed, and make the test suite suitable for continuous integration and local development without requiring external services or system configuration.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/8nbeod-csv-to-json-test-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
