@@ -1,0 +1,728 @@
+Developers Training Handbook for ByteDance Model
+Training Project
+Module 1: Project Mission, Workflow & Lifecycle
+This module serves as the foundational onboarding guide for all stakeholders, including Team
+Leads, Prompt Generators, and Developers. It defines the technical mission of the project and the
+rigorous lifecycle every data point must undergo to ensure the successful evolution of the
+ByteDance Seed model.
+1. Project Context
+The objective of this initiative is the targeted advancement of the ByteDance Seed model. While
+the model currently demonstrates high-level proficiency in general coding tasks, it exhibits specific
+logical "lags" when benchmarked against global State-of-the-Art (SOTA) models such as the latest
+versions of ChatGPT and Claude.
+Our mission is to identify the precise boundaries of these capabilities and provide high-density,
+synthetic data to bridge that gap. We are not merely building a collection of code; we are
+engineering a specialized curriculum designed to push the model toward the absolute edge of its
+logical capacity.
+2. Statistical Failure Verification
+To ensure maximum training efficiency, we do not produce data for problems the model can
+already solve. We utilize a strict protocol to calibrate the difficulty of every task:
+● Every proposed coding challenge is first executed against the ByteDance Seed model for
+five independent iterations. A prompt is only valid if the model fails to produce a correct
+solution in at least two out of the five attempts. This ensures we target consistent reasoning
+deficits rather than stochastic errors.
+● Simultaneously, the prompt must be verified as solvable by a SOTA model. If external
+models also fail, the prompt is deemed "Too Cold" (logically flawed or ambiguous) and is
+discarded.
+● We focus exclusively on the complexity range where the Seed model fails but a superior
+intelligence succeeds.
+3. Priority Buckets
+Our work is categorized into specific technical buckets to ensure balanced training across the
+software engineering lifecycle.
+Bucket Tag Category Tag Description Priority
+(1-highest)
+feature 0_1_gen Generate an entire application from
+scratch.
+1
+feature feature_refactoring Redesigning or restructuring features
+without changing behavior.
+1
+code_qualit
+y_reliability
+testing Adding or updating automated tests
+(unit/integration/e2e).
+1
+code_qualit
+y_reliability
+code_migration Porting or upgrading code
+(frameworks, versions, APIs).
+1
+code_qualit
+y_reliability
+performance_optimi
+zation
+Improving speed, memory, or
+scalability.
+1
+security_co
+mpliance
+security_compliance Vulnerability fixes, patching, audits, and
+licensing.
+1
+documentati
+on_knowled
+ge
+documentation_expl
+anation
+READMEs, tutorials, API docs,
+diagrams, and design notes.
+1
+product_use
+r_ux
+ux_ui Visual design, usability, and UI
+implementation.
+1
+feature new_feature_develo
+pment
+Building brand-new functionality from
+scratch.
+2
+feature enhancing_existing_
+features
+Improving or extending already
+implemented features.
+2
+infrastructur
+e_delivery
+dockerization_envir
+onment_setup
+Containerization, local setup scripts,
+and reproducibility.
+2
+infrastructur
+e_delivery
+ci_cd_build_system
+s
+Continuous integration, build pipelines,
+and automation.
+2
+infrastructur
+e_delivery
+dependencies Adding, updating, or removing external
+libraries.
+2
+infrastructur
+e_delivery
+infrastructure Server configs, cloud resources, and
+deployment environments.
+2
+code_qualit
+y_reliability
+bug_fixing Correcting defects or unintended
+behavior.
+3
+code_qualit
+y_reliability
+code_style_formatti
+ng
+Linting, formatting, or stylistic cleanup. 3
+4. The End-to-End Workflow & Lifecycle
+The production of a single training data point follows a linear, rigorous pipeline. Stakeholders must
+ensure no noise or ambiguity is introduced at any stage.
+Phase I: Prompt Engineering
+Prompt generators generate highly specific, objective prompts. These are formal engineering
+requirements that define the problem space with absolute precision, including function signatures,
+time/space complexity constraints, and edge-case handling requirements.
+Phase II: Verification & Calibration
+As mentioned before, the prompt is tested against the Seed model (2/5 rule) and SOTA
+benchmarks. This phase identifies the Reasoning Pivot and the exact point where the model's logic
+breaks.
+Phase III: Ground Truth Engineering
+Developers implement the Ground Truth (GT). This is the definitive reference solution the model
+will emulate during Supervised Fine-Tuning (SFT). At this stage:
+● The code must be simple, clear, and idiomatic.
+● Solutions must produce identical results across all executions. Reliance on system time,
+unseeded randomness, or external networks is strictly prohibited.
+Phase IV: Test Suite Construction
+For every GT, a comprehensive test suite is developed. In Reinforcement Learning (RL), these
+tests act as the Reward Function. The model is rewarded if it passes and penalized if it fails. For
+Testing category prompts, developers must write Meta-Tests to verify the validity of the developed
+tests.
+Phase V: Containerization & Integration
+To ensure reproducibility across training clusters, every task is encapsulated in a Docker container.
+This freezes the tech stack and ensures Bit-Level Reproducibility. Files must be organized
+according to the standardized directory structure to allow for automated ingestion into the dataset.
+Module 2: Project Structure & Dockerization Standards
+In high-performance AI training, code is treated as data. Unlike a standard web application that
+runs on a specific server, the code you write for this project will be executed millions of times
+across distributed clusters, often months after you submit it. This requires a shift in mindset from
+"making it work" to "making it reproducible."
+Part 1: Theoretical Foundations
+Before writing a single line of code, developers must understand the systems engineering concepts
+that drive our quality standards.
+1.1 Containerization & The Hermetic Standard
+Containerization allows us to package an application with all of its parts—libraries, dependencies,
+and system-level tools—into a single, lightweight unit called a container. Unlike a Virtual Machine
+(VM) which simulates hardware, a container shares the host's OS kernel but isolates the
+application execution.
+We use Docker to solve the "Matrix of Hell"—the problem where code works on a developer's
+MacBook with Python 3.11 but fails on a Linux training node running Python 3.9. Docker ensures
+that the operating system (e.g., Debian vs. Alpine), system libraries (e.g., gcc, openssl), and
+language runtimes are identical for every user, every time. This is critical for security and stability.
+The code running inside the container cannot affect the host machine, and the host machine's
+configuration cannot affect the container.
+For this project, we strive for Hermetic Builds. This means the execution is sealed off from the
+outside world. The code must not rely on anything installed on your local computer. If it’s not in the
+Dockerfile, it doesn't exist. Ideally, once the container is built, the tests should run without needing
+to fetch data from the internet. This prevents flakey tests caused by network timeouts or external
+API changes.
+In this project, you will see a requirement for a trajectory folder. A trajectory is the recording of the
+"Chain of Thought" (CoT). It represents the logical path a human takes to solve a problem. Current
+LLMs are good at guessing the answer, but they struggle with reasoning. By recording your
+intermediate steps—your analysis, your failures, and your resource lookups—we provide the
+model with a map of how to think, not just what to write.
+Part 2: Practical Implementation Guide
+This section details the rigid standards you must follow. Automated scripts will reject any
+submission that deviates from this structure.
+2.1 The Three-Command Rule
+The golden rule of this project is Zero Manual Intervention. Any stakeholder must be able to clone
+your repository and run the entire lifecycle using only three commands. You must configure your
+docker-compose.yml or Makefile to support these distinct operations:
+1. A command that sets up the environment and runs the code before the solution is applied.
+2. A command that runs your Ground Truth solution.
+3. A command that executes the tests and generates the evaluation report.
+If a reviewer has to manually create a folder, install a generic library, or fix a path error, the
+task is immediately rejected.
+2.2 Detailed Directory Architecture
+You will organize your work into the following strict folder hierarchy.
+1. repository_before/ (The Problem State)
+● This folder contains the codebase exactly as it exists before the specific task is addressed.
+● Content:
+○ Refactoring Tasks: The messy, unoptimized, or buggy code.
+○ Test Generation Tasks: The working code without the requested tests.
+○ Feature Generation Tasks: This folder might be empty or contain a minimal
+scaffold/skeleton.
+● Do not include any part of your solution here.
+2. repository_after/ (The Ground Truth)
+● This folder contains the "After" state—the definitive solution to the prompt.
+● It is essentially repository_before + your changes. It must contain the clean, optimized,
+verified code that solves the problem.
+● This code must pass all tests and be production-ready.
+3. tests/ (The Verification Layer)
+● This folder contains the tests that prove the validity of the Ground Truth.
+● Unit tests, integration tests, or end-to-end suites.
+● The Logic Flow:
+○ These tests should ideally fail when run against repository_before (proving the
+problem exists).
+○ These tests must pass when run against repository_after (proving the problem is
+solved).
+● If the prompt asks the model to write tests, your solution tests go in repository_after. The
+tests/ folder will then contain Meta-Tests—scripts that check if the tests in repository_after
+are valid and cover the code correctly.
+4. evaluation/
+● This folder handles the output of the testing process.
+● Content:
+○ Scripts to execute the tests.
+○ A generated file containing detailed metrics: execution time, pass/fail status, and
+error logs.
+● The tests folder contains the logic, while evaluation contains the runner and report.
+5. instances/
+● A JSON file (instances.json) that acts as the "ID Card" for the task. It links the prompt to the
+specific technical verification steps.
+● Schema Fields:
+○ problem_statement: The exact text prompt given to the AI.
+○ base_commit: Points to repository_before.
+○ repo: The URL of the repository.
+○ FAIL_TO_PASS: A list of specific test cases that fail in the "Before" state but pass in
+the "After" state. This proves you did work.
+○ PASS_TO_PASS: Regression tests that pass in both states.
+6. patches/
+● A .patch file generated by git.
+● The exact difference between repository_before and repository_after.
+● This allows the model to learn the specific edit actions required to solve the problem (e.g.,
+"Delete lines 10-15, Insert lines 10-12").
+7. trajectory/
+● A trajectory.md file documenting your engineering process.
+● Content:
+○ Analysis: How you deconstructed the prompt.
+○ Strategy: Why you chose this specific algorithm or pattern.
+○ Execution: Step-by-step implementation details.
+○ Resources: Links to documentation or concepts used.
+8. Root Level Configs
+● README.md: Must describe the problem and list the Docker commands.
+● Dockerfile: The blueprint for the environment.
+● Dependencies: requirements.txt, package.json, etc. These files ensure the environment is
+reproducible.
+Module 3: AI Fundamentals & Prompt Engineering
+This module bridges the gap between traditional software engineering and the specific science of
+training Large Language Models (LLMs). To produce high-utility training data, you must understand
+not just how to write code, but how a model learns from the data you provide. In this project, you
+are not merely solving a ticket; you are designing the pedagogical material for an artificial
+intelligence.
+1. The Mechanics of Learning: SFT and RL
+Large language models are primarily refined through two distinct training methodologies. Your work
+serves as the critical input for both, and understanding their differences is essential for creating
+data that actually improves the model.
+1.1 Reinforcement Learning (RL): Learning by Exploration
+Reinforcement Learning (RL) is the process of training a model on how to think and choose. In the
+RL, the model is given only the prompt and is allowed to guess thousands of different solutions.
+These attempts are then executed against your Test Suite.
+The model receives a Reward Signal based on the outcome: a positive reward (+1) if it passes all
+tests and a negative penalty (-1) if it fails. Over time, the model internalizes which trajectories or
+logical paths lead to successful outcomes. Your role here is that of a Judge. If your tests are too
+weak (allowing a buggy solution to pass), the model will reward hack—it will learn to satisfy the test
+cases without actually solving the underlying logical problem.
+1.2 Supervised Fine-Tuning (SFT): Learning by Imitation
+Supervised Fine-Tuning is the process of training a model on a curated dataset of input-output
+pairs. SFT, follows a similar a similar pattern to RL but SFT based datasets should contain
+trajectories that “inform” the model on how to arrive at the given solution.
+Because SFT is a process of pure imitation, the model does not question your solution; it assumes
+your code is the perfect standard. If your Ground Truth contains subtle bugs, inefficient patterns, or
+poor naming conventions, the model will learn to reproduce those exact flaws. This is why SFT
+data must be textbook quality—it should represent the most idiomatic, clean, and efficient way to
+solve the problem.
+2. The Science of Trajectories (Chain of Thought)
+In advanced reasoning models, we do not just care about the final answer; we care about the
+"Chain of Thought" (CoT) that led to it. This sequence of intermediate steps is called a Trajectory.
+2.1 Why Trajectories Matter
+A trajectory represents the "scratchpad" of the mind. By training a model on trajectories, we teach
+it to break down complex problems into manageable sub-tasks. Instead of jumping straight to a
+block of code, a model trained on good trajectories will first analyze requirements, plan its
+architecture, consider edge cases, and then implement the solution.
+2.2 Constructing the trajectory.md
+Your trajectory.md file is as valuable as your code. It serves as a human-authored exemplar of
+perfect reasoning. A high-quality trajectory must cover:
+● Decomposition: Explaining how you broke the prompt into logical steps.
+● Selection: Why you chose a specific algorithm (e.g., "I used a sliding window here to
+maintain O(n) complexity").
+● Self-Correction: Documenting any "dead ends" you encountered. If you initially tried a
+recursive approach but realized it would hit a stack limit, documenting that thought process
+helps the model learn to avoid and correct its own mistakes.
+3. Prompt Engineering Architecture
+A prompt in this project is not a simple question; it is a Formal Technical Specification. To
+effectively drive the model to its "reasoning edge," every prompt must be constructed with four
+distinct layers of information.
+3.1 Instruction and Instruction-Context
+The first layer is the core directive. It must use active, unambiguous verbs. Instead of saying "Help
+me with this code," a professional prompt says "Refactor the following class to implement the
+Observer pattern." The instruction must be paired with sufficient context: you must provide all
+necessary class signatures, existing dependencies, and environment details (e.g., "This is a
+Python 3.11 environment using the Fast API framework").
+3.2 Constraints: The Reasoning Drivers
+Constraints are the most important part of the prompt because they create the "difficulty" that
+triggers reasoning. Without constraints, the model will provide the simplest, most generic answer it
+has memorized. We use several types of constraints to "trap" the model into having to think:
+● Algorithmic Constraints: "The solution must have a time complexity of O(nlogn) or better."
+● Resource Constraints: "Do not use external libraries like NumPy; implement the matrix
+multiplication using standard Python lists."
+● Structural Constraints: "The function must be recursive and must not use any global
+variables."
+3.3 The Verification Layer (The 2/5 Failure Protocol)
+To ensure we are not wasting resources on easy data, every prompt undergoes the 2/5 Failure
+Protocol. We run the prompt through the ByteDance Seed model five times. If the model solves it
+4 or 5 times, the prompt is "Too Hot"—it is too easy for the model’s current capability. If it fails at
+least 2 out of 5 times, we have identified a "Capability Gap."
+We then verify this gap against a State-of-the-Art (SOTA) model like GPT-4o. If SOTA can solve it
+but our Seed model cannot, we have found the perfect "Goldilocks" prompt: a problem that is
+demonstrably solvable but remains currently out of reach for our target model.
+4. Categorical Deep-Dive
+We categorize prompts into "Buckets" to ensure the model receives a balanced education across
+all aspects of software engineering.
+● Feature Generation (0-1): These prompts require high-level architectural reasoning. The
+model must plan an entire system from a blank slate.
+● Performance Optimization: These focus on efficiency. The model is given working but
+slow code and must identify bottlenecks.
+● Testing and Reliability: In these tasks, the model is either asked to find bugs (Debugging)
+or write its own test suites. This teaches the model to be "adversarial" toward its own code.
+● Security and Compliance: These prompts force the model to identify vulnerabilities like
+SQL injection or memory leaks, internalizing the "Secure by Design" philosophy.
+The following is a comprehensive guide on the Criteria for High-Fidelity Prompts. This standard
+is derived from the rigorous engineering evaluation of the EaglePoint AL dataset and is designed
+specifically to produce training data that moves the model from "Junior Coder" to "Senior Systems
+Engineer."
+The Gold Standard: Engineering Prompt Criteria
+A high-quality prompt in this project is not a simple question; it is a Technical Requirement
+Document (TRD). It must be structured to force the model to engage in complex reasoning,
+constraint management, and architectural planning.
+I. Context & Role Definition (The Setup)
+The prompt must anchor the model in a specific professional reality.
+● Role Identification: Explicitly assign a persona. The model behaves differently when told it
+is a "Senior Backend Engineer" (focus on stability/scale) vs. a "Data Scientist" (focus on
+exploration/visualization).
+● Business Scenario: Provide the "Why." Code is never written in a vacuum. A generic "sort
+this list" is low-value. "Sort this list of 5M+ CRM contacts by interaction date for a real-time
+dashboard" is high-value.
+● Strategic Ambiguity: Do not spoon-feed every minor detail. Leave reasonable gaps that a
+senior engineer would infer (e.g., "handle standard error logging" without specifying the
+exact log format). This forces the model to use its "World Model" to fill in best practices.
+II. Constraint Engineering
+Constraints are the primary mechanism for increasing difficulty and forcing specific reasoning
+paths.
+● Negative Constraints ("The Do-Nots"): Explicitly forbid "lazy" solutions.
+○ Example: "Do not introduce new PyPI dependencies."
+○ Example: "Do not modify the existing function signature of process_transaction."
+● Quantitative Performance Metrics (SLAs): Replace vague adjectives with hard numbers.
+○ Bad: "Make it fast."
+○ Good: "Execution time must be <100ms for 10^5 records." / "Space complexity must
+not exceed O(N)."
+● Environment Constraints: Simulate real-world limitations.
+○ Example: "The system runs on a memory-constrained IoT device with 512MB
+RAM."
+III. Reasoning Complexity (The Chain of Thought)
+The prompt must require a multi-step logical journey, not a direct jump to code.
+● The "Prove-Fix-Prevent" Loop: For debugging tasks, the prompt should require the
+model to:
+○ Prove: Write a reproduction script to confirm the bug.
+○ Fix: Apply the patch.
+○ Prevent: Add a regression test to ensure it doesn't come back.
+● Structural Complexity: Force the model to think about dependencies.
+○ Example: "Refactor the deadlock-prone database access layer while maintaining
+strict backwards compatibility for legacy API clients."
+IV. Acceptance Clarity (The Definition of Done)
+The model must know exactly when it has succeeded.
+● Test-Mapped Requirements: Every constraint in the prompt must map to a verifiable test
+case. If you ask for "<0.2s latency," there must be a benchmark test.
+● Scenario Coverage: Explicitly list the critical flows.
+○ Example: "Solution must handle: 1. Success path, 2. Insufficient balance, 3. Invalid
+account ID."
+Dos and Don'ts Checklist
+1. Prompt Engineering
+Category DO DON'T
+Context "Act as a Lead SRE. We are seeing transaction
+timeouts during Black Friday traffic spikes..."
+"Write a python script to fix timeouts."
+Constraints "Refactor legacy_parser.py. You MUST
+preserve the bug where malformed dates return
+None (legacy behavior)."
+"Fix the code and make it better."
+Performance "Ensure the algorithm scales to 5M+ entries
+with O(N log N) complexity."
+"Make the sorting algorithm efficient."
+Ambiguity "Implement a retry mechanism for network
+calls." (Forces model to choose strategy:
+exponential backoff vs. linear).
+"Implement a retry mechanism using
+exponential backoff with a jitter of 0.1
+and max retries of 3." (Too
+instructive).
+Scope "Focus ONLY on the PaymentGateway class.
+Do not touch the UI layer."
+"Update the app to handle payments."
+(Scope creep risk).
+2. Testing Requirements
+Category DO DON'T
+Adversarial "Include a test case that injects 50 concurrent
+requests to trigger potential race conditions."
+"Test if the function returns true."
+Negative Tests "Verify that passing a null UserID throws a
+ValueError strictly."
+"Check if the function works."
+Isolation "Use unittest.mock to simulate the database
+connection. Do not rely on external servers."
+"Connect to the dev database to test."
+(Flaky).
+Meta-Testing "If the prompt asks the model to write tests: Run
+the AI's tests against a buggy version of the
+code. If they pass, the AI failed."
+"Run the AI's tests against the AI's
+code. If green, pass." (Self-delusion).
+Critical Failure Modes to Avoid
+● Do not list every single edge case in the prompt. If you list 10 test scenarios, the model just
+hardcodes them. Instead, say "Handle all standard boundary conditions for financial
+transactions," forcing the model to reason that negative numbers and overflow are risks.
+● Avoid prompts that result in isolated, simple scripts. Real engineering happens in
+repositories. Even if the task is small, frame it within a larger context (e.g., "This function is
+part of a distributed microservice...").
+● When documenting the reasoning trajectory (Chain of Thought), do not write a perfect,
+linear path. Real engineers hit dead ends. Include the "debug process": "I initially tried
+recursion, but realized it would hit stack limits on the IoT device, so I switched to an
+iterative approach."
+Before submitting a prompt, ask:
+1. Is it Professional? Does it sound like a Jira ticket or a Slack message from a Tech Lead?
+2. Is it Hard? Would a junior developer struggle with the constraints (e.g., memory limits,
+concurrency)?
+3. Is it Verifiable? Can I write a test that definitively proves the constraints were met?
+4. Is it Useful? Does solving this teach the model a specific engineering concept (e.g.,
+deadlocks, O(N) scaling)?
+5. Summary: The Developer’s Mindset
+When you act as a Prompt Generator or Developer in this project, you are a Curriculum
+Designer. Your goal is to find the hardest possible problem that is still objectively solvable. You
+must ensure that your Ground Truth is the "perfect" solution and that your tests are an
+"impenetrable" judge. By doing so, you provide the high-signal data necessary to move the
+ByteDance Seed model from a "good" coder to a "master" engineer.
+Module 4: Writing "Ground Truth" Solutions
+The Ground Truth (GT) is the fundamental "Unit of Truth" in the model’s training lifecycle. Within
+this section, we move beyond simple code correctness to explore the engineering principles that
+make a piece of code High-Signal for Machine Learning.
+Theoretical Foundations
+1. The Pedagogical Role of Ground Truth
+In a typical development environment, code is a tool to achieve a functional end. In this project,
+code is a pedagogical artifact. When the ByteDance Seed model undergoes Supervised
+Fine-Tuning (SFT), it treats your implementation as the objective ideal.
+● The model does not just learn the logic; it learns the texture of the code. If you use a
+non-standard way to iterate over a list, the model will learn that non-standard way as the
+default.
+● High-quality GT data creates a steep learning gradient. By providing code that is modular,
+properly typed, and semantically named, we are teaching the model to write code that is
+maintainable by human engineers.
+2. Absolute Determinism
+For an AI to learn effectively, the relationship between a Prompt and a Solution must be stable. If
+the same code produces different outputs or behaviors during training iterations, the model’s
+gradient update becomes noisy, leading to poor convergence.
+2.1 Sources of Non-Determinism
+A developer must actively hunt for and eliminate Stochastic Leaks in the Ground Truth:
+● In many languages (like Python 3), the hash seed for strings and certain objects is
+randomized by default. If your solution relies on the order of a dict or set, it may vary across
+executions.
+○ Example: Instead of return list(set(data)), use return sorted(list(set(data))).
+● If an algorithm requires random number generation (e.g., shuffling a dataset or initializing
+weights), you must use a Constant Seed.
+○ Example: Use random.seed(42) or numpy.random.default_rng(seed=42).
+● Floating-point math (0.1 + 0.2 = 0.3) can vary slightly across different hardware
+architectures. In mathematical tasks, always specify a tolerance or use fixed-point
+arithmetic if bit-for-bit equivalence is required.
+3. The "KISS" Principle in Synthetic Data
+KISS (Keep It Simple, Stupid) is a technical requirement, not a stylistic preference. The goal is to
+maximize the Signal-to-Noise Ratio.
+3.1 Reducing Cognitive Load for the Model
+When the model predicts tokens, every unnecessary abstraction is a "distraction."
+● Avoid clever code. Do not use eval(), complex decorators, or obscure bitwise hacks unless
+the prompt specifically requests them.
+● Use the most common, standard way to solve a problem. For example, in Python, use with
+open(...) for file handling rather than manually calling .close(). The model should learn the
+Best Practice, not your unique signature.
+3.2 The Single-Responsibility Principle (SRP)
+Each function in your Ground Truth should do one thing and do it well. This helps the model map
+specific parts of the natural language prompt to specific blocks of code.
+● Bad: A 50-line function that parses data, calculates a score, and formats a report.
+● Good: Three distinct functions (parse_data, calculate_score, format_report) that are called
+in sequence.
+4. Semantic Integrity and Self-Documentation
+The model learns the meaning of code through the relationship between variable names and their
+usage.
+● Avoid x, y, i, temp, or data. Use semantic names like user_id_list, unprocessed_records, or
+retry_counter. This provides the model with semantic anchors that connect the code to the
+problem statement.
+● Comments should not state the obvious (# increment i). Instead, they should explain the
+rationale (# Use a sliding window to maintain O(n) time complexity). This teaches the model
+the "Why" behind the "How."
+5. Handling Assumptions and Ambiguity
+If a prompt is 95% clear but has 5% ambiguity (e.g., it doesn't specify how to handle a negative
+input), the developer must:
+1. Choose the most standard engineering path (e.g., raise a ValueError).
+2. Explicitly document that assumption in both the code comments and the trajectory.md.
+3. Reflect that assumption in the Test Suite.
+If the model is trained on a solution that makes a specific assumption, but the test suite expects
+something else, the training signal is destroyed. Consistency across the GT, Tests, and
+Documentation is paramount.
+Practical Analysis and Implementation
+The transition from a conceptual problem to a production-grade Ground Truth requires a disciplined
+analytical approach. In this phase, the developer acts as a bridge between the abstract
+requirements of the prompt and the rigid, deterministic reality of the code. Success depends on a
+comprehensive deconstruction of the task before a single character is typed.
+1. Requirement Deconstruction
+The first step in implementation is the exhaustive extraction of all explicit and implicit requirements
+from the prompt. A prompt is essentially a technical contract; any deviation from its terms, however
+small, renders the data point invalid. You must identify the functional core—what the code must
+do—and separate it from the non-functional constraints, such as time complexity, memory limits, or
+specific library versions. Often, prompts include "trap" constraints designed to force the model
+away from a generic solution toward a specific reasoning path. For example, if a prompt forbids the
+use of the math library in a geometric calculation, the developer must implement the logic using
+basic arithmetic or Taylor series, reflecting that specific constraint in the Ground Truth to teach the
+model alternative logic paths.
+Beyond the text, you must analyze the input-output contract. This includes the exact data types
+expected, the handling of empty or null inputs, and the specific error messages or exceptions to be
+raised. If the prompt specifies a return type of a tuple but the developer returns a list, the training
+signal is broken because the model will observe a mismatch between the instruction and the
+realization. This analytical phase ensures that the developer is solving the exact problem
+presented, not a generalized or "fixed" version of it.
+2. Scope Adherence
+A common pitfall for experienced developers is the tendency to "over-engineer" or "sanitize" a
+prompt. You must solve the task exactly as requested, focusing only on the specified problem
+requirements. If a prompt asks for a function that parses a specific, non-standard date format, your
+solution should not include support for other formats "just in case." This "Scope Creep" introduces
+noise into the dataset, as the model may struggle to distinguish which part of the code corresponds
+to the specific instruction in the prompt.
+Adherence to scope also means respecting the technical level of the task. If a prompt asks for a
+basic solution intended for a beginner-level challenge, implementing a highly optimized,
+multi-threaded version is counterproductive. The Ground Truth must match the "cognitive load"
+suggested by the prompt. This ensures that when the model is trained, it learns to map the
+complexity of a request to an appropriately complex implementation, rather than defaulting to
+over-designed patterns for simple tasks.
+3. Implementation and Logic Extraction
+Once the requirements are fully internalized, the implementation must follow the path of maximum
+clarity. This often involves a process of "Refactoring for Logic Extraction." Instead of writing one
+continuous block of code, the developer should structure the Ground Truth so that the logical flow
+is obvious. This is achieved by extracting complex sub-steps into private helper functions with
+clear, semantic names. For example, in a data processing task, the "cleaning," "transformation,"
+and "aggregation" steps should be clearly demarcated. This modularity allows the model to see a
+one-to-one mapping between the natural language steps in its reasoning and the functional blocks
+in the code.
+During implementation, every decision must be viewed through the lens of reproducibility. If you are
+writing a solution for a performance-optimized bucket, you must ensure that your optimization
+doesn't rely on hardware-specific "hacks" that might behave differently in a containerized training
+environment. The code must be robust enough to handle adversarial inputs defined in the prompt
+while remaining strictly within the bounds of the provided environment.
+4. Documenting the Reasoning Path
+The final stage of the Practical Implementation is the alignment between the code and the
+trajectory.md. The code should contain comments that act as "Reasoning Anchors." These
+comments should not describe what the code is doing (which should be clear from the code itself),
+but rather why a specific path was chosen in light of the requirements. If a prompt imposes a
+memory constraint, a comment explaining that "a generator is used here to ensure O(1) space
+complexity as per requirements" provides a direct link for the model to learn the rationale.
+This documentation serves as the final verification of your analysis. If you find it difficult to explain
+why a certain piece of code exists in the Ground Truth, it may be a sign of scope creep or a
+misunderstanding of the original requirements. By the end of this phase, the Ground Truth should
+be a self-contained, perfectly documented, and strictly bounded solution that serves as the ultimate
+reference for the ByteDance Seed model.
+Module 5: Testing & Evaluation
+Testing in the context of training Large Language Models is a discipline of strict verification. Unlike
+traditional QA, where the goal is to ensure a product is good enough for users, testing for AI
+training must ensure that every single requirement, constraint, and nuance in a prompt is perfectly
+fulfilled. The test suite serves as the ground-truth judge that evaluates if the model has truly
+followed the pedagogical contract set by the developer.
+1. Testing as Requirement Fulfillment
+The core philosophy of this module is that a test suite is the executable mirror of the prompt. If a
+prompt specifies that a function must handle a specific data type, run within 50ms, and avoid using
+the regex library, the test suite must contain dedicated checks for all three.
+1.1 The Mapping Principle
+Every requirement in your prompt should have a corresponding "test anchor." If the model
+generates a solution that passes a generic test but fails to meet a specific constraint (e.g., using a
+forbidden library), the test suite has failed its primary mission. In AI training, a "pass" must mean
+that the model has followed all instructions, not just achieved the functional result. This mapping
+ensures that the Reinforcement Learning (RL) signal is "clean"—rewarding the model only when it
+obeys the full set of engineering constraints.
+1.2 Scenario-Based Logic Coverage
+Models often fail not on the "happy path," but in the "interaction of constraints." For example, a
+model might correctly implement an O(n) algorithm (Requirement A) but fail to handle a null input
+(Requirement B) simultaneously. Your tests must simulate these intersectional scenarios. You
+should design tests that combine constraints, such as "processing a maximum-sized input that is
+also malformed," to ensure the model's logic is robust across the entire problem space defined in
+the prompt.
+2. Test Design for Complex Scenarios
+A comprehensive test suite must be tailored to the specific category of the task. Different
+engineering problems require different verification strategies to ensure the prompt's intent is fully
+realized.
+2.1 Functional and Structural Verification
+For feature generation tasks, your tests must go beyond output checking to verify structural
+compliance. If a prompt requires a class to implement a specific interface or pattern (like the
+Singleton or Observer pattern), the test suite should use reflection or introspection (e.g., hasattr or
+isinstance in Python) to verify that the generated code actually possesses the required
+architectural traits. This prevents the model from "faking" a behavior through a global variable
+when a specific structure was requested.
+2.2 Performance and Scalability Stress
+When a prompt includes efficiency requirements—such as "must process 1 million records in under
+1 second"—the test suite must act as a high-fidelity benchmark. You should generate synthetic
+data that precisely matches the scale mentioned in the prompt. A common failure in AI testing is
+using a sample that is too small (e.g., 10 records), which allows a O(n^2) algorithm to pass even if
+the requirement was O(n). Tests must trap the model by providing inputs large enough to expose
+sub-optimal complexity.
+2.3 Comprehensive Edge-Case Exhaustion
+A good test is one that covers every edge case that might affect the fulfillment of the requirements.
+This includes:
+● Empty and Extreme Values: Testing with 0, -1, empty strings, and maximum 64-bit
+integers.
+● Concurrency and State: If the prompt mentions thread-safety, the tests must launch
+multiple threads to probe for race conditions.
+● Environmental Constraints: If the prompt specifies a certain Python version or library, the
+tests should verify that no prohibited modern syntax or external dependencies were
+sneaked in.
+3. Meta-Testing: Evaluating the Evaluator
+Meta-testing is the process of verifying the quality of the tests themselves, especially when the
+model's task is to generate a test suite. Instead of relying on automated mutation, we perform a
+deep verification of Requirement Traceability and Implementation Integrity.
+● Requirement Traceability Verification: ensures that the written tests cover every single
+logical branch and constraint mentioned in the prompt. A meta-test in this context acts as a
+requirement auditor. It checks that there is a one-to-one mapping between the prompt’s
+constraints and the test cases. If a prompt mentions "handling invalid API keys," but no test
+case simulates an invalid key, the test suite is incomplete. This phase validates that the
+tests provide 100% requirement coverage, which is often more important than simple line
+coverage in AI training.
+● Implementation Integrity Checks: focus on whether the tests are written correctly
+according to the prompt's environmental standards. We verify that the tests are not false
+positives—tests that pass for the wrong reasons. This involves checking that the test
+assertions are specific enough to catch subtle logical errors. For instance, a meta-test
+would flag a test that only checks if a function returns a list when it should be checking
+the specific content of that list.
+4. Advanced Adversarial Testing
+Adversarial testing is a proactive attempt to break almost correct code. This is the most difficult but
+highest-value part of the evaluation process.
+AI models often provide a solution that works for the provided examples but fails for any variation.
+Adversarial testing involves input perturbation—slightly modifying a valid input in a way that should
+change the output or cause an error, and verifying that the model's code handles it correctly. For
+instance, if the model writes a parser, an adversarial test might inject unusual Unicode characters
+or hidden control sequences to see if the parser crashes or misinterprets the data.
+Developers must look for common AI failure modes to inform their adversarial tests. For example,
+● Instruction forgetfulness occurs when the model solves the main problem but ignores a do
+not use X library rule.
+● Logical shortcuts happen when the model uses a try-except block to hide a bug instead of
+fixing the underlying logic.
+● Hardcoded Answers involve the model detecting specific values in your examples and
+returning them as hardcoded constants.
+Adversarial tests should be designed specifically to catch these "lazy" behaviors, ensuring that the
+only way for the model to pass is to truly understand and implement the requested logic.
+Module 6: Performance & Data Handling
+In the final stage of training data engineering, we shift focus from logical correctness to
+computational efficiency. High-quality training data must teach the model that "working code" is not
+enough; code must also be scalable, resource-conscious, and safe under heavy load. This module
+covers the theoretical intuition of complexity and the practicalities of handling large-scale data.
+1. Complexity Analysis: Developing Big-O Intuition
+Complexity analysis is the mathematical language used to describe how an algorithm's resource
+requirements grow relative to the size of its input. For the ByteDance Seed model, internalizing this
+intuition is what separates a "coder" from an "engineer."
+We focus on Worst-Case Complexity (O) because it provides an upper bound on execution time.
+The goal is to train the model to recognize red flag patterns during the reasoning phase. For
+example, a nested loop over a list of size n immediately signals O(n^2) complexity. If the prompt's
+constraints require O(nlogn), the model must learn to reject the nested loop approach in favor of a
+divide-and-conquer strategy or a more efficient data structure like a Heap or Balanced BST.
+1.2 Time vs. Memory Trade-offs
+Engineering is often the art of compromise. The model must understand when it is appropriate to
+sacrifice memory to save time (and vice versa). For example, Using a Hash Map (O(n) space) to
+store pre-calculated values can reduce a search operation from O(n) to O(1). This is common in
+optimization tasks. Using a generator or a streaming approach (O(1) space) to process a large file
+might take longer due to I/O overhead but prevents a "Memory Overflow" error. In the Ground
+Truth, if you choose a memory-intensive approach, your comments must justify it based on the
+prompt's latency requirements.
+2. Designing Performance-Gated Tests
+To ensure the model respects complexity constraints, we design tests that fail by design when a
+solution is inefficient. This is known as "Performance Gating."
+A standard unit test checks if 2 + 2 = 4. A performance-gated test checks if the code can calculate
+2 + 2 for a million iterations within a 100ms window. To implement this, we use large synthetic
+inputs. If the prompt requires an O(n) solution, we provide an input size (n = 10^6) where an
+O(n^2) solution would take several minutes to complete, eventually hitting a timeout set in the test
+runner.
+2.2 Benchmarking Implementation
+When writing these tests in pytest, we use the time module or specialized benchmarking fixtures. It
+is important to set the threshold with a buffer for environment. Since training environments (like
+Docker containers) might have shared CPU resources, the timeout should be strict enough to
+catch incorrect Big-O complexity but generous enough to avoid flaky failures caused by minor
+system jitters.
+3. Safe and Efficient Data Handling
+When dealing with real-world scenarios, data is rarely small or perfectly formatted. The model must
+be trained to handle large-scale inputs without crashing the system.
+3.1 Streaming and Chunking
+Loading a 10GB file into RAM is a critical failure in engineering. High-quality Ground Truth
+solutions for data tasks must demonstrate Iterative Processing. For example, in Python, Instead of
+data = file.read(), use for line in file: or pd.read_csv(chunksize=1000). That would be the equivalent
+of using BufferedReader or Stream API rather than reading all bytes into a buffer.
+By providing these as the Ground Truth, the model learns that safe data handling is the default
+standard for professional code.
+3.2 Avoiding Inefficient Access Patterns
+The model must learn to avoid N+1 query problems and inefficient look-behind logic. In data-heavy
+tasks (Python/NumPy/Pandas), teach the model to use vectorized operations instead of manual
+loops. Vectorization leverages CPU SIMD (Single Instruction, Multiple Data) instructions, offering a
+massive performance boost. If the size of an output array is known, the model should pre-allocate
+the memory rather than dynamically growing the array (e.g., using .append() in a loop), which
+triggers frequent and expensive re-allocations.
+Summary
+As we conclude this comprehensive handbook, it is essential to reflect on the holistic lifecycle of
+high-fidelity training data. You are no longer just a software engineer; you are a Data Architect for
+the next generation of artificial intelligence. Every decision you make—from the phrasing of a
+constraint to the design of a stress test—directly shapes the intelligence of the ByteDance Seed
+model.
+The core of our methodology rests on three pillars: Precision, Adversarialism, and Pedagogy.
+● Precision ensures that your Ground Truth is the definitive, deterministic standard that the
+model can rely on without confusion.
+● Adversarialism drives you to write tests that don't just confirm success, but actively hunt for
+logical shortcuts and lazy coding habits.
+● Pedagogy transforms your trajectory.md from a simple log into a masterpiece of reasoning,
+teaching the model not just the solution, but the professional engineering mindset required
+to reach it.
+This project represents the cutting edge of Supervised Fine-Tuning (SFT) and Reinforcement
+Learning from Human Feedback (RLHF). By following the standards outlined in this handbook, you
+are providing the "Gold Signal" that allows models to bridge the gap between human-level
+reasoning and autonomous problem-solving.
+Your work ensures that the model learns to handle complexity with grace, data with safety, and
+requirements with absolute integrity. We encourage you to treat every task as a contribution to the
+global commons of machine intelligence. Your code is the curriculum; your tests are the graduation
+exam

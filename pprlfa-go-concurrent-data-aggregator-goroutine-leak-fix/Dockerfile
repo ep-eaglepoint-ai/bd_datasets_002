@@ -1,5 +1,9 @@
-FROM python:3.11-slim
+FROM golang:1.25
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+COPY go.mod go.sum ./
+RUN go mod download
+COPY *.go ./
+# Set default command
+CMD ["/bin/bash"]

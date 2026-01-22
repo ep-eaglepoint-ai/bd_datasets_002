@@ -1,0 +1,106 @@
+Fix Goroutine Leaks in Go Concurrent Data Aggregator
+Problem Analysis
+The codebase has three critical goroutine leak issues:
+
+FetchAndAggregate: Worker goroutines block forever on unbuffered channel sends when timeout occurs before all workers complete
+ProcessBatch: Spawned goroutines block on unbuffered channel sends when receiver exits early due to context cancellation
+StreamResults: Goroutines block forever if output channel receiver stops consuming
+Implementation Plan
+1. Fix FetchAndAggregate Function
+File: repository_after/aggregator.go
+
+Issues to fix:
+
+Workers block on resultChan <- Result when timeout occurs
+No context cancellation propagation to workers
+Timer not properly cleaned up
+Unbuffered channel causes blocking
+Solution:
+
+Use buffered channel sized to number of sources
+Pass context to worker goroutines
+Use select with ctx.Done() in workers to detect cancellation
+Properly stop and drain timer channel
+Ensure all workers exit when timeout occurs
+2. Fix ProcessBatch Function
+File: repository_after/aggregator.go
+
+Issues to fix:
+
+Goroutines block on unbuffered resultChan and errChan when receiver exits
+No context propagation to spawned goroutines
+Solution:
+
+Use buffered channels sized to number of batches
+Pass context to each batch processor
+Use select with context in batch processors
+Ensure all goroutines can exit when context is cancelled
+3. Fix StreamResults Function
+File: repository_after/aggregator.go
+
+Issues to fix:
+
+Fire-and-forget goroutines block forever on channel send if receiver stops
+No context cancellation handling
+No coordination mechanism
+Solution:
+
+Use buffered channel or select with context and default case
+Pass context to worker goroutines
+Use select with ctx.Done() to allow graceful exit
+Maintain fire-and-forget behavior (return immediately)
+4. Create Comprehensive Test Suite
+File: tests/aggregator_test.go
+
+Test cases:
+
+Test timeout scenario doesn't leak goroutines
+Test context cancellation propagates correctly
+Test empty source list
+Test single source (no deadlock)
+Test all sources failing
+Test context already cancelled on entry
+Test concurrent execution still works
+Test proper error aggregation
+Test timer cleanup
+Test channel closing semantics
+Goroutine leak detection tests using runtime metrics
+5. Implement Evaluation Script
+File: evaluation/evaluation.py
+
+Requirements:
+
+Follow standard evaluation contract
+Run tests on both repository_before and repository_after
+Collect metrics (goroutine count, memory usage if possible)
+Generate reports/latest.json with standard schema
+Exit with proper status code
+6. Create Trajectory Documentation
+File: trajectory/trajectory.md
+
+Content:
+
+Analysis of each goroutine leak
+Strategy for fixing each issue
+Step-by-step implementation details
+Resource references (Go concurrency patterns)
+Edge case handling rationale
+7. Generate Patch File
+File: patches/diff.patch
+
+Use git diff to create patch between before/after
+Ensure patch shows exact changes made
+Key Technical Decisions
+Channel Buffering: Size channels to match expected senders to prevent blocking
+Context Propagation: Pass context to all goroutines and check ctx.Done() in select statements
+Timer Cleanup: Call timer.Stop() and drain channel with select+default
+WaitGroup Coordination: Use WaitGroup to ensure all senders complete before closing channels
+API Preservation: Maintain exact function signatures and return types
+Files to Create/Modify
+repository_after/aggregator.go - Fixed implementation
+repository_after/go.mod - Copy from before
+tests/aggregator_test.go - Comprehensive test suite
+evaluation/evaluation.py - Standard evaluation script
+evaluation/reports/ - Directory for reports (created by script)
+trajectory/trajectory.md - Chain of thought documentation
+patches/diff.patch - Git diff patch file
