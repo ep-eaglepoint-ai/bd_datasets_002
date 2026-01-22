@@ -1,5 +1,9 @@
-FROM python:3.11-slim
+FROM maven:3.9-eclipse-temurin-11
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+COPY repository_before/ .
+
+RUN mvn compile -q
+
+CMD ["mvn", "test"]
