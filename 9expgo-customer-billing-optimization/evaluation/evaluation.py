@@ -332,6 +332,12 @@ def main():
         json.dump(report, f, indent=2)
     print(f"\n✅ Report saved to: {output_path}")
     
+    # Write success marker for build script
+    if success:
+        Path("/tmp/EVALUATION_SUCCESS").touch()
+    else:
+        Path("/tmp/EVALUATION_FAILED").touch()
+    
     print(f"\n{'=' * 60}")
     print(f"EVALUATION COMPLETE")
     print(f"{'=' * 60}")
