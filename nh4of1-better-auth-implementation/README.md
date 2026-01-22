@@ -48,6 +48,13 @@
   ```
 - With Docker (interactive): `docker compose up --build`
 
+## Regenerate patch
+
+From repo root:
+
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
