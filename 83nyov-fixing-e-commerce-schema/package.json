@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "test:before": "npx prisma validate --schema=repository_before/schema.prisma || echo 'Validation failed as expected'",
+    "test:before": "jest tests/schema.test.ts",
     "test:after": "npx prisma validate --schema=repository_after/prisma/schema.prisma && jest tests/schema.test.ts"
   },
   "keywords": [],

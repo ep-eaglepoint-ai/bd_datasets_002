@@ -7,6 +7,7 @@ services:
     command: npm run -s test:before
     environment:
       - DATABASE_URL=mysql://root:password@localhost:3306/db
+      - SCHEMA_PATH=repository_before/schema.prisma
     volumes:
       - .:/app
       - /app/node_modules
@@ -16,6 +17,16 @@ services:
     command: npm run test:after
     environment:
       - DATABASE_URL=mysql://root:password@localhost:3306/db
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  evaluation:
+    image: ecommerce-fix-test
+    command: npx ts-node evaluation/evaluation.ts
+    environment:
+      - DATABASE_URL=mysql://root:password@localhost:3306/db
+      - SCHEMA_PATH_BEFORE=repository_before/schema.prisma
     volumes:
       - .:/app
       - /app/node_modules

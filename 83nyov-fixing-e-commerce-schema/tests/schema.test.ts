@@ -6,10 +6,15 @@ import * as path from "path";
 const execAsync = promisify(exec);
 
 describe("Schema Validation & Structure", () => {
-  const schemaPath = path.join(
-    __dirname,
-    "../repository_after/prisma/schema.prisma",
-  );
+  const schemaPath = process.env.SCHEMA_PATH
+    ? path.resolve(process.env.SCHEMA_PATH)
+    : path.join(__dirname, "../repository_after/prisma/schema.prisma");
+
+  // Ensure we can read the file
+  if (!fs.existsSync(schemaPath)) {
+    throw new Error(`Schema file not found at ${schemaPath}`);
+  }
+
   const schemaContent = fs.readFileSync(schemaPath, "utf8");
 
   it("should pass prisma validate", async () => {
