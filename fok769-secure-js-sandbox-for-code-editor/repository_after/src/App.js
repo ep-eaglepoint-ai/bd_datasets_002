@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Copy, Download, Upload, RotateCcw, Play } from 'lucide-react';
+import { useSecureSandbox } from './SecureSandbox';
 
 export default function CodeEditor() {
   const [code, setCode] = useState(`// Write your JavaScript code here
@@ -15,6 +16,34 @@ console.log("Fibonacci(10):", fibonacci(10));
   const [language, setLanguage] = useState('javascript');
   const [consoleOutput, setConsoleOutput] = useState([]);
   const [error, setError] = useState(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+  
+  const { iframeRef, executeCode } = useSecureSandbox();
+  
+  // Backup and restore console methods
+  const consoleBackupRef = useRef(null);
+  
+  useEffect(() => {
+    // Backup original console methods
+    consoleBackupRef.current = {
+      log: console.log,
+      error: console.error,
+      warn: console.warn,
+      info: console.info,
+      debug: console.debug
+    };
+    
+    return () => {
+      // Restore console on unmount
+      if (consoleBackupRef.current) {
+        console.log = consoleBackupRef.current.log;
+        console.error = consoleBackupRef.current.error;
+        console.warn = consoleBackupRef.current.warn;
+        console.info = consoleBackupRef.current.info;
+        console.debug = consoleBackupRef.current.debug;
+      }
+    };
+  }, []);
 
   const copyCode = () => {
     navigator.clipboard.writeText(code);
@@ -52,28 +81,96 @@ console.log("Fibonacci(10):", fibonacci(10));
     setCode('// Write your code here\n');
   };
 
-  // INSECURE: Direct eval() usage - exposes global scope and allows malicious code
-  const executeCode = () => {
+  // SECURE: Execute code in isolated sandbox
+  const handleExecuteCode = () => {
     setConsoleOutput([]);
     setError(null);
+    setIsExecuting(true);
     
     if (language !== 'javascript') {
       setError('Only JavaScript execution is supported');
+      setIsExecuting(false);
       return;
     }
 
-    try {
-      // INSECURE: Direct eval in global scope - no isolation
-      // This allows access to window, document, localStorage, etc.
-      const result = eval(code);
-      
-      if (result !== undefined) {
-        setConsoleOutput(prev => [...prev, { type: 'result', message: String(result) }]);
-      }
-    } catch (err) {
-      setError(err.message);
-      setConsoleOutput(prev => [...prev, { type: 'error', message: err.message }]);
+    if (code.length > 5000) {
+      setError('Code exceeds maximum length of 5000 characters');
+      setIsExecuting(false);
+      return;
     }
+
+    // Intercept console methods to capture output
+    const interceptedLogs = [];
+    const interceptConsole = (method) => {
+      return function(...args) {
+        interceptedLogs.push({
+          type: method,
+          message: args.map(arg => {
+            if (typeof arg === 'object') {
+              try {
+                return JSON.stringify(arg, null, 2);
+              } catch (e) {
+                return String(arg);
+              }
+            }
+            return String(arg);
+          }).join(' ')
+        });
+        // Also call original
+        if (consoleBackupRef.current) {
+          consoleBackupRef.current[method].apply(console, args);
+        }
+      };
+    };
+
+    // Backup and intercept
+    const originalConsole = { ...console };
+    console.log = interceptConsole('log');
+    console.error = interceptConsole('error');
+    console.warn = interceptConsole('warn');
+    console.info = interceptConsole('info');
+    console.debug = interceptConsole('debug');
+
+    // Execute in sandbox
+    executeCode(code, (result) => {
+      // Always restore console, even if there's an error
+      try {
+        if (consoleBackupRef.current) {
+          console.log = consoleBackupRef.current.log;
+          console.error = consoleBackupRef.current.error;
+          console.warn = consoleBackupRef.current.warn;
+          console.info = consoleBackupRef.current.info;
+          console.debug = consoleBackupRef.current.debug;
+        }
+      } catch (restoreErr) {
+        // If restoration fails, try to restore from backup
+        console.log = originalConsole.log;
+        console.error = originalConsole.error;
+        console.warn = originalConsole.warn;
+        console.info = originalConsole.info;
+        console.debug = originalConsole.debug;
+      }
+
+      setIsExecuting(false);
+      
+      if (result.error) {
+        setError(result.error);
+        setConsoleOutput(prev => [...prev, { type: 'error', message: result.error }]);
+      }
+      
+      // Add intercepted logs from sandbox
+      if (result.logs && result.logs.length > 0) {
+        setConsoleOutput(prev => [...prev, ...result.logs.map(log => ({
+          type: log.type,
+          message: log.message
+        }))]);
+      }
+      
+      // Add result if any
+      if (result.result !== undefined && result.result !== null) {
+        setConsoleOutput(prev => [...prev, { type: 'result', message: String(result.result) }]);
+      }
+    });
   };
 
   const handleKeyDown = (e) => {
@@ -114,12 +211,13 @@ console.log("Fibonacci(10):", fibonacci(10));
             
             <div className="flex gap-2">
               <button
-                onClick={executeCode}
-                className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
+                onClick={handleExecuteCode}
+                disabled={isExecuting}
+                className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Run Code"
               >
                 <Play size={16} />
-                Run
+                {isExecuting ? 'Running...' : 'Run'}
               </button>
               
               <button
@@ -249,6 +347,14 @@ console.log("Fibonacci(10):", fibonacci(10));
           </ul>
         </div>
       </div>
+      
+      {/* Hidden iframe for secure sandbox */}
+      <iframe
+        ref={iframeRef}
+        title="code-sandbox"
+        sandbox="allow-scripts"
+        style={{ display: 'none', position: 'absolute', width: 0, height: 0 }}
+      />
     </div>
   );
 }
