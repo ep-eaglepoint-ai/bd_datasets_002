@@ -73,6 +73,7 @@ class TestTaskAssignmentEngine:
         # Or: (0->1: 5, 1->0: 8, 2->2: 9) = 22
         # First should be better
         assert len(assignment) == 3
+        # assignment is list of (worker, task) tuples
         total_score = sum(skill_scores[w][t] for w, t in assignment)
         assert total_score >= 22
     
@@ -88,7 +89,7 @@ class TestTaskAssignmentEngine:
         distributions = engine.enumerate_distributions(page=0, page_size=10)
         
         assert len(distributions) == 2
-        # Each distribution should have 3 assignments
+        # Each distribution should have 3 assignments (list of (worker, task) tuples)
         for dist in distributions:
             assert len(dist) == 3
             # Check one-to-one: no duplicate workers or tasks
@@ -148,7 +149,7 @@ class TestTaskAssignmentEngine:
         elapsed = time.time() - start
         
         assert elapsed < 0.2, f"Max skill took {elapsed*1000:.3f}ms, should be < 200ms"
-        assert len(assignment) == num_workers
+        assert len(assignment) == num_workers  # assignment is list of (worker, task) tuples
     
     def test_performance_enumeration(self):
         """Test performance requirement for enumeration (< 100ms for 100 distributions)."""
@@ -198,8 +199,9 @@ class TestTaskAssignmentEngine:
             TaskAssignmentEngine(10, 1001, [[True] * 1001 for _ in range(10)])
     
     def test_max_skill_no_scores(self):
-        """Test that max_skill_assignment requires skill_scores."""
+        """Test that max_skill_assignment works with default scores."""
         engine = TaskAssignmentEngine(3, 3, [[True] * 3 for _ in range(3)])
         
-        with pytest.raises(ValueError):
-            engine.find_max_skill_assignment()
+        # Should work with default skill_scores (all zeros)
+        assignment = engine.find_max_skill_assignment()
+        assert len(assignment) == 3

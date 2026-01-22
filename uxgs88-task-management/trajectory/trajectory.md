@@ -179,8 +179,6 @@ The test suite (`tests/test_assignment_engine.py`) includes comprehensive covera
 
 4. **Cormen, T. H., Leiserson, C. E., Rivest, R. L., & Stein, C. (2022).** *Introduction to Algorithms* (4th ed.), Chapter 25: "All-Pairs Shortest Paths" and bipartite matching.  
    https://mitpress.mit.edu/9780262046305/introduction-to-algorithms/  
-   *Comprehensive reference on graph algorithms including bipartite matching and dynamic programming*
-
-5. **GeeksforGeeks - Hungarian Algorithm for Assignment Problem**  
+   *Comprehensive reference on graph algorithms including bipartite matching and dynamic programming*5. **GeeksforGeeks - Hungarian Algorithm for Assignment Problem**  
    https://www.geeksforgeeks.org/hungarian-algorithm-assignment-problem-set-1-introduction/  
    *Practical explanation and implementation guide for the Hungarian algorithm*
