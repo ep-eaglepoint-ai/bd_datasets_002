@@ -1,0 +1,287 @@
+import curses
+import json
+import textwrap
+import os
+from collections import defaultdict
+from typing import List, Dict, Optional, Tuple
+
+# ==========================================
+# PART 1: The Core Logic (Data Structure)
+# ==========================================
+
+class KnowledgeGraph:
+    """
+    Manages the graph data structure, relationships, and persistence.
+    Uses an Adjacency List approach for performance O(1).
+    """
+    def __init__(self):
+        # Format: {node_id: {'label': str, 'desc': str}}
+        self.nodes: Dict[str, Dict] = {}
+        # Format: {node_id: [(target_id, relationship_type)]}
+        self.edges: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
+
+    def add_node(self, node_id: str, label: str, description: str = ""):
+        self.nodes[node_id] = {"label": label, "desc": description}
+        if node_id not in self.edges:
+            self.edges[node_id] = []
+
+    def remove_node(self, node_id: str):
+        if node_id in self.nodes:
+            del self.nodes[node_id]
+        if node_id in self.edges:
+            del self.edges[node_id]
+        # Remove incoming edges from other nodes
+        for nid in self.edges:
+            self.edges[nid] = [e for e in self.edges[nid] if e[0] != node_id]
+
+    def add_edge(self, source: str, target: str, relationship: str):
+        if source in self.nodes and target in self.nodes:
+            # Avoid duplicates
+            for tgt, rel in self.edges[source]:
+                if tgt == target and rel == relationship:
+                    return
+            self.edges[source].append((target, relationship))
+
+    def remove_edge(self, source: str, target: str):
+        if source in self.edges:
+            self.edges[source] = [e for e in self.edges[source] if e[0] != target]
+
+    def get_neighbors(self, node_id: str) -> List[Tuple[str, str]]:
+        """Returns list of (neighbor_id, relationship_type)"""
+        return self.edges.get(node_id, [])
+
+    def search_nodes(self, query: str) -> List[str]:
+        """Returns node_ids matching the query (case-insensitive)"""
+        query = query.lower()
+        results = []
+        for nid, data in self.nodes.items():
+            if query in nid.lower() or query in data['label'].lower():
+                results.append(nid)
+        return results
+
+    def to_json(self) -> str:
+        data = {
+            "nodes": self.nodes,
+            "edges": {k: v for k, v in self.edges.items() if v}
+        }
+        return json.dumps(data, indent=2)
+
+    def from_json(self, json_str: str):
+        try:
+            data = json.loads(json_str)
+            self.nodes = data.get("nodes", {})
+            raw_edges = data.get("edges", {})
+            self.edges = defaultdict(list)
+            for k, v in raw_edges.items():
+                # Convert list of lists back to list of tuples
+                self.edges[k] = [tuple(item) for item in v]
+        except json.JSONDecodeError:
+            pass # Handle gracefully in UI
+
+    def populate_demo_data(self):
+        """Creates a sample graph for testing"""
+        self.add_node("AI", "Artificial Intelligence", "Simulation of human intelligence.")
+        self.add_node("ML", "Machine Learning", "Subset of AI focused on data.")
+        self.add_node("DL", "Deep Learning", "Neural networks with many layers.")
+        self.add_node("NN", "Neural Network", "Computing system inspired by biological brains.")
+        self.add_node("PY", "Python", "A popular programming language.")
+        
+        self.add_edge("AI", "ML", "includes")
+        self.add_edge("ML", "DL", "includes")
+        self.add_edge("DL", "NN", "relies_on")
+        self.add_edge("ML", "PY", "uses")
+        self.add_edge("PY", "AI", "implements")
+
+# ==========================================
+# PART 2: The UI (Terminal/Curses)
+# ==========================================
+
+class GraphExplorerApp:
+    def __init__(self, stdscr):
+        self.stdscr = stdscr
+        self.graph = KnowledgeGraph()
+        self.graph.populate_demo_data()
+        
+        # Navigation State
+        self.current_node_id: Optional[str] = "AI"
+        self.history: List[str] = [] # For 'Back' functionality
+        self.selection_index = 0
+        self.scroll_offset = 0
+        
+        # UI Colors
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK) # Default
+        curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)  # Highlight
+        curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK) # Headers
+        curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK) # Relationships
+
+    def run(self):
+        while True:
+            self.draw_screen()
+            key = self.stdscr.getch()
+            if not self.handle_input(key):
+                break
+
+    def draw_screen(self):
+        self.stdscr.clear()
+        h, w = self.stdscr.getmaxyx()
+
+        # 1. Header
+        title = " KNOWLEDGE GRAPH EXPLORER "
+        self.stdscr.addstr(0, 0, title.center(w, "="), curses.color_pair(3) | curses.A_BOLD)
+
+        if not self.current_node_id or self.current_node_id not in self.graph.nodes:
+            self.stdscr.addstr(2, 2, "No node selected or Graph Empty. Press 'S' to search/select.", curses.color_pair(1))
+            self.draw_footer(h, w)
+            return
+
+        # 2. Current Node Details
+        node_data = self.graph.nodes[self.current_node_id]
+        self.stdscr.addstr(2, 2, f"NODE: {node_data['label']} (ID: {self.current_node_id})", curses.color_pair(3) | curses.A_BOLD)
+        
+        desc_lines = textwrap.wrap(node_data['desc'], w - 4)
+        for i, line in enumerate(desc_lines[:3]): # Limit description to 3 lines
+            self.stdscr.addstr(3 + i, 4, line, curses.color_pair(1))
+
+        # 3. Neighbors (The Interactive List)
+        neighbors = self.graph.get_neighbors(self.current_node_id)
+        self.stdscr.addstr(7, 2, f"CONNECTIONS ({len(neighbors)}):", curses.color_pair(3))
+        
+        max_display_lines = h - 14 
+        start_y = 9
+
+        if not neighbors:
+            self.stdscr.addstr(start_y, 4, "[No outgoing connections]", curses.color_pair(1))
+        else:
+            # Bounds check selection
+            if self.selection_index >= len(neighbors):
+                self.selection_index = len(neighbors) - 1
+            if self.selection_index < 0:
+                self.selection_index = 0
+            
+            # Scrolling logic
+            if self.selection_index < self.scroll_offset:
+                self.scroll_offset = self.selection_index
+            elif self.selection_index >= self.scroll_offset + max_display_lines:
+                self.scroll_offset = self.selection_index - max_display_lines + 1
+
+            # Render List
+            for i in range(max_display_lines):
+                idx = i + self.scroll_offset
+                if idx >= len(neighbors):
+                    break
+                
+                target_id, rel = neighbors[idx]
+                target_label = self.graph.nodes.get(target_id, {}).get('label', 'Unknown')
+                
+                display_str = f" --[{rel}]--> {target_label} "
+                
+                # Highlight if selected
+                if idx == self.selection_index:
+                    self.stdscr.addstr(start_y + i, 4, display_str.ljust(w-10), curses.color_pair(2))
+                else:
+                    self.stdscr.addstr(start_y + i, 4, display_str, curses.color_pair(1))
+                    self.stdscr.addstr(start_y + i, 4 + 3, f"[{rel}]", curses.color_pair(4)) # Colorize edge label
+
+        self.draw_footer(h, w)
+        self.stdscr.refresh()
+
+    def draw_footer(self, h, w):
+        help_text = "[UP/DOWN] Nav  [ENTER] Visit  [B] Back  [S] Search  [+] Add Node  [-] Del Node  [E] Export  [I] Import  [Q] Quit"
+        self.stdscr.addstr(h - 2, 0, help_text[:w-1], curses.color_pair(1) | curses.A_REVERSE)
+
+    def prompt_input(self, prompt_text: str):
+        """Helper to get text input from user at bottom of screen"""
+        h, w = self.stdscr.getmaxyx()
+        curses.echo()
+        curses.curs_set(1)
+        self.stdscr.addstr(h - 1, 0, (prompt_text + ": ").ljust(w-1), curses.color_pair(3))
+        self.stdscr.refresh()
+        inp = self.stdscr.getstr(h - 1, len(prompt_text) + 2).decode('utf-8')
+        curses.noecho()
+        curses.curs_set(0)
+        return inp.strip()
+
+    def handle_input(self, key):
+        neighbors = self.graph.get_neighbors(self.current_node_id) if self.current_node_id else []
+
+        if key == ord('q'):
+            return False # Exit
+
+        # --- Navigation ---
+        elif key == curses.KEY_UP:
+            if neighbors: self.selection_index = max(0, self.selection_index - 1)
+        
+        elif key == curses.KEY_DOWN:
+            if neighbors: self.selection_index = min(len(neighbors) - 1, self.selection_index + 1)
+        
+        elif key == 10: # Enter Key
+            if neighbors and self.selection_index < len(neighbors):
+                target_id = neighbors[self.selection_index][0]
+                self.history.append(self.current_node_id)
+                self.current_node_id = target_id
+                self.selection_index = 0
+                self.scroll_offset = 0
+
+        elif key == ord('b') or key == ord('B'):
+            if self.history:
+                self.current_node_id = self.history.pop()
+                self.selection_index = 0
+
+        # --- Search ---
+        elif key == ord('s') or key == ord('S'):
+            query = self.prompt_input("Search Node ID or Label")
+            results = self.graph.search_nodes(query)
+            if results:
+                # If match found, jump to first result
+                self.history.append(self.current_node_id) if self.current_node_id else None
+                self.current_node_id = results[0]
+                self.selection_index = 0
+
+        # --- Adding Nodes/Edges ---
+        elif key == ord('+'):
+            choice = self.prompt_input("Add (N)ode or (E)dge?").lower()
+            if choice == 'n':
+                nid = self.prompt_input("New ID")
+                lbl = self.prompt_input("Label")
+                desc = self.prompt_input("Description")
+                if nid: 
+                    self.graph.add_node(nid, lbl, desc)
+                    self.current_node_id = nid # Jump to new node
+            elif choice == 'e':
+                tgt = self.prompt_input("Target Node ID")
+                rel = self.prompt_input("Relationship Type")
+                if self.current_node_id and tgt and rel:
+                    self.graph.add_edge(self.current_node_id, tgt, rel)
+
+        # --- Removing ---
+        elif key == ord('-'):
+            confirm = self.prompt_input(f"Delete Node {self.current_node_id}? (y/n)")
+            if confirm.lower() == 'y':
+                self.graph.remove_node(self.current_node_id)
+                self.current_node_id = list(self.graph.nodes.keys())[0] if self.graph.nodes else None
+        
+        # --- Import/Export ---
+        elif key == ord('e') or key == ord('E'):
+            fname = self.prompt_input("Export Filename (e.g. graph.json)")
+            if fname:
+                with open(fname, 'w') as f:
+                    f.write(self.graph.to_json())
+
+        elif key == ord('i') or key == ord('I'):
+            fname = self.prompt_input("Import Filename")
+            if fname and os.path.exists(fname):
+                with open(fname, 'r') as f:
+                    self.graph.from_json(f.read())
+                # Reset view to first available node
+                keys = list(self.graph.nodes.keys())
+                if keys: self.current_node_id = keys[0]
+
+        return True
+
+def main():
+    # Initialize Curses Wrapper to handle cleanup automatically
+    curses.wrapper(lambda stdscr: GraphExplorerApp(stdscr).run())
+
+if __name__ == "__main__":
+    main()
