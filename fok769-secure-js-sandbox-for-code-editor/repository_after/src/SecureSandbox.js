@@ -84,16 +84,41 @@ export function useSecureSandbox() {
       } catch (e) {}
       
       // Block localStorage and sessionStorage
-      try {
-        Object.defineProperty(window, 'localStorage', {
-          get: function() { throw new Error('localStorage access denied'); },
-          configurable: false
-        });
-        Object.defineProperty(window, 'sessionStorage', {
-          get: function() { throw new Error('sessionStorage access denied'); },
-          configurable: false
-        });
-      } catch (e) {}
+      // In sandboxed iframe, these may not exist, but we block them anyway
+      const blockStorage = (name) => {
+        try {
+          // Try to delete first
+          try {
+            delete window[name];
+          } catch (e) {}
+          
+          // Define property that throws on access
+          Object.defineProperty(window, name, {
+            get: function() { 
+              throw new Error(name + ' access denied'); 
+            },
+            set: function() {
+              throw new Error(name + ' access denied');
+            },
+            configurable: false,
+            enumerable: false
+          });
+        } catch (e) {
+          // If that fails, try creating a throwing object
+          try {
+            window[name] = {
+              getItem: function() { throw new Error(name + ' access denied'); },
+              setItem: function() { throw new Error(name + ' access denied'); },
+              removeItem: function() { throw new Error(name + ' access denied'); },
+              clear: function() { throw new Error(name + ' access denied'); }
+            };
+            Object.freeze(window[name]);
+          } catch (e2) {}
+        }
+      };
+      
+      blockStorage('localStorage');
+      blockStorage('sessionStorage');
       
       // Block document access to sensitive APIs
       if (document) {
@@ -146,10 +171,15 @@ export function useSecureSandbox() {
             try {
               \${userCode}
             } catch (err) {
+              // Capture all types of errors including SecurityError from localStorage
+              const errorMsg = err.message || err.name || String(err);
               window.__sandboxError = {
-                message: err.message,
-                stack: err.stack
+                message: errorMsg,
+                stack: err.stack || '',
+                name: err.name || 'Error'
               };
+              // Also log to console so it's captured
+              console.error('Error:', errorMsg);
             }
           })();
         \`;
@@ -171,22 +201,39 @@ export function useSecureSandbox() {
         document.body.appendChild(script);
         
         // Check for errors and send result after script executes
-        // Use setTimeout to ensure script has executed and console logs are captured
-        setTimeout(() => {
-          if (window.__sandboxError) {
-            executionError = window.__sandboxError;
-            delete window.__sandboxError;
-          }
-          
-          // Remove script after execution
-          try {
-            if (script.parentNode) {
-              document.body.removeChild(script);
+        // Use requestAnimationFrame for faster execution (next frame)
+        requestAnimationFrame(() => {
+          // Use microtask to ensure script execution completes
+          Promise.resolve().then(() => {
+            if (window.__sandboxError) {
+              executionError = {
+                message: window.__sandboxError.message || 'Unknown error',
+                stack: window.__sandboxError.stack || ''
+              };
+              delete window.__sandboxError;
             }
-          } catch (e) {}
-          
-          sendResult();
-        }, 100); // Small delay to ensure all console logs are captured
+            
+            // Remove script after execution
+            try {
+              if (script.parentNode) {
+                document.body.removeChild(script);
+              }
+            } catch (e) {}
+            
+            sendResult();
+          });
+        });
+        
+        // Also catch any unhandled errors that might occur
+        window.addEventListener('error', function(event) {
+          if (!resultSent) {
+            executionError = {
+              message: event.message || 'Unhandled error',
+              stack: event.error ? event.error.stack : ''
+            };
+            sendResult();
+          }
+        }, { once: true });
         
       } catch (err) {
         if (!resultSent) {
@@ -257,7 +304,7 @@ export function useSecureSandbox() {
         
         // Clean up blob URL after loading
         iframeRef.current.onload = () => {
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
         };
       }
     } catch (err) {
@@ -280,6 +327,8 @@ export function useSecureSandbox() {
     }
 
     // Set sandbox attributes for maximum isolation
+    // Note: 'allow-scripts' only - this blocks localStorage, cookies, forms, etc.
+    // localStorage is already blocked by browser in sandboxed iframe
     iframeRef.current.setAttribute('sandbox', 'allow-scripts');
     iframeRef.current.style.display = 'none';
   }, []);

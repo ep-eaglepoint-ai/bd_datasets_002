@@ -37,6 +37,21 @@ RUN npx playwright install-deps chromium || true
 # Copy project files (node_modules will be preserved from previous layer due to .dockerignore)
 COPY . /app
 
+# Pre-install dependencies for repository_before and repository_after to avoid installs during evaluation
+RUN if [ -f repository_before/package.json ]; then \
+      echo "Installing dependencies for repository_before..." && \
+      cd repository_before && \
+      npm install --no-audit --no-fund --silent && \
+      cd ..; \
+    fi
+
+RUN if [ -f repository_after/package.json ]; then \
+      echo "Installing dependencies for repository_after..." && \
+      cd repository_after && \
+      npm install --no-audit --no-fund --silent && \
+      cd ..; \
+    fi
+
 # Final verification that playwright is still available
 RUN node -e "require('playwright'); console.log('Playwright verified after COPY')" || (echo "ERROR: playwright not found after COPY" && exit 1)
 
