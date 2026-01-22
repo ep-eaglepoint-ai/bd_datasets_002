@@ -3,3 +3,6 @@ services:
     build: .
     volumes:
       - .:/app
+    environment:
+      - TEST_IMPLEMENTATION=after
+    command: python evaluation/evaluation.py
