@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { InventoryAnalytics } from '../repository_after/analytics';
-import { InventoryService } from '../repository_after/service';
+import { InventoryAnalytics } from '@repository/analytics';
+import { InventoryService } from '@repository/service';
 
 
 describe('InventoryAnalytics', () => {
@@ -66,15 +65,27 @@ describe('InventoryService', () => {
     });
 
     it('handles partial failures (Resilience)', async () => {
-        mockSupabase.select
-            .mockResolvedValueOnce({ data: [{ id: 1 }], error: null }) // orders
-            .mockResolvedValueOnce({ data: null, error: { message: 'Failed' } }) // expenses fail
-            .mockResolvedValueOnce({ data: [{ id: 3 }], error: null }); // reviews
+        // Suppress console.error for this test as we expect an error log
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
-        const result = await InventoryService.fetchInventoryData(mockSupabase);
+        // Mock failed expenses fetch
+        const mockSupabase = {
+            from: (table) => ({
+                select: () => {
+                    if (table === 'expenses') return Promise.resolve({ data: null, error: { message: 'Failed' } });
+                    if (table === 'orders') return Promise.resolve({ data: [{ total_amount: 100 }], error: null });
+                    if (table === 'product_reviews') return Promise.resolve({ data: [{ id: 3 }], error: null });
+                    return Promise.resolve({ data: [], error: null });
+                }
+            })
+        };
 
-        expect(result.orders).toHaveLength(1);
-        expect(result.expenses).toEqual([]); // Should be empty array, not crash
-        expect(result.reviews).toHaveLength(1);
+        const data = await InventoryService.fetchInventoryData(mockSupabase);
+
+        expect(data.orders).toHaveLength(1);
+        expect(data.expenses).toEqual([]); // Should return empty array on failure
+        expect(data.reviews).toHaveLength(1);
+
+        consoleSpy.mockRestore();
     });
 });
