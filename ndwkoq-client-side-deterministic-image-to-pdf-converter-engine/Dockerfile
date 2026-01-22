@@ -7,16 +7,13 @@ RUN apk add --no-cache git && npm config set yes true
 # Install ts-node globally once
 RUN npm install -g ts-node typescript
 
+COPY package.json tsconfig.json ./
+RUN npm install
+
 COPY . .
 
-# Install dependencies per project
+# Install dependencies for repository_after
 WORKDIR /app/repository_after
-RUN npm install
-
-WORKDIR /app/tests
-RUN npm install
-
-WORKDIR /app/evaluation
 RUN npm install
 
 WORKDIR /app

@@ -3,10 +3,21 @@
   "version": "1.0.0",
   "description": "Client-side deterministic image to PDF converter engine",
   "scripts": {
-    "evaluate": "cd evaluation && npm run evaluate",
-    "test": "cd tests && npm run test",
+    "evaluate": "npx --yes ts-node evaluation/evaluation.ts",
+    "test": "npx --yes ts-node tests/test_after.ts",
     "dev": "cd repository_after && npm run dev",
     "build": "cd repository_after && npm run build"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "jspdf": "^2.5.1",
+    "browser-image-compression": "^2.0.2",
+    "vuedraggable": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
   },
   "keywords": [
     "vue3",

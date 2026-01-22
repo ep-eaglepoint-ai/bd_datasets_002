@@ -324,7 +324,7 @@ async function main() {
   
   // Save results
   try {
-    // Create timestamped directory structure
+    // Create timestamped directory structure: evaluation/reports/YYYY-MM-DD/HH-MM-SS/report.json
     const now = new Date();
     const dateDir = now.toISOString().split('T')[0]; // YYYY-MM-DD
     const timeDir = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
@@ -338,11 +338,6 @@ async function main() {
     // Save to timestamped location
     writeFileSync(reportFile, reportContent);
     console.log(`\nResults saved to: ${reportFile}`);
-    
-    // Also save to fixed location for CI/CD artifact collection
-    const fixedReportPath = '/app/evaluation/report.json';
-    writeFileSync(fixedReportPath, reportContent);
-    console.log(`Results also saved to: ${fixedReportPath}`);
     
   } catch (error: any) {
     console.error('Failed to save results:', error);
