@@ -1,0 +1,11 @@
+{
+            "instance_id": "RT9X1V",
+            "problem_statement": "In a production payment system, processing an order payment must be reliable, secure, and consistent even under failures, retries, or concurrent requests. Without a well-defined payment processing function, systems risk double-charging customers, accepting incorrect payment amounts, leaving orders in inconsistent states, or losing auditability during partial failures. A dedicated database-level function is necessary to enforce business rules close to the data, guarantee atomic updates across orders, payments, and audit logs, ensure idempotent behavior for retried requests, and provide deterministic error reporting for upstream services, all while preserving transactional integrity and traceability.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/rt9x1v-payment-processing",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
