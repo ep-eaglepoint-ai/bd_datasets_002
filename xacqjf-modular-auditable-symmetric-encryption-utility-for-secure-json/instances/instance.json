@@ -1,0 +1,11 @@
+{
+            "instance_id": "XACQJF",
+            "problem_statement": "Implementing application-level encryption correctly is difficult due to the complexity of cryptographic APIs, subtle encoding pitfalls, inconsistent option handling, and the high risk of introducing silent integrity or security flaws. Many encryption utilities become hard to audit and maintain over time because of tightly coupled logic, unclear data formats, hidden side effects, and poor error reporting. A clean, modular, and testable encryption utility is needed that preserves strong cryptographic guarantees such as authenticated encryption, secure key derivation, and tamper detection while remaining readable, predictable, and safe to evolve in production systems.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xacqjf-modular-auditable-symmetric-encryption-utility-for-secure-json",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
