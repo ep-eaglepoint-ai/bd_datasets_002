@@ -18,13 +18,7 @@ async function sendLog(message: string, level: string, data: APILogData) {
   console.log(`${level}: ${message}`, data);
 }
 
-export async function safaricomCoreCall(
-  body: any,
-  token: any,
-  destination: "token" | "topup",
-  config?: { baseUrl?: string }
-): Promise<any> {
-  const base = config?.baseUrl || 'https://api.example.com';
+export async function safaricomCoreCall(body: any, token: any, destination: "token" | "topup"): Promise<any> {
   const APILogData: APILogData = {
     APIEndpoint: destination === "token" ? "Token" : "TopUp",
     method: "POST",
@@ -34,15 +28,9 @@ export async function safaricomCoreCall(
     headers: {},
   };
 
-  if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
-    APILogData.HTTPStatusCode = 400;
-    APILogData.response = 'Empty body';
-    sendLog("Empty body", "error", APILogData);
-    return { status: 400, message: 'Empty body' };
-  }
-
   try {
-    const response = await axios.post(base.replace(/\/$/, '') + '/' + destination, body, { headers: { Authorization: token } });
+    // Simulate API call (faulty: no retry, direct fail)
+    const response = await axios.post('https://api.example.com/' + destination, body, { headers: { Authorization: token } });
     APILogData.response = response.data;
     APILogData.HTTPStatusCode = 200;
     sendLog("Success", "info", APILogData);

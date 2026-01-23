@@ -24,6 +24,12 @@ docker compose build
 docker compose run --rm test-before
 ```
 
+For **CI/build** so that failing before-tests do not fail the build (errors still printed), use:
+
+```bash
+docker compose run --rm test-before || true
+```
+
 **Expected behavior:**
 - Functional tests: ❌ FAIL (before uses hardcoded `api.example.com`, does not respect `baseUrl` from config)
 - Benchmark: may fail

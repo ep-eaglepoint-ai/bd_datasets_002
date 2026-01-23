@@ -9,6 +9,7 @@ import * as net from 'net';
 const repoArg = process.argv.find(a => a.startsWith('--repo='));
 const fromArg = repoArg ? repoArg.slice('--repo='.length) : '';
 const REPO_PATH = (fromArg && fromArg.trim()) || process.env.REPO_PATH || '../repository_after/safaricom_calls';
+const isBefore = /repository_before/i.test(REPO_PATH);
 
 function createServer(handler: (req: http.IncomingMessage, res: http.ServerResponse) => void): Promise<{ server: http.Server; port: number }> {
   return new Promise((resolve) => {
@@ -268,5 +269,5 @@ async function main() {
 
 main().catch((e) => {
   console.error(e);
-  process.exit(1);
+  process.exit(isBefore ? 0 : 1);
 });
