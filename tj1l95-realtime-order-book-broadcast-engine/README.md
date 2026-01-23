@@ -30,3 +30,8 @@ docker compose run --rm evaluation
 ```bash
 go test -v ./tests
 ```
+
+## Generate Patch
+```bash
+git diff --no-index /dev/null repository_after/orderbook.go > patches/diff.patch
+```
