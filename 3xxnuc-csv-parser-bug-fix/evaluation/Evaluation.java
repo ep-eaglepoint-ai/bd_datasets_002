@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class Evaluation {
     private static final String REPORT_DIR = "/app/evaluation/reports";
@@ -36,8 +37,9 @@ public class Evaluation {
             
             // [3/5] Check specific requirements
             System.out.println("\n[3/5] Checking specific requirements...");
-            boolean afterTimeouts = checkLogContains("/tmp/after_timeout.log", "PASS: Timeout accuracy");
-            boolean afterConcurrency = checkLogContains("/tmp/after_concurrency.log", "PASS: Parallel execution");
+            // Check test output for specific pass messages
+            boolean afterTimeouts = afterResults.output.contains("PASS: Timeout accuracy");
+            boolean afterConcurrency = afterResults.output.contains("PASS: Parallel execution");
             System.out.println("  ✓ Timeout accuracy verified: " + afterTimeouts);
             System.out.println("  ✓ Concurrency verified: " + afterConcurrency);
             
@@ -144,9 +146,38 @@ public class Evaluation {
                 testPb.redirectOutput(ProcessBuilder.Redirect.to(logFile));
                 
                 Process test = testPb.start();
-                int testExit = test.waitFor();
                 
-                // Read and print log file contents
+                // Add timeout to prevent hanging
+                // For "before" (broken) implementation: 30 seconds max per test
+                // For "after" (fixed) implementation: longer timeout for stress test
+                long timeoutSeconds;
+                if (repoName.contains("before")) {
+                    // Broken implementation - force break after 30 seconds
+                    timeoutSeconds = 30;
+                } else {
+                    // Fixed implementation - allow more time for stress test
+                    timeoutSeconds = testClass.equals("ObjectPoolStressTest") ? 180 : 60;
+                }
+                
+                boolean finished = test.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+                
+                int testExit;
+                if (!finished) {
+                    // Test timed out - destroy it forcefully
+                    test.destroyForcibly();
+                    // Wait a bit for process to actually terminate
+                    try {
+                        test.waitFor(2, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    testExit = -1;
+                    System.err.println("Test " + testClass + " timed out after " + timeoutSeconds + " seconds - forcing break");
+                } else {
+                    testExit = test.exitValue();
+                }
+                
+                // Read and print log file contents (even if timed out, show what we got)
                 if (logFile.exists()) {
                     try {
                         String logContent = new String(Files.readAllBytes(logFile.toPath()));
@@ -161,7 +192,19 @@ public class Evaluation {
                     passed++;
                 } else {
                     failed++;
-                    System.err.println("Test " + testClass + " failed with exit code: " + testExit);
+                    if (testExit != -1) {
+                        System.err.println("Test " + testClass + " failed with exit code: " + testExit);
+                    }
+                }
+                
+                // If "before" test timed out, break and move to next test
+                // Don't wait for remaining tests if we're already timing out
+                if (!finished && repoName.contains("before")) {
+                    System.err.println("Breaking early from " + repoName + " tests due to timeout");
+                    // Mark remaining tests as failed/timeout
+                    int remainingTests = testClasses.length - (passed + failed);
+                    failed += remainingTests;
+                    break;
                 }
             }
             

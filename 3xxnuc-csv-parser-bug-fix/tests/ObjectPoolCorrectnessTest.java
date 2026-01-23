@@ -3,209 +3,316 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * ObjectPoolCorrectnessTest - Tests basic correctness requirements:
+ * - Pool size never exceeds maxSize
+ * - Objects failing validation are never returned
+ * - Releasing foreign objects doesn't corrupt pool state
+ * - Factory exceptions don't permanently reduce capacity
+ */
 public class ObjectPoolCorrectnessTest {
-    private static final AtomicInteger testCounter = new AtomicInteger(0);
+    private static int testsPassed = 0;
+    private static int testsFailed = 0;
     
     public static void main(String[] args) {
-        int failures = 0;
+        System.out.println("=".repeat(60));
+        System.out.println("ObjectPool Correctness Test");
+        System.out.println("=".repeat(60));
         
-        failures += testCapacityControl() ? 0 : 1;
-        failures += testZeroTimeout() ? 0 : 1;
-        failures += testInvalidObjectRejection() ? 0 : 1;
-        failures += testForeignObjectRejection() ? 0 : 1;
-        failures += testFactoryExceptionRecovery() ? 0 : 1;
-        
-        System.exit(failures > 0 ? 1 : 0);
+        try {
+            testPoolSizeNeverExceedsMaxSize();
+            testInvalidObjectsNeverReturned();
+            testForeignObjectsRejected();
+            testFactoryExceptionsDontReduceCapacity();
+            testZeroTimeoutNonBlocking();
+            
+            System.out.println("\n" + "=".repeat(60));
+            System.out.println("Results: " + testsPassed + " passed, " + testsFailed + " failed");
+            System.out.println("=".repeat(60));
+            
+            if (testsFailed > 0) {
+                System.exit(1);
+            }
+        } catch (Exception e) {
+            System.err.println("Test suite failed with exception: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
     
-    private static boolean testCapacityControl() {
-        System.out.println("Test: Capacity Control");
+    private static void testPoolSizeNeverExceedsMaxSize() {
+        System.out.println("\n[Test 1] Pool size never exceeds maxSize...");
         try {
-            ObjectPool<String> pool = new ObjectPool<>(10, () -> "obj" + testCounter.incrementAndGet(), obj -> true);
+            int maxSize = 50;
+            ObjectPool<String> pool = new ObjectPool<>(
+                maxSize,
+                () -> "object-" + System.nanoTime(),
+                obj -> true
+            );
             
+            // Create 500 concurrent threads trying to borrow
+            int numThreads = 500;
+            ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+            CountDownLatch latch = new CountDownLatch(numThreads);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger maxObserved = new AtomicInteger(0);
+            
+            for (int i = 0; i < numThreads; i++) {
+                executor.submit(() -> {
+                    try {
+                        String obj = pool.borrow(1000);
+                        if (obj != null) {
+                            successCount.incrementAndGet();
+                            int current = pool.getCreatedCount();
+                            int currentMax = maxObserved.get();
+                            while (current > currentMax && !maxObserved.compareAndSet(currentMax, current)) {
+                                currentMax = maxObserved.get();
+                            }
+                            Thread.sleep(10); // Hold object briefly
+                            pool.release(obj);
+                        }
+                    } catch (Exception e) {
+                        // Ignore
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            
+            latch.await(5, TimeUnit.SECONDS);
+            executor.shutdown();
+            
+            // Wait a bit for all releases to complete
+            Thread.sleep(100);
+            
+            int finalCount = pool.getCreatedCount();
+            int finalPoolSize = pool.getPoolSize();
+            
+            System.out.println("  - Max observed totalActive: " + maxObserved.get());
+            System.out.println("  - Final totalActive: " + finalCount);
+            System.out.println("  - Final pool size: " + finalPoolSize);
+            
+            if (maxObserved.get() <= maxSize && finalCount <= maxSize) {
+                System.out.println("  ✓ PASS: Pool size never exceeded maxSize");
+                testsPassed++;
+            } else {
+                System.out.println("  ✗ FAIL: Pool size exceeded maxSize (max=" + maxSize + ", observed=" + maxObserved.get() + ")");
+                testsFailed++;
+            }
+        } catch (Exception e) {
+            System.out.println("  ✗ FAIL: Exception - " + e.getMessage());
+            e.printStackTrace();
+            testsFailed++;
+        }
+    }
+    
+    private static void testInvalidObjectsNeverReturned() {
+        System.out.println("\n[Test 2] Objects failing validation are never returned...");
+        try {
+            AtomicInteger createCount = new AtomicInteger(0);
+            AtomicInteger validateCount = new AtomicInteger(0);
+            
+            ObjectPool<String> pool = new ObjectPool<>(
+                10,
+                () -> {
+                    createCount.incrementAndGet();
+                    return "obj-" + createCount.get();
+                },
+                obj -> {
+                    validateCount.incrementAndGet();
+                    // First object is invalid, rest are valid
+                    return !obj.equals("obj-1");
+                }
+            );
+            
+            // Borrow multiple objects - invalid ones should never be returned
             Set<String> borrowed = new HashSet<>();
+            for (int i = 0; i < 5; i++) {
+                String obj = pool.borrow(1000);
+                if (obj != null) {
+                    borrowed.add(obj);
+                    if (obj.equals("obj-1")) {
+                        System.out.println("  ✗ FAIL: Invalid object 'obj-1' was returned");
+                        testsFailed++;
+                        return;
+                    }
+                }
+            }
+            
+            // Release all
+            for (String obj : borrowed) {
+                pool.release(obj);
+            }
+            
+            System.out.println("  - Created: " + createCount.get());
+            System.out.println("  - Validated: " + validateCount.get());
+            System.out.println("  - Borrowed valid objects: " + borrowed.size());
+            
+            if (!borrowed.contains("obj-1")) {
+                System.out.println("  ✓ PASS: Invalid objects never returned");
+                testsPassed++;
+            } else {
+                System.out.println("  ✗ FAIL: Invalid object was returned");
+                testsFailed++;
+            }
+        } catch (Exception e) {
+            System.out.println("  ✗ FAIL: Exception - " + e.getMessage());
+            e.printStackTrace();
+            testsFailed++;
+        }
+    }
+    
+    private static void testForeignObjectsRejected() {
+        System.out.println("\n[Test 3] Releasing foreign objects doesn't corrupt pool state...");
+        try {
+            ObjectPool<String> pool = new ObjectPool<>(
+                10,
+                () -> "pool-obj",
+                obj -> true
+            );
+            
+            int initialPoolSize = pool.getPoolSize();
+            int initialCreated = pool.getCreatedCount();
+            
+            // Try to release a foreign object
+            String foreignObj = "foreign-object";
+            pool.release(foreignObj);
+            
+            int afterPoolSize = pool.getPoolSize();
+            int afterCreated = pool.getCreatedCount();
+            
+            // Try to release another foreign object
+            pool.release("another-foreign");
+            
+            int finalPoolSize = pool.getPoolSize();
+            int finalCreated = pool.getCreatedCount();
+            
+            // Pool state should be unchanged
+            if (initialPoolSize == afterPoolSize && 
+                initialCreated == afterCreated &&
+                afterPoolSize == finalPoolSize &&
+                afterCreated == finalCreated) {
+                System.out.println("  ✓ PASS: Foreign objects rejected, pool state unchanged");
+                testsPassed++;
+            } else {
+                System.out.println("  ✗ FAIL: Pool state changed after releasing foreign object");
+                System.out.println("    Before: poolSize=" + initialPoolSize + ", created=" + initialCreated);
+                System.out.println("    After: poolSize=" + finalPoolSize + ", created=" + finalCreated);
+                testsFailed++;
+            }
+        } catch (Exception e) {
+            System.out.println("  ✗ FAIL: Exception - " + e.getMessage());
+            e.printStackTrace();
+            testsFailed++;
+        }
+    }
+    
+    private static void testFactoryExceptionsDontReduceCapacity() {
+        System.out.println("\n[Test 4] Factory exceptions don't permanently reduce capacity...");
+        try {
+            AtomicInteger createAttempts = new AtomicInteger(0);
+            ObjectPool<String> pool = new ObjectPool<>(
+                10,
+                () -> {
+                    createAttempts.incrementAndGet();
+                    if (createAttempts.get() <= 3) {
+                        throw new RuntimeException("Factory exception");
+                    }
+                    return "obj-" + createAttempts.get();
+                },
+                obj -> true
+            );
+            
+            // Try to borrow - first 3 attempts should fail, but capacity should remain
+            String obj1 = null;
+            for (int i = 0; i < 5; i++) {
+                try {
+                    obj1 = pool.borrow(1000);
+                    if (obj1 != null) break;
+                } catch (Exception e) {
+                    // Ignore
+                }
+            }
+            
+            if (obj1 == null) {
+                System.out.println("  ✗ FAIL: Could not borrow object after factory exceptions");
+                testsFailed++;
+                return;
+            }
+            
+            // Release obj1 to test that we can still reach maxSize after factory exceptions
+            pool.release(obj1);
+            
+            // Should be able to borrow up to maxSize objects (proving capacity wasn't reduced)
+            int maxBorrowed = 0;
             for (int i = 0; i < 15; i++) {
                 try {
                     String obj = pool.borrow(1000);
                     if (obj != null) {
-                        borrowed.add(obj);
+                        maxBorrowed++;
+                    } else {
+                        break;
                     }
-                } catch (TimeoutException e) {
-                    // Expected for borrows beyond maxSize
+                } catch (Exception e) {
+                    // Timeout or other exception - break
                     break;
                 }
             }
             
-            // Pool size should never exceed maxSize
-            int poolSize = pool.getPoolSize();
-            int created = pool.getCreatedCount();
+            System.out.println("  - Max objects borrowed: " + maxBorrowed);
+            System.out.println("  - Created count: " + pool.getCreatedCount());
             
-            if (created > 10 || poolSize > 10) {
-                System.err.println("FAIL: Pool exceeded maxSize. Created: " + created + ", PoolSize: " + poolSize);
-                return false;
+            // After factory exceptions, we should still be able to borrow maxSize objects
+            if (maxBorrowed >= 10) {
+                System.out.println("  ✓ PASS: Factory exceptions don't reduce capacity");
+                testsPassed++;
+            } else {
+                System.out.println("  ✗ FAIL: Capacity reduced after factory exceptions (maxBorrowed=" + maxBorrowed + ", expected >= 10)");
+                testsFailed++;
             }
             
-            System.out.println("PASS: Capacity control");
-            return true;
+            // Cleanup - release all borrowed objects
+            // Note: We can't track which objects were borrowed, so we'll just verify the pool state
         } catch (Exception e) {
-            System.err.println("FAIL: Exception: " + e.getMessage());
+            System.out.println("  ✗ FAIL: Exception - " + e.getMessage());
             e.printStackTrace();
-            return false;
+            testsFailed++;
         }
     }
     
-    private static boolean testZeroTimeout() {
-        System.out.println("Test: Zero Timeout");
+    private static void testZeroTimeoutNonBlocking() {
+        System.out.println("\n[Test 5] Zero timeout returns immediately without blocking...");
         try {
-            ObjectPool<String> pool = new ObjectPool<>(5, () -> "obj", obj -> true);
+            ObjectPool<String> pool = new ObjectPool<>(
+                5,
+                () -> "obj",
+                obj -> true
+            );
             
-            // Borrow all objects
+            // Borrow all available objects
             for (int i = 0; i < 5; i++) {
                 pool.borrow(1000);
             }
             
+            // Zero timeout should return immediately
             long start = System.currentTimeMillis();
             String obj = pool.borrow(0);
             long elapsed = System.currentTimeMillis() - start;
             
-            if (elapsed > 50) {
-                System.err.println("FAIL: Zero timeout blocked for " + elapsed + "ms");
-                return false;
-            }
+            System.out.println("  - Elapsed time: " + elapsed + "ms");
+            System.out.println("  - Returned object: " + (obj != null ? "non-null" : "null"));
             
-            if (obj != null) {
-                System.err.println("FAIL: Zero timeout returned object when pool empty");
-                return false;
+            if (elapsed < 50 && obj == null) { // Should return immediately (< 50ms)
+                System.out.println("  ✓ PASS: Zero timeout returns immediately");
+                testsPassed++;
+            } else {
+                System.out.println("  ✗ FAIL: Zero timeout blocked or returned object (elapsed=" + elapsed + "ms)");
+                testsFailed++;
             }
-            
-            System.out.println("PASS: Zero timeout");
-            return true;
         } catch (Exception e) {
-            System.err.println("FAIL: Exception: " + e.getMessage());
+            System.out.println("  ✗ FAIL: Exception - " + e.getMessage());
             e.printStackTrace();
-            return false;
-        }
-    }
-    
-    private static boolean testInvalidObjectRejection() {
-        System.out.println("Test: Invalid Object Rejection");
-        try {
-            AtomicInteger validCount = new AtomicInteger(0);
-            ObjectPool<String> pool = new ObjectPool<>(10, () -> "obj", obj -> {
-                return validCount.incrementAndGet() <= 5; // First 5 valid, rest invalid
-            });
-            
-            // Create and release objects
-            for (int i = 0; i < 10; i++) {
-                try {
-                    String obj = pool.borrow(1000);
-                    if (obj != null) {
-                        pool.release(obj);
-                    }
-                } catch (TimeoutException e) {
-                    // Timeout acceptable if we can't create valid objects
-                    break;
-                }
-            }
-            
-            // All borrowed objects should be valid
-            int validBorrowed = 0;
-            for (int i = 0; i < 10; i++) {
-                try {
-                    String obj = pool.borrow(1000);
-                    if (obj != null) {
-                        validBorrowed++;
-                    }
-                } catch (TimeoutException e) {
-                    // Timeout is acceptable
-                    break;
-                }
-            }
-            
-            if (validBorrowed > 5) {
-                System.err.println("FAIL: Invalid objects were returned. Valid: " + validBorrowed);
-                return false;
-            }
-            
-            System.out.println("PASS: Invalid object rejection");
-            return true;
-        } catch (Exception e) {
-            System.err.println("FAIL: Exception: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
-    
-    private static boolean testForeignObjectRejection() {
-        System.out.println("Test: Foreign Object Rejection");
-        try {
-            ObjectPool<String> pool1 = new ObjectPool<>(5, () -> "pool1", obj -> true);
-            ObjectPool<String> pool2 = new ObjectPool<>(5, () -> "pool2", obj -> true);
-            
-            String obj1 = pool1.borrow(1000);
-            String obj2 = pool2.borrow(1000);
-            
-            int initialSize = pool1.getPoolSize();
-            
-            // Release foreign object
-            pool1.release(obj2);
-            
-            int afterSize = pool1.getPoolSize();
-            
-            if (afterSize != initialSize) {
-                System.err.println("FAIL: Foreign object corrupted pool. Size: " + initialSize + " -> " + afterSize);
-                return false;
-            }
-            
-            System.out.println("PASS: Foreign object rejection");
-            return true;
-        } catch (Exception e) {
-            System.err.println("FAIL: Exception: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
-    
-    private static boolean testFactoryExceptionRecovery() {
-        System.out.println("Test: Factory Exception Recovery");
-        try {
-            AtomicInteger attempts = new AtomicInteger(0);
-            ObjectPool<String> pool = new ObjectPool<>(5, () -> {
-                if (attempts.incrementAndGet() <= 3) {
-                    throw new RuntimeException("Factory error");
-                }
-                return "obj";
-            }, obj -> true);
-            
-            // Should eventually succeed after exceptions
-            String obj = null;
-            for (int i = 0; i < 10; i++) {
-                try {
-                    obj = pool.borrow(1000);
-                    if (obj != null) break;
-                } catch (Exception e) {
-                    // Continue
-                }
-            }
-            
-            if (obj == null) {
-                System.err.println("FAIL: Could not create object after factory exceptions");
-                return false;
-            }
-            
-            // Capacity should still be available
-            int created = pool.getCreatedCount();
-            if (created == 0) {
-                System.err.println("FAIL: Factory exceptions permanently reduced capacity");
-                return false;
-            }
-            
-            System.out.println("PASS: Factory exception recovery");
-            return true;
-        } catch (Exception e) {
-            System.err.println("FAIL: Exception: " + e.getMessage());
-            e.printStackTrace();
-            return false;
+            testsFailed++;
         }
     }
 }

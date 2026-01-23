@@ -1,129 +1,184 @@
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Random;
 
+/**
+ * ObjectPoolStressTest - Tests stress scenarios:
+ * - 10,000 cycles across 1,000 threads (1-50ms delays) with zero errors
+ * - Capacity never exceeded
+ */
 public class ObjectPoolStressTest {
+    private static int testsPassed = 0;
+    private static int testsFailed = 0;
+    
     public static void main(String[] args) {
-        int failures = 0;
+        System.out.println("=".repeat(60));
+        System.out.println("ObjectPool Stress Test");
+        System.out.println("=".repeat(60));
         
-        failures += testStressLoad() ? 0 : 1;
-        
-        System.exit(failures > 0 ? 1 : 0);
+        try {
+            testStressScenario();
+            
+            System.out.println("\n" + "=".repeat(60));
+            System.out.println("Results: " + testsPassed + " passed, " + testsFailed + " failed");
+            System.out.println("=".repeat(60));
+            
+            if (testsFailed > 0) {
+                System.exit(1);
+            }
+        } catch (Exception e) {
+            System.err.println("Test suite failed with exception: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
     
-    private static boolean testStressLoad() {
-        System.out.println("Test: Stress Load");
+    private static void testStressScenario() {
+        System.out.println("\n[Test] Stress test: 10,000 cycles across 1,000 threads...");
         try {
             int maxSize = 50;
-            ObjectPool<String> pool = new ObjectPool<>(maxSize, () -> "obj" + System.nanoTime(), obj -> true);
-            
-            int cycles = 10000;
-            int threadCount = 1000;
-            CountDownLatch startLatch = new CountDownLatch(1);
+            AtomicInteger created = new AtomicInteger(0);
+            AtomicInteger maxObserved = new AtomicInteger(0);
             AtomicInteger errorCount = new AtomicInteger(0);
-            AtomicInteger timeoutCount = new AtomicInteger(0);
-            AtomicInteger maxPoolSize = new AtomicInteger(0);
+            AtomicInteger cycleCount = new AtomicInteger(0);
+            Random random = new Random();
             
-            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+            ObjectPool<String> pool = new ObjectPool<>(
+                maxSize,
+                () -> "obj-" + created.incrementAndGet(),
+                obj -> {
+                    // Random validation delay 1-50ms
+                    try {
+                        Thread.sleep(random.nextInt(50) + 1);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                    return true;
+                }
+            );
             
-            for (int cycle = 0; cycle < cycles; cycle++) {
-                final int cycleNum = cycle;
+            int numThreads = 1000;
+            int cyclesPerThread = 10; // 1000 threads * 10 cycles = 10,000 cycles
+            ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch finishLatch = new CountDownLatch(numThreads);
+            
+            for (int i = 0; i < numThreads; i++) {
                 executor.submit(() -> {
                     try {
                         startLatch.await();
                         
-                        // Random delay 1-50ms
-                        Thread.sleep(ThreadLocalRandom.current().nextInt(1, 51));
-                        
-                        String obj = null;
-                        try {
-                            obj = pool.borrow(2000); // Reasonable timeout for stress test
-                        } catch (TimeoutException e) {
-                            // Timeout is acceptable under extreme high load - not an error
-                            timeoutCount.incrementAndGet();
-                            return;
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            // Interrupt is acceptable - not an error
-                            return;
+                        for (int cycle = 0; cycle < cyclesPerThread; cycle++) {
+                            try {
+                                // Borrow with longer timeout to handle high contention
+                                // With 1000 threads and maxSize=50, timeouts are expected
+                                long timeout = random.nextInt(5000) + 2000; // 2-7 seconds
+                                String obj = pool.borrow(timeout);
+                                
+                                if (obj != null) {
+                                    // Check capacity
+                                    int current = pool.getCreatedCount();
+                                    int currentMax = maxObserved.get();
+                                    while (current > currentMax && !maxObserved.compareAndSet(currentMax, current)) {
+                                        currentMax = maxObserved.get();
+                                    }
+                                    
+                                    if (current > maxSize) {
+                                        errorCount.incrementAndGet();
+                                        System.err.println("ERROR: Capacity exceeded! current=" + current + ", maxSize=" + maxSize);
+                                    }
+                                    
+                                    // Hold object for random time (1-50ms)
+                                    Thread.sleep(random.nextInt(50) + 1);
+                                    
+                                    // Release
+                                    pool.release(obj);
+                                }
+                                // Note: TimeoutException is expected under high contention and not counted as error
+                                
+                                cycleCount.incrementAndGet();
+                                
+                                // Random delay between cycles (1-50ms)
+                                Thread.sleep(random.nextInt(50) + 1);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                errorCount.incrementAndGet();
+                                break;
+                            } catch (TimeoutException e) {
+                                // Timeout is expected under high contention (1000 threads, 50 objects)
+                                // Don't count as error, just continue to next cycle
+                                cycleCount.incrementAndGet();
+                            } catch (Exception e) {
+                                // Only count non-timeout exceptions as errors
+                                errorCount.incrementAndGet();
+                                System.err.println("Exception in cycle: " + e.getMessage());
+                            }
                         }
-                        
-                        if (obj == null) {
-                            // Null return is acceptable if pool is at capacity
-                            return;
-                        }
-                        
-                        // Check pool size for monitoring (but don't fail on race conditions)
-                        // Note: These checks are inherently racy - objects can be borrowed/released concurrently
-                        // We check at the end for actual capacity violations
-                        int currentSize = pool.getPoolSize();
-                        int created = pool.getCreatedCount();
-                        
-                        maxPoolSize.updateAndGet(current -> Math.max(current, currentSize));
-                        
-                        // Only check capacity at end of test, not during concurrent operations
-                        // (capacity check moved to after all operations complete)
-                        
-                        // Random delay before release
-                        Thread.sleep(ThreadLocalRandom.current().nextInt(1, 51));
-                        
-                        pool.release(obj);
-                        
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        // Interrupt is acceptable - not an error
                     } catch (Exception e) {
-                        // Under extreme stress, most exceptions are acceptable
-                        // Check if it's a timeout that wasn't caught earlier
-                        if (e instanceof TimeoutException) {
-                            timeoutCount.incrementAndGet();
-                        }
-                        // Don't count other exceptions as errors - they're likely due to high load
+                        errorCount.incrementAndGet();
+                        System.err.println("Exception in thread: " + e.getMessage());
+                    } finally {
+                        finishLatch.countDown();
                     }
                 });
             }
             
+            long startTime = System.currentTimeMillis();
             startLatch.countDown();
+            // Wait for completion with timeout - for broken implementations, this may timeout
+            // but we still want to collect results
+            boolean completed = finishLatch.await(150, TimeUnit.SECONDS);
+            long elapsed = System.currentTimeMillis() - startTime;
+            
+            // Force shutdown if not completed
             executor.shutdown();
-            boolean completed = executor.awaitTermination(120, TimeUnit.SECONDS);
-            
             if (!completed) {
-                System.err.println("FAIL: Test did not complete in time");
-                return false;
+                executor.shutdownNow(); // Force shutdown
             }
+            executor.awaitTermination(5, TimeUnit.SECONDS);
             
-            // Check final capacity (after all operations complete)
-            int finalSize = pool.getPoolSize();
-            int finalCreated = pool.getCreatedCount();
+            // Wait a bit for all releases
+            Thread.sleep(200);
             
-            if (finalSize > maxSize || finalCreated > maxSize) {
-                System.err.println("FAIL: Pool capacity exceeded maxSize. Final size: " + finalSize + ", created: " + finalCreated);
-                return false;
+            int finalCount = pool.getCreatedCount();
+            int finalPoolSize = pool.getPoolSize();
+            
+            System.out.println("  - Cycles completed: " + cycleCount.get());
+            System.out.println("  - Errors encountered: " + errorCount.get());
+            System.out.println("  - Max observed totalActive: " + maxObserved.get());
+            System.out.println("  - Final totalActive: " + finalCount);
+            System.out.println("  - Final pool size: " + finalPoolSize);
+            System.out.println("  - Test duration: " + elapsed + "ms");
+            System.out.println("  - Completed: " + completed);
+            
+            boolean capacityOk = maxObserved.get() <= maxSize && finalCount <= maxSize;
+            boolean noErrors = errorCount.get() == 0;
+            boolean cyclesOk = cycleCount.get() >= 9000; // At least 90% completed
+            
+            if (capacityOk && noErrors && cyclesOk && completed) {
+                System.out.println("  ✓ PASS: Stress test passed (zero errors, capacity never exceeded)");
+                testsPassed++;
+            } else {
+                System.out.println("  ✗ FAIL: Stress test failed");
+                if (!capacityOk) {
+                    System.out.println("    - Capacity exceeded: max=" + maxSize + ", observed=" + maxObserved.get());
+                }
+                if (!noErrors) {
+                    System.out.println("    - Errors: " + errorCount.get());
+                }
+                if (!cyclesOk) {
+                    System.out.println("    - Cycles incomplete: " + cycleCount.get() + "/10000");
+                }
+                if (!completed) {
+                    System.out.println("    - Test did not complete within timeout");
+                }
+                testsFailed++;
             }
-            
-            // Under extreme stress (10000 cycles, 1000 threads), some errors are acceptable
-            // Only fail if there are many serious errors (not timeouts)
-            // Timeouts are expected and acceptable under high load
-            if (errorCount.get() > 100) {
-                System.err.println("FAIL: Too many errors: " + errorCount.get() + " (timeouts: " + timeoutCount.get() + ")");
-                return false;
-            }
-            
-            if (errorCount.get() > 0) {
-                System.out.println("Note: " + errorCount.get() + " minor errors occurred (acceptable under extreme stress)");
-            }
-            
-            // Timeouts are acceptable under extreme load - just log them
-            if (timeoutCount.get() > 0) {
-                System.out.println("Note: " + timeoutCount.get() + " timeouts occurred (acceptable under high load)");
-            }
-            
-            System.out.println("PASS: Stress load (" + cycles + " cycles, " + threadCount + " threads)");
-            return true;
         } catch (Exception e) {
-            System.err.println("FAIL: Exception: " + e.getMessage());
+            System.out.println("  ✗ FAIL: Exception - " + e.getMessage());
             e.printStackTrace();
-            return false;
+            testsFailed++;
         }
     }
 }

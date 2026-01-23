@@ -7,12 +7,12 @@ import java.util.concurrent.locks.ReentrantLock;
  * ObjectPool - Fixed implementation with proper concurrency handling.
  * 
  * Fixes:
- * - Pool size never exceeds maxSize (proper synchronization)
+ * - Pool size never exceeds maxSize (proper synchronization using CAS)
  * - Parallel validation (validation outside lock)
- * - Accurate timeout handling
+ * - Accurate timeout handling with proper deadline calculation
  * - Interrupt status preserved
- * - Foreign objects rejected
- * - Factory exceptions don't reduce capacity
+ * - Foreign objects rejected (tracked via ConcurrentHashMap)
+ * - Factory exceptions don't reduce capacity (capacity reserved before creation)
  */
 public class ObjectPool<T> {
     private final int maxSize;
@@ -44,7 +44,7 @@ public class ObjectPool<T> {
     public T borrow(long timeoutMs) throws InterruptedException, TimeoutException {
         if (timeoutMs < 0) throw new IllegalArgumentException("timeout must be non-negative");
         
-        // Zero timeout: return immediately if no object available
+        // Zero timeout: return immediately if no object available (non-blocking)
         if (timeoutMs == 0) {
             T obj = pool.poll();
             if (obj != null) {
@@ -67,10 +67,11 @@ public class ObjectPool<T> {
                 throw new InterruptedException();
             }
             
-            // Try to get object from pool without blocking (lock-free fast path)
+            // OPTIMIZATION: Fast path - try to get object from pool without blocking (lock-free)
+            // This is the most common case and should be as fast as possible
             T obj = pool.poll();
             if (obj != null) {
-                // Validate outside lock to allow parallel validation
+                // Validate outside lock to allow parallel validation (critical for throughput)
                 if (validator.validate(obj)) {
                     return obj;
                 } else {
@@ -83,40 +84,55 @@ public class ObjectPool<T> {
                 }
             }
             
-            // Try to create new object if capacity allows (lock-free)
-            T newObj = tryCreateNew();
-            if (newObj != null) {
-                return newObj;
+            // OPTIMIZATION: Check capacity before attempting creation to avoid unnecessary CAS
+            // This reduces contention on totalActive when pool is at capacity
+            if (totalActive.get() < maxSize) {
+                // Try to create new object if capacity allows (lock-free CAS operation)
+                T newObj = tryCreateNew();
+                if (newObj != null) {
+                    return newObj;
+                }
             }
             
             // Wait for object to become available
+            boolean lockHeld = false;
             lock.lock();
+            lockHeld = true;
             try {
                 // Double-check after acquiring lock (avoid race condition)
                 obj = pool.poll();
                 if (obj != null) {
+                    // Release lock before validation (validation happens outside lock)
                     lock.unlock();
+                    lockHeld = false;
                     // Validate outside lock for parallel execution
                     if (validator.validate(obj)) {
                         return obj;
                     } else {
+                        // Invalid object - try to create replacement (doesn't change totalActive)
                         T replacement = tryCreateAndReplace(obj);
                         if (replacement != null) {
                             return replacement;
                         }
-                        lock.lock(); // Re-acquire for waiting
+                        // Replacement failed, need to wait - re-acquire lock
+                        lock.lock();
+                        lockHeld = true;
                     }
                 } else {
                     // Pool is empty - try to create new object (outside lock)
-                    // CRITICAL: Factory calls must be outside locks per Apache Commons Pool best practices
+                    // CRITICAL: Factory calls must be outside locks per best practices
                     lock.unlock();
-                    newObj = tryCreateNew();
+                    lockHeld = false;
+                    T newObj = tryCreateNew();
                     if (newObj != null) {
                         return newObj;
                     }
-                    lock.lock(); // Re-acquire for waiting
+                    // Creation failed, need to wait - re-acquire lock
+                    lock.lock();
+                    lockHeld = true;
                 }
                 
+                // At this point we hold the lock and need to wait
                 // Calculate remaining time
                 long remaining = deadline == Long.MAX_VALUE ? Long.MAX_VALUE : deadline - System.currentTimeMillis();
                 if (remaining <= 0) {
@@ -132,7 +148,10 @@ public class ObjectPool<T> {
                     throw e;
                 }
             } finally {
-                lock.unlock();
+                // Only unlock if we still hold the lock
+                if (lockHeld) {
+                    lock.unlock();
+                }
             }
         }
     }
@@ -145,7 +164,7 @@ public class ObjectPool<T> {
                 return null; // Cannot create without exceeding maxSize
             }
             
-            // Try to reserve capacity
+            // Try to reserve capacity using CAS
             if (totalActive.compareAndSet(current, current + 1)) {
                 // Capacity reserved, now create object
                 try {
@@ -190,10 +209,6 @@ public class ObjectPool<T> {
                     poolObjects.remove(invalidObj);
                     totalActive.decrementAndGet(); // Account for lost invalid object
                 }
-            } else {
-                // Factory returned null - invalid object is lost
-                poolObjects.remove(invalidObj);
-                totalActive.decrementAndGet(); // Account for lost invalid object
             }
         } catch (Exception e) {
             // Factory exception - invalid object is lost
@@ -208,19 +223,18 @@ public class ObjectPool<T> {
         
         // Only tracked objects (created by this pool) can be released
         // This prevents foreign objects from corrupting the pool state
-        // Optimize: Check tracking first (fast path for tracked objects)
         if (!poolObjects.containsKey(obj)) {
-            // Foreign object - reject it immediately
+            // Foreign object - reject it immediately (doesn't corrupt pool state)
             return;
         }
         
         // Try to add back to pool (lock-free, fastest path)
         if (pool.offer(obj)) {
             // Successfully added - signal waiting threads
-            // CRITICAL OPTIMIZATION: signalAll() wakes ALL waiting threads simultaneously
-            // This maximizes parallelism when objects become available
-            // Per Oracle Java docs: signalAll() is preferred for high-throughput scenarios
-            // Minimize lock hold time - only signal, don't do any other work
+            // OPTIMIZATION: Minimize lock hold time - acquire, signal, release immediately
+            // Use signalAll() to wake all waiting threads for maximum throughput
+            // This is critical for high-concurrency scenarios (500 threads, 50 objects)
+            // The lock is held for the absolute minimum time (just signaling)
             lock.lock();
             try {
                 available.signalAll(); // Wake all waiting threads for maximum throughput
@@ -228,7 +242,9 @@ public class ObjectPool<T> {
                 lock.unlock();
             }
         } else {
-            // Pool is full - object exceeds capacity, discard it
+            // Pool is full - object cannot be returned to pool, discard it
+            // This can happen if pool reached maxSize and this object was borrowed before
+            // Decrement totalActive to account for discarded object
             poolObjects.remove(obj);
             totalActive.decrementAndGet();
         }
