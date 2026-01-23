@@ -4,7 +4,8 @@
   "description": "React product search hook with race condition bugs",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test-repo": "if [ \"$REPO\" = \"before\" ]; then cd repository_before && npm install && cd .. && npm test; else npm test; fi"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -20,4 +21,5 @@
     "@testing-library/jest-dom": "^5.0.0",
     "jest-environment-jsdom": "^29.0.0"
   }
+
 }

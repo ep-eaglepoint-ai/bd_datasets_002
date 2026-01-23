@@ -1,5 +1,8 @@
-FROM python:3.11-slim
+FROM node:18-alpine
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+COPY package.json package-lock.json* jest.config.js tsconfig.json ./
+COPY repository_after ./repository_after
+COPY repository_before ./repository_before
+COPY tests ./tests
+RUN npm install --legacy-peer-deps --verbose
+CMD ["npm", "run", "test-repo"]
