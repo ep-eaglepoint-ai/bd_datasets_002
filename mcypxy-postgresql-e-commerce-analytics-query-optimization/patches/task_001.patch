@@ -1,0 +1,183 @@
+diff --git a/repository_before/queries.sql b/repository_after/queries.sql
+index 0554eec..11d93c3 100644
+--- a/repository_before/queries.sql
++++ b/repository_after/queries.sql
+@@ -40,32 +40,42 @@ FROM customers c
+ JOIN orders o ON o.customer_id = c.customer_id
+ WHERE c.first_purchase_date >= NOW() - INTERVAL '13 months'
+   AND o.status != 'cancelled'
++  AND o.order_date >= c.first_purchase_date
++  AND o.order_date < c.first_purchase_date + INTERVAL '13 months'
+ GROUP BY 
+     TO_CHAR(c.first_purchase_date, 'YYYY-MM'),
+     EXTRACT(MONTH FROM AGE(o.order_date, c.first_purchase_date))
+ ORDER BY cohort, months_since_first;
+ 
+ 
++-- Query 4: Inventory Turnover (optimized with indexed joins)
+ SELECT 
+     p.product_id,
+     p.name,
+-    COALESCE(SUM(oi.quantity), 0) as units_sold,
++    COALESCE(sales.units_sold, 0) as units_sold,
+     i.quantity as current_stock,
+     CASE 
+-        WHEN i.quantity > 0 THEN ROUND(COALESCE(SUM(oi.quantity), 0)::numeric / i.quantity, 2)
++        WHEN i.quantity > 0 THEN ROUND(COALESCE(sales.units_sold, 0)::numeric / i.quantity, 2)
+         ELSE 0 
+     END as turnover_rate
+ FROM products p
+-LEFT JOIN order_items oi ON oi.product_id = p.product_id
+-LEFT JOIN orders o ON o.order_id = oi.order_id 
+-    AND o.order_date >= NOW() - INTERVAL '90 days'
+-    AND o.status != 'cancelled'
+ LEFT JOIN inventory i ON i.product_id = p.product_id
+-GROUP BY p.product_id, p.name, i.quantity
++LEFT JOIN (
++    SELECT 
++        oi.product_id,
++        SUM(oi.quantity) as units_sold
++    FROM order_items oi
++    JOIN orders o ON o.order_id = oi.order_id
++    WHERE o.order_date >= NOW() - INTERVAL '90 days'
++      AND o.status != 'cancelled'
++    GROUP BY oi.product_id
++) sales ON sales.product_id = p.product_id
++GROUP BY p.product_id, p.name, i.quantity, sales.units_sold
+ ORDER BY turnover_rate DESC
+ LIMIT 100;
+ 
+ 
++-- Query 5: Customer Lifetime Value (optimized with filtered aggregation)
+ SELECT 
+     customer_id,
+     total_spent,
+@@ -73,17 +83,17 @@ SELECT
+     NTILE(100) OVER (ORDER BY total_spent) as percentile
+ FROM (
+     SELECT 
+-        c.customer_id,
+-        SUM(o.total_amount) as total_spent,
+-        COUNT(o.order_id) as order_count
+-    FROM customers c
+-    JOIN orders o ON o.customer_id = c.customer_id
+-    WHERE o.status != 'cancelled'
+-    GROUP BY c.customer_id
++        customer_id,
++        SUM(total_amount) as total_spent,
++        COUNT(*) as order_count
++    FROM orders
++    WHERE status != 'cancelled'
++    GROUP BY customer_id
+ ) customer_totals
+ ORDER BY percentile DESC, total_spent DESC;
+ 
+ 
++-- Query 6: Category Performance Comparison (optimized with window function)
+ WITH monthly_revenue AS (
+     SELECT 
+         p.category_id,
+@@ -93,18 +103,17 @@ WITH monthly_revenue AS (
+     JOIN order_items oi ON oi.order_id = o.order_id
+     JOIN products p ON p.product_id = oi.product_id
+     WHERE o.status != 'cancelled'
++      AND o.order_date >= NOW() - INTERVAL '13 months'
+     GROUP BY p.category_id, DATE_TRUNC('month', o.order_date)
+ )
+ SELECT 
+     c.name as category,
+     curr.month,
+     curr.revenue as current_revenue,
+-    prev.revenue as previous_revenue,
+-    ROUND(((curr.revenue - prev.revenue) / NULLIF(prev.revenue, 0)) * 100, 2) as growth_pct
++    LAG(curr.revenue) OVER (PARTITION BY curr.category_id ORDER BY curr.month) as previous_revenue,
++    ROUND(((curr.revenue - LAG(curr.revenue) OVER (PARTITION BY curr.category_id ORDER BY curr.month)) / 
++           NULLIF(LAG(curr.revenue) OVER (PARTITION BY curr.category_id ORDER BY curr.month), 0)) * 100, 2) as growth_pct
+ FROM monthly_revenue curr
+-JOIN monthly_revenue prev ON prev.category_id = curr.category_id 
+-    AND prev.month = curr.month - INTERVAL '1 month'
+ JOIN categories c ON c.category_id = curr.category_id
+ WHERE curr.month >= NOW() - INTERVAL '12 months'
+ ORDER BY c.name, curr.month;
+-
+diff --git a/repository_before/schema.sql b/repository_after/schema.sql
+index f5b4957..a23912a 100644
+--- a/repository_before/schema.sql
++++ b/repository_after/schema.sql
+@@ -53,3 +53,15 @@ CREATE TABLE order_items (
+     discount DECIMAL(10, 2) DEFAULT 0
+ );
+ 
++CREATE INDEX idx_orders_date_status_amount ON orders(order_date, status) 
++INCLUDE (total_amount) WHERE status != 'cancelled';
++
++CREATE INDEX idx_orders_date_status_id ON orders(order_date, status, order_id) 
++WHERE status != 'cancelled';
++
++CREATE INDEX idx_order_items_product_order ON order_items(product_id, order_id);
++
++CREATE INDEX idx_orders_customer_status_date ON orders(customer_id, status, order_date) 
++WHERE status != 'cancelled';
++
++CREATE INDEX idx_inventory_product ON inventory(product_id) INCLUDE (quantity);
+diff --git a/repository_before/seed.sql b/repository_after/seed.sql
+index 40b22f8..af66cc2 100644
+--- a/repository_before/seed.sql
++++ b/repository_after/seed.sql
+@@ -58,4 +58,3 @@ SELECT
+     (NOW() - (random() * 90 || ' days')::interval)::date,
+     floor(random() * 50 + 5)::int
+ FROM generate_series(1, 100000) g;
+-
+diff --git a/repository_before/seed_test.sql b/repository_before/seed_test.sql
+deleted file mode 100644
+index 5caa057..0000000
+--- a/repository_before/seed_test.sql
++++ /dev/null
+@@ -1,46 +0,0 @@
+-INSERT INTO categories (name, parent_category_id) VALUES
+-('Electronics', NULL),
+-('Clothing', NULL),
+-('Home & Garden', NULL),
+-('Sports', NULL),
+-('Books', NULL);
+-
+-INSERT INTO categories (name, parent_category_id)
+-SELECT 'Subcategory ' || g || ' of ' || c.name, c.category_id
+-FROM categories c, generate_series(1, 9) g
+-WHERE c.parent_category_id IS NULL;
+-
+-INSERT INTO products (sku, name, category_id, price, cost)
+-SELECT 'SKU-' || g, 'Product ' || g, (g % 50) + 1, 
+-       (random() * 500 + 10)::numeric(10,2),
+-       (random() * 200 + 5)::numeric(10,2)
+-FROM generate_series(1, 1000) g;
+-
+-INSERT INTO customers (email, created_at, first_purchase_date, country, segment)
+-SELECT 'customer' || g || '@test.com', 
+-       NOW() - (random() * 365 || ' days')::interval,
+-       (NOW() - (random() * 365 || ' days')::interval)::date,
+-       'US', 'retail'
+-FROM generate_series(1, 5000) g;
+-
+-INSERT INTO orders (customer_id, order_date, status, total_amount, discount_amount, shipping_cost, payment_method)
+-SELECT 
+-    (random() * 4999 + 1)::int,
+-    NOW() - (random() * 365 || ' days')::interval,
+-    CASE WHEN random() < 0.25 THEN 'cancelled' ELSE 'delivered' END,
+-    (random() * 500 + 10)::numeric(12,2),
+-    0, 10, 'credit_card'
+-FROM generate_series(1, 100000) g;
+-
+-INSERT INTO order_items (order_id, product_id, quantity, unit_price, discount)
+-SELECT 
+-    (random() * 99999 + 1)::int,
+-    (random() * 999 + 1)::int,
+-    (random() * 3 + 1)::int,
+-    (random() * 100 + 10)::numeric(10,2),
+-    0
+-FROM generate_series(1, 200000) g;
+-
+-INSERT INTO inventory (product_id, warehouse_id, quantity, last_restock_date, reorder_point)
+-SELECT g, 1, (random() * 500)::int, NOW()::date, 10
+-FROM generate_series(1, 1000) g;
