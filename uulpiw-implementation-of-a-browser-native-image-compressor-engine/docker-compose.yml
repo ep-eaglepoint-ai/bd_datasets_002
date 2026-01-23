@@ -1,13 +1,11 @@
 services:
-  # Full evaluation (runs both before and after tests)
   evaluation:
     build: .
-    command: ["node", "evaluation/evaluation.js"]
+    working_dir: /app
+    command: node evaluation/evaluation.js
     volumes:
-      - .:/host:rw  # Mount for report output
-
-  # Test repository_after only (expected to PASS)
+      - .:/host:rw
   test-after:
     build: .
-    working_dir: /app/tests
-    command: ["npm", "run", "test:after"]
+    working_dir: /app/repository_after
+    command: sh -c "rm -rf node_modules package-lock.json && npm install && npx vitest run"
