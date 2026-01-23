@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Enable standalone output for Docker deployments
+  // This creates a minimal production bundle
+  output: "standalone",
 };
 
 export default nextConfig;
