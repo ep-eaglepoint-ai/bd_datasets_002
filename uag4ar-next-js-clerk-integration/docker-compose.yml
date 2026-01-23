@@ -6,7 +6,7 @@ services:
       - /app/node_modules
     environment:
       - REPO_PATH=repository_before
-      - RUN_EVALUATION=${RUN_EVALUATION:-false}
+    command: npm test
 
   app-after:
     build: .
@@ -15,4 +15,14 @@ services:
       - /app/node_modules
     environment:
       - REPO_PATH=repository_after
-      - RUN_EVALUATION=${RUN_EVALUATION:-false}
+    command: npm test
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - REPO_PATH=repository_after
+      - RUN_EVALUATION=true
+    command: npm run evaluate
