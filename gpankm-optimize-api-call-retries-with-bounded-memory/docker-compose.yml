@@ -1,12 +1,10 @@
 services:
   test-before:
     build: .
-    command: node --expose-gc -r ts-node/register tests/test.ts --repo=../repository_before/safaricom_calls
-
+    command: node --expose-gc dist/tests/test.js --repo=../repository_before/safaricom_calls
   test-after:
     build: .
-    command: node --expose-gc -r ts-node/register tests/test.ts --repo=../repository_after/safaricom_calls
-
+    command: node --expose-gc dist/tests/test.js --repo=../repository_after/safaricom_calls
   evaluation:
     build: .
-    command: node --expose-gc -r ts-node/register evaluation/evaluation.ts
+    command: node --expose-gc dist/evaluation/evaluation.js

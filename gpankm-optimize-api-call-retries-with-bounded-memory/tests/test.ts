@@ -20,6 +20,16 @@ function createServer(handler: (req: http.IncomingMessage, res: http.ServerRespo
   });
 }
 
+/** Close server and release resources so the process does not hang. */
+function closeServer(server: http.Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof (server as any).closeAllConnections === 'function') {
+      (server as any).closeAllConnections();
+    }
+    server.close((err) => (err ? reject(err) : resolve()));
+  });
+}
+
 async function testEmptyBody() {
   const { safaricomCoreCall } = await import(REPO_PATH);
   const out = await safaricomCoreCall({}, 'tk', 'topup', { baseUrl: 'http://localhost' });
@@ -43,7 +53,7 @@ async function testSuccess() {
     }
     console.log('  OK 200 -> returns { status, data }');
   } finally {
-    server.close();
+    await closeServer(server);
   }
 }
 
@@ -69,7 +79,7 @@ async function testRetryThenSuccess() {
     }
     console.log('  OK 500,500,200 -> retries then 200');
   } finally {
-    server.close();
+    await closeServer(server);
   }
 }
 
@@ -87,7 +97,7 @@ async function testNeverThrows() {
     }
     console.log('  OK always 500 -> returns { status: 500, message }, no throw');
   } finally {
-    server.close();
+    await closeServer(server);
   }
 }
 
@@ -108,7 +118,7 @@ async function testPermanentFailureNoRetry() {
     }
     console.log('  OK 400 -> no retry, single attempt');
   } finally {
-    server.close();
+    await closeServer(server);
   }
 }
 
@@ -237,8 +247,8 @@ async function testBenchmark() {
     console.log('Benchmark PASS (<10s)');
 
   } finally {
-    server1.close();
-    server2.close();
+    await closeServer(server1);
+    await closeServer(server2);
   }
 }
 
@@ -253,6 +263,7 @@ async function main() {
 
   await testBenchmark();
   console.log('\nAll tests and benchmarks passed.');
+  process.exit(0);
 }
 
 main().catch((e) => {

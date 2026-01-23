@@ -13,15 +13,25 @@ interface RunResults {
   metrics: Record<string, number | boolean>;
 }
 
+const useCompiled = fs.existsSync(path.join(process.cwd(), 'dist/tests/test.js'));
+
 async function runEvaluationFor(repoPath: string, label: string): Promise<RunResults> {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`RUNNING EVALUATION: ${label.toUpperCase()}`);
   console.log(`${'='.repeat(60)}`);
 
+  const script = useCompiled ? 'dist/tests/test.js' : 'tests/test.ts';
+  const nodeArgs = useCompiled
+    ? ['--expose-gc', script]
+    : ['--expose-gc', '-r', 'ts-node/register', script];
+  const resolvedRepo = useCompiled
+    ? path.resolve(process.cwd(), repoPath.replace(/^\.\.\//, 'dist/'))
+    : repoPath;
+
   return new Promise((resolve) => {
-    const env = { ...process.env, REPO_PATH: repoPath, NODE_ENV: 'test' };
+    const env = { ...process.env, REPO_PATH: resolvedRepo, NODE_ENV: 'test' };
     const start = Date.now();
-    const child = cp.spawn('node', ['--expose-gc', '-r', 'ts-node/register', 'tests/test.ts'], {
+    const child = cp.spawn('node', nodeArgs, {
       env,
       shell: false,
       cwd: process.cwd(),

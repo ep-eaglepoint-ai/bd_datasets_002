@@ -1,16 +1,22 @@
+# ---- builder: install deps and compile TS to JS ----
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --progress=false
+
+COPY . .
+RUN npx tsc
+
+# ---- runner: prod deps only, run compiled JS ----
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dependencies first (better layer caching)
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --progress=false
+RUN npm ci --omit=dev --no-audit --progress=false
 
-# Copy the rest of the source
-COPY . .
+COPY --from=builder /app/dist ./dist
 
-# Ensure ts-node can run TypeScript
-# (npm ci installs devDependencies by default, so this is safe)
-ENV NODE_ENV=development
-
-CMD ["node", "--expose-gc", "-r", "ts-node/register", "evaluation/evaluation.ts"]
+CMD ["node", "--expose-gc", "dist/evaluation/evaluation.js"]
