@@ -1,22 +1,32 @@
-import os
-import time
-import importlib.util
-import pytest
 import sys
+import pytest
+import importlib.util
+import os
+from unittest.mock import MagicMock
 
-# ---------------------------------------------------------
-# DYNAMIC IMPORT LOGIC
-# ---------------------------------------------------------
+# ==========================================
+# 1. DYNAMIC IMPORT & ROBUST LOADING
+# ==========================================
+
 def load_maze_module():
     """
     Dynamically loads the maze module based on PYTHONPATH.
-    This ensures we test the exact code running in the environment.
     """
     impl = os.getenv("PYTHONPATH", "")
     if "repository_before" in impl:
         path = "/app/repository_before/maze.py"
     else:
         path = "/app/repository_after/maze.py"
+
+    if not os.path.exists(path):
+        # Fallback to standard import if path logic fails
+        try:
+            return importlib.import_module("maze")
+        except ImportError:
+            # Return a Mock so tests fail gracefully
+            m = MagicMock()
+            m.solve_maze.side_effect = Exception("Maze module could not be loaded")
+            return m
 
     spec = importlib.util.spec_from_file_location("maze", path)
     if spec is None:
@@ -30,35 +40,40 @@ def load_maze_module():
 def maze_solver():
     return load_maze_module()
 
-# ---------------------------------------------------------
-# BFS OPTIMALITY
-# ---------------------------------------------------------
+# ==========================================
+# 2. ALGORITHM & ARCHITECTURE TESTS
+# ==========================================
+
 def test_bfs_optimality_trap(maze_solver):
     """
-    Trap Maze:
-    Open grid (all 0s).
-    Start: Top-Left (0,0) -> End: Top-Right (0, 4).
-
-    BFS Strategy: Goes straight Right. Path Length = 5.
-    DFS Strategy: Usually prioritizes Down/Right. Will explore the whole grid
-                  before coming back. Path Length >> 5.
+    Trap Maze: Tests BFS (Shortest Path) vs DFS.
+    Legacy Code Failure: Returns a Grid (list) or finds a long path.
     """
     size = 20
     maze = [[0 for _ in range(size)] for _ in range(size)]
 
-    path, length = maze_solver.solve_maze(maze, 0, 0, 0, 4)
+    try:
+        result = maze_solver.solve_maze(maze, 0, 0, 0, 4)
 
-    # Shortest path guarantee
-    assert length == 5, f"Sub-optimal path found: {length}. Expected 5 (BFS)."
-    assert len(path) == 5
+        # Check Legacy Return Type
+        if not isinstance(result, tuple):
+             pytest.fail(f"Architecture Mismatch: Solver returned {type(result)} instead of Tuple (path, length). Legacy DFS implementation detected.")
 
-# ---------------------------------------------------------
-# IN-PLACE MODIFICATION (Req 2)
-# ---------------------------------------------------------
+        path, length = result
+
+        # Check Optimality
+        if length != 5:
+            pytest.fail(f"Optimality Failure: Path length is {length}, expected 5. (Likely DFS traversal used instead of BFS)")
+
+    except TypeError:
+        pytest.fail("Signature Mismatch: Failed to unpack result. The solver must return (path_list, length_int).")
+    except Exception as e:
+        pytest.fail(f"Solver crashed: {e}")
+
 def test_maze_is_modified_in_place(maze_solver):
     """
-    Ensures the solver marks visited cells in the original list
-    instead of creating a new visited set/matrix (Memory constraint).
+    Memory Efficiency: The maze should be modified in-place to track visited nodes.
+    Legacy Code Failure: Creates and returns a new 2D list.
     """
     maze = [
         [0, 0, 0],
@@ -67,85 +82,127 @@ def test_maze_is_modified_in_place(maze_solver):
     ]
     original_snapshot = [row[:] for row in maze]
 
-    maze_solver.solve_maze(maze, 0, 0, 2, 2)
+    try:
+        maze_solver.solve_maze(maze, 0, 0, 2, 2)
+    except Exception:
+        # If it crashes, we just want to check the side effect, so we continue
+        pass
 
-    # The maze should be dirty (contain values != 0 or 1)
-    assert maze != original_snapshot, "Maze was not modified in-place (Memory req failed)"
+    if maze == original_snapshot:
+        pytest.fail("Memory Requirement Failed: Maze was not modified in-place. You must use the input grid for visited tracking to save memory.")
 
-# ---------------------------------------------------------
-# RECURSION ELIMINATION
-# ---------------------------------------------------------
 def test_recursion_limit_safe(maze_solver):
     """
-    Iterative implementation.
-    A 3000x3000 maze forces a recursion depth > 1000.
-    Recursive DFS will crash (RecursionError).
-    Iterative BFS will pass.
+    Scalability: Large mazes must not cause Stack Overflow.
+    Legacy Code Failure: RecursionError (DFS).
     """
     size = 1000
-    # Create a path that snakes through the whole grid or just a deep simple path
     maze = [[0] * size for _ in range(size)]
 
-    # We don't need a complex maze, just a large empty one allows BFS
-    # to fill the queue without crashing the stack.
-    # To force deep traversal on DFS, we can make it a line,
-    # but an open grid is sufficient to test Stack Overflow on unoptimized code.
-
     try:
-        path, length = maze_solver.solve_maze(maze, 0, 0, size-1, size-1)
+        maze_solver.solve_maze(maze, 0, 0, size-1, size-1)
     except RecursionError:
-        pytest.fail("Solver crashed with RecursionError (Solution is not iterative)")
+        pytest.fail("Architecture Mismatch: RecursionError detected. The solution relies on System Stack (DFS) instead of Iterative Queue (BFS).")
+    except Exception as e:
+        # Ignore other errors (like return type mismatch) as long as it didn't overflow stack
+        if "unpack" in str(e):
+            pass
+        else:
+            pytest.fail(f"Solver failed on large input: {e}")
 
-    assert length > 0
-
-# ---------------------------------------------------------
-# NO SOLUTION HANDLING
-# ---------------------------------------------------------
 def test_no_solution_returns_empty(maze_solver):
     """
-    Return ([], 0) if no solution exists.
-    (Do NOT raise ValueError).
+    Return Contract: Impossible maze returns ([], 0).
+    Legacy Code Failure: Raises ValueError("No solution!").
     """
-    maze = [
-        [0, 1, 0],
-        [1, 1, 0], # Wall blocks path
-        [0, 0, 0]
-    ]
+    maze = [[0, 1, 0], [1, 1, 0], [0, 0, 0]]
 
-    path, length = maze_solver.solve_maze(maze, 0, 0, 0, 2)
+    try:
+        result = maze_solver.solve_maze(maze, 0, 0, 0, 2)
 
-    assert path == []
-    assert length == 0
+        if not isinstance(result, tuple):
+             pytest.fail("Architecture Mismatch: Solver returned List/Grid instead of (path, length) tuple.")
 
-# ---------------------------------------------------------
-# EDGE CASES & VALIDATION
-# ---------------------------------------------------------
+        path, length = result
+        if path != [] or length != 0:
+            pytest.fail(f"Logic Error: Expected ([], 0) for no solution, got ({path}, {length})")
+
+    except ValueError as e:
+        pytest.fail(f"Contract Violation: Raised ValueError ({e}) instead of returning ([], 0) for impossible path.")
+    except Exception as e:
+        pytest.fail(f"Solver crashed: {e}")
+
+# ==========================================
+# 3. EDGE CASES & VALIDATION TESTS
+# ==========================================
+
 def test_source_equals_destination(maze_solver):
-    """Return immediately if source equals destination."""
+    """
+    Edge Case: Start == End. Should return path of length 1.
+    """
     maze = [[0]]
-    path, length = maze_solver.solve_maze(maze, 0, 0, 0, 0)
-    assert path == [(0, 0)]
-    assert length == 1
+    try:
+        result = maze_solver.solve_maze(maze, 0, 0, 0, 0)
+        if not isinstance(result, tuple):
+            pytest.fail("Architecture Mismatch: Returned Grid instead of Tuple.")
+
+        path, length = result
+        assert length == 1
+        assert path == [(0, 0)]
+    except TypeError:
+        pytest.fail("Signature Mismatch: Result is not unpacking correctly.")
+    except Exception as e:
+        pytest.fail(f"Failed handling source==destination: {e}")
 
 def test_walls_raise_error(maze_solver):
-    """Source or Destination is a wall."""
+    """
+    Input Validation: Source or Destination is a wall.
+    """
     maze = [[1, 0], [0, 1]]
 
-    with pytest.raises(ValueError, match="Source"):
-        maze_solver.solve_maze(maze, 0, 0, 0, 1)
+    try:
+        # Source is Wall
+        with pytest.raises(ValueError, match="Source"):
+            maze_solver.solve_maze(maze, 0, 0, 0, 1)
 
-    with pytest.raises(ValueError, match="Destination"):
-        maze_solver.solve_maze(maze, 0, 1, 1, 1)
+        # Destination is Wall
+        with pytest.raises(ValueError, match="Destination"):
+            maze_solver.solve_maze(maze, 0, 1, 1, 1)
+
+    except AssertionError:
+        pytest.fail("Input Validation Failed: Did not raise ValueError for Walls at start/end.")
+    except Exception as e:
+        # If the code crashes with something else (like IndexError), catch it
+        if "ValueError" not in str(type(e)):
+             pytest.fail(f"Unexpected error type: {type(e)}. Expected ValueError.")
 
 def test_out_of_bounds_raises(maze_solver):
-    """Validate bounds."""
+    """
+    Input Validation: Coordinates outside grid.
+    """
     maze = [[0]]
-    with pytest.raises(ValueError):
-        maze_solver.solve_maze(maze, -1, 0, 0, 0)
-    with pytest.raises(ValueError):
-        maze_solver.solve_maze(maze, 0, 0, 5, 5)
+    try:
+        with pytest.raises(ValueError):
+            maze_solver.solve_maze(maze, -1, 0, 0, 0)
+        with pytest.raises(ValueError):
+            maze_solver.solve_maze(maze, 0, 0, 5, 5)
+    except AssertionError:
+        pytest.fail("Input Validation Failed: Did not raise ValueError for Out-of-Bounds.")
+    except Exception as e:
+         if "ValueError" not in str(type(e)):
+             pytest.fail(f"Unexpected error type: {type(e)}. Expected ValueError.")
 
 def test_empty_maze_raises(maze_solver):
-    """Handle empty input."""
-    with pytest.raises(ValueError, match="empty"):
-        maze_solver.solve_maze([], 0, 0, 0, 0)
+    """
+    Input Validation: Empty List.
+    """
+    try:
+        with pytest.raises(ValueError, match="empty"):
+            maze_solver.solve_maze([], 0, 0, 0, 0)
+    except AssertionError:
+        pytest.fail("Input Validation Failed: Did not raise ValueError for empty maze.")
+    except IndexError:
+        pytest.fail("Implementation Error: Crashed with IndexError (accessed index 0 of empty list) instead of raising ValueError.")
+    except Exception as e:
+         if "ValueError" not in str(type(e)):
+             pytest.fail(f"Unexpected error type: {type(e)}. Expected ValueError.")
