@@ -1,0 +1,11 @@
+{
+            "instance_id": "R7TCX0",
+            "problem_statement": "Standard JSON transmission of large sensor arrays (10,000 integers) over satellite links is prohibitively expensive and slow due to text serialization overhead. The system requires a specialized, bandwidth-efficient binary compression protocol implemented directly in the application layer to minimize uplink data usage without relying on heavy external compression dependencies that may not be available in the constrained client environment.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/r7tcx0-custom-rle-compressed-telemetry-pipeline",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
