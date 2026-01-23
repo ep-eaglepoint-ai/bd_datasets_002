@@ -1,43 +1,84 @@
-# GPANKM - Optimize_API_Call_Retries_with_Bounded_Memory
+# Optimize API Call Retries with Bounded Memory
 
-**Category:** rl
+This dataset task contains a Safaricom-style API client with retries. The objective is **bounded logging** (fixed-size history per call), **exponential backoff with jitter**, and **correctness-preserving performance** (1000 calls, 30% failures, <10s).
 
-## Overview
-- Task ID: GPANKM
-- Title: Optimize_API_Call_Retries_with_Bounded_Memory
-- Category: rl
-- Repository: ep-eaglepoint-ai/bd_datasets_002
-- Branch: gpankm-optimize-api-call-retries-with-bounded-memory
+## Folder layout
 
-## Requirements
-- Bounded Logging: Use a fixed-size array (size=3) for APILogData history per call.
-- xponential Backoff: Add jitter (10-20%) to avoid thundering herd.
-- Verification: Include benchmark for 1000 calls with 30% failures in <10s.
+- `repository_before/` – original implementation
+- `repository_after/` – optimized implementation
+- `tests/` – functional + benchmark tests
+- `evaluation/` – evaluation script and reports
+- `patches/` – diff between before/after
 
-## Metadata
-- Programming Languages: - JavaScript, - TypeScript
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+## Run with Docker
 
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
+### Build image
 
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+```bash
+docker compose build
+```
 
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+### Run tests (before – expected some failures)
+
+```bash
+docker compose run --rm test-before
+```
+
+**Expected behavior:**
+- Functional tests: ❌ FAIL (before uses hardcoded `api.example.com`, does not respect `baseUrl` from config)
+- Benchmark: may fail
+
+### Run tests (after – expected all pass)
+
+```bash
+docker compose run --rm test-after
+```
+
+**Expected behavior:**
+- Functional tests: ✅ PASS
+- Benchmark (1000 calls, 30% failures, <10s): ✅ PASS
+
+### Run evaluation (compares both implementations)
+
+```bash
+docker compose run --rm evaluation
+```
+
+This will:
+- Run tests for both before and after implementations
+- Generate a report at `evaluation/YYYY-MM-DD/HH-MM-SS/report.json`
+
+## Run locally
+
+### Install dependencies
+
+```bash
+npm install
+```
+
+### Run tests
+
+```bash
+# Default: repository_after
+node --expose-gc -r ts-node/register tests/test.ts
+
+# repository_before
+REPO_PATH=../repository_before/safaricom_calls node --expose-gc -r ts-node/register tests/test.ts
+
+# repository_after (explicit)
+REPO_PATH=../repository_after/safaricom_calls node --expose-gc -r ts-node/register tests/test.ts
+```
+
+### Run evaluation
+
+```bash
+node --expose-gc -r ts-node/register evaluation/evaluation.ts
+```
+
+## Regenerate patch
+
+From repo root:
+
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```

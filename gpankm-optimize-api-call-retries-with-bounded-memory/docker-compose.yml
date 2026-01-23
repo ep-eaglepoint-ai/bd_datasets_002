@@ -1,6 +1,12 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
-    volumes:
-      - .:/app
+    command: node --expose-gc -r ts-node/register tests/test.ts --repo=../repository_before/safaricom_calls
+
+  test-after:
+    build: .
+    command: node --expose-gc -r ts-node/register tests/test.ts --repo=../repository_after/safaricom_calls
+
+  evaluation:
+    build: .
+    command: node --expose-gc -r ts-node/register evaluation/evaluation.ts
