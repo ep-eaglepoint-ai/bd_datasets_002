@@ -2,14 +2,14 @@ services:
   test-before:
     build: .
     image: thread-safe-pool-test:latest
-    command: bash -c "cp -r /workspace/repository_before/* /app/ && mkdir -p /app/src/test/java/pool && cp /workspace/tests/test_connection_pool.java /app/src/test/java/pool/ConnectionPoolTest.java && mvn test -q || exit 0"
+    command: bash -c "cp -r /workspace/repository_before/* /app/ && mkdir -p /app/src/main/java/pool && mkdir -p /app/src/test/java/pool && mv /app/pool/* /app/src/main/java/pool/ && rmdir /app/pool && cp /workspace/tests/test_connection_pool.java /app/src/test/java/pool/ConnectionPoolTest.java && mvn test -q || exit 0"
     volumes:
       - .:/workspace:ro
     working_dir: /app
 
   test-after:
     image: thread-safe-pool-test:latest
-    command: bash -c "cp -r /workspace/repository_after/* /app/ && mkdir -p /app/src/test/java/pool && cp /workspace/tests/test_connection_pool.java /app/src/test/java/pool/ConnectionPoolTest.java && mvn test -q"
+    command: bash -c "cp -r /workspace/repository_after/* /app/ && mkdir -p /app/src/main/java/pool && mkdir -p /app/src/test/java/pool && mv /app/pool/* /app/src/main/java/pool/ && rmdir /app/pool && cp /workspace/tests/test_connection_pool.java /app/src/test/java/pool/ConnectionPoolTest.java && mvn test -q"
     volumes:
       - .:/workspace:ro
     working_dir: /app
