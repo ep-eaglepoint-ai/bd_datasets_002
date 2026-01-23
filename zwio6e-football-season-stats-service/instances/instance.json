@@ -1,0 +1,11 @@
+{
+            "instance_id": "ZWIO6E",
+            "problem_statement": "The existing football season statistics endpoint exhibits severe performance and scalability issues caused by blocking operations, inefficient data access patterns, excessive object creation, and redundant aggregation logic. These deficiencies lead to high response times, poor throughput under load, and unnecessary resource consumption, making the endpoint unsuitable for production use in a high-traffic environment where it may be invoked thousands of times per minute. An optimized implementation is required to ensure low latency, predictable performance, and maintainable code while preserving the existing API contract and response structure.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/zwio6e-football-season-stats-service",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
