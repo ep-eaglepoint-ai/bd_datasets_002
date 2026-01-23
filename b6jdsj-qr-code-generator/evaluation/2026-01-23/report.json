@@ -1,0 +1,63 @@
+{
+  "run_id": "b0fede61-a618-49b3-a0f2-0906d45862fa",
+  "started_at": "2026-01-23T09:35:06.519Z",
+  "finished_at": "2026-01-23T09:35:12.133Z",
+  "duration_seconds": 5.614,
+  "success": true,
+  "error": null,
+  "environment": {
+    "node_version": "v22.22.0",
+    "platform": "linux",
+    "os": "Linux",
+    "architecture": "arm64",
+    "hostname": "e3fc5638141c"
+  },
+  "results": {
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "name": "POST /api/generate should generate a QR code for valid input",
+          "status": "passed",
+          "duration_ms": 152
+        },
+        {
+          "name": "POST /api/generate should return 400 for empty string",
+          "status": "passed",
+          "duration_ms": 3
+        },
+        {
+          "name": "POST /api/generate should return 400 for input > 500 characters",
+          "status": "passed",
+          "duration_ms": 3
+        },
+        {
+          "name": "POST /api/generate should return 400 for non-string input",
+          "status": "passed",
+          "duration_ms": 3
+        },
+        {
+          "name": "POST /api/generate should return 400 for missing input",
+          "status": "passed",
+          "duration_ms": 3
+        }
+      ],
+      "summary": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "xfailed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "comparison": {
+      "after_tests_passed": true,
+      "after_total": 5,
+      "after_passed": 5,
+      "after_failed": 0,
+      "after_xfailed": 0
+    }
+  }
+}
