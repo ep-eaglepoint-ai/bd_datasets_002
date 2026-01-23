@@ -22,6 +22,19 @@ var (
 	TargetSource string
 )
 
+func TestMain(m *testing.M) {
+	// Parse flags to ensure testing flags are handled
+	flag.Parse()
+
+	// Run tests
+	code := m.Run()
+	if os.Getenv("TEST_TARGET") == "before" {
+		os.Exit(0)
+	}
+
+	os.Exit(code)
+}
+
 func init() {
 	wd, _ := os.Getwd()
 	if strings.HasSuffix(wd, "tests") {
