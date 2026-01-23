@@ -1,0 +1,55 @@
+{
+  "run_id": "128de160-d8b5-4f08-a421-3e027ce66e81",
+  "started_at": "2026-01-23T07:14:59.277Z",
+  "finished_at": "2026-01-23T07:15:00.708Z",
+  "duration_seconds": 1.431,
+  "success": true,
+  "error": null,
+  "environment": {
+    "node_version": "v20.20.0",
+    "platform": "linux",
+    "os": "Linux",
+    "architecture": "arm64",
+    "hostname": "a90a21b2bc9b"
+  },
+  "results": {
+    "before": {
+      "success": true,
+      "exit_code": 1,
+      "tests": [],
+      "summary": {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "xfailed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [],
+      "summary": {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "xfailed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "comparison": {
+      "before_tests_passed": true,
+      "after_tests_passed": true,
+      "before_total": 0,
+      "before_passed": 0,
+      "before_failed": 0,
+      "before_xfailed": 0,
+      "after_total": 0,
+      "after_passed": 0,
+      "after_failed": 0,
+      "after_xfailed": 0
+    }
+  }
+}

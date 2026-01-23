@@ -1,6 +1,6 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    command: node tests/run_tests.js
     volumes:
       - .:/app
