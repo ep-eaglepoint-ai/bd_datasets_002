@@ -1,0 +1,11 @@
+{
+            "instance_id": "GL8O1L",
+            "problem_statement": "The inventory aggregation API exhibits significant performance bottlenecks due to inefficient processing logic, exposes thread-safety risks through shared mutable state, and produces incorrect SKU-level inventory totals, making it unsuitable for reliable, scalable, and concurrent production use.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/gl8o1l-inventory-stock-aggregation-api",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
