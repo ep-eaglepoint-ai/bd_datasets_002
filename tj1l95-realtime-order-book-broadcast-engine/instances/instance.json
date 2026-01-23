@@ -1,0 +1,11 @@
+{
+            "instance_id": "TJ1L95",
+            "problem_statement": "The objective is to architect and implement a high-performance market-depth engine in Go. The system must ingest a high-velocity stream of discrete limit orders and maintain a 'Level 2' (L2) view. In this context, Level 2 refers to a consolidated market state where individual order identities are abstracted away; instead, the engine must aggregate all orders at the same price point into a single total volume for that 'level.' The service is responsible for maintaining this depth (the cumulative volume for every distinct price on the buy and sell sides) and broadcasting it to thousands of WebSocket clients. A critical engineering challenge involves designing a robust 'Snapshot + Delta' synchronization protocol that ensures clients can initialize their local state and transition to incremental updates without data loss or ordering violations, even under significant backpressure from slow network consumers.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tj1l95-realtime-order-book-broadcast-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
