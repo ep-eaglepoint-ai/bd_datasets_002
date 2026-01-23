@@ -1,0 +1,11 @@
+{
+            "instance_id": "8JARQH",
+            "problem_statement": "Many BMI calculators are too basic, lack clarity, and provide poor user experience, especially for users unfamiliar with health metrics. They often fail to support both Metric and Imperial units properly, offer little validation or explanation of results, and do not retain user data. There is a need for a front-end–only, responsive BMI calculator that accurately computes BMI, clearly categorizes results, visualizes BMI ranges, and stores data locally, helping users better understand and track their body health in a simple and accessible way.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/8jarqh-front-end-only-bmi-body-mass-index-calculator",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
