@@ -1,11 +1,38 @@
 {
-            "instance_id": "EMZMUO",
-            "problem_statement": "Build a standalone, browser-only React investment portfolio analytics dashboard that simulates realistic market behavior, transactions, dividends, and stock splits entirely in memory.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/emzmuo-investment-portfolio-analytics-dashboard",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
+  "instance_id": "EMZMUO",
+  "problem_statement": "Build a standalone, browser-only React investment portfolio analytics dashboard that simulates realistic market behavior, transactions, dividends, and stock splits entirely in memory.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/emzmuo-investment-portfolio-analytics-dashboard",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "test_fifo_lot_tracker_basic_operations",
+    "test_fifo_partial_lot_sales",
+    "test_stock_split_handling",
+    "test_market_data_generation",
+    "test_transaction_generation",
+    "test_portfolio_engine_integration",
+    "test_portfolio_summary_calculations",
+    "test_sector_allocation_percentages",
+    "test_historical_data_generation",
+    "test_performance_metrics_calculation",
+    "test_transaction_processing_performance",
+    "test_dividend_calculations",
+    "test_real_time_calculations"
+  ],
+  "PASS_TO_PASS": [
+    "test_project_structure_validation",
+    "test_package_json_dependencies",
+    "test_react_component_structure",
+    "test_app_jsx_integration",
+    "test_no_hardcoded_values",
+    "test_browser_only_implementation",
+    "test_responsive_design_patterns",
+    "test_css_styling_integration",
+    "test_data_flow_validation",
+    "test_error_handling",
+    "test_memory_optimization",
+    "test_meta_testing_validation"
+  ]
+}
         

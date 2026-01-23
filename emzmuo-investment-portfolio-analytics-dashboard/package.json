@@ -1,0 +1,25 @@
+{
+  "name": "emzmuo-investment-portfolio-analytics-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Investment Portfolio Analytics Dashboard - Complete Project",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/test_after.js",
+    "evaluate": "node evaluation/evaluation.js",
+    "dev": "cd repository_after && npm run dev",
+    "build": "cd repository_after && npm run build"
+  },
+  "devDependencies": {
+    "jsdom": "^23.0.0"
+  },
+  "keywords": [
+    "react",
+    "investment",
+    "portfolio",
+    "analytics",
+    "dashboard",
+    "browser-only",
+    "fifo"
+  ]
+}
