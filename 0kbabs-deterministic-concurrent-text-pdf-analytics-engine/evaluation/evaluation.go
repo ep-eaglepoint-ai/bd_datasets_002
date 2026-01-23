@@ -126,7 +126,7 @@ func runTestsAndParse(repoName string) RepositoryTestResult {
 	fmt.Printf("%s\n\n", strings.Repeat("=", 60))
 
 	// Prepare command
-	cmd := exec.Command("go", "test", "-json", "./tests/...")
+	cmd := exec.Command("go", "test", "-count=1", "-json", "./tests/...")
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
