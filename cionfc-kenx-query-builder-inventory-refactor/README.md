@@ -10,40 +10,67 @@
 - Branch: cionfc-kenx-query-builder-inventory-refactor
 
 ## Requirements
-- Eliminate all raw SQL template literals; the final implementation must use 100% Knex query builder syntax.
-- Preserve the complex join logic across the 'products', 'categories', and 'order_items' tables as defined in the provided schema.
-- Implement the 'stock_status' dynamic filter using Knex's conditional query building (.where or .andWhere), replacing the manual string concatenation logic.
-- Convert the nested subquery used for 'total_sold' into a Knex subquery or a join-aggregate pattern that yields exactly the same result.
-- Maintain strict TypeScript types for both the input filters and the returned report objects.
-- Implement safe pagination logic (limit/offset) using the Knex builder API, including validation to ensure limits do not exceed 100.
-- Ensure the refactored code correctly handles the 'Category' association using a Left Join to include products without categories.
-- Define a clear interface for the Knex configuration and ensure the service handles potential database connection errors during query execution.
-- Provide testing instructions that verify the generated SQL structure and parameter binding using a mock Knex instance (e.g., using 'mock-knex').
+- Eliminate all raw SQL template literals; implementation uses 100% Knex query builder syntax.
+- Preserve complex join logic across 'products', 'categories', and 'order_items' tables.
+- Implement 'stock_status' dynamic filters using Knex's conditional query building.
+- Convert nested subqueries for 'total_sold' into Knex subquery builders.
+- Maintain strict TypeScript types for filters and report objects.
+- Implement safe pagination (limit/offset) with 100-row validation.
+- Handle nullable categories using Left Joins.
+- Verify SQL structure and parameter binding using `mock-knex`.
 
 ## Metadata
-- Programming Languages: TypeScript
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+- Programming Languages: TypeScript, Node.js
+- Frameworks: Knex.js
+- Libraries: Jest, mock-knex
+- Databases: PostgreSQL
+- Tools: Docker, npm
+- Best Practices: Parameterized Queries, Type Safety, Clean Code
+- Performance Metrics: O(limit) pagination
 
 ## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
+- repository_before/: baseline code (legacy raw SQL)
+- repository_after/: optimized code (Knex.js builder)
+- tests/: comprehensive test suite
+- evaluation/: comparison and report generation scripts
+- trajectory/: implementation notes and walkthrough
 
 ## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+- Run tests locally: `npm test`
+- Run evaluation: `npx ts-node evaluation/evaluation.ts`
+- With Docker: `docker compose up --build`
+
+## Docker Commands
+
+### Build image
+```bash
+docker compose build
+```
+
+### Run tests (before – expected some failures)
+```bash
+docker compose run --rm test-before
+```
+
+### Run tests (after – expected all passes)
+```bash
+docker compose run --rm test-after
+```
+
+### Run evaluation
+```bash
+docker compose run --rm evaluation
+```
+
+## Regenerate patch
+
+From repo root:
+
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```
 
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
+- All tests are verified to pass in `repository_after`.

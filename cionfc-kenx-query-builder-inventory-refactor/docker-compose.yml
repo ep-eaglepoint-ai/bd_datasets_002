@@ -1,6 +1,35 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    command:
+      - npx
+      - ts-node
+      - -e
+      - |
+        import { execSync } from 'child_process';
+        import * as fs from 'fs';
+        const files = fs.readdirSync('tests').filter(f => !f.startsWith('temp_') && f.endsWith('.test.ts'));
+        files.forEach(f => {
+          console.log('Running ' + f);
+          try {
+            const content = fs.readFileSync('tests/' + f, 'utf8').replace(/from ['"]\.\.\/repository_after/g, "from '../repository_before");
+            fs.writeFileSync('tests/temp_' + f, content);
+            execSync('npx jest tests/temp_' + f + ' --ci', { stdio: 'inherit' });
+          } finally {
+            if (fs.existsSync('tests/temp_' + f)) fs.unlinkSync('tests/temp_' + f);
+          }
+        });
+
+  test-after:
+    build: .
+    volumes:
+      - .:/app
+    command: npm test
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    command: npx ts-node evaluation/evaluation.ts

@@ -9,3 +9,10 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Evaluation
+evaluation/reports/
+tests/temp_*.test.ts
+
+# Coverage
+coverage/
