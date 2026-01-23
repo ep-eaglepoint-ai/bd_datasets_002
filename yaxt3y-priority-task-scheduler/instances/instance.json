@@ -1,0 +1,11 @@
+{
+            "instance_id": "YAXT3Y",
+            "problem_statement": "Refactor a Python priority‑based task scheduler with dependency, resource, and deadline constraints to eliminate performance bottlenecks—O(n³) cycle detection, O(n²) bubble sorts, and exponential path enumeration—so it can handle 10,000+ task workflows efficiently. Achieve O(n log n) overall scheduling complexity using Kahn’s algorithm for cycle detection, topological sorting with dynamic programming for critical paths, heapq for priority queues, and hash‑based structures for O(1) lookups. Maintain all existing logic while enforcing memory‑efficient O(n + e) space usage and replacing all string concatenation and redundant calculations with optimized, cached operations.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/yaxt3y-priority-task-scheduler",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
