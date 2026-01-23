@@ -1,16 +1,3 @@
-# =============================================================================
-# Unified Dockerfile for File Organizer Project
-# 
-# Builds everything once, then run different modes via environment variables:
-#   - REPO_PATH: /app/repository_before or /app/repository_after
-#   - MODE: app, test, or evaluation
-#
-# Usage:
-#   docker compose run --rm test-before   # Tests against repository_before (FAIL)
-#   docker compose run --rm test-after    # Tests against repository_after (PASS)
-#   docker compose run --rm evaluation    # Run evaluation script
-# =============================================================================
-
 FROM node:20-slim
 
 # Install all system dependencies
@@ -25,24 +12,12 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# =============================================================================
-# Copy entire project
-# =============================================================================
 COPY . .
-
-# =============================================================================
-# Install test dependencies (Jest)
-# =============================================================================
 RUN npm ci
 
-# =============================================================================
-# Install Python dependencies
-# =============================================================================
 RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
-# =============================================================================
-# Build repository_after (the implemented version)
-# =============================================================================
+
 WORKDIR /app/repository_after/local-file-organizer
 RUN npm ci && \
     npx prisma generate
@@ -50,16 +25,11 @@ RUN npm ci && \
 # Return to root
 WORKDIR /app
 
-# =============================================================================
-# Environment defaults
-# =============================================================================
+
 ENV NODE_ENV=development
 ENV TEST_DATA_DIR=/data
 ENV DATABASE_URL=file:./dev.db
 
-# =============================================================================
-# Entrypoint script to handle different modes
-# =============================================================================
 COPY <<'EOF' /entrypoint.sh
 #!/bin/sh
 set -e

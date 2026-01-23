@@ -1,18 +1,6 @@
-# =============================================================================
-# Docker Compose for File Organizer Testing Framework
-# 
-# All services use the SAME image, just different MODE environment variable
-#
-# Commands:
-#   docker compose run --rm test-before   # Tests against repository_before (FAIL)
-#   docker compose run --rm test-after    # Tests against repository_after (PASS)  
-#   docker compose run --rm evaluation    # Run evaluation and generate report
-# =============================================================================
 
 services:
-  # ---------------------------------------------------------------------------
-  # App running repository_before (empty/unimplemented - returns 404)
-  # ---------------------------------------------------------------------------
+
   app-before:
     build: .
     environment:
@@ -26,9 +14,6 @@ services:
     networks:
       - test-network
 
-  # ---------------------------------------------------------------------------
-  # App running repository_after (fully implemented)
-  # ---------------------------------------------------------------------------
   app-after:
     build: .
     environment:
@@ -45,9 +30,6 @@ services:
     networks:
       - test-network
 
-  # ---------------------------------------------------------------------------
-  # Test runner against repository_before (expected to FAIL)
-  # ---------------------------------------------------------------------------
   test-before:
     build: .
     environment:
@@ -62,9 +44,6 @@ services:
     networks:
       - test-network
 
-  # ---------------------------------------------------------------------------
-  # Test runner against repository_after (expected to PASS)
-  # ---------------------------------------------------------------------------
   test-after:
     build: .
     environment:
@@ -79,16 +58,10 @@ services:
     networks:
       - test-network
 
-  # ---------------------------------------------------------------------------
-  # Alias for backward compatibility
-  # ---------------------------------------------------------------------------
   tests:
     extends:
       service: test-after
 
-  # ---------------------------------------------------------------------------
-  # Evaluation runner
-  # ---------------------------------------------------------------------------
   evaluation:
     build: .
     environment:
@@ -104,16 +77,11 @@ services:
     networks:
       - test-network
 
-# =============================================================================
-# Volumes
-# =============================================================================
 volumes:
   shared-data:
     driver: local
 
-# =============================================================================
-# Networks  
-# =============================================================================
+
 networks:
   test-network:
     driver: bridge
