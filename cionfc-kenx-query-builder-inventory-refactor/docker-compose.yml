@@ -2,37 +2,29 @@ services:
   test-before:
     build: .
     volumes:
-      - .:/app
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
       - /app/node_modules
-    command:
-      - npx
-      - ts-node
-      - -e
-      - |
-        import { execSync } from 'child_process';
-        import * as fs from 'fs';
-        const files = fs.readdirSync('tests').filter(f => !f.startsWith('temp_') && f.endsWith('.test.ts'));
-        files.forEach(f => {
-          console.log('Running ' + f);
-          try {
-            const content = fs.readFileSync('tests/' + f, 'utf8').replace(/from ['"]\.\.\/repository_after/g, "from '../repository_before");
-            fs.writeFileSync('tests/temp_' + f, content);
-            execSync('npx jest tests/temp_' + f + ' --ci', { stdio: 'inherit' });
-          } finally {
-            if (fs.existsSync('tests/temp_' + f)) fs.unlinkSync('tests/temp_' + f);
-          }
-        });
+    command: sh -c "for f in tests/*.test.ts; do if ! echo \"$f\" | grep -q \"temp_\"; then echo \"Running $f against repository_before...\"; sed \"s/from ['\\\"]..\\/repository_after/from '..\\/repository_before/g\" \"$f\" > \"temp_$f\" && npx jest \"temp_$f\" --ci || true; rm -f \"temp_$f\"; fi; done"
 
   test-after:
     build: .
     volumes:
-      - .:/app
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
       - /app/node_modules
     command: npm test
 
   evaluation:
     build: .
     volumes:
-      - .:/app
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
       - /app/node_modules
     command: npx ts-node evaluation/evaluation.ts
