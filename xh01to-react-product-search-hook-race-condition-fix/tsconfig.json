@@ -12,8 +12,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["jest", "@testing-library/jest-dom"]
+    "types": ["jest", "@testing-library/jest-dom", "node"]
   },
-  "include": ["tests/**/*", "repository_before/**/*", "repository_after/**/*"],
+  "include": ["tests/**/*", "repository_before/**/*", "repository_after/**/*", "evaluation/**/*"],
   "exclude": ["node_modules"]
 }

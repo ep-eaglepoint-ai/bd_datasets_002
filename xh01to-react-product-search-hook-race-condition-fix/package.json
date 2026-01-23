@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest",
     "test-repo": "if [ \"$REPO\" = \"before\" ]; then cd repository_before && npm install && cd .. && npm test; else npm test; fi",
-    "evaluate": "node evaluation/evaluation.js"
+    "evaluate": "ts-node evaluation/evaluation.ts"
   },
   "dependencies": {
     "react": "^18.2.0",
