@@ -11,15 +11,51 @@ function getTimestampPath() {
   return path.join('evaluation', dateStr, timeStr);
 }
 
+// Parse the output to extract test results
+function parseTestOutput(output) {
+  const lines = output ? output.split('\n') : [];
+  let passed = 0;
+  let failed = 0;
+  const tests = [];
+
+  // Look for test results in output
+  for (const line of lines) {
+    if (line.startsWith('✓ ')) {
+      passed++;
+      const testName = line.substring(2);
+      tests.push({
+        fullName: testName,
+        status: 'passed',
+        title: testName.split(': ').pop(),
+        failureMessages: [],
+        location: { column: 0, line: 0 }
+      });
+    } else if (line.startsWith('✗ ')) {
+      failed++;
+      const testName = line.substring(2);
+      tests.push({
+        fullName: testName,
+        status: 'failed',
+        title: testName.split(': ').pop(),
+        failureMessages: [line],
+        location: { column: 0, line: 0 }
+      });
+    }
+  }
+
+  return { passed, failed, tests };
+}
+
 // Run tests and capture results
 function runTests(repoPath) {
   const startTime = new Date();
+  let output = '';
+  let returnCode = 0;
 
   try {
     // Check if we're running inside Docker (by checking for .dockerenv file or cgroup)
     const isInDocker = fs.existsSync('/.dockerenv') || fs.readFileSync('/proc/1/cgroup', 'utf8').includes('docker');
 
-    let output;
     if (isInDocker) {
       // Running inside container, run tests directly
       output = execSync(`node tests/run-tests.js`, {
@@ -36,107 +72,54 @@ function runTests(repoPath) {
         stdio: 'pipe'
       });
     }
-
-    const endTime = new Date();
-    const duration = (endTime - startTime) / 1000;
-
-    // Parse the output to extract test results
-    const lines = output.split('\n');
-    let passed = 0;
-    let failed = 0;
-    const tests = [];
-
-    // Look for test results in output
-    for (const line of lines) {
-      if (line.startsWith('✓ ')) {
-        passed++;
-        const testName = line.substring(2);
-        tests.push({
-          fullName: testName,
-          status: 'passed',
-          title: testName.split(': ').pop(),
-          failureMessages: [],
-          location: { column: 0, line: 0 }
-        });
-      } else if (line.startsWith('✗ ')) {
-        failed++;
-        const testName = line.substring(2);
-        tests.push({
-          fullName: testName,
-          status: 'failed',
-          title: testName.split(': ').pop(),
-          failureMessages: [line],
-          location: { column: 0, line: 0 }
-        });
-      }
-    }
-
-    return {
-      passed: failed === 0,
-      return_code: failed > 0 ? 1 : 0,
-      output: output,
-      summary: {
-        numTotalTests: passed + failed,
-        numPassedTests: passed,
-        numFailedTests: failed,
-        numTotalTestSuites: 1,
-        numPassedTestSuites: failed === 0 ? 1 : 0,
-        numFailedTestSuites: failed > 0 ? 1 : 0
-      },
-      summary_matrix: [[passed, failed]],
-      tests: tests,
-      raw_output: JSON.stringify({
-        created: startTime.getTime() / 1000,
-        duration: duration,
-        exitcode: failed > 0 ? 1 : 0,
-        root: '/app',
-        environment: {},
-        summary: {
-          passed: passed,
-          failed: failed,
-          total: passed + failed,
-          collected: passed + failed
-        },
-        tests: tests.map(test => ({
-          nodeid: test.fullName,
-          lineno: test.location.line,
-          outcome: test.status,
-          keywords: [test.title],
-          setup: { duration: 0.0001, outcome: 'passed' },
-          call: { duration: 0.001, outcome: test.status },
-          teardown: { duration: 0.0001, outcome: 'passed' }
-        }))
-      })
-    };
   } catch (error) {
-    const endTime = new Date();
-    const duration = (endTime - startTime) / 1000;
-
-    return {
-      passed: false,
-      return_code: error.status || 1,
-      output: error.stdout || error.message,
-      summary: {
-        numTotalTests: 0,
-        numPassedTests: 0,
-        numFailedTests: 0,
-        numTotalTestSuites: 1,
-        numPassedTestSuites: 0,
-        numFailedTestSuites: 1
-      },
-      summary_matrix: [[0, 0]],
-      tests: [],
-      raw_output: JSON.stringify({
-        created: startTime.getTime() / 1000,
-        duration: duration,
-        exitcode: error.status || 1,
-        root: '/app',
-        environment: {},
-        summary: { passed: 0, failed: 0, total: 0, collected: 0 },
-        tests: []
-      })
-    };
+    // Capture output even on failure
+    output = error.stdout || error.message || '';
+    returnCode = error.status || 1;
   }
+
+  const endTime = new Date();
+  const duration = (endTime - startTime) / 1000;
+
+  const { passed, failed, tests } = parseTestOutput(output);
+
+  return {
+    passed: failed === 0 && returnCode === 0,
+    return_code: returnCode,
+    output: output,
+    summary: {
+      numTotalTests: passed + failed,
+      numPassedTests: passed,
+      numFailedTests: failed,
+      numTotalTestSuites: 1,
+      numPassedTestSuites: failed === 0 ? 1 : 0,
+      numFailedTestSuites: failed > 0 ? 1 : 0
+    },
+    summary_matrix: [[passed, failed]],
+    tests: tests,
+    raw_output: JSON.stringify({
+      created: startTime.getTime() / 1000,
+      duration: duration,
+      exitcode: returnCode,
+      root: '/app',
+      environment: {},
+      summary: {
+        passed: passed,
+        failed: failed,
+        total: passed + failed,
+        collected: passed + failed
+      },
+      tests: tests.map(test => ({
+        nodeid: test.fullName,
+        lineno: 0,
+        outcome: test.status,
+        keywords: [test.title],
+        setup: { duration: 0.0001, outcome: 'passed' },
+        call: { duration: 0.001, outcome: test.status },
+        teardown: { duration: 0.0001, outcome: 'passed' }
+      }))
+    })
+  };
 }
 
 // Main evaluation function
@@ -160,39 +143,64 @@ async function runEvaluation() {
     const nodeVersion = process.version;
     const platform = process.platform;
 
-    // Create report object
+    // Helper to format tests for the report
+    const formatTests = (tests) => {
+      return tests.map(t => ({
+        nodeid: t.fullName,
+        name: t.title,
+        outcome: t.status,
+        message: t.failureMessages.length > 0 ? t.failureMessages.join('\n') : t.title
+      }));
+    };
+
+    // Helper to format summary
+    const formatSummary = (summary) => ({
+      total: summary.numTotalTests,
+      passed: summary.numPassedTests,
+      failed: summary.numFailedTests,
+      errors: 0,
+      skipped: 0
+    });
+
+    // Create report object matching the requested template
     const report = {
       run_id: runId,
       started_at: startedAt.toISOString(),
       finished_at: finishedAt.toISOString(),
       duration_seconds: durationSeconds,
+      success: afterResults.passed,
+      error: null,
       environment: {
         node_version: nodeVersion,
-        platform: platform
+        platform: platform,
+        os: process.platform === 'win32' ? 'Windows_NT' : process.platform, // Approximation
+        architecture: process.arch,
+        hostname: require('os').hostname()
       },
-      before: {
-        tests: beforeResults,
-        metrics: {
-          execution_time_seconds: durationSeconds, // This is total time, maybe acceptable or should measure per run
-          items_processed: 1,
-          error: null
+      results: {
+        before: {
+          success: beforeResults.passed,
+          exit_code: beforeResults.return_code,
+          tests: formatTests(beforeResults.tests),
+          summary: formatSummary(beforeResults.summary)
+        },
+        after: {
+          success: afterResults.passed,
+          exit_code: afterResults.return_code,
+          tests: formatTests(afterResults.tests),
+          summary: formatSummary(afterResults.summary)
+        },
+        comparison: {
+          before_tests_passed: beforeResults.passed,
+          after_tests_passed: afterResults.passed,
+          before_total: beforeResults.summary.numTotalTests,
+          before_passed: beforeResults.summary.numPassedTests,
+          before_failed: beforeResults.summary.numFailedTests,
+          after_total: afterResults.summary.numTotalTests,
+          after_passed: afterResults.summary.numPassedTests,
+          after_failed: afterResults.summary.numFailedTests
         }
-      },
-      after: {
-        tests: afterResults,
-        metrics: {
-          execution_time_seconds: durationSeconds,
-          items_processed: 1,
-          error: null
-        }
-      },
-      comparison: {
-        passed_gate: afterResults.passed,
-        improvement_summary: afterResults.passed ? "All tests passed" : "Some tests failed",
-        speedup_factor: 1.0
-      },
-      success: afterResults.passed,
-      error: null
+      }
     };
 
     // Create timestamp directory
@@ -217,40 +225,38 @@ async function runEvaluation() {
       started_at: startedAt.toISOString(),
       finished_at: finishedAt.toISOString(),
       duration_seconds: durationSeconds,
+      success: false,
+      error: error.message,
       environment: {
         node_version: process.version,
-        platform: process.platform
+        platform: process.platform,
+        architecture: process.arch,
+        hostname: require('os').hostname()
       },
-      after: {
-        tests: {
-          passed: false,
-          return_code: 1,
-          output: error.message,
-          summary: {
-            numTotalTests: 0,
-            numPassedTests: 0,
-            numFailedTests: 0,
-            numTotalTestSuites: 0,
-            numPassedTestSuites: 0,
-            numFailedTestSuites: 0
-          },
-          summary_matrix: [[0, 0]],
+      results: {
+        before: {
+          success: false,
+          exit_code: 1,
           tests: [],
-          raw_output: '{}'
+          summary: { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0 }
         },
-        metrics: {
-          execution_time_seconds: durationSeconds,
-          items_processed: 0,
-          error: error.message
+        after: {
+          success: false,
+          exit_code: 1,
+          tests: [],
+          summary: { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0 }
+        },
+        comparison: {
+          before_tests_passed: false,
+          after_tests_passed: false,
+          before_total: 0,
+          before_passed: 0,
+          before_failed: 0,
+          after_total: 0,
+          after_passed: 0,
+          after_failed: 0
         }
-      },
-      comparison: {
-        passed_gate: false,
-        improvement_summary: "Evaluation failed",
-        speedup_factor: 0
-      },
-      success: false,
-      error: error.message
+      }
     };
 
     // Create timestamp directory even for errors
