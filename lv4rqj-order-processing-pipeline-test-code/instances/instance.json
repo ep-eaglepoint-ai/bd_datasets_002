@@ -1,0 +1,11 @@
+{
+            "instance_id": "LV4RQJ",
+            "problem_statement": "Implement a deterministic, configurable order-processing pipeline that validates, filters, sorts, enriches, paginates, and reports metrics for a collection of items while guaranteeing immutability, correctness, and predictable behavior under concurrency, randomness, and cancellation.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/lv4rqj-order-processing-pipeline-test-code",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
