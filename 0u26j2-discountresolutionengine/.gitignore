@@ -22,3 +22,6 @@ evaluation/*/
 
 # Keep JSON config
 !instances/*.json
+# Evaluation report
+/evaluation/report.json
+
