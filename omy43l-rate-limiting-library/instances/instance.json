@@ -1,0 +1,11 @@
+{
+            "instance_id": "OMY43L",
+            "problem_statement": "Implement a production‑grade Python rate‑limiting library that supports three distinct algorithms—Token Bucket (burst‑aware), Sliding Window Log (precise), and Fixed Window Counter (simple)—through a unified RateLimiter abstract base class with thread‑safe is_allowed() and try_acquire() methods handling 100,000+ clients with O(1) average lookup. Each algorithm must be configurable for granular window sizes, bucket capacities, and refill rates while using monotonic timing, efficient memory management, and minimal lock contention to process thousands of requests per second. The library must provide factory methods for configuration‑based instantiation and ensure deterministic, sub‑millisecond decision latency suitable for API gateway middleware.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/omy43l-rate-limiting-library",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
