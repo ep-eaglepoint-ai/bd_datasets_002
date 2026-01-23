@@ -4,6 +4,8 @@ import subprocess
 import time
 import uuid
 import platform
+import tempfile
+import shutil
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -54,68 +56,71 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
         test_result["output"] = f"Repository path does not exist: {repo_path}"
         return test_result
     
-    # Ensure Maven standard layout for sources
-    try:
-        src_main_pool = repo_path / "src" / "main" / "java" / "pool"
-        src_main_pool.mkdir(parents=True, exist_ok=True)
+    # Create temporary directory for testing (to avoid modifying original)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_repo = Path(temp_dir) / "repo"
+        
+        try:
+            # Copy repository to temporary location
+            shutil.copytree(repo_path, temp_repo)
+            
+            # Ensure Maven standard layout for sources
+            src_main_pool = temp_repo / "src" / "main" / "java" / "pool"
+            src_main_pool.mkdir(parents=True, exist_ok=True)
 
-        legacy_pool = repo_path / "pool"
-        if legacy_pool.exists():
-            for item in legacy_pool.iterdir():
-                target = src_main_pool / item.name
-                if not target.exists():
-                    item.replace(target)
-            # Remove legacy pool directory if empty
-            try:
-                legacy_pool.rmdir()
-            except OSError:
-                pass
-    except Exception:
-        # Proceed even if restructuring fails; Maven may still compile depending on POM
-        pass
+            legacy_pool = temp_repo / "pool"
+            if legacy_pool.exists():
+                for item in legacy_pool.iterdir():
+                    target = src_main_pool / item.name
+                    if not target.exists():
+                        shutil.move(str(item), str(target))
+                # Remove legacy pool directory if empty
+                try:
+                    legacy_pool.rmdir()
+                except OSError:
+                    pass
 
-    # Copy tests to the repository
-    tests_src = ROOT / "tests" / "test_connection_pool.java"
-    test_dest = repo_path / "src" / "test" / "java" / "pool"
-    test_dest.mkdir(parents=True, exist_ok=True)
-    
-    try:
-        import shutil
-        shutil.copy(tests_src, test_dest / "ConnectionPoolTest.java")
-    except Exception as e:
-        test_result["output"] = f"Failed to copy test file: {str(e)}"
-        return test_result
-    
-    # Run Maven clean test
-    cmd = ["mvn", "clean", "test"]
-    
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
+            # Copy tests to the repository
+            tests_src = ROOT / "tests" / "test_connection_pool.java"
+            test_dest = temp_repo / "src" / "test" / "java" / "pool"
+            test_dest.mkdir(parents=True, exist_ok=True)
+            
+            shutil.copy(tests_src, test_dest / "ConnectionPoolTest.java")
+            
+        except Exception as e:
+            test_result["output"] = f"Failed to prepare test environment: {str(e)}"
+            return test_result
         
-        output = result.stdout + result.stderr
-        test_result["return_code"] = result.returncode
-        test_result["passed"] = result.returncode == 0
+        # Run Maven clean test
+        cmd = ["mvn", "clean", "test"]
         
-        # Truncate output if too long
-        if len(output) > 20000:
-            output = output[:4000] + "\n...[truncated]...\n" + output[-16000:]
-        
-        test_result["output"] = output
-        
-        # Parse Maven test output
-        stats = parse_maven_output(output)
-        test_result.update(stats)
-        
-    except subprocess.TimeoutExpired:
-        test_result["output"] = "Test execution timed out after 120 seconds"
-    except Exception as e:
-        test_result["output"] = f"Test execution failed: {str(e)}"
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=temp_repo,
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            
+            output = result.stdout + result.stderr
+            test_result["return_code"] = result.returncode
+            test_result["passed"] = result.returncode == 0
+            
+            # Truncate output if too long
+            if len(output) > 20000:
+                output = output[:4000] + "\n...[truncated]...\n" + output[-16000:]
+            
+            test_result["output"] = output
+            
+            # Parse Maven test output
+            stats = parse_maven_output(output)
+            test_result.update(stats)
+            
+        except subprocess.TimeoutExpired:
+            test_result["output"] = "Test execution timed out after 120 seconds"
+        except Exception as e:
+            test_result["output"] = f"Test execution failed: {str(e)}"
     
     return test_result
 

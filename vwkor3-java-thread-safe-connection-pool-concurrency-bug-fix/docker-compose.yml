@@ -18,7 +18,8 @@ services:
     image: thread-safe-pool-test:latest
     command: python3 /workspace/evaluation/evaluation.py
     volumes:
-      - .:/workspace
+      - .:/workspace:ro
+      - ./evaluation/reports:/workspace/evaluation/reports:rw
     working_dir: /workspace
     environment:
       - PYTHONUNBUFFERED=1
