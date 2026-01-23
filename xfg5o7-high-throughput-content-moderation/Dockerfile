@@ -1,5 +1,15 @@
-FROM python:3.11-slim
+FROM node:20-alpine
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Copy package files first for better caching
+COPY package*.json ./
+
+# Install dependencies (if any)
+RUN npm install --production 2>/dev/null || true
+
+# Copy all source files
+COPY . .
+
+# Default command - can be overridden
+CMD ["node", "--test", "tests/"]
