@@ -9,3 +9,13 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Go
+*.exe
+*.test
+*.out
+before.exe
+after.exe
+
+# Evaluation Reports
+evaluation/reports/
