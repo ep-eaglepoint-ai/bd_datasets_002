@@ -20,11 +20,7 @@ docker compose build
 
 ### Run tests (before – expected some failures)
 
-```bash
-docker compose run --rm test-before
-```
 
-For **CI/build** so that failing before-tests do not fail the build (errors still printed), use:
 
 ```bash
 docker compose run --rm test-before || true

@@ -1,7 +1,3 @@
-
- // Tests: functional tests + performance benchmarks (no Jest).
- 
-
 import * as http from 'http';
 import * as net from 'net';
 
