@@ -1,6 +1,3 @@
-// Test 8: Knex Configuration and Error Handling
-// Validates KnexConfig interface and database error handling
-
 import knex, { Knex } from 'knex';
 import { InventoryService, KnexConfig, ReportFilter } from '../repository_after/inventoryService';
 
@@ -62,7 +59,6 @@ describe('Test 8: Knex Configuration and Error Handling', () => {
     });
 
     it('should handle database connection errors gracefully', async () => {
-        // Create a Knex instance with invalid connection
         const invalidKnex = knex({
             client: 'pg',
             connection: {
@@ -76,15 +72,12 @@ describe('Test 8: Knex Configuration and Error Handling', () => {
                 min: 0,
                 max: 1,
             },
-            acquireConnectionTimeout: 1000, // Fail fast
+            acquireConnectionTimeout: 1000,
         });
 
         const service = new InventoryService(invalidKnex);
         const filter: ReportFilter = {};
-
-        // Service should catch the error and throw a meaningful error
         await expect(service.getInventoryReport(filter)).rejects.toThrow();
-
         await invalidKnex.destroy();
     });
 
@@ -100,10 +93,7 @@ describe('Test 8: Knex Configuration and Error Handling', () => {
         });
 
         const service = new InventoryService(mockKnex);
-
-        // This will fail because there's no actual database
         await expect(service.getInventoryReport({})).rejects.toThrow(/Database query failed/i);
-
         await mockKnex.destroy();
     });
 
@@ -120,9 +110,7 @@ describe('Test 8: Knex Configuration and Error Handling', () => {
         });
 
         const service = new InventoryService(mockKnex);
-
         expect(service).toBeInstanceOf(InventoryService);
-
         mockKnex.destroy();
     });
 
@@ -143,10 +131,7 @@ describe('Test 8: Knex Configuration and Error Handling', () => {
         };
 
         const testKnex = knex(config);
-
-        // Verify Knex instance was created
         expect(testKnex).toBeDefined();
-
         testKnex.destroy();
     });
 

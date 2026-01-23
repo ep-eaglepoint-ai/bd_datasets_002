@@ -26,7 +26,6 @@
  */
 
 import { Knex } from 'knex';
-import { Pool } from 'pg';
 
 /**
  * Knex configuration interface for database connection
@@ -73,8 +72,8 @@ export interface InventoryReportItem {
 export class InventoryService {
     private knex: Knex;
 
-    constructor(knex: Knex | Pool) {
-        this.knex = knex as Knex;
+    constructor(knex: Knex) {
+        this.knex = knex;
     }
 
     async getInventoryReport(filters: ReportFilter): Promise<InventoryReportItem[]> {

@@ -1,6 +1,3 @@
-// Consistency Test
-// Validates that the refactored implementation produces identical results to the original
-
 import knex, { Knex } from 'knex';
 import { InventoryService as NewService, ReportFilter, InventoryReportItem } from '../repository_after/inventoryService';
 
@@ -26,7 +23,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
     });
 
     it('should generate equivalent SQL for basic query with no filters', () => {
-        // Build a query with the new implementation
         const newQuery = mockKnex('products as p')
             .select(
                 'p.id as productId',
@@ -42,8 +38,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .offset(0);
 
         const sql = newQuery.toSQL().sql.toLowerCase();
-
-        // Verify all key components are present
         expect(sql).toContain('select');
         expect(sql).toContain('products');
         expect(sql).toContain('left join');
@@ -62,9 +56,7 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .offset(0);
 
         const sql = query.toSQL();
-
         expect(sql.sql.toLowerCase()).toContain('where');
-        // Handle quoted identifiers
         expect(sql.sql).toMatch(/name/);
         expect(sql.bindings).toContain('Electronics');
     });
@@ -78,7 +70,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .limit(20);
 
         const sql = query.toSQL();
-
         expect(sql.sql).toMatch(/price/);
         expect(sql.bindings).toContain(10);
     });
@@ -92,7 +83,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .limit(20);
 
         const sql = query.toSQL();
-
         expect(sql.sql).toMatch(/price/);
         expect(sql.bindings).toContain(100);
     });
@@ -106,7 +96,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .limit(20);
 
         const sql = query.toSQL();
-
         expect(sql.sql).toContain('stock_count');
         expect(sql.sql).toContain('>');
         expect(sql.bindings).toContain(0);
@@ -121,7 +110,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .limit(20);
 
         const sql = query.toSQL();
-
         expect(sql.sql).toContain('stock_count');
         expect(sql.bindings).toContain(0);
     });
@@ -139,8 +127,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .offset(10);
 
         const sql = query.toSQL();
-
-        // Verify all filters are present
         expect(sql.bindings).toContain('Books');
         expect(sql.bindings).toContain(10);
         expect(sql.bindings).toContain(50);
@@ -158,7 +144,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .offset(100);
 
         const sql = query.toSQL();
-
         expect(sql.bindings).toContain(50);
         expect(sql.bindings).toContain(100);
     });
@@ -169,8 +154,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .leftJoin('categories as c', 'p.category_id', 'c.id');
 
         const sql = query.toSQL().sql.toLowerCase();
-
-        // Must use LEFT JOIN to include products without categories
         expect(sql).toContain('left');
         expect(sql).not.toContain('inner');
     });
@@ -181,7 +164,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .orderBy('p.name', 'asc');
 
         const sql = query.toSQL().sql.toLowerCase();
-
         expect(sql).toContain('order by');
         expect(sql).toMatch(/name/);
         expect(sql).toContain('asc');
@@ -199,14 +181,12 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             );
 
         const sql = fullQuery.toSQL().sql.toLowerCase();
-
         expect(sql).toContain('coalesce');
         expect(sql).toContain('sum');
         expect(sql).toContain('order_items');
     });
 
     it('should return the same data structure (InventoryReportItem)', () => {
-        // Verify type compatibility
         const mockResult: InventoryReportItem = {
             productId: '123e4567-e89b-12d3-a456-426614174000',
             productName: 'Test Product',
@@ -233,7 +213,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .limit(actualLimit);
 
         const sql = query.toSQL();
-
         expect(sql.bindings).toContain(100);
         expect(sql.bindings).not.toContain(200);
     });
@@ -246,7 +225,6 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
             .limit(defaultLimit);
 
         const sql = query.toSQL();
-
         expect(sql.bindings).toContain(20);
     });
 });

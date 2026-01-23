@@ -1,6 +1,3 @@
-// Test 9: SQL Structure and Parameter Binding
-// Uses mock-knex to verify SQL structure and parameterized queries
-
 import knex, { Knex } from 'knex';
 import { InventoryService, ReportFilter } from '../repository_after/inventoryService';
 
@@ -31,8 +28,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .where('c.name', 'Electronics');
 
         const sql = query.toSQL();
-
-        // Should use placeholders, not inline values
         expect(sql.sql).toContain('?');
         expect(sql.bindings).toContain('Electronics');
     });
@@ -43,7 +38,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .where('p.price', '>=', 10);
 
         const sql = query.toSQL();
-
         expect(sql.sql).toContain('?');
         expect(sql.bindings).toContain(10);
     });
@@ -54,22 +48,17 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .where('p.price', '<=', 100);
 
         const sql = query.toSQL();
-
         expect(sql.sql).toContain('?');
         expect(sql.bindings).toContain(100);
     });
 
     it('should prevent SQL injection through parameter binding', () => {
-        // Attempt SQL injection
         const maliciousInput = "'; DROP TABLE products; --";
-
         const query = mockKnex('products as p')
             .select('*')
             .where('c.name', maliciousInput);
 
         const sql = query.toSQL();
-
-        // The value should be in bindings, not in SQL string
         expect(sql.bindings).toContain(maliciousInput);
         expect(sql.sql).not.toContain('DROP TABLE');
     });
@@ -92,8 +81,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .offset(10);
 
         const sql = query.toSQL().sql.toLowerCase();
-
-        // Verify SQL structure
         expect(sql).toContain('select');
         expect(sql).toContain('from');
         expect(sql).toContain('left join');
@@ -113,7 +100,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .offset(10);
 
         const sql = query.toSQL();
-
         expect(sql.bindings).toContain('Books');
         expect(sql.bindings).toContain(5);
         expect(sql.bindings).toContain(50);
@@ -127,9 +113,7 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .orderBy('p.name', 'asc');
 
         const sql = query.toSQL().sql.toLowerCase();
-
         expect(sql).toContain('order by');
-        // Handle quoted identifiers
         expect(sql).toMatch(/name/);
         expect(sql).toContain('asc');
     });
@@ -140,7 +124,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .whereRaw('oi.product_id = p.id');
 
         const sql = subquery.toSQL().sql.toLowerCase();
-
         expect(sql).toContain('select');
         expect(sql).toContain('sum');
         expect(sql).toContain('order_items');
@@ -158,7 +141,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             );
 
         const sql = fullQuery.toSQL().sql;
-
         expect(sql).toContain('COALESCE');
         expect(sql).toContain('totalSold');
     });
@@ -172,8 +154,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .offset(25);
 
         const sql = query.toSQL();
-
-        // Bindings should be in the order they appear
         const expectedBindings = [10, 100, 50, 25];
         expect(sql.bindings).toEqual(expectedBindings);
     });
@@ -181,15 +161,12 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
     it('should not have raw SQL values embedded in query string', () => {
         const categoryName = 'Electronics';
         const minPrice = 10;
-
         const query = mockKnex('products as p')
             .select('*')
             .where('c.name', categoryName)
             .where('p.price', '>=', minPrice);
 
         const sql = query.toSQL();
-
-        // Values should be in bindings, not in SQL string
         expect(sql.sql).not.toContain('Electronics');
         expect(sql.sql).not.toContain('10');
         expect(sql.bindings).toContain('Electronics');
@@ -204,12 +181,7 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .where('c.name', 'Books');
 
         const sql = query.toSQL().sql.toLowerCase();
-
-        // All conditions should be connected with AND
         const whereCount = (sql.match(/where/g) || []).length;
-        const andCount = (sql.match(/and/g) || []).length;
-
-        // Should have multiple conditions combined with AND
         expect(whereCount).toBeGreaterThanOrEqual(1);
     });
 
@@ -222,8 +194,6 @@ describe('Test 9: SQL Structure and Parameter Binding', () => {
             .limit(20);
 
         const sql = query.toSQL().sql;
-
-        // Basic PostgreSQL syntax validation
         expect(sql).toMatch(/select\s+.*\s+from\s+/i);
         expect(sql).toMatch(/left\s+join/i);
     });
