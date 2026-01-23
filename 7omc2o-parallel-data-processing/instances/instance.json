@@ -1,0 +1,12 @@
+{
+            "instance_id": "7OMC2O",
+            "problem_statement": "Refactor a parallel Python data‑processing system that currently spawns processes per item and uses file‑based IPC to instead use multiprocessing.Pool with batched work (≥1000 items per batch) and efficient shared‑memory communication, eliminating all O(n²) operations and excessive queue overhead. Implement optimized algorithms like the Sieve of Eratosthenes for primes and numpy‑based blocked matrix multiplication, ensuring at least 10x speedup for 100,000+ items and linear scaling across CPU cores. All sorting and string operations must use Python’s built‑in efficient implementations while maintaining correctness for data transformation, map‑reduce, and pipeline tasks.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/7omc2o-parallel-data-processing",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
