@@ -7,7 +7,7 @@ services:
       - ./repository_after:/app/repository_after
       - ./evaluation:/app/evaluation
       - /app/node_modules
-    command: sh -c "for f in tests/*.test.ts; do if ! echo \"$f\" | grep -q \"temp_\"; then echo \"Running $f against repository_before...\"; sed \"s/from ['\\\"]..\\/repository_after/from '..\\/repository_before/g\" \"$f\" > \"temp_$f\" && npx jest \"temp_$f\" --ci || true; rm -f \"temp_$f\"; fi; done"
+    command: sh -c "for f in tests/*.test.ts; do if ! echo \"$$f\" | grep -q \"temp_\"; then echo \"Running $$f against repository_before...\"; sed \"s/from ['\\\"]..\\/repository_after/from '..\\/repository_before/g\" \"$$f\" > \"temp_$$f\" && npx jest \"temp_$$f\" --ci || true; rm -f \"temp_$$f\"; fi; done"
 
   test-after:
     build: .
