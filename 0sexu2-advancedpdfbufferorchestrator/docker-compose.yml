@@ -1,12 +1,12 @@
 services:
   test-before:
     build: .
-    command: npx ts-node tests/test_before.ts
+    command: npx -y ts-node tests/test_before.ts
     volumes:
       - .:/app
 
   test-after:
     build: .
-    command: npx ts-node tests/test_after.ts
+    command: npx -y ts-node tests/test_after.ts
     volumes:
       - .:/app

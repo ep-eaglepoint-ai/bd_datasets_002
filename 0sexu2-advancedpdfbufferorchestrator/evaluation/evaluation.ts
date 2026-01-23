@@ -1,7 +1,186 @@
-def main():
-    # TODO: implement evaluation logic
-    print("Evaluation placeholder")
+import * as fs from 'fs';
+import * as path from 'path';
+import * as child_process from 'child_process';
+import * as os from 'os';
+import * as crypto from 'crypto';
 
+const ROOT = path.resolve(__dirname, '..');
+const REPORTS = path.join(ROOT, 'evaluation', 'reports');
 
-if __name__ == "__main__":
-    main()
+interface TestResult {
+    passed: boolean;
+    return_code: number;
+    output: string;
+}
+
+interface Metrics {
+    ts_file_count: number;
+    lines_of_code: number;
+    error?: string;
+}
+
+interface EvaluationResult {
+    tests: TestResult;
+    metrics: Metrics;
+}
+
+const environmentInfo = () => ({
+    node_version: process.version,
+    platform: os.platform() + ' ' + os.release()
+});
+
+const runDockerTest = async (serviceName: string): Promise<TestResult> => {
+    // Command to run the specific service
+    const cmd = `docker compose run ${serviceName}`;
+
+    return new Promise((resolve) => {
+        child_process.exec(cmd, { cwd: ROOT, timeout: 300000 }, (error, stdout, stderr) => {
+            const output = stdout + stderr;
+            const truncatedOutput = output.length > 20000 
+                ? output.substring(0, 4000) + "\n...[truncated]...\n" + output.substring(output.length - 16000)
+                : output;
+
+            resolve({
+                passed: !error && (error === null || error === undefined), 
+                return_code: error ? error.code || 1 : 0,
+                output: truncatedOutput
+            });
+        });
+    });
+};
+
+const runMetrics = (repoPathStr: string): Metrics => {
+    const metrics: Metrics = {
+        ts_file_count: 0,
+        lines_of_code: 0,
+    };
+
+    if (!fs.existsSync(repoPathStr)) {
+        return metrics;
+    }
+
+    const traverse = (dir: string) => {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            const fullPath = path.join(dir, file);
+            const stat = fs.statSync(fullPath);
+            if (stat.isDirectory()) {
+                traverse(fullPath);
+            } else if (file.endsWith('.ts')) { 
+                metrics.ts_file_count++;
+                try {
+                    const content = fs.readFileSync(fullPath, 'utf-8');
+                    metrics.lines_of_code += content.split('\n').length;
+                } catch (e) {
+                    // ignore
+                }
+            }
+        }
+    };
+
+    try {
+        traverse(repoPathStr);
+    } catch (e: any) {
+        metrics.error = e.message;
+    }
+
+    return metrics;
+};
+
+const evaluate = async (repoName: string, serviceName: string): Promise<EvaluationResult> => {
+    const repoPath = path.join(ROOT, repoName);
+    const tests = await runDockerTest(serviceName);
+    const metrics = runMetrics(repoPath);
+    return { tests, metrics };
+};
+
+const parseTestOutput = (outputStr: string) => {
+    const passedMatches = outputStr.match(/Test .+ Passed:/g);
+    const passed = passedMatches ? passedMatches.length : 0;
+    
+    let legacyPassed = 0;
+    if (outputStr.includes('Legacy merge behaved as expected')) legacyPassed = 1;
+
+    return { 
+        passed: passed + legacyPassed, 
+        failed: 0, 
+        total: passed + legacyPassed
+    };
+};
+
+const printReport = (report: any, reportPath: string) => {
+    console.log("=" .repeat(60));
+    console.log("EVALUATION RESULTS");
+    console.log("=" .repeat(60));
+    console.log();
+    console.log(`Run ID: ${report.run_id}`);
+    console.log(`Duration: ${report.duration_seconds.toFixed(2)} seconds`);
+    console.log();
+
+    const beforeStats = parseTestOutput(report.before.tests.output);
+    console.log("BEFORE (repository_before):");
+    console.log(`  Tests execution passed (exit 0): ${report.before.tests.passed}`);
+    console.log(`  Passed Checks: ${beforeStats.passed}`);
+
+    const afterStats = parseTestOutput(report.after.tests.output);
+    console.log();
+    console.log("AFTER (repository_after):");
+    console.log(`  Tests execution passed (exit 0): ${report.after.tests.passed}`);
+    console.log(`  Passed Checks: ${afterStats.passed}`);
+    console.log();
+    console.log("COMPARISON:");
+    console.log(`  Passed gate: ${report.comparison.passed_gate}`);
+    console.log(`  Summary: ${report.comparison.improvement_summary}`);
+    console.log();
+    console.log("=" .repeat(60));
+    console.log(`SUCCESS: ${report.success}`);
+    console.log("=" .repeat(60));
+    console.log();
+    console.log(`Report written to ${reportPath}`);
+};
+
+const main = async () => {
+    const runId = crypto.randomUUID();
+    const start = new Date();
+
+    console.log("Running evaluation...");
+    const before = await evaluate("repository_before", "test-before");
+    const after = await evaluate("repository_after", "test-after");
+
+    // Pass logic: After tests must pass
+    const passedGate = after.tests.passed;
+    
+    const comparison = {
+        passed_gate: passedGate,
+        improvement_summary: passedGate ? "Refactoring success: requirements met in test-after" : "Refactoring failed"
+    };
+
+    const end = new Date();
+    const durationSeconds = (end.getTime() - start.getTime()) / 1000;
+
+    const report = {
+        run_id: runId,
+        started_at: start.toISOString(),
+        finished_at: end.toISOString(),
+        duration_seconds: durationSeconds,
+        environment: environmentInfo(),
+        before,
+        after,
+        comparison,
+        success: passedGate,
+        error: null
+    };
+
+    const dateStr = start.toISOString().split('T')[0];
+    const timeStr = start.toISOString().split('T')[1].replace(/[:\.]/g, '-');
+    const reportDir = path.join(REPORTS, dateStr, timeStr);
+    
+    fs.mkdirSync(reportDir, { recursive: true });
+    const reportPath = path.join(reportDir, 'report.json');
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+
+    printReport(report, reportPath);
+    process.exit(report.success ? 0 : 1);
+};
+
+main();
