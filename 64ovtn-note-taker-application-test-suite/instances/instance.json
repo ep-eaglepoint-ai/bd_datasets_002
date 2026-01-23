@@ -1,0 +1,11 @@
+{
+            "instance_id": "64OVTN",
+            "problem_statement": "The Note Taker Application is a React-based app that supports creating, editing, deleting, and organizing notes using tags, backed by an asynchronous in-memory mock API. The application includes form validation, dynamic tag management, tag-based filtering, and UI states driven by async operations. The task is to write comprehensive automated test suites using Jest and React Testing Library. Tests must validate core CRUD flows, tag behavior, filtering, validation, and async loading states.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/64ovtn-note-taker-application-test-suite",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
