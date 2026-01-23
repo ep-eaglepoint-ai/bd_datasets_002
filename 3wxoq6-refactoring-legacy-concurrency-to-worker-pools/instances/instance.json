@@ -1,0 +1,11 @@
+{
+            "instance_id": "3WXOQ6",
+            "problem_statement": "The provided legacy code demonstrates two classic Golang failures: concurrent map writes (panic) and unbounded concurrency (spawning a goroutine for every request, leading to OOM). The challenge is to refactor this into a production-grade system using the Worker Pool Pattern to throttle concurrency, Dependency Injection (Interfaces) to decouple storage, and Context Propagation for graceful shutdown. Models often fail by applying a simple Mutex without fixing the unbounded goroutine issue, or by mismanaging channel closures causing deadlocks.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/3wxoq6-refactoring-legacy-concurrency-to-worker-pools",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
