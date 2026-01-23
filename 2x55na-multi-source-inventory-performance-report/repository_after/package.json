@@ -4,13 +4,11 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test": "npx vitest run"
+        "test": "echo 'Run tests from root via npm test'"
     },
     "dependencies": {
         "react": "^18.2.0",
         "react-dom": "^18.2.0"
     },
-    "devDependencies": {
-        "vitest": "^0.28.0"
-    }
+    "devDependencies": {}
 }

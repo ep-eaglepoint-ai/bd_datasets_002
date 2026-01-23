@@ -1,6 +1,7 @@
-import { InventoryAnalytics } from '@repository/analytics';
-import { InventoryService } from '@repository/service';
-
+import { describe, it, mock, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { InventoryAnalytics } from '../repository_after/analytics.js';
+import { InventoryService } from '../repository_after/service.js';
 
 describe('InventoryAnalytics', () => {
     it('calculates metrics correctly', () => {
@@ -13,18 +14,18 @@ describe('InventoryAnalytics', () => {
 
         const metrics = InventoryAnalytics.calculateMetrics(orders, expenses, reviews);
 
-        expect(metrics.totalRevenue).toBe(150);
-        expect(metrics.operatingCosts).toBe(50);
-        expect(metrics.netProfit).toBe(100);
-        expect(metrics.weightedSentiment).toBe(4);
+        assert.equal(metrics.totalRevenue, 150);
+        assert.equal(metrics.operatingCosts, 50);
+        assert.equal(metrics.netProfit, 100);
+        assert.equal(metrics.weightedSentiment, 4);
     });
 
     it('handles empty data', () => {
         const metrics = InventoryAnalytics.calculateMetrics([], [], []);
-        expect(metrics.totalRevenue).toBe(0);
-        expect(metrics.operatingCosts).toBe(0);
-        expect(metrics.netProfit).toBe(0);
-        expect(metrics.weightedSentiment).toBe(0);
+        assert.equal(metrics.totalRevenue, 0);
+        assert.equal(metrics.operatingCosts, 0);
+        assert.equal(metrics.netProfit, 0);
+        assert.equal(metrics.weightedSentiment, 0);
     });
 
     it('handles weighted sentiment correctly', () => {
@@ -34,7 +35,7 @@ describe('InventoryAnalytics', () => {
         ]; // Sum: 11, Total Weight: 3, Avg: 3.67
 
         const metrics = InventoryAnalytics.calculateMetrics([], [], reviews);
-        expect(metrics.weightedSentiment).toBe(3.67);
+        assert.equal(metrics.weightedSentiment, 3.67);
     });
 });
 
@@ -43,49 +44,49 @@ describe('InventoryService', () => {
 
     beforeEach(() => {
         mockSupabase = {
-            from: vi.fn().mockReturnThis(),
-            select: vi.fn()
+            from: mock.fn(() => mockSupabase),
+            select: mock.fn()
         };
     });
 
     it('fetches all data successfully', async () => {
-        mockSupabase.select
-            .mockResolvedValueOnce({ data: [{ id: 1 }], error: null }) // orders
-            .mockResolvedValueOnce({ data: [{ id: 2 }], error: null }) // expenses
-            .mockResolvedValueOnce({ data: [{ id: 3 }], error: null }); // reviews
+        mockSupabase.select.mock.mockImplementationOnce(() => Promise.resolve({ data: [{ id: 1 }], error: null }), 0);
+        mockSupabase.select.mock.mockImplementationOnce(() => Promise.resolve({ data: [{ id: 2 }], error: null }), 1);
+        mockSupabase.select.mock.mockImplementationOnce(() => Promise.resolve({ data: [{ id: 3 }], error: null }), 2);
+
+        // Helper to mimic simpler sequential mock if needed, but implementationOnce logic varies.
+        // Node's mockImplementationOnce stacks.
 
         const result = await InventoryService.fetchInventoryData(mockSupabase);
 
-        expect(result.orders).toHaveLength(1);
-        expect(result.expenses).toHaveLength(1);
-        expect(result.reviews).toHaveLength(1);
-        expect(mockSupabase.from).toHaveBeenCalledWith('orders');
-        expect(mockSupabase.from).toHaveBeenCalledWith('expenses');
-        expect(mockSupabase.from).toHaveBeenCalledWith('product_reviews');
+        assert.equal(result.orders.length, 1);
+        assert.equal(result.expenses.length, 1);
+        assert.equal(result.reviews.length, 1);
+        assert.equal(mockSupabase.from.mock.calls.length, 3);
+        assert.equal(mockSupabase.from.mock.calls[0].arguments[0], 'orders');
+        assert.equal(mockSupabase.from.mock.calls[1].arguments[0], 'expenses');
+        assert.equal(mockSupabase.from.mock.calls[2].arguments[0], 'product_reviews');
     });
 
     it('handles partial failures (Resilience)', async () => {
-        // Suppress console.error for this test as we expect an error log
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+        // Suppress console.error
+        const consoleSpy = mock.method(console, 'error', () => { });
 
-        // Mock failed expenses fetch
-        const mockSupabase = {
-            from: (table) => ({
-                select: () => {
-                    if (table === 'expenses') return Promise.resolve({ data: null, error: { message: 'Failed' } });
-                    if (table === 'orders') return Promise.resolve({ data: [{ total_amount: 100 }], error: null });
-                    if (table === 'product_reviews') return Promise.resolve({ data: [{ id: 3 }], error: null });
-                    return Promise.resolve({ data: [], error: null });
-                }
-            })
-        };
+        mockSupabase.from = mock.fn((table) => ({
+            select: () => {
+                if (table === 'expenses') return Promise.resolve({ data: null, error: { message: 'Failed' } });
+                if (table === 'orders') return Promise.resolve({ data: [{ total_amount: 100 }], error: null });
+                if (table === 'product_reviews') return Promise.resolve({ data: [{ id: 3 }], error: null });
+                return Promise.resolve({ data: [], error: null });
+            }
+        }));
 
         const data = await InventoryService.fetchInventoryData(mockSupabase);
 
-        expect(data.orders).toHaveLength(1);
-        expect(data.expenses).toEqual([]); // Should return empty array on failure
-        expect(data.reviews).toHaveLength(1);
+        assert.equal(data.orders.length, 1);
+        assert.deepEqual(data.expenses, []);
+        assert.equal(data.reviews.length, 1);
 
-        consoleSpy.mockRestore();
+        consoleSpy.mock.restore();
     });
 });

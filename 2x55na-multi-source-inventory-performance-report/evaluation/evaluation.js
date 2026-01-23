@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,22 +20,24 @@ function runTests() {
     const startTime = Date.now();
     let testOutput = '';
     let returnCode = 0;
-    const resultsPath = path.join(__dirname, 'test-results.json');
+
+    // We parse TAP output manually as node --test outputs TAP
+    let tapResults = [];
+    let passedTests = 0;
+    let failedTests = 0;
 
     try {
-        // Run tests with JSON reporter
-        // Run tests via npm which handles path resolution
-        // Pass reporter args to the script
-        execSync('npm test --silent -- --reporter=json --outputFile=' + resultsPath, {
+        // Run tests via npm (node --test)
+        // Ensure we capture stdout. 
+        testOutput = execSync('npm test', {
             encoding: 'utf-8',
             cwd: path.join(__dirname, '..'),
-            stdio: 'pipe' // Capture output to avoid console noise, but ignore it since we read file
+            stdio: 'pipe'
         });
         returnCode = 0;
     } catch (error) {
-        if (error.output) {
-            // Collect stdout/stderr for debug if needed, but we essentially rely on the json file
-            testOutput = error.output.map(b => b ? b.toString() : '').join('');
+        if (error.stdout) {
+            testOutput = error.stdout.toString();
         }
         returnCode = error.status || 1;
     }
@@ -42,56 +45,55 @@ function runTests() {
     const endTime = Date.now();
     const durationSeconds = (endTime - startTime) / 1000;
 
-    let totalTests = 0;
-    let passedTests = 0;
-    let testResults = [];
+    // Parse TAP output
+    const lines = testOutput.split('\n');
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        const okMatch = trimmed.match(/^ok\s+\d+\s+-\s+(.*)$/);
+        const notOkMatch = trimmed.match(/^not ok\s+\d+\s+-\s+(.*)$/);
 
-    if (fs.existsSync(resultsPath)) {
-        try {
-            const jsonResults = JSON.parse(fs.readFileSync(resultsPath, 'utf-8'));
-            totalTests = jsonResults.numTotalTests;
-            passedTests = jsonResults.numPassedTests;
-
-            // Extract test details
-            if (jsonResults.testResults) {
-                jsonResults.testResults.forEach(suite => {
-                    const filename = path.relative(path.join(__dirname, '..'), suite.name);
-                    suite.assertionResults.forEach(assertion => {
-                        testResults.push({
-                            fullName: `${filename}::${assertion.title}`,
-                            status: assertion.status,
-                            title: assertion.title,
-                            failureMessages: assertion.failureMessages,
-                            location: assertion.location || { line: 0, column: 0 }
-                        });
-                    });
-                });
-            }
-
-        } catch (e) {
-            console.error("Failed to parse test results JSON", e);
+        if (okMatch) {
+            passedTests++;
+            tapResults.push({
+                fullName: okMatch[1],
+                title: okMatch[1],
+                status: 'passed',
+                failureMessages: []
+            });
+        } else if (notOkMatch) {
+            failedTests++;
+            tapResults.push({
+                fullName: notOkMatch[1],
+                title: notOkMatch[1],
+                status: 'failed',
+                failureMessages: ['Check output for details']
+            });
         }
-        // Clean up
-        fs.unlinkSync(resultsPath);
-    }
+    });
 
-    const passed = returnCode === 0 && passedTests === totalTests;
+    // Fallback if no TAP lines found (e.g. fatal error)
+    // If output is not empty but no TAP, status might be failed
+
+    // Handle skipped tests if needed (lines starting with 'ok ... # skip')
+
+    const totalTests = passedTests + failedTests;
+    const passed = returnCode === 0 && failedTests === 0 && totalTests > 0;
 
     return {
         passed,
         returnCode,
-        output: testOutput, // We can leave this empty or populate if validation failed
+        output: testOutput,
         durationSeconds,
         summary: {
             numTotalTests: totalTests,
             numPassedTests: passedTests,
-            numFailedTests: totalTests - passedTests,
+            numFailedTests: failedTests,
             numTotalTestSuites: 1,
             numPassedTestSuites: passed ? 1 : 0,
             numFailedTestSuites: passed ? 0 : 1
         },
-        summary_matrix: [[passedTests, totalTests - passedTests]],
-        tests: testResults
+        summary_matrix: [[passedTests, failedTests]],
+        tests: tapResults
     };
 }
 
@@ -104,40 +106,68 @@ function generateReport() {
     // console.log('Running tests for repository_after...'); // Suppress
     const afterResults = runTests();
 
+    // Map tests to template format
+    const formattedAfterTests = afterResults.tests ? afterResults.tests.map(t => ({
+        nodeid: `repository_after::${t.fullName || t.title}`,
+        name: t.title,
+        outcome: t.status === 'passed' ? 'passed' : 'failed',
+        message: t.title,
+        failureMessages: t.failureMessages
+    })) : [];
+
     const report = {
         run_id: runId,
         started_at: timestamp.iso,
         finished_at: new Date().toISOString(),
         duration_seconds: afterResults.durationSeconds,
+        success: afterResults.passed,
+        error: null,
         environment: {
             node_version: process.version,
-            platform: `${process.platform}-${process.arch}`
+            platform: process.platform,
+            os: process.platform, // 'linux' likely in docker
+            os_release: os.release(),
+            architecture: process.arch,
+            hostname: os.hostname(),
+            git_commit: null, // Not available in this environment
+            git_branch: null
         },
-        after: {
-            tests: afterResults,
-            metrics: {
-                execution_time_seconds: afterResults.durationSeconds,
-                tests_passed: afterResults.summary.numPassedTests,
-                tests_failed: afterResults.summary.numFailedTests,
-                error: null
+        results: {
+            before: {
+                success: false,
+                exit_code: 1,
+                tests: [],
+                summary: {
+                    total: 0,
+                    passed: 0,
+                    failed: 0,
+                    errors: 0,
+                    skipped: 0
+                }
+            },
+            after: {
+                success: afterResults.passed,
+                exit_code: afterResults.returnCode,
+                tests: formattedAfterTests,
+                summary: {
+                    total: afterResults.summary.numTotalTests,
+                    passed: afterResults.summary.numPassedTests,
+                    failed: afterResults.summary.numFailedTests,
+                    errors: 0,
+                    skipped: 0
+                }
+            },
+            comparison: {
+                before_tests_passed: false,
+                after_tests_passed: afterResults.passed,
+                before_total: 0,
+                before_passed: 0,
+                before_failed: 0,
+                after_total: afterResults.summary.numTotalTests,
+                after_passed: afterResults.summary.numPassedTests,
+                after_failed: afterResults.summary.numFailedTests
             }
-        },
-        comparison: {
-            passed_gate: afterResults.passed,
-            improvement_summary: afterResults.passed
-                ? 'All requirements met with 3-layer architecture'
-                : 'Tests failed',
-            requirements_met: {
-                environment: 'Vite.js with plain JavaScript',
-                architecture: '3-file feature-based separation',
-                table_integration: 'orders, expenses, product_reviews',
-                aggregate_accuracy: 'Revenue, Costs, Profit, Sentiment',
-                resilience: 'Partial API failures handled gracefully',
-                verification: 'Unit tests with mocked Supabase'
-            }
-        },
-        success: afterResults.passed,
-        error: null
+        }
     };
 
     const reportDir = path.join(__dirname, timestamp.date, timestamp.time);

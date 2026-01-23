@@ -7,10 +7,10 @@
         "repository_after"
     ],
     "scripts": {
-        "test": "npx vitest run",
+        "test": "node --test tests/inventory.test.js",
         "evaluate": "node evaluation/evaluation.js"
     },
     "devDependencies": {
-        "vitest": "^0.28.0"
+        "uuid": "^9.0.0"
     }
 }
