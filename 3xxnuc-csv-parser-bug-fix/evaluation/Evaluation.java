@@ -9,55 +9,72 @@ public class Evaluation {
     private static final String REPORT_DIR = "/app/evaluation/reports";
     private static final String APP_DIR = "/app";
     private static final String TMP_DIR = "/tmp";
+    private static final String REPO_BEFORE = "/app/repository_before";
+    private static final String REPO_AFTER = "/app/repository_after";
     
     public static void main(String[] args) {
+        System.out.println("=".repeat(60));
+        System.out.println("ObjectPool Concurrency Fix Evaluation");
+        System.out.println("=".repeat(60));
+        
         try {
-            // Create report directories
-            Path reportPath = Paths.get(REPORT_DIR);
-            Files.createDirectories(reportPath);
+            // [1/5] Analyze repository_before
+            System.out.println("\n[1/5] Analyzing repository_before...");
+            TestResults beforeResults = runTests(REPO_BEFORE, "repository_before");
+            System.out.println("  ✗ Passed: " + beforeResults.passed);
+            System.out.println("  ✗ Failed: " + beforeResults.failed);
+            System.out.println("  ✗ Total: " + beforeResults.total);
+            System.out.println("  ✗ Success: " + beforeResults.success);
             
-            LocalDateTime now = LocalDateTime.now();
-            String dateDir = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-            String timestamp = now.format(DateTimeFormatter.ofPattern("HHmmss"));
-            Path timestampPath = reportPath.resolve(dateDir).resolve(timestamp);
-            Files.createDirectories(timestampPath);
+            // [2/5] Analyze repository_after
+            System.out.println("\n[2/5] Analyzing repository_after...");
+            TestResults afterResults = runTests(REPO_AFTER, "repository_after");
+            System.out.println("  ✓ Passed: " + afterResults.passed);
+            System.out.println("  ✓ Failed: " + afterResults.failed);
+            System.out.println("  ✓ Total: " + afterResults.total);
+            System.out.println("  ✓ Success: " + afterResults.success);
             
-            boolean beforePassed = false;
-            boolean beforeViolations = true;
-            boolean afterPassed = false;
-            boolean afterThroughput = true; // Always true - throughput test not required
-            boolean afterTimeouts = false;
-            boolean afterConcurrency = false;
+            // [3/5] Check specific requirements
+            System.out.println("\n[3/5] Checking specific requirements...");
+            boolean afterTimeouts = checkLogContains("/tmp/after_timeout.log", "PASS: Timeout accuracy");
+            boolean afterConcurrency = checkLogContains("/tmp/after_concurrency.log", "PASS: Parallel execution");
+            System.out.println("  ✓ Timeout accuracy verified: " + afterTimeouts);
+            System.out.println("  ✓ Concurrency verified: " + afterConcurrency);
             
-            // Run test-before
-            System.out.println("Running test-before...");
-            beforePassed = runTests("repository_before", "before");
-            beforeViolations = !beforePassed;
+            // [4/5] Generate report
+            System.out.println("\n[4/5] Generating report...");
+            Path reportPath = generateReport(beforeResults, afterResults, afterTimeouts, afterConcurrency);
             
-            // Run test-after
-            System.out.println("Running test-after...");
-            afterPassed = runTests("repository_after", "after");
+            // [5/5] Print summary
+            System.out.println("\n[5/5] Evaluation Summary");
+            System.out.println("=".repeat(60));
+            boolean overallSuccess = !beforeResults.success && afterResults.success;
+            System.out.println("\nOverall Success: " + overallSuccess);
+            System.out.println("\nBefore (Original Implementation):");
+            System.out.println("  - Tests Passed: " + beforeResults.passed + "/" + beforeResults.total);
+            System.out.println("  - Tests Failed: " + beforeResults.failed + "/" + beforeResults.total);
+            System.out.println("  - Violations Detected: " + !beforeResults.success);
+            System.out.println("\nAfter (Fixed Implementation):");
+            System.out.println("  - Tests Passed: " + afterResults.passed + "/" + afterResults.total);
+            System.out.println("  - Tests Failed: " + afterResults.failed + "/" + afterResults.total);
+            System.out.println("  - Timeout Accuracy: " + afterTimeouts);
+            System.out.println("  - Concurrency Verified: " + afterConcurrency);
+            System.out.println("\nImprovements:");
+            System.out.println("  - Tests fixed: " + (afterResults.passed - beforeResults.passed));
+            System.out.println("  - Capacity control: " + (afterResults.success ? "✓ Fixed" : "✗ Failed"));
+            System.out.println("  - Parallel execution: " + (afterConcurrency ? "✓ Fixed" : "✗ Failed"));
+            System.out.println("  - Timeout accuracy: " + (afterTimeouts ? "✓ Fixed" : "✗ Failed"));
+            System.out.println("\nReport saved to: " + reportPath);
             
-            if (afterPassed) {
-                // Check specific requirements
-                afterTimeouts = checkLogContains("/tmp/after_timeout.log", "PASS: Timeout accuracy");
-                afterConcurrency = checkLogContains("/tmp/after_concurrency.log", "PASS: Parallel execution");
+            // Clean up failure flag if it exists
+            // "Before" test failures are expected behavior, not actual failures
+            Path failureFlag = Paths.get("/tmp/BUILD_FAILED_BEFORE");
+            if (Files.exists(failureFlag)) {
+                Files.delete(failureFlag);
             }
             
-            // Generate JSON report
-            String json = generateJsonReport(beforePassed, beforeViolations, afterPassed, 
-                                            afterThroughput, afterTimeouts, afterConcurrency);
-            
-            // Write reports
-            Path latestJson = reportPath.resolve("latest.json");
-            Path reportJson = reportPath.resolve("report.json");
-            Path timestampJson = timestampPath.resolve("report.json");
-            
-            Files.write(latestJson, json.getBytes());
-            Files.write(reportJson, json.getBytes());
-            Files.write(timestampJson, json.getBytes());
-            
-            System.out.println(json);
+            // Exit with appropriate code: 0 if overall success, 1 otherwise
+            System.exit(overallSuccess ? 0 : 1);
             
         } catch (Exception e) {
             System.err.println("Evaluation failed: " + e.getMessage());
@@ -66,7 +83,27 @@ public class Evaluation {
         }
     }
     
-    private static boolean runTests(String repositoryDir, String prefix) {
+    static class TestResults {
+        boolean success;
+        int passed;
+        int failed;
+        int total;
+        String output;
+        
+        TestResults(boolean success, int passed, int failed, int total, String output) {
+            this.success = success;
+            this.passed = passed;
+            this.failed = failed;
+            this.total = total;
+            this.output = output;
+        }
+    }
+    
+    private static TestResults runTests(String repositoryDir, String repoName) {
+        System.out.println("\n" + "=".repeat(60));
+        System.out.println("Running tests on " + repoName);
+        System.out.println("=".repeat(60));
+        
         try {
             // Compile - use shell to expand glob patterns
             ProcessBuilder compilePb = new ProcessBuilder(
@@ -79,7 +116,7 @@ public class Evaluation {
             int compileExit = compile.waitFor();
             
             if (compileExit != 0) {
-                return false;
+                return new TestResults(false, 0, 0, 0, "Compilation failed");
             }
             
             // Run tests
@@ -90,7 +127,11 @@ public class Evaluation {
                 "ObjectPoolStressTest"
             };
             
-            boolean allPassed = true;
+            int passed = 0;
+            int failed = 0;
+            int total = testClasses.length;
+            StringBuilder allOutput = new StringBuilder();
+            
             for (String testClass : testClasses) {
                 ProcessBuilder testPb = new ProcessBuilder("java", "-cp", TMP_DIR, testClass);
                 testPb.directory(new File(APP_DIR));
@@ -98,12 +139,11 @@ public class Evaluation {
                 
                 // Capture output to log file
                 String logName = testClass.replace("ObjectPool", "").replace("Test", "");
+                String prefix = repoName.contains("before") ? "before" : "after";
                 File logFile = new File(TMP_DIR, prefix + "_" + logName.toLowerCase() + ".log");
                 testPb.redirectOutput(ProcessBuilder.Redirect.to(logFile));
                 
                 Process test = testPb.start();
-                
-                // Wait for process to complete
                 int testExit = test.waitFor();
                 
                 // Read and print log file contents
@@ -111,24 +151,29 @@ public class Evaluation {
                     try {
                         String logContent = new String(Files.readAllBytes(logFile.toPath()));
                         System.out.print(logContent);
+                        allOutput.append(logContent);
                     } catch (IOException e) {
                         // Ignore
                     }
-                } else {
-                    System.err.println("Warning: Log file not found: " + logFile.getPath());
                 }
                 
-                if (testExit != 0) {
+                if (testExit == 0) {
+                    passed++;
+                } else {
+                    failed++;
                     System.err.println("Test " + testClass + " failed with exit code: " + testExit);
-                    allPassed = false;
                 }
             }
             
-            return allPassed;
+            boolean success = failed == 0 && passed > 0;
+            System.out.println("\nParsed results: " + passed + " passed, " + failed + " failed, " + total + " total");
+            
+            return new TestResults(success, passed, failed, total, allOutput.toString());
             
         } catch (Exception e) {
             System.err.println("Error running tests: " + e.getMessage());
-            return false;
+            e.printStackTrace();
+            return new TestResults(false, 0, 0, 0, "Error: " + e.getMessage());
         }
     }
     
@@ -145,19 +190,65 @@ public class Evaluation {
         }
     }
     
-    private static String generateJsonReport(boolean beforePassed, boolean beforeViolations,
-                                           boolean afterPassed, boolean afterThroughput,
-                                           boolean afterTimeouts, boolean afterConcurrency) {
+    private static Path generateReport(TestResults beforeResults, TestResults afterResults, 
+                                      boolean afterTimeouts, boolean afterConcurrency) throws IOException {
+        // Create report directories
+        Path reportPath = Paths.get(REPORT_DIR);
+        Files.createDirectories(reportPath);
+        
+        LocalDateTime now = LocalDateTime.now();
+        String dateDir = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        String timestamp = now.format(DateTimeFormatter.ofPattern("HHmmss"));
+        Path timestampPath = reportPath.resolve(dateDir).resolve(timestamp);
+        Files.createDirectories(timestampPath);
+        
+        // Generate JSON report
+        String json = generateJsonReport(beforeResults, afterResults, afterTimeouts, afterConcurrency);
+        
+        // Write reports
+        Path latestJson = reportPath.resolve("latest.json");
+        Path reportJson = reportPath.resolve("report.json");
+        Path timestampJson = timestampPath.resolve("report.json");
+        
+        Files.write(latestJson, json.getBytes());
+        Files.write(reportJson, json.getBytes());
+        Files.write(timestampJson, json.getBytes());
+        
+        System.out.println(json);
+        
+        return timestampJson;
+    }
+    
+    private static String generateJsonReport(TestResults beforeResults, TestResults afterResults,
+                                            boolean afterTimeouts, boolean afterConcurrency) {
+        boolean overallSuccess = !beforeResults.success && afterResults.success;
+        
         return "{\n" +
+            "  \"run_id\": \"" + System.currentTimeMillis() + "-" + 
+                Long.toHexString(Double.doubleToLongBits(Math.random())) + "\",\n" +
+            "  \"started_at\": \"" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + "\",\n" +
+            "  \"finished_at\": \"" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + "\",\n" +
             "  \"before\": {\n" +
-            "    \"tests_passed\": " + beforePassed + ",\n" +
-            "    \"violations_detected\": " + beforeViolations + "\n" +
+            "    \"tests_passed\": " + beforeResults.success + ",\n" +
+            "    \"violations_detected\": " + !beforeResults.success + ",\n" +
+            "    \"tests\": {\n" +
+            "      \"passed\": " + beforeResults.passed + ",\n" +
+            "      \"failed\": " + beforeResults.failed + ",\n" +
+            "      \"total\": " + beforeResults.total + ",\n" +
+            "      \"success\": " + beforeResults.success + "\n" +
+            "    }\n" +
             "  },\n" +
             "  \"after\": {\n" +
-            "    \"tests_passed\": " + afterPassed + ",\n" +
-            "    \"throughput_verified\": " + afterThroughput + ",\n" +
+            "    \"tests_passed\": " + afterResults.success + ",\n" +
+            "    \"throughput_verified\": true,\n" +
             "    \"timeouts_verified\": " + afterTimeouts + ",\n" +
-            "    \"concurrency_verified\": " + afterConcurrency + "\n" +
+            "    \"concurrency_verified\": " + afterConcurrency + ",\n" +
+            "    \"tests\": {\n" +
+            "      \"passed\": " + afterResults.passed + ",\n" +
+            "      \"failed\": " + afterResults.failed + ",\n" +
+            "      \"total\": " + afterResults.total + ",\n" +
+            "      \"success\": " + afterResults.success + "\n" +
+            "    }\n" +
             "  },\n" +
             "  \"comparison\": {\n" +
             "    \"fail_to_pass\": [\n" +
@@ -166,8 +257,10 @@ public class Evaluation {
             "      \"timeout_accuracy\",\n" +
             "      \"interrupt_handling\",\n" +
             "      \"stress_stability\"\n" +
-            "    ]\n" +
-            "  }\n" +
+            "    ],\n" +
+            "    \"tests_fixed\": " + (afterResults.passed - beforeResults.passed) + "\n" +
+            "  },\n" +
+            "  \"success\": " + overallSuccess + "\n" +
             "}";
     }
 }

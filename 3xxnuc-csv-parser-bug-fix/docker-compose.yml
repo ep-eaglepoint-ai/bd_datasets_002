@@ -2,17 +2,20 @@ services:
   test-before:
     build: .
     volumes:
+      - ./evaluation/reports:/app/evaluation/reports
       - .:/app
     command: bash -c "javac -d /tmp repository_before/*.java tests/*.java && cd /tmp && java ObjectPoolCorrectnessTest && java ObjectPoolConcurrencyTest && java ObjectPoolTimeoutTest && java ObjectPoolStressTest"
   
   test-after:
     build: .
     volumes:
+      - ./evaluation/reports:/app/evaluation/reports
       - .:/app
     command: bash -c "javac -d /tmp repository_after/*.java tests/*.java && cd /tmp && java ObjectPoolCorrectnessTest && java ObjectPoolConcurrencyTest && java ObjectPoolTimeoutTest && java ObjectPoolStressTest"
   
   evaluation:
     build: .
     volumes:
+      - ./evaluation/reports:/app/evaluation/reports
       - .:/app
-    command: bash -c "javac -d /tmp evaluation/*.java && java -cp /tmp Evaluation"
+    command: bash -c "javac -d /tmp evaluation/Evaluation.java repository_after/*.java tests/*.java && java -cp /tmp Evaluation"
