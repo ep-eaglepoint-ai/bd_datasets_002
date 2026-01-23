@@ -1,0 +1,12 @@
+{
+            "instance_id": "0AJC1Z",
+            "problem_statement": "TechVision Pro’s current marketing landing page is desktop-only, designed for a fixed width of 1440px using absolute positioning for every element. Analytics reveal that 68% of visitors are mobile/tablet users, resulting in a 73% bounce rate and $2.3M projected annual revenue loss.
+The goal is to transform the existing landing page into a fully responsive, production-ready design.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/0ajc1z-techvision-pro-responsive-design",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
