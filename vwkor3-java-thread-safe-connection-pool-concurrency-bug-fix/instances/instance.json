@@ -7,7 +7,19 @@ The pool manages database  connections where validation involves a 50-500ms netw
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vwkor3-java-thread-safe-connection-pool-concurrency-bug-fix",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
+            "FAIL_TO_PASS": [
+                "testThroughputWithSlowValidation",
+                "testAllWaitingThreadsEventuallyWake",
+                "testSpuriousWakeupHandling",
+                "testHighConcurrencyStress"
+            ],
+            "PASS_TO_PASS": [
+                "testBorrowTimeoutAccuracy",
+                "testInterruptHandling",
+                "testInvalidObjectDiscarded",
+                "testSafeRelease",
+                "testZeroTimeout",
+                "testFactoryFailureDoesNotLeakCapacity"
+            ]
         }
         
