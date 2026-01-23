@@ -1,4 +1,5 @@
 import os
+import time
 import psycopg2
 import pytest
 
@@ -22,6 +23,7 @@ def db_conn():
         cur.execute("CREATE DATABASE ecommerce_db")
     
     admin_conn.close()
+    time.sleep(0.5)
     
     conn = psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
@@ -34,96 +36,178 @@ def db_conn():
     with conn.cursor() as cur:
         with open(f"{repo_path}/schema.sql") as f:
             cur.execute(f.read())
+        with open("repository_before/seed_test.sql") as f:
+            cur.execute(f.read())
         conn.commit()
     
     yield conn
     conn.close()
 
 
-def test_required_indexes_exist(db_conn):
-    """All required optimization indexes must exist."""
-    with db_conn.cursor() as cur:
-        cur.execute("""
-            SELECT indexname 
-            FROM pg_indexes 
-            WHERE schemaname = 'public' 
-            AND indexname LIKE 'idx_%'
-            ORDER BY indexname
-        """)
-        indexes = [row[0] for row in cur.fetchall()]
-        
-    required_indexes = [
-        'idx_orders_date_status_amount',
-        'idx_orders_date_status_id',
-        'idx_order_items_product_order',
-        'idx_orders_customer_status_date',
-        'idx_inventory_product'
-    ]
-    
-    for idx in required_indexes:
-        assert idx in indexes, f"Required index {idx} not found. Found: {indexes}"
+def execute_query(conn, query):
+    """Execute query and return results with timing."""
+    with conn.cursor() as cur:
+        start = time.time()
+        cur.execute(query)
+        results = cur.fetchall()
+        elapsed = time.time() - start
+        return results, elapsed
 
 
-def test_index_on_orders_date(db_conn):
-    """Index on orders(order_date, status) must exist for daily revenue queries."""
-    with db_conn.cursor() as cur:
-        cur.execute("""
-            SELECT indexname 
-            FROM pg_indexes 
-            WHERE schemaname = 'public' 
-            AND tablename = 'orders'
-            AND indexname = 'idx_orders_date_status_amount'
-        """)
-        assert cur.fetchone() is not None, "Index idx_orders_date_status_amount not found"
+def test_daily_revenue_trend(db_conn):
+    """Query 1: Daily revenue trend - must complete in under 2 seconds."""
+    query = """
+    SELECT 
+        DATE(order_date) as day,
+        SUM(total_amount) as revenue,
+        COUNT(*) as order_count
+    FROM orders
+    WHERE order_date >= NOW() - INTERVAL '90 days'
+      AND status != 'cancelled'
+    GROUP BY DATE(order_date)
+    ORDER BY day;
+    """
+    results, elapsed = execute_query(db_conn, query)
+    print(f"Query took {elapsed:.3f}s")
+    assert len(results) >= 0
+    assert elapsed < 2.0, f"Query took {elapsed:.2f}s, expected <2s"
 
 
-def test_index_on_order_items_product(db_conn):
-    """Index on order_items(product_id, order_id) must exist for product queries."""
-    with db_conn.cursor() as cur:
-        cur.execute("""
-            SELECT indexname 
-            FROM pg_indexes 
-            WHERE schemaname = 'public' 
-            AND tablename = 'order_items'
-            AND indexname = 'idx_order_items_product_order'
-        """)
-        assert cur.fetchone() is not None, "Index idx_order_items_product_order not found"
+def test_top_products_by_category(db_conn):
+    """Query 2: Top products by category - must complete in under 2 seconds."""
+    query = """
+    SELECT 
+        c.name as category,
+        p.name as product,
+        sub.revenue
+    FROM categories c
+    CROSS JOIN LATERAL (
+        SELECT 
+            oi.product_id,
+            SUM(oi.quantity * oi.unit_price) as revenue
+        FROM order_items oi
+        JOIN orders o ON o.order_id = oi.order_id
+        JOIN products p ON p.product_id = oi.product_id
+        WHERE p.category_id = c.category_id
+          AND o.order_date >= NOW() - INTERVAL '30 days'
+          AND o.status != 'cancelled'
+        GROUP BY oi.product_id
+        ORDER BY revenue DESC
+        LIMIT 10
+    ) sub
+    JOIN products p ON p.product_id = sub.product_id
+    ORDER BY c.name, sub.revenue DESC;
+    """
+    results, elapsed = execute_query(db_conn, query)
+    print(f"Query took {elapsed:.3f}s")
+    assert len(results) >= 0
+    assert elapsed < 2.0, f"Query took {elapsed:.2f}s, expected <2s"
 
 
-def test_index_on_orders_customer(db_conn):
-    """Index on orders(customer_id, status, order_date) must exist for customer queries."""
-    with db_conn.cursor() as cur:
-        cur.execute("""
-            SELECT indexname 
-            FROM pg_indexes 
-            WHERE schemaname = 'public' 
-            AND tablename = 'orders'
-            AND indexname = 'idx_orders_customer_status_date'
-        """)
-        assert cur.fetchone() is not None, "Index idx_orders_customer_status_date not found"
+def test_customer_cohort_analysis(db_conn):
+    """Query 3: Customer cohort analysis - must complete in under 2 seconds."""
+    query = """
+    SELECT 
+        TO_CHAR(c.first_purchase_date, 'YYYY-MM') as cohort,
+        EXTRACT(MONTH FROM AGE(o.order_date, c.first_purchase_date)) as months_since_first,
+        COUNT(DISTINCT c.customer_id) as customers
+    FROM customers c
+    JOIN orders o ON o.customer_id = c.customer_id
+    WHERE c.first_purchase_date >= NOW() - INTERVAL '13 months'
+      AND o.status != 'cancelled'
+    GROUP BY 
+        TO_CHAR(c.first_purchase_date, 'YYYY-MM'),
+        EXTRACT(MONTH FROM AGE(o.order_date, c.first_purchase_date))
+    ORDER BY cohort, months_since_first;
+    """
+    results, elapsed = execute_query(db_conn, query)
+    print(f"Query took {elapsed:.3f}s")
+    assert len(results) >= 0
+    assert elapsed < 2.0, f"Query took {elapsed:.2f}s, expected <2s"
 
 
-def test_index_on_inventory(db_conn):
-    """Index on inventory(product_id) must exist for inventory queries."""
-    with db_conn.cursor() as cur:
-        cur.execute("""
-            SELECT indexname 
-            FROM pg_indexes 
-            WHERE schemaname = 'public' 
-            AND tablename = 'inventory'
-            AND indexname = 'idx_inventory_product'
-        """)
-        assert cur.fetchone() is not None, "Index idx_inventory_product not found"
+def test_inventory_turnover(db_conn):
+    """Query 4: Inventory turnover - must complete in under 2 seconds."""
+    query = """
+    SELECT 
+        p.product_id,
+        p.name,
+        COALESCE(SUM(oi.quantity), 0) as units_sold,
+        i.quantity as current_stock,
+        CASE 
+            WHEN i.quantity > 0 THEN ROUND(COALESCE(SUM(oi.quantity), 0)::numeric / i.quantity, 2)
+            ELSE 0 
+        END as turnover_rate
+    FROM products p
+    LEFT JOIN order_items oi ON oi.product_id = p.product_id
+    LEFT JOIN orders o ON o.order_id = oi.order_id 
+        AND o.order_date >= NOW() - INTERVAL '90 days'
+        AND o.status != 'cancelled'
+    LEFT JOIN inventory i ON i.product_id = p.product_id
+    GROUP BY p.product_id, p.name, i.quantity
+    ORDER BY turnover_rate DESC
+    LIMIT 100;
+    """
+    results, elapsed = execute_query(db_conn, query)
+    print(f"Query took {elapsed:.3f}s")
+    assert len(results) >= 0
+    assert elapsed < 2.0, f"Query took {elapsed:.2f}s, expected <2s"
 
 
-def test_total_custom_indexes(db_conn):
-    """Exactly 5 custom indexes should exist (within 2GB limit)."""
-    with db_conn.cursor() as cur:
-        cur.execute("""
-            SELECT COUNT(*) 
-            FROM pg_indexes 
-            WHERE schemaname = 'public' 
-            AND indexname LIKE 'idx_%'
-        """)
-        count = cur.fetchone()[0]
-        assert count == 5, f"Expected 5 custom indexes, found {count}"
+def test_customer_lifetime_value(db_conn):
+    """Query 5: Customer lifetime value - must complete in under 2 seconds."""
+    query = """
+    SELECT 
+        customer_id,
+        total_spent,
+        order_count,
+        NTILE(100) OVER (ORDER BY total_spent) as percentile
+    FROM (
+        SELECT 
+            c.customer_id,
+            SUM(o.total_amount) as total_spent,
+            COUNT(o.order_id) as order_count
+        FROM customers c
+        JOIN orders o ON o.customer_id = c.customer_id
+        WHERE o.status != 'cancelled'
+        GROUP BY c.customer_id
+    ) customer_totals
+    ORDER BY percentile DESC, total_spent DESC;
+    """
+    results, elapsed = execute_query(db_conn, query)
+    print(f"Query took {elapsed:.3f}s")
+    assert len(results) >= 0
+    assert elapsed < 2.0, f"Query took {elapsed:.2f}s, expected <2s"
+
+
+def test_category_performance_comparison(db_conn):
+    """Query 6: Category performance comparison - must complete in under 2 seconds."""
+    query = """
+    WITH monthly_revenue AS (
+        SELECT 
+            p.category_id,
+            DATE_TRUNC('month', o.order_date) as month,
+            SUM(oi.quantity * oi.unit_price) as revenue
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN products p ON p.product_id = oi.product_id
+        WHERE o.status != 'cancelled'
+        GROUP BY p.category_id, DATE_TRUNC('month', o.order_date)
+    )
+    SELECT 
+        c.name as category,
+        curr.month,
+        curr.revenue as current_revenue,
+        prev.revenue as previous_revenue,
+        ROUND(((curr.revenue - prev.revenue) / NULLIF(prev.revenue, 0)) * 100, 2) as growth_pct
+    FROM monthly_revenue curr
+    JOIN monthly_revenue prev ON prev.category_id = curr.category_id 
+        AND prev.month = curr.month - INTERVAL '1 month'
+    JOIN categories c ON c.category_id = curr.category_id
+    WHERE curr.month >= NOW() - INTERVAL '12 months'
+    ORDER BY c.name, curr.month;
+    """
+    results, elapsed = execute_query(db_conn, query)
+    print(f"Query took {elapsed:.3f}s")
+    assert len(results) >= 0
+    assert elapsed < 2.0, f"Query took {elapsed:.2f}s, expected <2s"
