@@ -5,34 +5,12 @@ import os
 from unittest.mock import MagicMock
 
 # ==========================================
-# EXIT CODE HANDLING
-# ==========================================
-
-def pytest_sessionfinish(session, exitstatus):
-    """
-    Requested Hook: Forces exit code 0 even if tests fail.
-    This ensures the CI pipeline reports the failures (Red) but doesn't crash.
-    """
-    if exitstatus == 1:  # 1 indicates test failures
-        session.exitstatus = 0
-
-@pytest.fixture(scope="session", autouse=True)
-def enforce_exit_code_0(request):
-    """
-    Since this is a test file (not conftest.py), pytest might ignore the
-    hook above. This fixture ensures the hook is called explicitly.
-    """
-    yield
-    # Run the hook manually after tests complete
-    pytest_sessionfinish(request.session, request.session.exitstatus)
-
-# ==========================================
 # 1. ROBUST MODULE LOADING
 # ==========================================
-
 def load_maze_module():
     """
     Dynamically loads the maze module based on PYTHONPATH.
+    Uses mocks if the module crashes on import.
     """
     impl = os.getenv("PYTHONPATH", "")
     if "repository_before" in impl:
@@ -57,6 +35,7 @@ def load_maze_module():
         spec.loader.exec_module(module)
         return module
     except Exception as e:
+        # If the module itself has syntax errors or bad imports, mock it
         m = MagicMock()
         m.solve_maze.side_effect = e
         return m
@@ -66,30 +45,40 @@ def maze_solver():
     return load_maze_module()
 
 # ==========================================
-# TESTS
+# 2. ALGORITHM & ARCHITECTURE TESTS
 # ==========================================
 
 def test_bfs_optimality_trap(maze_solver):
+    """
+    Trap Maze: Tests for Shortest Path (BFS).
+    Legacy Code: Returns a list (grid) instead of a tuple (path, length).
+    """
     size = 20
     maze = [[0 for _ in range(size)] for _ in range(size)]
 
     try:
         result = maze_solver.solve_maze(maze, 0, 0, 0, 4)
 
+        # 1. Check Return Type safely
         if not isinstance(result, tuple):
              pytest.fail(f"Architecture Mismatch: Expected tuple (path, length), got {type(result)}. Legacy DFS code detected.")
 
         path, length = result
 
+        # 2. Check Logic
         if length != 5:
             pytest.fail(f"Optimality Failure: Path length is {length}, expected 5. (Likely DFS used instead of BFS)")
 
     except TypeError:
+        # Catches "cannot unpack non-iterable"
         pytest.fail("Signature Mismatch: Solver returned raw Grid/List instead of (path, length) Tuple.")
     except Exception as e:
         pytest.fail(f"Solver crashed during execution: {e}")
 
 def test_maze_is_modified_in_place(maze_solver):
+    """
+    Memory Efficiency: Checks for in-place modification.
+    """
     maze = [
         [0, 0, 0],
         [0, 1, 0],
@@ -100,12 +89,16 @@ def test_maze_is_modified_in_place(maze_solver):
     try:
         maze_solver.solve_maze(maze, 0, 0, 2, 2)
     except Exception:
+        # Ignore crashes here, we just want to check side effects
         pass
 
     if maze == original_snapshot:
         pytest.fail("Memory Requirement Failed: Maze was not modified in-place. Must use input grid for visited tracking.")
 
 def test_recursion_limit_safe(maze_solver):
+    """
+    Scalability: Checks for Stack Overflow (RecursionError).
+    """
     size = 1000
     maze = [[0] * size for _ in range(size)]
 
@@ -114,9 +107,14 @@ def test_recursion_limit_safe(maze_solver):
     except RecursionError:
         pytest.fail("Architecture Mismatch: RecursionError detected. Solution uses System Stack (DFS) instead of Iterative Queue (BFS).")
     except Exception:
+        # Other errors are fine for this specific test, as long as it wasn't RecursionError
         pass
 
 def test_no_solution_returns_empty(maze_solver):
+    """
+    Contract: Impossible maze returns ([], 0).
+    Legacy Code: Raises ValueError.
+    """
     maze = [[0, 1, 0], [1, 1, 0], [0, 0, 0]]
 
     try:
@@ -135,7 +133,7 @@ def test_no_solution_returns_empty(maze_solver):
         pytest.fail(f"Solver crashed: {e}")
 
 # ==========================================
-# INPUT VALIDATION TESTS
+# 3. EDGE CASES & VALIDATION
 # ==========================================
 
 def test_source_equals_destination(maze_solver):
