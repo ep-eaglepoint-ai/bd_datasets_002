@@ -1,4 +1,4 @@
-ef solve_maze(
+def solve_maze(
     maze: list[list[int]],
     source_row: int,
     source_column: int,
@@ -58,41 +58,41 @@ if __name__ == "__main__":
     import random
     import sys
     import time
-    
+
     sys.setrecursionlimit(1000000)
-    
+
     SIZE = 20000
     random.seed(42)
-    
+
     maze = [[0 for _ in range(SIZE)] for _ in range(SIZE)]
-    
+
     for i in range(SIZE):
         for j in range(SIZE):
             if random.random() < 0.3:
                 maze[i][j] = 1
-    
+
     maze[0][0] = 0
     maze[SIZE-1][SIZE-1] = 0
-    
+
     for i in range(SIZE):
         maze[i][0] = 0
     for j in range(SIZE):
         maze[SIZE-1][j] = 0
-    
+
     if SIZE <= 100:
         print(f"Input Maze ({SIZE}x{SIZE}, 0 = path, 1 = wall):")
         for row in maze:
             print(''.join(['█' if cell == 1 else '·' for cell in row]))
     else:
         print(f"Maze size: {SIZE}x{SIZE} ({SIZE*SIZE:,} cells) - too large to print")
-    
+
     print(f"\nSolving from (0,0) to ({SIZE-1},{SIZE-1})...")
-    
+
     start_time = time.time()
     try:
         solution = solve_maze(maze, 0, 0, SIZE-1, SIZE-1)
         end_time = time.time()
-        
+
         print(f"\nSolution found in {end_time - start_time:.4f} seconds!")
         if SIZE <= 100:
             print("(★ = path taken, · = open but not used, █ = wall)")
