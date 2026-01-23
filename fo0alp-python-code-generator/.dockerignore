@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+.env
+*.egg-info
+dist
+build
+
+# Node
+node_modules
+
+# Test and coverage
+.pytest_cache
+.coverage
+htmlcov
+
+# Evaluation (generated)
+evaluation/reports
+
+# OS
+.DS_Store
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Misc
+ts-node

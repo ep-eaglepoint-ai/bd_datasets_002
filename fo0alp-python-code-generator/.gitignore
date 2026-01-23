@@ -9,3 +9,28 @@ node_modules/
 
 # OS
 .DS_Store
+ __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+
+# Evaluation reports
+evaluation/reports/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+ts-node

@@ -1,44 +1,85 @@
 # FO0ALP - python-code-generator
+ 
 
-**Category:** sft
+## Folder layout
 
-## Overview
-- Task ID: FO0ALP
-- Title: python-code-generator
-- Category: sft
-- Repository: ep-eaglepoint-ai/bd_datasets_002
-- Branch: fo0alp-python-code-generator
+- `repository_before/` — baseline (buggy) implementation
+- `repository_after/` — refactored implementation
+- `tests/` — test suite (parametrized: `before` / `after`)
+- `evaluation/` — `evaluation.py` and `reports/`
+- `instances/` — sample instances (JSON)
+- `patches/` — diff between before/after
+- `trajectory/` — notes (Markdown)
 
-## Requirements
-- Custom classes based of off the configuration
-- methods for input validation
-- methods to handle serialization and deserialization
-- Must include Typesafety property acessors
+## Run with Docker
 
-## Metadata
-- Programming Languages: Python
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+### Build image
 
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
+```bash
+docker compose build
+```
 
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+### Run tests (before – expected to fail)
 
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+```bash
+docker compose run --rm test-before
+```
+
+**Expected behavior:** Tests run with `-k before` (uses `repository_before`). The generator fails to import or run, so the test fails (1 failed). The `|| exit 0` keeps the container exit code 0.
+
+### Run tests (after – expected all pass)
+
+```bash
+docker compose run --rm test-after
+```
+
+**Expected behavior:** Tests run with `-k after` (uses `repository_after`). All requirement checks pass (custom classes, validation, serialization, type-safe accessors).
+
+### Run evaluation (compares both implementations)
+
+```bash
+docker compose run --rm evaluation
+```
+
+This will:
+
+- Run pytest for both before and after (`-k before`, `-k after`)
+- Produce a report at `evaluation/reports/YYYY-MM-DD/HH-MM-SS/report.json`
+
+## Run locally
+
+### Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Run tests
+
+```bash
+# Before (expected 1 failed — generator is buggy)
+python -m pytest tests/ -v --tb=short -k before
+
+# After (expected all pass)
+python -m pytest tests/ -v --tb=short -k after
+
+# All (both parametrized cases)
+python -m pytest tests/ -v --tb=short
+```
+
+### Run evaluation
+
+```bash
+python evaluation/evaluation.py
+```
+
+## Regenerate patch
+
+From repo root:
+
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```
+ 
+
+ 
