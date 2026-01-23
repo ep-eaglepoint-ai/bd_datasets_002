@@ -1,6 +1,10 @@
 # Python
 __pycache__/
 *.pyc
+
+# Evaluation reports (date-based directories)
+evaluation/????-??-??/
+
 .venv/
 .env
 
