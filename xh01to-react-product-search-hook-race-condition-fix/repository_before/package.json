@@ -1,7 +1,7 @@
 {
-  "name": "product-search-hook",
+  "name": "product-search-hook-before",
   "version": "1.0.0",
-  "description": "React product search hook with race condition bugs",
+  "description": "React product search hook - BEFORE version (with race condition bug)",
   "main": "index.js",
   "scripts": {
     "test": "jest || true"

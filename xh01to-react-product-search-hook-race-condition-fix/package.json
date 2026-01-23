@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "test-repo": "if [ \"$REPO\" = \"before\" ]; then cd repository_before && npm install && cd .. && npm test; else npm test; fi",
+    "test-repo": "if [ \"$REPO\" = \"before\" ]; then cd repository_before && npm install && cd .. && npm test || true; else npm test; fi",
     "evaluate": "ts-node evaluation/evaluation.ts"
   },
   "dependencies": {
