@@ -31,18 +31,38 @@
 - Security Standards: (none)
 
 ## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
+- repository_before/: baseline code (`main.go`)
+- repository_after/: optimized code (`main.go`)
+- tests/: test suite (`*_test.go`)
+- evaluation/: evaluation scripts (`evaluation.go`)
 - instances/: sample/problem instances (JSON)
 - patches/: patches for diffing
 - trajectory/: notes or write-up (Markdown)
 
 ## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+
+Run tests repository_before:
+  ```bash
+  docker compose run --rm -e TEST_TARGET=before app go test -v ./tests/...
+  ```
+  
+- Run  tests repository_after:
+  ```bash
+  docker compose run --rm app go test -v ./tests/...
+  ```
+- Run evaluation (Comparision):
+  ```bash
+  docker compose run --rm app go run evaluation/evaluation.go
+  ```
+- With Docker (interactive): `docker compose up --build`
+
+## Regenerate patch
+
+From repo root:
+
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```
 
 ## Notes
 - Keep commits focused and small.

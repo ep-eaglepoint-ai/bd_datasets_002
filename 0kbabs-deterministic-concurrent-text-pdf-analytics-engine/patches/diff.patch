@@ -1,0 +1,356 @@
+diff --git a/repository_after/__init__.py b/repository_after/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/repository_before/main.go b/repository_after/main.go
+index 2679a0a..8c005c3 100644
+--- a/repository_before/main.go
++++ b/repository_after/main.go
+@@ -1,168 +1,249 @@
+ package main
+ 
+ import (
+-	"bytes"
++	"bufio"
+ 	"fmt"
+ 	"io"
+ 	"os"
+-	"regexp"
+-	"runtime"
+ 	"sort"
+ 	"strings"
+ 	"sync"
+-	"unsafe"
++	"unicode"
+ )
+ 
+-var (
+-	registry    = make(map[string]*tokenMeta)
+-	registryMu  sync.RWMutex
+-	procPool    = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+-	totalLength int64
+-)
++// Config holds configuration for the Analyzer
++type Config struct {
++	MaxWorkers int
++}
+ 
+-type tokenMeta struct {
+-	count int
+-	mu    sync.Mutex
++// Analyzer encapsulates the state and logic for processing documents.
++type Analyzer struct {
++	registry map[string]int
++	mu       sync.Mutex
++
++	config Config
+ }
+ 
++// NewAnalyzer creates a new Analyzer instance.
++func NewAnalyzer() *Analyzer {
++	return &Analyzer{
++		registry: make(map[string]int),
++		config: Config{
++			MaxWorkers: 8, // Default worker count
++		},
++	}
++}
++
++// main is the entry point.
+ func main() {
+ 	if len(os.Args) < 2 {
+ 		fmt.Fprintf(os.Stderr, "Usage: analyzer <file>\n")
+ 		os.Exit(1)
+ 	}
+-	f, err := os.Open(os.Args[1])
++
++	inputFile := os.Args[1]
++	file, err := os.Open(inputFile)
+ 	if err != nil {
+-		panic(err)
++		fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
++		os.Exit(1)
+ 	}
+-	rawContent := readAllBroken(f)
++	defer file.Close()
++
++	analyzer := NewAnalyzer()
+ 
+-	ext := getExtension(os.Args[1])
++	// Determine file type
++	ext := getExtension(inputFile)
++	var processErr error
+ 
+-	// Binary vs Text path
+ 	if ext == "pdf" {
+-		processPDFStream(rawContent)
++		processErr = analyzer.ProcessPDF(file)
+ 	} else {
+-		processPlainStream(rawContent)
++		processErr = analyzer.ProcessText(file)
+ 	}
+ 
+-	printReport()
++	if processErr != nil {
++		fmt.Fprintf(os.Stderr, "Error processing file: %v\n", processErr)
++		os.Exit(1)
++	}
++
++	analyzer.PrintReport()
+ }
+-func readAllBroken(r io.Reader) []byte {
+-	var result []byte
+-	buf := make([]byte, 4096)
+-	for {
+-		n, err := r.Read(buf)
+-		if n > 0 {
+-			result = append(result, buf[:n]...)
+-		}
+-		if err == io.EOF {
+-			break
+-		}
+-		if err != nil {
+-			return nil
+-		}
++
++func getExtension(path string) string {
++	parts := strings.Split(path, ".")
++	if len(parts) > 1 {
++		return strings.ToLower(parts[len(parts)-1])
+ 	}
+-	return result
++	return ""
+ }
+ 
+-func processPlainStream(data []byte) {
+-	str := *(*string)(unsafe.Pointer(&data))
++// ProcessText processes a plain text stream using a worker pool pattern.
++func (a *Analyzer) ProcessText(r io.Reader) error {
++	scanner := bufio.NewScanner(r)
++	// Set a reasonable buffer size for lines, can handle long lines by growing
++	const maxCapacity = 1024 * 1024 // 1MB line limit for sanity, though Scanner grows automatically
++	buf := make([]byte, 64*1024)
++	scanner.Buffer(buf, maxCapacity)
+ 
++	// Worker pool setup
++	linesCh := make(chan string, 100)
+ 	var wg sync.WaitGroup
+-	lines := strings.Split(str, "\n")
+ 
+-	for _, line := range lines {
++	// Start workers
++	for i := 0; i < a.config.MaxWorkers; i++ {
+ 		wg.Add(1)
+ 		go func() {
+ 			defer wg.Done()
+-			normalizeAndCount(line)
++			for line := range linesCh {
++				a.normalizeAndCount(line)
++			}
+ 		}()
+ 	}
++
++	// Stream lines to workers
++	for scanner.Scan() {
++		// Make a copy of the string to avoid any scanner buffer race issues (though Text() returns a string copy usually)
++		// scanner.Text() allocates a new string, so it's safe to pass to channel.
++		line := scanner.Text()
++		linesCh <- line
++	}
++
++	close(linesCh)
+ 	wg.Wait()
+-}
+ 
+-func normalizeAndCount(line string) {
+-	re := regexp.MustCompile(`[\w']+`)
+-	words := re.FindAllString(strings.ToLower(line), -1)
++	if err := scanner.Err(); err != nil {
++		return fmt.Errorf("scanner error: %w", err)
++	}
+ 
+-	for _, w := range words {
+-		registryMu.RLock()
+-		meta, exists := registry[w]
+-		registryMu.RUnlock()
++	return nil
++}
+ 
+-		if !exists {
+-			registryMu.Lock()
+-			registry[w] = &tokenMeta{count: 1}
+-			registryMu.Unlock()
++// normalizeAndCount extracts words and updates the registry.
++// This function is safe for concurrent use.
++func (a *Analyzer) normalizeAndCount(text string) {
++	var wordBuilder strings.Builder
++	runes := []rune(text)
++	
++	for i := 0; i < len(runes); i++ {
++		r := runes[i]
++		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '\'' {
++			wordBuilder.WriteRune(unicode.ToLower(r))
+ 		} else {
+-			meta.mu.Lock()
+-			meta.count++
+-			meta.mu.Unlock()
++			if wordBuilder.Len() > 0 {
++				a.addWord(wordBuilder.String())
++				wordBuilder.Reset()
++			}
+ 		}
+ 	}
++	// Flush last word
++	if wordBuilder.Len() > 0 {
++		a.addWord(wordBuilder.String())
++	}
+ }
+ 
+-func processPDFStream(data []byte) {
+-	blocks := bytes.Split(data, []byte("BT"))
+-	for _, block := range blocks {
+-		endIdx := bytes.Index(block, []byte("ET"))
+-		if endIdx == -1 {
+-			continue
+-		}
+-		content := block[:endIdx]
+-		processPDFText(content)
+-	}
++func (a *Analyzer) addWord(w string) {
++	a.mu.Lock()
++	defer a.mu.Unlock()
++	a.registry[w]++
+ }
+ 
+-func processPDFText(b []byte) {
+-	buf := procPool.Get().(*bytes.Buffer)
+-	defer procPool.Put(buf)
++func (a *Analyzer) ProcessPDF(r io.Reader) error {
++	reader := bufio.NewReader(r)
++
++	// State definitions
++	const (
++		StateNone        = iota
++		StateInBT
++		StateInString
++		StateEscape
++	)
+ 
+-	for _, v := range b {
+-		if v > 31 && v < 127 {
+-			buf.WriteByte(v)
++	state := StateNone
++	
++	// Buffer for capturing text content inside strings
++	var stringContent strings.Builder
++
++	for {
++		b, err := reader.ReadByte()
++		if err != nil {
++			if err == io.EOF {
++				break
++			}
++			return err
+ 		}
++
++		switch state {
++		case StateNone:
++			if b == 'B' {
++				// Simple lookahead for 'T'
++				next, err := reader.Peek(1)
++				if err == nil && next[0] == 'T' {
++					reader.ReadByte() // consume 'T'
++					state = StateInBT
++				}
++			}
++
++		case StateInBT:
++			if b == '(' {
++				state = StateInString
++				stringContent.Reset()
++			} else if b == 'E' {
++				next, err := reader.Peek(1)
++				if err == nil && next[0] == 'T' {
++					reader.ReadByte() // consume 'T'
++					state = StateNone
++				}
++			}
++		
++		case StateInString:
++			if b == '\\' {
++				state = StateEscape
++			} else if b == ')' {
++				// End of string object. Process the text.
++				a.normalizeAndCount(stringContent.String())
++				state = StateInBT
++			} else {
++				if b > 31 && b < 127 {
++					stringContent.WriteByte(b)
++				}
++			}
++
++		case StateEscape:
++			if b > 31 && b < 127 {
++				stringContent.WriteByte(b)
++			}
++			state = StateInString
++	}
+ 	}
+-	normalizeAndCount(buf.String())
+-}
+ 
+-func getExtension(path string) string {
+-	parts := strings.Split(path, ".")
+-	return parts[len(parts)-1]
++	return nil
+ }
+ 
+-func printReport() {
++// PrintReport prints the analytics report to stdout.
++func (a *Analyzer) PrintReport() {
++	a.mu.Lock()
++	defer a.mu.Unlock()
++
++	// Convert map to slice for sorting
+ 	type pair struct {
+ 		word  string
+ 		count int
+ 	}
+-	var results []pair
++	results := make([]pair, 0, len(a.registry))
+ 
+-	for k, v := range registry {
+-		results = append(results, pair{k, v.count})
++	for k, v := range a.registry {
++		results = append(results, pair{k, v})
+ 	}
+-	sort.Slice(results, func(i, j int) bool {
++
++	sort.SliceStable(results, func(i, j int) bool {
++		if results[i].count == results[j].count {
++			return results[i].word < results[j].word
++		}
+ 		return results[i].count > results[j].count
+ 	})
+ 
+ 	fmt.Printf("--- Analytics Report (Total Pkgs: %d) ---\n", len(results))
+-	for i := 0; i < len(results) && i < 10; i++ {
++	for i := range results {
+ 		fmt.Printf("%s: %d\n", results[i].word, results[i].count)
+ 	}
+-
+-}
+-
+-var leak []string
+-
+-func init() {
+-	go func() {
+-		for {
+-			registryMu.RLock()
+-			if len(registry) > 0 {
+-				leak = append(leak, "heartbeat")
+-			}
+-			registryMu.RUnlock()
+-			runtime.Gosched()
+-		}
+-	}()
+ }

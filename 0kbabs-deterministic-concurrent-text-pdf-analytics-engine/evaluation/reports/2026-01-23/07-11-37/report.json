@@ -1,0 +1,60 @@
+{
+  "run_id": "188d40d19f1c78f0",
+  "started_at": "2026-01-23T07:11:37+03:00",
+  "finished_at": "2026-01-23T07:11:39+03:00",
+  "duration_seconds": 1.4297672000000001,
+  "success": false,
+  "error": "",
+  "environment": {
+    "go_version": "go1.24.3",
+    "platform": "windows",
+    "os": "windows",
+    "architecture": "amd64",
+    "hostname": "Ghost",
+    "git_commit": "3be2cca6243fe40977b8289ea3a7c455464cf842",
+    "git_branch": "0kbabs-deterministic-concurrent-text-pdf-analytics-engine"
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": 1,
+      "tests": null,
+      "summary": {
+        "total": 1,
+        "passed": 0,
+        "failed": 0,
+        "errors": 1,
+        "skipped": 0
+      },
+      "stdout": "",
+      "stderr": "",
+      "duration_seconds": 0.7858834
+    },
+    "after": {
+      "success": false,
+      "exit_code": 1,
+      "tests": null,
+      "summary": {
+        "total": 1,
+        "passed": 0,
+        "failed": 0,
+        "errors": 1,
+        "skipped": 0
+      },
+      "stdout": "",
+      "stderr": "",
+      "duration_seconds": 0.641039
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": false,
+      "before_total": 1,
+      "before_passed": 0,
+      "before_failed": 1,
+      "after_total": 1,
+      "after_passed": 0,
+      "after_failed": 1,
+      "improvement_percentage": 0
+    }
+  }
+}

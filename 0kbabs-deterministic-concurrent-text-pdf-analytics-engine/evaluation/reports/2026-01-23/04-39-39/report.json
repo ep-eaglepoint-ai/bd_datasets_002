@@ -1,0 +1,220 @@
+{
+  "run_id": "188d42594aaa18f6",
+  "started_at": "2026-01-23T04:39:39Z",
+  "finished_at": "2026-01-23T04:39:46Z",
+  "duration_seconds": 6.925008987,
+  "success": true,
+  "error": "",
+  "environment": {
+    "go_version": "go1.24.12",
+    "platform": "linux",
+    "os": "linux",
+    "architecture": "amd64",
+    "hostname": "8e34f790a61b",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": 1,
+      "tests": [
+        {
+          "nodeid": "analyzer/tests::TestNoUnsafe",
+          "name": "TestNoUnsafe",
+          "outcome": "failed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestNoCDependencies",
+          "name": "TestNoCDependencies",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestConcurrencySafety",
+          "name": "TestConcurrencySafety",
+          "outcome": "failed",
+          "duration": 0.05
+        },
+        {
+          "nodeid": "analyzer/tests::TestDeterminism",
+          "name": "TestDeterminism",
+          "outcome": "failed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestEmptyFile",
+          "name": "TestEmptyFile",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestSpecialChars",
+          "name": "TestSpecialChars",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestAnalyzerStructExists",
+          "name": "TestAnalyzerStructExists",
+          "outcome": "failed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestNoPackageGlobals",
+          "name": "TestNoPackageGlobals",
+          "outcome": "failed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFSimple",
+          "name": "TestPDFSimple",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFEscapes",
+          "name": "TestPDFEscapes",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFNestedObjects",
+          "name": "TestPDFNestedObjects",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFFakeBT",
+          "name": "TestPDFFakeBT",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestStreamingLargeInput",
+          "name": "TestStreamingLargeInput",
+          "outcome": "passed",
+          "duration": 0.66
+        },
+        {
+          "nodeid": "analyzer/tests::TestLongLineHandling",
+          "name": "TestLongLineHandling",
+          "outcome": "passed",
+          "duration": 0.14
+        }
+      ],
+      "summary": {
+        "total": 14,
+        "passed": 8,
+        "failed": 6,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "",
+      "stderr": "",
+      "duration_seconds": 5.220631314
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "analyzer/tests::TestNoUnsafe",
+          "name": "TestNoUnsafe",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestNoCDependencies",
+          "name": "TestNoCDependencies",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestConcurrencySafety",
+          "name": "TestConcurrencySafety",
+          "outcome": "passed",
+          "duration": 0.07
+        },
+        {
+          "nodeid": "analyzer/tests::TestDeterminism",
+          "name": "TestDeterminism",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestEmptyFile",
+          "name": "TestEmptyFile",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestSpecialChars",
+          "name": "TestSpecialChars",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestAnalyzerStructExists",
+          "name": "TestAnalyzerStructExists",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestNoPackageGlobals",
+          "name": "TestNoPackageGlobals",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFSimple",
+          "name": "TestPDFSimple",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFEscapes",
+          "name": "TestPDFEscapes",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFNestedObjects",
+          "name": "TestPDFNestedObjects",
+          "outcome": "passed",
+          "duration": 0.01
+        },
+        {
+          "nodeid": "analyzer/tests::TestPDFFakeBT",
+          "name": "TestPDFFakeBT",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "analyzer/tests::TestStreamingLargeInput",
+          "name": "TestStreamingLargeInput",
+          "outcome": "passed",
+          "duration": 0.79
+        },
+        {
+          "nodeid": "analyzer/tests::TestLongLineHandling",
+          "name": "TestLongLineHandling",
+          "outcome": "passed",
+          "duration": 0.02
+        }
+      ],
+      "summary": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "",
+      "stderr": "",
+      "duration_seconds": 1.704002802
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": true,
+      "before_total": 14,
+      "before_passed": 8,
+      "before_failed": 6,
+      "after_total": 14,
+      "after_passed": 14,
+      "after_failed": 0,
+      "improvement_percentage": 100
+    }
+  }
+}
