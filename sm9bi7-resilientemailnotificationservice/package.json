@@ -8,22 +8,30 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha --require ts-node/register --require tsconfig-paths/register tests/index.ts",
+    "test:before": "mocha --require ts-node/register --require tsconfig-paths/register tests/before.test.ts",
+    "test:after": "mocha --require ts-node/register --require tsconfig-paths/register tests/index.ts",
+    "test:watch": "mocha --require ts-node/register --require tsconfig-paths/register --watch tests/index.ts",
+    "evaluation": "ts-node evaluation/evaluation.ts",
     "build": "tsc"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "nodemailer": "^6.9.7",
-    "bullmq": "^4.15.0",
-    "ioredis": "^5.3.2",
-    "opossum": "^8.1.0"
+    "bullmq": "^4.18.3",
+    "chai": "^6.2.2",
+    "chi": "^0.0.10",
+    "crypto": "^1.0.1",
+    "ioredis": "^5.9.2",
+    "mocha": "^11.7.5",
+    "nodemailer": "^6.10.1",
+    "opossum": "^8.5.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "ts-node": "^10.9.0",
     "@types/node": "^20.0.0",
-    "@types/nodemailer": "^6.4.0"
+    "@types/nodemailer": "^6.4.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
   }
 }

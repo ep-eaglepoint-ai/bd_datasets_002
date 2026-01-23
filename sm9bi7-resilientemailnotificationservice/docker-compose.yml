@@ -1,12 +1,52 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    command: npm run test:before
     volumes:
       - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    profiles:
+      - test-before
+
+  test-after:
+    build: .
+    command: npm run test:after
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - test-after
+
+  evaluation:
+    build: .
+    command: npm run evaluation
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - evaluation
+
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

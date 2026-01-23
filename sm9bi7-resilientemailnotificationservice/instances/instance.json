@@ -1,11 +1,25 @@
 {
-            "instance_id": "SM9BI7",
-            "problem_statement": "The project involves refactoring a fragile, synchronous email sender into a robust, queue-based microservice. The core challenges are implementing reliable retries, idempotency tracking, and circuit breaker logic to handle external dependency failures gracefully.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sm9bi7-resilientemailnotificationservice",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
+    "instance_id": "SM9BI7",
+    "problem_statement": "The project involves refactoring a fragile, synchronous email sender into a robust, queue-based microservice. The core challenges are implementing reliable retries, idempotency tracking, and circuit breaker logic to handle external dependency failures gracefully.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sm9bi7-resilientemailnotificationservice",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "test:after - should prevent duplicate jobs with same user_id, notification_type, and timestamp",
+        "test:after - should hold jobs in queue during SMTP outage and retry when provider recovers",
+        "test:after - should retry with exponential backoff during failures",
+        "test:after - should open circuit breaker after 10 consecutive failures",
+        "test:after - should send jobs to DLQ after exhausting all retry attempts",
+        "test:after - should return immediately after enqueueing (non-blocking)"
+    ],
+    "PASS_TO_PASS": [
+        "test:after - should enqueue an email notification job successfully",
+        "test:after - should process email jobs successfully",
+        "test:before - should send notification synchronously",
+        "test:before - should throw error on SMTP failure (no retry)",
+        "test:before - should block until email is sent (synchronous behavior)",
+        "test:before - should not prevent duplicate notifications (no idempotency)"
+    ]
+}
         

@@ -1,47 +1,43 @@
 # SM9BI7 - resilientEmailNotificationService
 
-**Category:** sft
+## Folder Layout
+- `repository_before/` — baseline (synchronous) implementation
+- `repository_after/` — refactored (queue-based) implementation
+- `tests/` — test suite (before.test.ts / index.ts)
+- `evaluation/` — evaluation.ts and comparison reports
+- `instances/` — sample instances (JSON)
+- `patches/` — diff between before/after
+- `trajectory/` — notes (Markdown)
 
-## Overview
-- Task ID: SM9BI7
-- Title: resilientEmailNotificationService
-- Category: sft
-- Repository: ep-eaglepoint-ai/bd_datasets_002
-- Branch: sm9bi7-resilientemailnotificationservice
+## Run with Docker
 
-## Requirements
-- Migrate synchronous email calls to a BullMQ producer that pushes 'email_task' jobs into a Redis-backed queue.
-- Implement a worker with an exponential backoff strategy (initial delay 5s, max 3 attempts) and randomized jitter.
-- Use a 'Job Deduplication' key (e.g., a hash of user_id + notification_type + timestamp) to ensure idempotency at the worker level.
-- Implement a Circuit Breaker pattern that monitors error rates and transitions to an 'Open' state, halting processing after 10 consecutive failures.
-- Include a 'Dead Letter Queue' (DLQ) mechanism for jobs that exhaust all retry attempts, including a summary of failure reasons.
-- Testing: Simulate an SMTP provider outage and verify that jobs are held in the queue and retried correctly when the provider 'recovers'.
-- Testing: Verify via unit tests that submitting the same unique notification payload twice results in only one job being enqueued.
+### Build image
+```bash
+docker compose build
+```
 
-## Metadata
-- Programming Languages: JavaScript
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+### Run tests (before – expected to fail)
+```bash
+docker compose --profile test-before run --rm test-before
+```
 
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
+### Run tests (after – expected all pass)
+```bash
+docker compose --profile test-after run --rm test-after
+```
 
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+### Run evaluation
+```bash
+docker compose --profile evaluation run --rm evaluation
+```
 
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+### Run all (before, after, evaluation)
+```bash
+docker compose --profile test-before --profile test-after --profile evaluation up --build --abort-on-container-exit
+```
+
+## Regenerate Patch
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```
+ 
