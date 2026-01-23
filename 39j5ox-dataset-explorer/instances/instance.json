@@ -1,0 +1,12 @@
+{
+            "instance_id": "39J5OX",
+            "problem_statement": "Build a high-performance, offline-first dataset exploration web application using Next.js, TailwindCSS, Zod, and TanStack Table that allows users to upload, filter, transform, and analyze CSV files entirely client-side without a backend, persisting data in IndexedDB for offline use. The application must include interactive visualizations via Chart.js or similar libraries and implement performance optimizations like virtualized rendering, streaming parsing, Web Workers, and deterministic state management to handle large datasets reliably. The system must prioritize correctness, scalable data processing, robust error handling, and a production-grade user experience while ensuring all operations remain fully local and offline-capable.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/39j5ox-dataset-explorer",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
