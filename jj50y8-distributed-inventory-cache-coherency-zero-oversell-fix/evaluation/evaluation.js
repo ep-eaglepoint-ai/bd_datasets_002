@@ -227,7 +227,8 @@ function generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics
                 passed: beforeResults.passed,
                 failed: beforeResults.failed,
                 total: beforeResults.total,
-                success: beforeResults.success
+                success: beforeResults.success,
+                output: beforeResults.output ? beforeResults.output.substring(0, 5000) : '' // Include test output evidence
             }
         },
         after: {
@@ -236,7 +237,8 @@ function generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics
                 passed: afterResults.passed,
                 failed: afterResults.failed,
                 total: afterResults.total,
-                success: afterResults.success
+                success: afterResults.success,
+                output: afterResults.output ? afterResults.output.substring(0, 5000) : '' // Include test output evidence
             }
         },
         comparison: {
@@ -266,6 +268,10 @@ function generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics
 
     const reportPath = path.join(reportDir, 'report.json');
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+
+    // Also write report.json in evaluation directory for CI to find
+    const ciReportPath = path.join(__dirname, 'report.json');
+    fs.writeFileSync(ciReportPath, JSON.stringify(report, null, 2));
 
     return { report, reportPath };
 }
@@ -336,6 +342,7 @@ function main() {
     console.log(`  - Code Complexity Change: ${report.comparison.code_complexity_change} lines`);
     console.log(`  - All Requirements Met: ${report.comparison.all_requirements_met ? '✓ YES' : '✗ NO'}`);
     console.log(`\nReport saved to: ${reportPath}`);
+    console.log(`CI report saved to: ${path.join(__dirname, 'report.json')}`);
 
     process.exit(report.success ? 0 : 1);
 }
