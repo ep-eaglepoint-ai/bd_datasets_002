@@ -128,11 +128,11 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
         # Print individual test results
         for test in tests:
             status_icon = {
-                "passed": "✅",
-                "failed": "❌",
-                "error": "💥",
-                "skipped": "⏭️"
-            }.get(test.get("outcome"), "❓")
+                "passed": "[PASS]",
+                "failed": "[FAIL]",
+                "error": "[ERR]",
+                "skipped": "[SKIP]"
+            }.get(test.get("outcome"), "[?]")
             print(f"  {status_icon} {test.get('nodeid', 'unknown')}: {test.get('outcome', 'unknown')}")
         
         return {
@@ -151,7 +151,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
         }
         
     except subprocess.TimeoutExpired:
-        print("❌ Test execution timed out")
+        print("[FAIL] Test execution timed out")
         return {
             "success": False,
             "exit_code": -1,
@@ -161,7 +161,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
             "stderr": "",
         }
     except Exception as e:
-        print(f"❌ Error running tests: {e}")
+        print(f"[ERR] Error running tests: {e}")
         return {
             "success": False,
             "exit_code": -1,
@@ -259,11 +259,11 @@ def run_evaluation():
     print(f"{'=' * 60}")
     
     print(f"\nBefore Implementation (repository_before):")
-    print(f"  Overall: {'✅ PASSED' if before_results.get('success') else '❌ FAILED'}")
+    print(f"  Overall: {'[PASS]' if before_results.get('success') else '[FAIL]'}")
     print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
     
     print(f"\nAfter Implementation (repository_after):")
-    print(f"  Overall: {'✅ PASSED' if after_results.get('success') else '❌ FAILED'}")
+    print(f"  Overall: {'[PASS]' if after_results.get('success') else '[FAIL]'}")
     print(f"  Tests: {comparison['after_passed']}/{comparison['after_total']} passed")
     
     # Determine expected behavior
@@ -274,9 +274,9 @@ def run_evaluation():
     # Before: functional tests should pass, structural tests might fail
     # After: all tests should pass
     if after_results.get("success"):
-        print("✅ After implementation: All tests passed (expected)")
+        print("[PASS] After implementation: All tests passed (expected)")
     else:
-        print("❌ After implementation: Some tests failed (unexpected - should pass all)")
+        print("[FAIL] After implementation: Some tests failed (unexpected - should pass all)")
     
     return {
         "before": before_results,
@@ -362,14 +362,14 @@ def main():
     
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2)
-    print(f"\n✅ Report saved to: {output_path}")
+    print(f"\n[OK] Report saved to: {output_path}")
     
     print(f"\n{'=' * 60}")
     print(f"EVALUATION COMPLETE")
     print(f"{'=' * 60}")
     print(f"Run ID: {run_id}")
     print(f"Duration: {duration:.2f}s")
-    print(f"Success: {'✅ YES' if success else '❌ NO'}")
+    print(f"Success: {'[YES]' if success else '[NO]'}")
     
     return 0 if success else 1
 
