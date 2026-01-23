@@ -67,7 +67,8 @@ function runTests(repo: string): Promise<TestResult> {
         testProc.stdout?.on('data', (data: Buffer) => output += data.toString());
         testProc.stderr?.on('data', (data: Buffer) => output += data.toString());
         testProc.on('close', (code: number | null) => {
-          resolve({ passed: code === 0, returnCode: code || 0, output: output.slice(0, 8000) });
+          const processedOutput = processTestOutput(output);
+          resolve({ passed: code === 0, returnCode: code || 0, output: processedOutput });
         });
       });
     } else {
@@ -76,10 +77,22 @@ function runTests(repo: string): Promise<TestResult> {
       testProc.stdout?.on('data', (data: Buffer) => output += data.toString());
       testProc.stderr?.on('data', (data: Buffer) => output += data.toString());
       testProc.on('close', (code: number | null) => {
-        resolve({ passed: code === 0, returnCode: code || 0, output: output.slice(0, 8000) });
+        const processedOutput = processTestOutput(output);
+        resolve({ passed: code === 0, returnCode: code || 0, output: processedOutput });
       });
     }
   });
+}
+
+function processTestOutput(output: string): string {
+  const lines = output.split('\n');
+  const summaryLines = lines.filter(line =>
+    line.trim().startsWith('Test Suites:') ||
+    line.trim().startsWith('Tests:') ||
+    line.trim().startsWith('Snapshots:') ||
+    line.trim().startsWith('Time:')
+  );
+  return summaryLines.join('\n');
 }
 
 function runMetrics(repoPath: string): Metrics {
