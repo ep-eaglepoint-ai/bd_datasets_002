@@ -9,5 +9,7 @@ node_modules/
 
 # OS
 .DS_Store
-reports
-/reports
+
+# Reports (exclude timestamped reports, but keep report.json for CI)
+reports/
+!/report.json

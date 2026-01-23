@@ -74,29 +74,45 @@ function runTests(repoPath, repoName) {
     console.log(output);
 
     // Parse results from test output
-    // Look for patterns like "Passed: X", "Failed: Y", "Total: Z"
-    const passedMatch = output.match(/Passed:\s+(\d+)/i);
-    const failedMatch = output.match(/Failed:\s+(\d+)/i);
-    const totalMatch = output.match(/Total:\s+(\d+)/i);
-
-    if (passedMatch) passed = parseInt(passedMatch[1]);
-    if (failedMatch) failed = parseInt(failedMatch[1]);
-    if (totalMatch) total = parseInt(totalMatch[1]);
-
-    // If we couldn't parse, try to infer from success status
-    if (total === 0) {
-        if (success) {
-            // Try to count test markers
-            const testMatches = output.match(/✓/g);
-            const failMatches = output.match(/✗/g);
-            if (testMatches) passed = testMatches.length;
-            if (failMatches) failed = failMatches.length;
-            total = passed + failed;
+    // Look for "Tests: X failed, Y passed, Z total" format (matching reference)
+    const fullMatch = output.match(/Tests:\s+(\d+)\s+failed,\s+(\d+)\s+passed,\s+(\d+)\s+total/);
+    if (fullMatch) {
+        failed = parseInt(fullMatch[1], 10);
+        passed = parseInt(fullMatch[2], 10);
+        total = parseInt(fullMatch[3], 10);
+    } else {
+        // Try alternative format: "Tests: Y passed, Z total"
+        const passedMatch = output.match(/Tests:\s+(\d+)\s+passed,\s+(\d+)\s+total/);
+        if (passedMatch) {
+            passed = parseInt(passedMatch[1], 10);
+            total = parseInt(passedMatch[2], 10);
+            failed = 0;
         } else {
-            // Tests failed, try to count failures
-            const failMatches = output.match(/✗/g);
-            if (failMatches) failed = failMatches.length;
-            total = failed || 8; // Default to 8 tests if we can't determine
+            // Fallback: Look for patterns like "Passed: X", "Failed: Y", "Total: Z"
+            const passedMatch2 = output.match(/Passed:\s+(\d+)/i);
+            const failedMatch2 = output.match(/Failed:\s+(\d+)/i);
+            const totalMatch = output.match(/Total:\s+(\d+)/i);
+
+            if (passedMatch2) passed = parseInt(passedMatch2[1]);
+            if (failedMatch2) failed = parseInt(failedMatch2[1]);
+            if (totalMatch) total = parseInt(totalMatch[1]);
+
+            // If we still couldn't parse, try to infer from success status
+            if (total === 0) {
+                if (success) {
+                    // Try to count test markers
+                    const testMatches = output.match(/✓/g);
+                    const failMatches = output.match(/✗/g);
+                    if (testMatches) passed = testMatches.length;
+                    if (failMatches) failed = failMatches.length;
+                    total = passed + failed;
+                } else {
+                    // Tests failed, try to count failures
+                    const failMatches = output.match(/✗/g);
+                    if (failMatches) failed = failMatches.length;
+                    total = failed || 8; // Default to 8 tests if we can't determine
+                }
+            }
         }
     }
 
@@ -213,6 +229,22 @@ function generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics
     const reportDir = path.join(__dirname, 'reports', dateStr, timeStr);
     fs.mkdirSync(reportDir, { recursive: true });
 
+    // Calculate total count: tests + metrics (Distributed Locks, Repopulation Locks, Audit Logging, FOR UPDATE)
+    const totalMetrics = 4; // Distributed Locks, Repopulation Locks, Audit Logging, FOR UPDATE
+    const beforeMetricsCount = (beforeMetrics.has_distributed_locks ? 1 : 0) + 
+                                (beforeMetrics.has_repopulation_locks ? 1 : 0) + 
+                                (beforeMetrics.has_audit_logging ? 1 : 0) + 
+                                (beforeMetrics.uses_for_update ? 1 : 0);
+    const afterMetricsCount = (afterMetrics.has_distributed_locks ? 1 : 0) + 
+                              (afterMetrics.has_repopulation_locks ? 1 : 0) + 
+                              (afterMetrics.has_audit_logging ? 1 : 0) + 
+                              (afterMetrics.uses_for_update ? 1 : 0);
+    
+    const beforeTotalPassed = beforeResults.passed + beforeMetricsCount;
+    const beforeTotal = beforeResults.total + totalMetrics;
+    const afterTotalPassed = afterResults.passed + afterMetricsCount;
+    const afterTotal = afterResults.total + totalMetrics;
+
     const report = {
         run_id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         started_at: now.toISOString(),
@@ -222,44 +254,19 @@ function generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics
             platform: `${process.platform}-${process.arch}`
         },
         before: {
-            metrics: beforeMetrics,
             tests: {
-                passed: beforeResults.passed,
-                failed: beforeResults.failed,
-                total: beforeResults.total,
-                success: beforeResults.success,
-                output: beforeResults.output ? beforeResults.output.substring(0, 5000) : '' // Include test output evidence
+                passed: beforeTotalPassed,
+                total: beforeTotal,
+                passed_ratio: `${beforeTotalPassed}/${beforeTotal}`
             }
         },
         after: {
-            metrics: afterMetrics,
             tests: {
-                passed: afterResults.passed,
-                failed: afterResults.failed,
-                total: afterResults.total,
-                success: afterResults.success,
-                output: afterResults.output ? afterResults.output.substring(0, 5000) : '' // Include test output evidence
+                passed: afterTotalPassed,
+                total: afterTotal,
+                passed_ratio: `${afterTotalPassed}/${afterTotal}`
             }
         },
-        comparison: {
-            tests_fixed: afterResults.passed - beforeResults.passed,
-            tests_broken: beforeResults.failed - afterResults.failed,
-            distributed_locks_added: !beforeMetrics.has_distributed_locks && afterMetrics.has_distributed_locks,
-            repopulation_locks_added: !beforeMetrics.has_repopulation_locks && afterMetrics.has_repopulation_locks,
-            cache_strategy_improved: beforeMetrics.cache_strategy !== afterMetrics.cache_strategy ||
-                                     (beforeMetrics.cache_strategy && beforeMetrics.cache_strategy.includes('inconsistent') && 
-                                      afterMetrics.cache_strategy && afterMetrics.cache_strategy.includes('consistent')),
-            code_complexity_change: afterMetrics.total_lines - beforeMetrics.total_lines,
-            all_requirements_met: afterResults.success && 
-                                  afterMetrics.has_distributed_locks &&
-                                  afterMetrics.has_repopulation_locks &&
-                                  afterMetrics.has_audit_logging &&
-                                  afterMetrics.uses_for_update
-        },
-        // Success criteria: 
-        // 1. After implementation passes all tests
-        // 2. After implementation has distributed locks and repopulation locks (code quality improvements)
-        // 3. Before implementation lacks these improvements (even if tests pass due to DB-level locking)
         success: afterResults.success && 
                  afterMetrics.has_distributed_locks && 
                  afterMetrics.has_repopulation_locks &&
@@ -269,15 +276,29 @@ function generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics
     const reportPath = path.join(reportDir, 'report.json');
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
-    // Also write report.json in evaluation directory and project root for CI to find
-    const ciReportPath = path.join(__dirname, 'report.json');
-    fs.writeFileSync(ciReportPath, JSON.stringify(report, null, 2));
-    
-    // Write to project root as well (parent of evaluation directory)
-    const rootReportPath = path.join(__dirname, '..', 'report.json');
-    fs.writeFileSync(rootReportPath, JSON.stringify(report, null, 2));
+    // Stable artifact locations (matching reference implementation pattern)
+    const reportsRoot = path.join(__dirname, 'reports');
+    fs.mkdirSync(reportsRoot, { recursive: true });
 
-    return { report, reportPath };
+    const stableReportPath = path.join(reportsRoot, 'report.json');
+    fs.writeFileSync(stableReportPath, JSON.stringify(report, null, 2));
+
+    const latestPath = path.join(reportsRoot, 'latest.json');
+    fs.writeFileSync(
+        latestPath,
+        JSON.stringify(
+            {
+                run_id: report.run_id,
+                started_at: report.started_at,
+                finished_at: report.finished_at,
+                report_path: path.relative(path.join(__dirname, '..'), reportPath),
+            },
+            null,
+            2
+        )
+    );
+
+    return { report, reportPath, stableReportPath };
 }
 
 function main() {
@@ -306,49 +327,38 @@ function main() {
     // Run tests on before (should fail)
     console.log('\n[3/5] Running tests on repository_before (expected to FAIL)...');
     const beforeResults = runTests(REPO_BEFORE, 'repository_before');
-    console.log(`  ✗ Passed: ${beforeResults.passed}`);
-    console.log(`  ✗ Failed: ${beforeResults.failed}`);
-    console.log(`  ✗ Total: ${beforeResults.total}`);
-    console.log(`  ✗ Success: ${beforeResults.success}`);
 
     // Run tests on after (should pass)
     console.log('\n[4/5] Running tests on repository_after (expected to PASS)...');
     const afterResults = runTests(REPO_AFTER, 'repository_after');
-    console.log(`  ✓ Passed: ${afterResults.passed}`);
-    console.log(`  ✓ Failed: ${afterResults.failed}`);
-    console.log(`  ✓ Total: ${afterResults.total}`);
-    console.log(`  ✓ Success: ${afterResults.success}`);
+
+    // Calculate totals for display
+    const totalMetrics = 4; // Distributed Locks, Repopulation Locks, Audit Logging, FOR UPDATE
+    const beforeMetricsCount = (beforeMetrics.has_distributed_locks ? 1 : 0) + 
+                                (beforeMetrics.has_repopulation_locks ? 1 : 0) + 
+                                (beforeMetrics.has_audit_logging ? 1 : 0) + 
+                                (beforeMetrics.uses_for_update ? 1 : 0);
+    const afterMetricsCount = (afterMetrics.has_distributed_locks ? 1 : 0) + 
+                              (afterMetrics.has_repopulation_locks ? 1 : 0) + 
+                              (afterMetrics.has_audit_logging ? 1 : 0) + 
+                              (afterMetrics.uses_for_update ? 1 : 0);
+    
+    const beforeTotalPassed = beforeResults.passed + beforeMetricsCount;
+    const beforeTotal = beforeResults.total + totalMetrics;
+    const afterTotalPassed = afterResults.passed + afterMetricsCount;
+    const afterTotal = afterResults.total + totalMetrics;
 
     // Generate report
     console.log('\n[5/5] Generating report...');
-    const { report, reportPath } = generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics);
+    const { report, reportPath, stableReportPath } = generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics);
 
     // Print summary
     console.log('\n' + '='.repeat(60));
     console.log('Evaluation Complete');
     console.log('='.repeat(60));
-    console.log(`\nOverall Success: ${report.success ? '✓ YES' : '✗ NO'}`);
-    console.log(`\nBefore (Buggy Implementation):`);
-    console.log(`  - Tests Passed: ${beforeResults.passed}/${beforeResults.total}`);
-    console.log(`  - Tests Failed: ${beforeResults.failed}/${beforeResults.total}`);
-    console.log(`  - Has Distributed Locks: ${beforeMetrics.has_distributed_locks}`);
-    console.log(`  - Has Repopulation Locks: ${beforeMetrics.has_repopulation_locks}`);
-    console.log(`\nAfter (Fixed Implementation):`);
-    console.log(`  - Tests Passed: ${afterResults.passed}/${afterResults.total}`);
-    console.log(`  - Tests Failed: ${afterResults.failed}/${afterResults.total}`);
-    console.log(`  - Has Distributed Locks: ${afterMetrics.has_distributed_locks}`);
-    console.log(`  - Has Repopulation Locks: ${afterMetrics.has_repopulation_locks}`);
-    console.log(`\nImprovements:`);
-    console.log(`  - Tests Fixed: ${report.comparison.tests_fixed}`);
-    console.log(`  - Distributed Locks Added: ${report.comparison.distributed_locks_added}`);
-    console.log(`  - Repopulation Locks Added: ${report.comparison.repopulation_locks_added}`);
-    console.log(`  - Cache Strategy Improved: ${report.comparison.cache_strategy_improved}`);
-    console.log(`  - Code Complexity Change: ${report.comparison.code_complexity_change} lines`);
-    console.log(`  - All Requirements Met: ${report.comparison.all_requirements_met ? '✓ YES' : '✗ NO'}`);
+    console.log(`\nOverall Success: ${report.success}`);
     console.log(`\nReport saved to: ${reportPath}`);
-    console.log(`CI report saved to: ${path.join(__dirname, 'report.json')}`);
-    console.log(`Root report saved to: ${path.join(__dirname, '..', 'report.json')}`);
-    console.log(`CI report saved to: ${path.join(__dirname, 'report.json')}`);
+    console.log(`Stable report saved to: ${stableReportPath}`);
 
     process.exit(report.success ? 0 : 1);
 }
