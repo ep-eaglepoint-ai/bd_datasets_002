@@ -8,3 +8,5 @@ services:
   evaluation:
     build: .
     command: node --expose-gc dist/evaluation/evaluation.js
+    volumes:
+      - ./evaluation:/app/evaluation
