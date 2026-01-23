@@ -1,0 +1,120 @@
+{
+  "run_id": "lc3qxayb",
+  "started_at": "2026-01-23T18:54:13.787453+00:00",
+  "finished_at": "2026-01-23T18:54:15.219170+00:00",
+  "duration_seconds": 1.431717,
+  "success": true,
+  "error": null,
+  "environment": {
+    "python_version": "3.12.12",
+    "platform": "Linux-6.17.12-300.fc43.x86_64-x86_64-with-glibc2.41",
+    "os": "Linux",
+    "os_release": "6.17.12-300.fc43.x86_64",
+    "architecture": "x86_64",
+    "hostname": "6a1a04b6554b",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": 1,
+      "tests": [
+        {
+          "nodeid": "tests/test_query.py::test_required_indexes_exist",
+          "name": "test_required_indexes_exist",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_orders_date",
+          "name": "test_index_on_orders_date",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_order_items_product",
+          "name": "test_index_on_order_items_product",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_orders_customer",
+          "name": "test_index_on_orders_customer",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_inventory",
+          "name": "test_index_on_inventory",
+          "outcome": "failed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_total_custom_indexes",
+          "name": "test_total_custom_indexes",
+          "outcome": "failed"
+        }
+      ],
+      "summary": {
+        "total": 6,
+        "passed": 0,
+        "failed": 6,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.12, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python3.12\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 6 items\n\ntests/test_query.py::test_required_indexes_exist FAILED                  [ 16%]\ntests/test_query.py::test_index_on_orders_date FAILED                    [ 33%]\ntests/test_query.py::test_index_on_order_items_product FAILED            [ 50%]\ntests/test_query.py::test_index_on_orders_customer FAILED                [ 66%]\ntests/test_query.py::test_index_on_inventory FAILED                      [ 83%]\ntests/test_query.py::test_total_custom_indexes FAILED                    [100%]\n\n=================================== FAILURES ===================================\n_________________________ test_required_indexes_exist __________________________\n\ndb_conn = <connection object at 0x7fe6c13ce0c0; dsn: 'user=postgres password=xxx dbname=ecommerce_db host=postgres port=5432', closed: 0>\n\n    def test_required_indexes_exist(db_conn):\n        \"\"\"All required optimization indexes must exist.\"\"\"\n        with db_conn.cursor() as cur:\n            cur.execute(\"\"\"\n                SELECT indexname\n                FROM pg_indexes\n                WHERE schemaname = 'public'\n                AND indexname LIKE 'idx_%'\n                ORDER BY indexname\n            \"\"\")\n            indexes = [row[0] for row in cur.fetchall()]\n    \n        required_indexes = [\n            'idx_orders_date_status_amount',\n            'idx_orders_date_status_id',\n            'idx_order_items_product_order',\n            'idx_orders_customer_status_date',\n            'idx_inventory_product'\n        ]\n    \n        for idx in required_indexes:\n>           assert idx in indexes, f\"Required index {idx} not found. Found: {indexes}\"\nE           AssertionError: Required index idx_orders_date_status_amount not found. Found: []\nE           assert 'idx_orders_date_status_amount' in []\n\ntests/test_query.py:64: AssertionError\n__________________________ test_index_on_orders_date ___________________________\n\ndb_conn = <connection object at 0x7fe6c13ce0c0; dsn: 'user=postgres password=xxx dbname=ecommerce_db host=postgres port=5432', closed: 0>\n\n    def test_index_on_orders_date(db_conn):\n        \"\"\"Index on orders(order_date, status) must exist for daily revenue queries.\"\"\"\n        with db_conn.cursor() as cur:\n            cur.execute(\"\"\"\n                SELECT indexname\n                FROM pg_indexes\n                WHERE schemaname = 'public'\n                AND tablename = 'orders'\n                AND indexname = 'idx_orders_date_status_amount'\n            \"\"\")\n>           assert cur.fetchone() is not None, \"Index idx_orders_date_status_amount not found\"\nE           AssertionError: Index idx_orders_date_status_amount not found\nE           assert None is not None\nE            +  where None = <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c133fa60>()\nE            +    where <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c133fa60> = <cursor object at 0x7fe6c133fa60; closed: 0>.fetchone\n\ntests/test_query.py:77: AssertionError\n______________________ test_index_on_order_items_product _______________________\n\ndb_conn = <connection object at 0x7fe6c13ce0c0; dsn: 'user=postgres password=xxx dbname=ecommerce_db host=postgres port=5432', closed: 0>\n\n    def test_index_on_order_items_product(db_conn):\n        \"\"\"Index on order_items(product_id, order_id) must exist for product queries.\"\"\"\n        with db_conn.cursor() as cur:\n            cur.execute(\"\"\"\n                SELECT indexname\n                FROM pg_indexes\n                WHERE schemaname = 'public'\n                AND tablename = 'order_items'\n                AND indexname = 'idx_order_items_product_order'\n            \"\"\")\n>           assert cur.fetchone() is not None, \"Index idx_order_items_product_order not found\"\nE           AssertionError: Index idx_order_items_product_order not found\nE           assert None is not None\nE            +  where None = <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c133fc40>()\nE            +    where <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c133fc40> = <cursor object at 0x7fe6c133fc40; closed: 0>.fetchone\n\ntests/test_query.py:90: AssertionError\n________________________ test_index_on_orders_customer _________________________\n\ndb_conn = <connection object at 0x7fe6c13ce0c0; dsn: 'user=postgres password=xxx dbname=ecommerce_db host=postgres port=5432', closed: 0>\n\n    def test_index_on_orders_customer(db_conn):\n        \"\"\"Index on orders(customer_id, status, order_date) must exist for customer queries.\"\"\"\n        with db_conn.cursor() as cur:\n            cur.execute(\"\"\"\n                SELECT indexname\n                FROM pg_indexes\n                WHERE schemaname = 'public'\n                AND tablename = 'orders'\n                AND indexname = 'idx_orders_customer_status_date'\n            \"\"\")\n>           assert cur.fetchone() is not None, \"Index idx_orders_customer_status_date not found\"\nE           AssertionError: Index idx_orders_customer_status_date not found\nE           assert None is not None\nE            +  where None = <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c12e0220>()\nE            +    where <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c12e0220> = <cursor object at 0x7fe6c12e0220; closed: 0>.fetchone\n\ntests/test_query.py:103: AssertionError\n___________________________ test_index_on_inventory ____________________________\n\ndb_conn = <connection object at 0x7fe6c13ce0c0; dsn: 'user=postgres password=xxx dbname=ecommerce_db host=postgres port=5432', closed: 0>\n\n    def test_index_on_inventory(db_conn):\n        \"\"\"Index on inventory(product_id) must exist for inventory queries.\"\"\"\n        with db_conn.cursor() as cur:\n            cur.execute(\"\"\"\n                SELECT indexname\n                FROM pg_indexes\n                WHERE schemaname = 'public'\n                AND tablename = 'inventory'\n                AND indexname = 'idx_inventory_product'\n            \"\"\")\n>           assert cur.fetchone() is not None, \"Index idx_inventory_product not found\"\nE           AssertionError: Index idx_inventory_product not found\nE           assert None is not None\nE            +  where None = <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c133f3d0>()\nE            +    where <built-in method fetchone of psycopg2.extensions.cursor object at 0x7fe6c133f3d0> = <cursor object at 0x7fe6c133f3d0; closed: 0>.fetchone\n\ntests/test_query.py:116: AssertionError\n__________________________ test_total_custom_indexes ___________________________\n\ndb_conn = <connection object at 0x7fe6c13ce0c0; dsn: 'user=postgres password=xxx dbname=ecommerce_db host=postgres port=5432', closed: 0>\n\n    def test_total_custom_indexes(db_conn):\n        \"\"\"Exactly 5 custom indexes should exist (within 2GB limit).\"\"\"\n        with db_conn.cursor() as cur:\n            cur.execute(\"\"\"\n                SELECT COUNT(*)\n                FROM pg_indexes\n                WHERE schemaname = 'public'\n                AND indexname LIKE 'idx_%'\n            \"\"\")\n            count = cur.fetchone()[0]\n>           assert count == 5, f\"Expected 5 custom indexes, found {count}\"\nE           AssertionError: Expected 5 custom indexes, found 0\nE           assert 0 == 5\n\ntests/test_query.py:129: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_query.py::test_required_indexes_exist - AssertionError: Req...\nFAILED tests/test_query.py::test_index_on_orders_date - AssertionError: Index...\nFAILED tests/test_query.py::test_index_on_order_items_product - AssertionErro...\nFAILED tests/test_query.py::test_index_on_orders_customer - AssertionError: I...\nFAILED tests/test_query.py::test_index_on_inventory - AssertionError: Index i...\nFAILED tests/test_query.py::test_total_custom_indexes - AssertionError: Expec...\n============================== 6 failed in 0.34s ===============================\n",
+      "stderr": ""
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_query.py::test_required_indexes_exist",
+          "name": "test_required_indexes_exist",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_orders_date",
+          "name": "test_index_on_orders_date",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_order_items_product",
+          "name": "test_index_on_order_items_product",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_orders_customer",
+          "name": "test_index_on_orders_customer",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_on_inventory",
+          "name": "test_index_on_inventory",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_total_custom_indexes",
+          "name": "test_total_custom_indexes",
+          "outcome": "passed"
+        }
+      ],
+      "summary": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.12, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python3.12\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 6 items\n\ntests/test_query.py::test_required_indexes_exist PASSED                  [ 16%]\ntests/test_query.py::test_index_on_orders_date PASSED                    [ 33%]\ntests/test_query.py::test_index_on_order_items_product PASSED            [ 50%]\ntests/test_query.py::test_index_on_orders_customer PASSED                [ 66%]\ntests/test_query.py::test_index_on_inventory PASSED                      [ 83%]\ntests/test_query.py::test_total_custom_indexes PASSED                    [100%]\n\n============================== 6 passed in 0.32s ===============================\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": true,
+      "before_total": 6,
+      "before_passed": 0,
+      "before_failed": 6,
+      "after_total": 6,
+      "after_passed": 6,
+      "after_failed": 0
+    }
+  }
+}
