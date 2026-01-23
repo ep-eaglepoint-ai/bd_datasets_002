@@ -8,7 +8,6 @@ from datetime import datetime
 from pathlib import Path
 
 def get_git_info():
-    """Captures git commit and branch information for traceability."""
     try:
         commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.STDOUT).decode().strip()
     except Exception:
@@ -20,7 +19,6 @@ def get_git_info():
     return commit, branch
 
 def get_environment_info():
-    """Captures metadata about the execution environment."""
     commit, branch = get_git_info()
     return {
         "python_version": platform.python_version(),
@@ -34,13 +32,8 @@ def get_environment_info():
     }
 
 def run_tests():
-    """
-    Runs pytest for the repository_after (Ground Truth solution).
-    Since this is a CREATION task, we focus verification on repository_after.
-    """
     pytest_cmd = [sys.executable, "-m", "pytest"]
     
-    # Define a temporary report file path
     report_file = os.path.abspath("temp_pytest_report.json")
     
     cmd = pytest_cmd + [
@@ -51,7 +44,6 @@ def run_tests():
     ]
     
     try:
-        # Run tests and capture output
         result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore')
         
         tests = []
@@ -61,7 +53,6 @@ def run_tests():
             with open(report_file, 'r') as f:
                 data = json.load(f)
             
-            # Aggregate status counts from the pytest-json-report plugin
             summary = {
                 "total": data.get("summary", {}).get("total", 0),
                 "passed": data.get("summary", {}).get("passed", 0),
@@ -70,7 +61,6 @@ def run_tests():
                 "skipped": data.get("summary", {}).get("skipped", 0)
             }
             
-            # Map test cases into a clean list for the final report
             for t in data.get("tests", []):
                 tests.append({
                     "nodeid": t.get("nodeid"),
@@ -99,22 +89,16 @@ def run_tests():
         }
 
 def generate_evaluation_report():
-    """
-    Main execution loop for generating the structured evaluation report.
-    Following the EVALUATION_PROMPT_FRAMEWORK, we produce both console output and a JSON file.
-    """
     start_time = datetime.now()
     run_id = os.urandom(4).hex()
     
     print(f"Starting Evaluation Run: {run_id}")
     
-    # We only run tests for repository_after as per user feedback (CREATION mode focus)
     after_results = run_tests()
     
     finish_time = datetime.now()
     duration = (finish_time - start_time).total_seconds()
     
-    # Structured JSON report
     report = {
         "run_id": run_id,
         "started_at": start_time.isoformat(),
@@ -124,7 +108,7 @@ def generate_evaluation_report():
         "error": None if after_results["success"] else "One or more tests failed in repository_after",
         "environment": get_environment_info(),
         "results": {
-            "before": None, # Null because we only target 'after' implementation in CREATION mode
+            "before": None, 
             "after": after_results,
             "comparison": {
                 "after_tests_passed": after_results["success"],
@@ -135,7 +119,6 @@ def generate_evaluation_report():
         }
     }
     
-    # Save report with standard naming and timestamped directory structure
     output_dir = Path(f"evaluation/{start_time.strftime('%Y-%m-%d/%H-%M-%S')}")
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "report.json"
@@ -143,7 +126,6 @@ def generate_evaluation_report():
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=2)
     
-    # Human-readable summary for console output (Windows-safe characters)
     after_overall = "PASSED" if after_results['success'] else "FAILED"
 
     print("\n" + "="*60)
