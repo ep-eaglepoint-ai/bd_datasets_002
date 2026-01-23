@@ -1,6 +1,23 @@
+version: '3.8'
+
 services:
-  app:
+  evaluation:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
+    command: node evaluation/evaluation.js
+
+  test-before:
+    build: .
+    environment:
+      - TEST_REPO_PATH=/app/repository_before
+    command: sh -c "cd repository_after && npm test || echo 'Tests failed as expected (no tests in repository_before)'"
+
+  test-after:
+    build: .
+    environment:
+      - TEST_REPO_PATH=/app/repository_after
+    command: sh -c "cd repository_after && npm test"
+
+volumes:
+  evaluation_reports:

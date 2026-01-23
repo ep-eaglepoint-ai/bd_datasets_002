@@ -1,0 +1,9 @@
+{
+  "name": "kanban-evaluation",
+  "version": "1.0.0",
+  "description": "Evaluation script for Kanban Playwright tests",
+  "main": "evaluation.js",
+  "scripts": {
+    "start": "node evaluation.js"
+  }
+}

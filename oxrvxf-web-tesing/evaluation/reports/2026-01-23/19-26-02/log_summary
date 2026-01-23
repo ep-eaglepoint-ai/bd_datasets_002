@@ -1,0 +1,8 @@
+KANBAN PLAYWRIGHT TEST EVALUATION
+
+success: false
+passed_gate: false
+before.tests.success: false
+after.tests.success: false
+after.tests.passed: 25
+after.tests.failed: 22
