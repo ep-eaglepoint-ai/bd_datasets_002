@@ -1,0 +1,12 @@
+{
+            "instance_id": "HIEDXY",
+            "problem_statement": "Build an offline‑first, client‑side task management web application using Next.js, TailwindCSS, and Zod that tracks time per task, analyzes productivity patterns, and visualizes trends via interactive dashboards and burn‑down charts without requiring external APIs. Implement deterministic state management with Zustand/Redux, persistent offline storage via IndexedDB, and performance optimizations like virtualization, incremental aggregation, and Web Worker offloading to ensure responsiveness under heavy historical data. The application must prioritize reliability, correct analytics computation, and professional‑grade user experience for long‑term productivity tracking.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hiedxy-task-management",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
