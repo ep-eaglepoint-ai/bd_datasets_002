@@ -12,10 +12,11 @@ function getTimestampPath() {
 }
 
 // Parse the output to extract test results
-function parseTestOutput(output) {
+function parseTestOutput(output, expectedFailure = false) {
   const lines = output ? output.split('\n') : [];
   let passed = 0;
   let failed = 0;
+  let xfailed = 0;
   const tests = [];
 
   // Look for test results in output
@@ -31,23 +32,34 @@ function parseTestOutput(output) {
         location: { column: 0, line: 0 }
       });
     } else if (line.startsWith('✗ ')) {
-      failed++;
       const testName = line.substring(2);
-      tests.push({
-        fullName: testName,
-        status: 'failed',
-        title: testName.split(': ').pop(),
-        failureMessages: [line],
-        location: { column: 0, line: 0 }
-      });
+      if (expectedFailure) {
+        xfailed++; // Count as xfailed only, not failed
+        tests.push({
+          fullName: testName,
+          status: 'xfailed',
+          title: testName.split(': ').pop(),
+          failureMessages: [line],
+          location: { column: 0, line: 0 }
+        });
+      } else {
+        failed++;
+        tests.push({
+          fullName: testName,
+          status: 'failed',
+          title: testName.split(': ').pop(),
+          failureMessages: [line],
+          location: { column: 0, line: 0 }
+        });
+      }
     }
   }
 
-  return { passed, failed, tests };
+  return { passed, failed, xfailed, tests };
 }
 
 // Run tests and capture results
-function runTests(repoPath) {
+function runTests(repoPath, expectedFailure = false) {
   const startTime = new Date();
   let output = '';
   let returnCode = 0;
@@ -81,44 +93,29 @@ function runTests(repoPath) {
   const endTime = new Date();
   const duration = (endTime - startTime) / 1000;
 
-  const { passed, failed, tests } = parseTestOutput(output);
+  const { passed, failed, xfailed, tests } = parseTestOutput(output, expectedFailure);
+
+  // If expectedFailure is true, we consider the run successful if there are failures (which are now xfailures)
+  // and no unexpected failures (though strict 'failed' count should be 0 if all were expected).
+  // However, often 'xfailed' implies the test suite "passed" in the sense of configuration.
+  const isSuccess = failed === 0 && (returnCode === 0 || expectedFailure);
 
   return {
-    passed: failed === 0 && returnCode === 0,
-    return_code: returnCode,
+    passed: isSuccess,
+    return_code: expectedFailure ? 0 : returnCode, // Mask return code for expected failure
     output: output,
     summary: {
-      numTotalTests: passed + failed,
+      numTotalTests: passed + failed + (xfailed || 0),
       numPassedTests: passed,
       numFailedTests: failed,
+      numXFailedTests: xfailed || 0,
       numTotalTestSuites: 1,
       numPassedTestSuites: failed === 0 ? 1 : 0,
       numFailedTestSuites: failed > 0 ? 1 : 0
     },
-    summary_matrix: [[passed, failed]],
-    tests: tests,
-    raw_output: JSON.stringify({
-      created: startTime.getTime() / 1000,
-      duration: duration,
-      exitcode: returnCode,
-      root: '/app',
-      environment: {},
-      summary: {
-        passed: passed,
-        failed: failed,
-        total: passed + failed,
-        collected: passed + failed
-      },
-      tests: tests.map(test => ({
-        nodeid: test.fullName,
-        lineno: 0,
-        outcome: test.status,
-        keywords: [test.title],
-        setup: { duration: 0.0001, outcome: 'passed' },
-        call: { duration: 0.001, outcome: test.status },
-        teardown: { duration: 0.0001, outcome: 'passed' }
-      }))
-    })
+    // Matrix: [passed, failed, xfailed]
+    summary_matrix: [[passed, failed, xfailed || 0]],
+    tests: tests
   };
 }
 
@@ -130,8 +127,8 @@ async function runEvaluation() {
   console.log('Starting evaluation...');
 
   try {
-    // Run tests for repository_before
-    const beforeResults = runTests('repository_before');
+    // Run tests for repository_before (expect failures)
+    const beforeResults = runTests('repository_before', true);
 
     // Run tests for repository_after
     const afterResults = runTests('repository_after');
@@ -158,6 +155,7 @@ async function runEvaluation() {
       total: summary.numTotalTests,
       passed: summary.numPassedTests,
       failed: summary.numFailedTests,
+      xfailed: summary.numXFailedTests || 0,
       errors: 0,
       skipped: 0
     });
@@ -191,14 +189,16 @@ async function runEvaluation() {
           summary: formatSummary(afterResults.summary)
         },
         comparison: {
-          before_tests_passed: beforeResults.passed,
-          after_tests_passed: afterResults.passed,
+          before_tests_passed: beforeResults.summary.numPassedTests === beforeResults.summary.numTotalTests && beforeResults.summary.numTotalTests > 0,
+          after_tests_passed: afterResults.summary.numPassedTests === afterResults.summary.numTotalTests && afterResults.summary.numTotalTests > 0,
           before_total: beforeResults.summary.numTotalTests,
           before_passed: beforeResults.summary.numPassedTests,
           before_failed: beforeResults.summary.numFailedTests,
+          before_xfailed: beforeResults.summary.numXFailedTests || 0,
           after_total: afterResults.summary.numTotalTests,
           after_passed: afterResults.summary.numPassedTests,
-          after_failed: afterResults.summary.numFailedTests
+          after_failed: afterResults.summary.numFailedTests,
+          after_xfailed: afterResults.summary.numXFailedTests || 0
         }
       }
     };
