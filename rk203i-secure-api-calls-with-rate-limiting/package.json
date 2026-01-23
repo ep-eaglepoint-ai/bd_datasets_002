@@ -1,0 +1,9 @@
+{
+  "name": "rk203i-secure-api-calls-with-rate-limiting",
+  "version": "1.0.0",
+  "description": "Secure API Calls with PQ Rate Limiting",
+  "scripts": {
+    "evaluate": "node evaluation/evaluation.js",
+    "test": "cd repository_after && npm test"
+  }
+}
