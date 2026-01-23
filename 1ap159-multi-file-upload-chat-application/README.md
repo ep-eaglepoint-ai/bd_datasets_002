@@ -41,18 +41,61 @@
 - Security Standards: (none)
 
 ## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
+- **package.json** (root): drives meta-tests; `test`, `test:before`, `test:after`, `test:meta`
+- **repository_before/**: baseline React app (text-only chat)
+- **repository_after/**: Ground Truth (multi-file upload chat)
+- **tests/**: meta-tests (`meta.test.jsx`, `run-meta.js`); `test:after` asserts all 19 requirements
+- **evaluation/**: `evaluation.js` runs tests on both repos, writes `evaluation/reports/yyyy-mm-dd/HH-mm-ss/report.json`
 - instances/: sample/problem instances (JSON)
 - patches/: patches for diffing
 - trajectory/: notes or write-up (Markdown)
 
 ## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+From project root:
+- `npm install && npm run test:meta` — run meta-tests (before must fail, after must pass)
+- `npm run test:before` — run tests against repository_before only
+- `npm run test:after` — run tests against repository_after only (all 19 requirements must pass)
+- `npm run evaluation` — run tests on both repos, write report (after `npm install`)
+
+## Docker
+
+Three containers: **before**, **after**, **evaluation**.
+
+**Run all three:**
+```bash
+docker compose up --build
+```
+- **before** (repository_before, baseline): http://localhost:3000
+- **after** (repository_after, multi-file upload): http://localhost:3001
+- **evaluation**: runs `node evaluation/evaluation.js` (tests both repos, writes `evaluation/reports/yyyy-mm-dd/HH-mm-ss/report.json`), exits 0 if after passes else 1
+
+**Run only evaluation** (tests both repos, writes report):
+```bash
+docker compose run --rm evaluation
+# or build first:
+docker compose build evaluation && docker compose run --rm evaluation
+```
+Reports appear in `evaluation/reports/yyyy-mm-dd/HH-mm-ss/report.json` (volume-mounted).
+
+**Separate test commands** (override evaluation container):
+```bash
+# Tests against repository_before only (expect failures)
+docker compose run --rm evaluation npm run test:before
+
+# Tests against repository_after only (expect all 21 pass)
+docker compose run --rm evaluation npm run test:after
+```
+Build first if needed: `docker compose build evaluation`
+
+**Run only the apps (before + after):**
+```bash
+docker compose up before after --build
+```
+
+- `Dockerfile` — evaluation image (root deps, `node evaluation/evaluation.js` by default)
+- `Dockerfile.before` — repository_before (baseline) on port 3000
+- `Dockerfile.app` — repository_after (multi-file upload) on port 3000 (mapped to host 3001)
+- `docker-compose.yml` — services `before`, `after`, `evaluation`
 
 ## Notes
 - Keep commits focused and small.

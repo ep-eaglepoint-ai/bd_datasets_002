@@ -1,6 +1,32 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  # repository_before (baseline text-only chat) — http://localhost:3000
+  before:
+    build:
+      context: .
+      dockerfile: Dockerfile.before
+    ports:
+      - "3000:3000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+
+  # repository_after (multi-file upload chat) — http://localhost:3001
+  after:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    ports:
+      - "3001:3000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+
+  # evaluation: runs tests on both repos, writes evaluation/reports/yyyy-mm-dd/HH-mm-ss/report.json
+  # Override for single-repo tests: docker compose run --rm evaluation npm run test:before|test:after
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: node evaluation/evaluation.js
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
