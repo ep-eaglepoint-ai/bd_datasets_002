@@ -30,14 +30,10 @@ func init() {
 		RepoRoot = wd
 	}
 
-	if runtime.GOOS == "windows" {
-		BeforeExe = filepath.Join(RepoRoot, "before.exe")
-		AfterExe = filepath.Join(RepoRoot, "after.exe")
-	} else {
-		// In Docker/Linux, we expect binaries in /usr/local/bin/ to avoid volume mounting issues
-		BeforeExe = "/usr/local/bin/before-analyzer"
-		AfterExe = "/usr/local/bin/after-analyzer"
-	}
+	// Dynamic Binary Discovery/Build
+	// This ensures tests work in Docker (pre-built), CI (fresh env), and Local (Windows/Linux)
+	BeforeExe = resolveOrBuild("before", "repository_before")
+	AfterExe = resolveOrBuild("after", "repository_after")
 
 	targetStr := os.Getenv("TEST_TARGET")
 	if targetStr == "before" {
@@ -47,6 +43,42 @@ func init() {
 		TargetExe = AfterExe
 		TargetSource = filepath.Join(RepoRoot, "repository_after", "main.go")
 	}
+}
+
+func resolveOrBuild(name, dir string) string {
+	// 1. Check Docker pre-built location (Linux only)
+	if runtime.GOOS != "windows" {
+		dockerPath := "/usr/local/bin/" + name + "-analyzer"
+		if _, err := os.Stat(dockerPath); err == nil {
+			return dockerPath
+		}
+	}
+
+	// 2. Check local directory (e.g. built by user)
+	localName := name
+	if runtime.GOOS == "windows" {
+		localName += ".exe"
+	}
+	localPath := filepath.Join(RepoRoot, localName)
+	if _, err := os.Stat(localPath); err == nil {
+		return localPath
+	}
+
+	// 3. Fallback: Build it on the fly!
+	// This handles CI environments that run 'go test' without a prior build step
+	fmt.Printf("Binary %s not found. Building on the fly...\n", name)
+	srcPath := filepath.Join(RepoRoot, dir, "main.go")
+	outPath := filepath.Join(RepoRoot, localName) // Build into repo root
+	
+	cmd := exec.Command("go", "build", "-o", outPath, srcPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		// If build fails, we can't really recover, but usually tests will fail later.
+		// Panic here to make it obvious why.
+		panic(fmt.Sprintf("Failed to build %s: %v", name, err))
+	}
+	return outPath
 }
 
 func RunAnalyzer(t *testing.T, exe string, filepath string) (string, error) {
