@@ -1,0 +1,16 @@
+{
+            "instance_id": "5Z66UT",
+            "problem_statement": "Noticed severe performance degradation when testing an in-memory document search 
+index for a legal document management system. The DocumentIndex class in a Java 17 
+application takes 45 seconds to index 100,000 legal documents (averaging 5KB each) 
+and search queries take 800ms on average. 
+
+Users report the application becomes  unresponsive during indexing, with visible freezes during searches. Memory profiling  shows usage spiking to 8GB for what should be a 500MB document corpus, with GC  pauses occurring every few seconds. The system worked acceptably during development  with 10,000 documents but becomes unusable at production scale.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/5z66ut-document-search-index-performance-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
