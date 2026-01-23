@@ -1,5 +1,12 @@
-FROM python:3.11-slim
+FROM node:20-alpine
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Copy package files and install dependencies for the server
+COPY repository_after/server/package*.json ./repository_after/server/
+RUN cd repository_after/server && npm install
+
+# Copy all files
+COPY . .
+
+CMD ["node", "evaluation/evaluation.js"]

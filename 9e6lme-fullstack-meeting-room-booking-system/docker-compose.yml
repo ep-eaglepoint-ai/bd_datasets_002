@@ -1,6 +1,98 @@
 services:
-  app:
+  evaluation:
     build: .
-    command: pytest -q tests
+    working_dir: /app
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: booking_system
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: KGMNsyoKIZk24OaJe9hN8Ef5H3v6YQry
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "sleep 3 && node evaluation/evaluation.js"]
     volumes:
-      - .:/app
+      - .:/host:rw
+    networks:
+      - app-network
+    profiles:
+      - evaluation
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: booking_system
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  server:
+    build:
+      context: ./repository_after/server
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: booking_system
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: KGMNsyoKIZk24OaJe9hN8Ef5H3v6YQry
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "sleep 2 && npm run seed && npm start"]
+    networks:
+      - app-network
+
+  client:
+    build:
+      context: ./repository_after/client
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+    networks:
+      - app-network
+
+  test:
+    build:
+      context: ./repository_after/server
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: booking_system
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: test-secret-key
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "sleep 3 && npm test"]
+    networks:
+      - app-network
+    profiles:
+      - test
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
+
