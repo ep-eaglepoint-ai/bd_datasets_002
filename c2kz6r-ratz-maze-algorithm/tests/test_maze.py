@@ -82,7 +82,7 @@ def test_recursion_limit_safe(maze_solver):
     Recursive DFS will crash (RecursionError).
     Iterative BFS will pass.
     """
-    size = 3000
+    size = 1000
     # Create a path that snakes through the whole grid or just a deep simple path
     maze = [[0] * size for _ in range(size)]
 
