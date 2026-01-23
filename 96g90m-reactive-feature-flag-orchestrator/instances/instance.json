@@ -1,0 +1,11 @@
+{
+            "instance_id": "96G90M",
+            "problem_statement": "The objective is to implement a high-rigor, fullstack feature-flag management system that ensures absolute schema parity between the client and server. The system must utilize a central Zod schema to enforce strict data types across different flag varieties (e.g., Booleans, Percentages, and String-Enums) using discriminated unions. The state management layer, powered by Zustand, must support a 'Draft' versus 'Live' workflow, allowing users to stage multiple complex changes, validate them in real-time against the schema, and commit them atomically. To prevent data corruption in a multi-user context, the backend must implement version-based optimistic concurrency control using a local file-based persistence layer.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/96g90m-reactive-feature-flag-orchestrator",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
