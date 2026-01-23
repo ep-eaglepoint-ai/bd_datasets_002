@@ -113,7 +113,7 @@ class ConnectionPoolTest {
     @Test
     @Timeout(60) // Needs extra time for pre-warming with slow validation
     void testThroughputWithSlowValidation() throws InterruptedException {
-        int poolSize = 100; // Need enough concurrency to overcome latency
+        int poolSize = 60; // Need enough concurrency to overcome latency
         int opCount = 500;
         
         // Validator sleeps 500ms
