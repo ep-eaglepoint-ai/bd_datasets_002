@@ -1,0 +1,13 @@
+{
+            "instance_id": "HS1VLM",
+            "problem_statement": "Noticed inconsistent language detection behavior when testing a content moderation system's language filter for a multi-language customer support platform. The checkLanguage function in languageDetection.ts incorrectly classifies some English text as needing translation, produces different results for the same input when called multiple times, and returns wrong reasons for certain edge cases. 
+
+Users report that simple English sentences like "The quick brown fox jumps over the lazy dog" are being flagged for translation, whitespace-only inputs don't return the expected 'empty' reason, and short texts in Arabic script get classified as 'too_short' instead of 'non_latin'. The utility processes user messages to determine if they need translation before routing to English-speaking support agents, and these misclassifications are causing messages to be incorrectly routed or delayed.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hs1vlm-typescript-language-detection-utility-bug-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
