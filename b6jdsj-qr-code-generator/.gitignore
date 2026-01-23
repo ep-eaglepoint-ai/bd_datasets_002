@@ -11,4 +11,5 @@ node_modules/
 .DS_Store
 
 # Evaluation reports
+evaluation/
 evaluation/????-??-??/
