@@ -65,7 +65,14 @@ function runTests(repo: string): Promise<TestResult> {
         testProc.stdout?.on('data', (data: Buffer) => output += data.toString());
         testProc.stderr?.on('data', (data: Buffer) => output += data.toString());
         testProc.on('close', (code: number | null) => {
-          resolve({ passed: code === 0, returnCode: code || 0, output: output.slice(0, 8000) });
+          const passed = code === 0;
+          let shortOutput = passed ? "Tests passed" : "Tests failed";
+          if (passed) {
+            const lines = output.split('\n');
+            const summaryLine = lines.find(line => line.startsWith('Test Suites:'));
+            if (summaryLine) shortOutput += '\n' + summaryLine.trim();
+          }
+          resolve({ passed, returnCode: code || 0, output: shortOutput });
         });
       });
     } else {
@@ -74,7 +81,14 @@ function runTests(repo: string): Promise<TestResult> {
       testProc.stdout?.on('data', (data: Buffer) => output += data.toString());
       testProc.stderr?.on('data', (data: Buffer) => output += data.toString());
       testProc.on('close', (code: number | null) => {
-        resolve({ passed: code === 0, returnCode: code || 0, output: output.slice(0, 8000) });
+        const passed = code === 0;
+        let shortOutput = passed ? "Tests passed" : "Tests failed";
+        if (passed) {
+          const lines = output.split('\n');
+          const summaryLine = lines.find(line => line.startsWith('Test Suites:'));
+          if (summaryLine) shortOutput += '\n' + summaryLine.trim();
+        }
+        resolve({ passed, returnCode: code || 0, output: shortOutput });
       });
     }
   });

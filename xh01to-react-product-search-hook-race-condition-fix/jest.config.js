@@ -6,4 +6,7 @@ module.exports = {
     '^repository_(before|after)/(.*)$': '<rootDir>/repository_$1/$2',
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  haste: {
+    throwOnModuleCollision: false,
+  },
 };
