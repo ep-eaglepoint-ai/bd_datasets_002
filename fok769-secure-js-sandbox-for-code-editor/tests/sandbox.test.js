@@ -99,6 +99,35 @@ describe('Sandbox Security Tests', () => {
       }
     });
 
+    test('before repository should use insecure eval() - SECURITY VIOLATION', () => {
+      if (repoType === 'before') {
+        // Check App.js for eval() usage
+        const appPath = path.join(repoPath, 'src', 'App.js');
+        if (fs.existsSync(appPath)) {
+          const content = fs.readFileSync(appPath, 'utf8');
+          // This test SHOULD FAIL for before repo - it uses eval()
+          const hasEval = /eval\s*\(/i.test(content);
+          expect(hasEval).toBe(false); // This will fail, indicating security violation
+        }
+      } else {
+        // For after repo, should NOT use eval()
+        const appPath = path.join(repoPath, 'src', 'App.js');
+        if (fs.existsSync(appPath)) {
+          const content = fs.readFileSync(appPath, 'utf8');
+          const hasEval = /eval\s*\(/i.test(content);
+          expect(hasEval).toBe(false); // After repo should not use eval
+        }
+      }
+    });
+
+    test('before repository should NOT have SecureSandbox - indicating insecure implementation', () => {
+      if (repoType === 'before') {
+        const sandboxPath = path.join(repoPath, 'src', 'SecureSandbox.js');
+        // Before repo should NOT have SecureSandbox - this indicates insecure implementation
+        expect(fs.existsSync(sandboxPath)).toBe(false);
+      }
+    });
+
     test('HTML should load without errors', async () => {
       if (skipHttpServer) {
         // In evaluation mode, just check file directly

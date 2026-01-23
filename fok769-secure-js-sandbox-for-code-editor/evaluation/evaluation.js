@@ -164,13 +164,44 @@ function runTests(repoType, timeout = 120000) { // Reduced from 180s to 120s
 }
 
 function analyzeTestResults(result, repoType) {
-  // Simplified analysis - just check if tests passed
-  // Complex parsing removed for speed
+  // Check source code for security violations
+  let security_violations = false;
+  
+  if (repoType === 'before') {
+    // Check if before repo uses eval() - this is a security violation
+    const beforeAppPath = path.join(projectRoot, 'repository_before', 'src', 'App.js');
+    if (fs.existsSync(beforeAppPath)) {
+      const content = fs.readFileSync(beforeAppPath, 'utf8');
+      const hasEval = /eval\s*\(/i.test(content);
+      const hasSecureSandbox = fs.existsSync(path.join(projectRoot, 'repository_before', 'src', 'SecureSandbox.js'));
+      
+      // Security violations: uses eval() OR doesn't have SecureSandbox
+      security_violations = hasEval || !hasSecureSandbox;
+    } else {
+      security_violations = true; // Can't verify, assume violation
+    }
+  } else {
+    // After repo should NOT use eval() and SHOULD have SecureSandbox
+    const afterAppPath = path.join(projectRoot, 'repository_after', 'src', 'App.js');
+    const afterSandboxPath = path.join(projectRoot, 'repository_after', 'src', 'SecureSandbox.js');
+    
+    if (fs.existsSync(afterAppPath)) {
+      const content = fs.readFileSync(afterAppPath, 'utf8');
+      const hasEval = /eval\s*\(/i.test(content);
+      const hasSecureSandbox = fs.existsSync(afterSandboxPath);
+      
+      // Security violation if uses eval() OR doesn't have SecureSandbox
+      security_violations = hasEval || !hasSecureSandbox;
+    } else {
+      security_violations = true; // Can't verify, assume violation
+    }
+  }
+  
   const analysis = {
     tests_passed: result.tests_passed,
-    security_violations: repoType === 'before' ? !result.tests_passed : false,
-    console_integrity: repoType === 'after' ? result.tests_passed : false,
-    ui_freeze_protection: repoType === 'after' ? result.tests_passed : false
+    security_violations: security_violations,
+    console_integrity: repoType === 'after' ? result.tests_passed && !security_violations : false,
+    ui_freeze_protection: repoType === 'after' ? result.tests_passed && !security_violations : false
   };
   
   return analysis;
@@ -268,7 +299,10 @@ function main() {
   if (report.before.tests_passed_count !== undefined) {
     console.log(`  Test Results: ${report.before.tests_passed_count} passed, ${report.before.tests_failed_count} failed`);
   }
-  console.log(`  Security Violations: ${report.before.security_violations ? '⚠️  YES' : '✅ NO'}`);
+  console.log(`  Security Violations: ${report.before.security_violations ? '❌ YES (uses eval(), no SecureSandbox)' : '✅ NO'}`);
+  if (report.before.security_violations) {
+    console.log(`  ⚠️  WARNING: Before repository uses insecure eval() and lacks SecureSandbox`);
+  }
   console.log(`\nRepository After:`);
   console.log(`  Tests: ${report.after.tests_passed ? '✅ PASSED' : '❌ FAILED'}`);
   if (report.after.tests_passed_count !== undefined) {
