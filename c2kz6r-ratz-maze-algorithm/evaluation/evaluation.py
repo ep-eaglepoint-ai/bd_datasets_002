@@ -217,9 +217,9 @@ def main():
         if results_after:
             print(f"After Results: {results_after['summary']['passed']} passed, {results_after['summary']['failed']} failed.")
             if not results_after["success"]:
-                print("⚠️  Some tests failed, but report was generated successfully.")
+                print("Some tests failed, but report was generated successfully.")
             else:
-                print("🎉 All tests passed.")
+                print("All tests passed.")
 
     except Exception as e:
         print(f"INTERNAL EVALUATION SCRIPT ERROR: {e}")
