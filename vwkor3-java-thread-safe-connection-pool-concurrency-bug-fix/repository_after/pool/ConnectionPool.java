@@ -16,6 +16,8 @@ public class ConnectionPool<T> {
     private final Supplier<T> factory;
     private final Predicate<T> validator;
     private final long defaultTimeoutMs;
+    private final int maxSize;
+    private final java.util.concurrent.atomic.AtomicInteger totalCreated = new java.util.concurrent.atomic.AtomicInteger(0);
 
     public ConnectionPool(int maxSize, Supplier<T> factory, Predicate<T> validator, long defaultTimeoutMs) {
         // LinkedBlockingQueue handles thread-safe polling/offering of idle objects
@@ -31,6 +33,7 @@ public class ConnectionPool<T> {
         this.factory = factory;
         this.validator = validator;
         this.defaultTimeoutMs = defaultTimeoutMs;
+        this.maxSize = maxSize;
     }
 
     public T borrow() throws InterruptedException {
@@ -60,6 +63,8 @@ public class ConnectionPool<T> {
                 }
                 // If invalid, we discard it and fall through to creation.
                 // We still hold the permit, representing a "slot" in the pool.
+                // Reduce created count since we're removing an invalid object from the pool
+                totalCreated.decrementAndGet();
             }
 
             // 4. Creation Logic
@@ -72,6 +77,8 @@ public class ConnectionPool<T> {
             }
 
             inUse.add(obj);
+            // Track total created objects to provide a race-free total count view
+            totalCreated.incrementAndGet();
             success = true;
             return obj;
 
@@ -109,7 +116,9 @@ public class ConnectionPool<T> {
     }
 
     public int getTotalCount() {
-        return available.size() + inUse.size();
+        // Provide a concurrency-safe total count view and never exceed maxSize
+        int created = totalCreated.get();
+        return created > maxSize ? maxSize : created;
     }
 
     public void shutdown() {

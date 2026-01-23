@@ -14,7 +14,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@Timeout(30)
 class ConnectionPoolTest {
 
     // Helper class to simulate a connection

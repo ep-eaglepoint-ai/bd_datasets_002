@@ -54,6 +54,26 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
         test_result["output"] = f"Repository path does not exist: {repo_path}"
         return test_result
     
+    # Ensure Maven standard layout for sources
+    try:
+        src_main_pool = repo_path / "src" / "main" / "java" / "pool"
+        src_main_pool.mkdir(parents=True, exist_ok=True)
+
+        legacy_pool = repo_path / "pool"
+        if legacy_pool.exists():
+            for item in legacy_pool.iterdir():
+                target = src_main_pool / item.name
+                if not target.exists():
+                    item.replace(target)
+            # Remove legacy pool directory if empty
+            try:
+                legacy_pool.rmdir()
+            except OSError:
+                pass
+    except Exception:
+        # Proceed even if restructuring fails; Maven may still compile depending on POM
+        pass
+
     # Copy tests to the repository
     tests_src = ROOT / "tests" / "test_connection_pool.java"
     test_dest = repo_path / "src" / "test" / "java" / "pool"
@@ -66,8 +86,8 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
         test_result["output"] = f"Failed to copy test file: {str(e)}"
         return test_result
     
-    # Run Maven test
-    cmd = ["mvn", "test", "-q"]
+    # Run Maven clean test
+    cmd = ["mvn", "clean", "test"]
     
     try:
         result = subprocess.run(
