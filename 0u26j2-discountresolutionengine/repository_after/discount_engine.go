@@ -3,6 +3,7 @@
 package discountengine
 
 import (
+	"math"
 	"errors"
 	"fmt"
 	"sort"
@@ -24,7 +25,7 @@ const decimalScale = 10000
 
 // NewDecimal creates a Decimal from a float64 (use for initialization only)
 func NewDecimal(f float64) Decimal {
-	return Decimal{value: int64(f * decimalScale)}
+	return Decimal{value: int64(math.Round(f * decimalScale))}
 }
 
 // NewDecimalFromCents creates a Decimal from cents (integer)
@@ -681,3 +682,4 @@ func (e *Engine) EvaluateParallel(carts []*Cart) ([]*CalculationManifest, error)
 
 	return results, nil
 }
+

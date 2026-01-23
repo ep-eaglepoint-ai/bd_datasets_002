@@ -28,17 +28,17 @@ The objective is to architect a high-precision, non-linear discount engine that 
 ## Folder Structure
 
 ```
-├── repository_before/     # Empty (code generation task)
-├── repository_after/      # Go implementation
-│   ├── discount_engine.go
-│   ├── discount_engine_test.go
-│   └── go.mod
-├── evaluation/            # Evaluation script
-│   └── evaluation.go
-├── instances/             # Problem instances
-│   └── instance.json
-├── patches/               # Diff patches
-└── trajectory/            # Development notes
+â”œâ”€â”€ repository_before/     # Empty (code generation task)
+â”œâ”€â”€ repository_after/      # Go implementation
+â”‚   â”œâ”€â”€ discount_engine.go
+â”‚   â”œâ”€â”€ discount_engine_test.go
+â”‚   â””â”€â”€ go.mod
+â”œâ”€â”€ evaluation/            # Evaluation script
+â”‚   â””â”€â”€ evaluation.go
+â”œâ”€â”€ instances/             # Problem instances
+â”‚   â””â”€â”€ instance.json
+â”œâ”€â”€ patches/               # Diff patches
+â””â”€â”€ trajectory/            # Development notes
 ```
 
 ## Solution Implementation
@@ -73,7 +73,7 @@ go test -v ./...
 
 | Tests | Status |
 |-------|--------|
-| 25/25 | ✅ PASS |
+| 23/23 | âœ… PASS |
 
 ## Key Features
 

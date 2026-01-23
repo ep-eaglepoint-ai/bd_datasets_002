@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// TestEvent represents a Go test JSON output event
 type TestEvent struct {
 	Time    string  `json:"Time"`
 	Action  string  `json:"Action"`
@@ -19,20 +18,17 @@ type TestEvent struct {
 	Elapsed float64 `json:"Elapsed"`
 }
 
-// Report represents the evaluation report
 type Report struct {
 	Timestamp       string            `json:"timestamp"`
 	RepositoryAfter RepositoryResults `json:"repository_after"`
 	Success         bool              `json:"success"`
 }
 
-// RepositoryResults contains test results
 type RepositoryResults struct {
 	Tests   map[string]string `json:"tests"`
 	Metrics Metrics           `json:"metrics"`
 }
 
-// Metrics contains test metrics
 type Metrics struct {
 	Total  int `json:"total"`
 	Passed int `json:"passed"`
@@ -51,7 +47,6 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := scanner.Text()
-		
 		var event TestEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			continue
@@ -70,11 +65,10 @@ func main() {
 
 	total := passed + failed
 
-	fmt.Printf("\n📂 Evaluating repository_after...\n")
-	fmt.Printf("   ✓ Passed: %d\n", passed)
-	fmt.Printf("   ✗ Failed: %d\n", failed)
+	fmt.Printf("\n?? Evaluating repository_after...\n")
+	fmt.Printf("   ? Passed: %d\n", passed)
+	fmt.Printf("   ? Failed: %d\n", failed)
 
-	// Generate report
 	report := Report{
 		Timestamp: time.Now().Format(time.RFC3339),
 		RepositoryAfter: RepositoryResults{
@@ -88,17 +82,27 @@ func main() {
 		Success: failed == 0 && total > 0,
 	}
 
-	// Save report
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15-04-05")
-	outputDir := filepath.Join("evaluation", dateStr, timeStr)
-	
+
+	projectRoot := os.Getenv("PROJECT_ROOT")
+	if projectRoot == "" {
+		cwd, _ := os.Getwd()
+		projectRoot = filepath.Dir(cwd)
+	}
+
+	baseEvalDir := filepath.Join(projectRoot, "evaluation")
+	os.MkdirAll(baseEvalDir, 0755)
+
+	outputDir := filepath.Join(baseEvalDir, dateStr, timeStr)
 	os.MkdirAll(outputDir, 0755)
 	outputFile := filepath.Join(outputDir, "report.json")
-	
+	fixedOutputFile := filepath.Join(baseEvalDir, "report.json")
+
 	reportJSON, _ := json.MarshalIndent(report, "", "  ")
 	os.WriteFile(outputFile, reportJSON, 0644)
+	os.WriteFile(fixedOutputFile, reportJSON, 0644)
 
 	fmt.Printf("\n%s\n", string(repeat('=', 60)))
 	fmt.Println("EVALUATION SUMMARY")
@@ -106,15 +110,13 @@ func main() {
 	fmt.Printf("Total Tests: %d\n", total)
 	fmt.Printf("Passed: %d\n", passed)
 	fmt.Printf("Failed: %d\n", failed)
-	
 	if total > 0 {
 		fmt.Printf("Success Rate: %.1f%%\n", float64(passed)/float64(total)*100)
 	}
-	
 	if report.Success {
-		fmt.Println("Overall: ✓ PASS")
+		fmt.Println("Overall: ? PASS")
 	} else {
-		fmt.Println("Overall: ✗ FAIL")
+		fmt.Println("Overall: ? FAIL")
 	}
 	fmt.Println(string(repeat('=', 60)))
 

@@ -18,4 +18,5 @@ COPY . .
 ENV CGO_ENABLED=0
 
 # Default command
-CMD ["go", "test", "-v", "./repository_after/..."]
+WORKDIR /app/repository_after
+CMD ["go", "test", "-v", "./..."]
