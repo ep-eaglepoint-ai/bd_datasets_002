@@ -2,7 +2,7 @@
 node_modules/
 
 # Evaluation reports (generated at runtime)
-evaluation/*/
+evaluation/????-??-??/
 
 # Build artifacts
 *.log
