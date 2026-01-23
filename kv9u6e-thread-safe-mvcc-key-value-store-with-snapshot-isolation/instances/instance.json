@@ -1,0 +1,12 @@
+{
+            "instance_id": "KV9U6E",
+            "problem_statement": "Standard Python dictionaries are not thread-safe for complex transactional operations and lack historical versioning. High-frequency trading systems require a lightweight, in-memory storage engine that supports Snapshot Isolation allowing long-running read operations to see a consistent view of data without blocking incoming write operations. The challenge is to implement a proprietary engine that manages Multi-Version Concurrency Control (MVCC) manually, handling complex state management, version chains, and garbage collection (vacuuming) to prevent memory leaks, all without relying on external database systems like Redis or SQLite.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/kv9u6e-thread-safe-mvcc-key-value-store-with-snapshot-isolation",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
