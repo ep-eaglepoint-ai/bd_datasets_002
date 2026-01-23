@@ -1,0 +1,97 @@
+CREATE TYPE user_registration_result AS (
+    result_code INTEGER,
+    message TEXT,
+    user_id BIGINT
+);
+
+CREATE OR REPLACE FUNCTION register_user(
+    p_email TEXT,
+    p_password_hash TEXT,
+    p_full_name TEXT,
+    p_registration_timestamp TIMESTAMP WITH TIME ZONE,
+    p_request_id UUID
+) RETURNS user_registration_result AS $$
+DECLARE
+    v_new_user_id BIGINT;
+    v_existing_user_id BIGINT;
+    v_constraint_name TEXT;
+    
+    CONST_SQLITE_OK INTEGER := 0;
+    CONST_SQLITE_ERROR INTEGER := 1;
+    CONST_SQLITE_CONSTRAINT INTEGER := 19;
+    CONST_SQLITE_MISUSE INTEGER := 21;
+BEGIN
+    IF p_email IS NULL OR LENGTH(TRIM(p_email)) = 0 OR
+       p_password_hash IS NULL OR LENGTH(TRIM(p_password_hash)) = 0 OR
+       p_full_name IS NULL OR LENGTH(TRIM(p_full_name)) = 0 OR
+       p_request_id IS NULL THEN
+        
+        INSERT INTO audit_log (request_id, email, status, details, created_at)
+        VALUES (p_request_id, p_email, 'FAILURE', 'Missing required fields', NOW());
+        
+        RETURN (CONST_SQLITE_MISUSE, 'Missing required inputs'::TEXT, NULL::BIGINT);
+    END IF;
+
+    IF TRIM(p_email) !~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
+        INSERT INTO audit_log (request_id, email, status, details, created_at)
+        VALUES (p_request_id, p_email, 'FAILURE', 'Invalid email format', NOW());
+        
+        RETURN (CONST_SQLITE_MISUSE, 'Invalid email format'::TEXT, NULL::BIGINT);
+    END IF;
+
+    SELECT user_id INTO v_existing_user_id
+    FROM processed_requests
+    WHERE request_id = p_request_id;
+
+    IF FOUND THEN
+        RETURN (CONST_SQLITE_OK, 'Request already processed (Idempotent)'::TEXT, v_existing_user_id);
+    END IF;
+
+    BEGIN
+        INSERT INTO users (email, password_hash, created_at)
+        VALUES (LOWER(TRIM(p_email)), p_password_hash, p_registration_timestamp)
+        RETURNING id INTO v_new_user_id;
+
+        INSERT INTO user_profiles (user_id, full_name, updated_at)
+        VALUES (v_new_user_id, TRIM(p_full_name), p_registration_timestamp);
+
+        INSERT INTO processed_requests (request_id, user_id, processed_at)
+        VALUES (p_request_id, v_new_user_id, NOW());
+
+        INSERT INTO audit_log (request_id, email, user_id, status, details, created_at)
+        VALUES (p_request_id, LOWER(TRIM(p_email)), v_new_user_id, 'SUCCESS', 'User registered successfully', NOW());
+
+        RETURN (CONST_SQLITE_OK, 'User registered successfully'::TEXT, v_new_user_id);
+
+    EXCEPTION
+        WHEN unique_violation THEN
+            GET STACKED DIAGNOSTICS v_constraint_name = CONSTRAINT_NAME;
+
+            IF v_constraint_name = 'users_email_key' OR v_constraint_name = 'users_email_unique' THEN
+                INSERT INTO audit_log (request_id, email, status, details, created_at)
+                VALUES (p_request_id, p_email, 'FAILURE', 'Duplicate email address', NOW());
+                
+                RETURN (CONST_SQLITE_CONSTRAINT, 'Email address already registered'::TEXT, NULL::BIGINT);
+
+            ELSIF v_constraint_name = 'processed_requests_pkey' THEN
+                SELECT user_id INTO v_existing_user_id
+                FROM processed_requests
+                WHERE request_id = p_request_id;
+                
+                RETURN (CONST_SQLITE_OK, 'Request already processed (Concurrent)'::TEXT, v_existing_user_id);
+            
+            ELSE
+                INSERT INTO audit_log (request_id, email, status, details, created_at)
+                VALUES (p_request_id, p_email, 'FAILURE', 'Database constraint violation: ' || v_constraint_name, NOW());
+                
+                RETURN (CONST_SQLITE_CONSTRAINT, 'Constraint violation'::TEXT, NULL::BIGINT);
+            END IF;
+
+        WHEN OTHERS THEN
+            INSERT INTO audit_log (request_id, email, status, details, created_at)
+            VALUES (p_request_id, p_email, 'FAILURE', 'Internal system error', NOW());
+            
+            RETURN (CONST_SQLITE_ERROR, 'Internal system error'::TEXT, NULL::BIGINT);
+    END;
+END;
+$$ LANGUAGE plpgsql;
