@@ -3,6 +3,7 @@
 **Category:** sft
 
 ## Overview
+
 - Task ID: TLQ65U
 - Title: Dependency Graph Cycle Check
 - Category: sft
@@ -10,6 +11,7 @@
 - Branch: tlq65u-dependency-graph-cycle-check
 
 ## Requirements
+
 - The input represents a directed graph of task dependencies.
 - Each task is identified by an integer from 0 to numTasks - 1.
 - A dependency (u, v) means task u must finish before task v starts.
@@ -29,6 +31,7 @@
 - Language-specific cycle detection libraries must not be used.
 
 ## Metadata
+
 - Programming Languages: Python
 - Frameworks: (none)
 - Libraries: (none)
@@ -39,6 +42,7 @@
 - Security Standards: (none)
 
 ## Structure
+
 - repository_before/: baseline code (`__init__.py`)
 - repository_after/: optimized code (`__init__.py`)
 - tests/: test suite (`__init__.py`)
@@ -48,10 +52,30 @@
 - trajectory/: notes or write-up (Markdown)
 
 ## Quick start
+
 - Run tests locally: `python -m pytest -q tests`
 - With Docker: `docker compose up --build --abort-on-container-exit`
 - Add dependencies to `requirements.txt`
 
 ## Notes
+
 - Keep commits focused and small.
 - Open a PR when ready for review.
+
+## Commands
+
+### Repository Before
+
+- No repository before
+
+### Repository After
+
+```bash
+docker compose run --rm app pytest -v tests
+```
+
+###
+
+```bash
+docker compose run --rm app python evaluation/evaluation.py
+```
