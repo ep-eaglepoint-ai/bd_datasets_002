@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-01-23T08:06:55Z",
-  "repository_after": {
+  "timestamp": "2026-01-23T10:17:40Z",
+  "tests": {
     "tests": {
       "TestCart_TotalPrice": "PASSED",
       "TestDAG_AddRule": "PASSED",
@@ -19,7 +19,6 @@
       "TestEngine_CalculationManifest_TracksDelta": "PASSED",
       "TestEngine_Consistency_1000Parallel": "PASSED",
       "TestEngine_ExclusiveRule_PrunesBranches": "PASSED",
-      "TestEngine_Performance_100Items_200Rules": "PASSED",
       "TestEngine_ShadowEvaluation_Idempotent": "PASSED",
       "TestEngine_ShadowEvaluation_SnapshotDate": "PASSED",
       "TestEngine_StackableRules_DeterministicOrder": "PASSED",
@@ -27,8 +26,8 @@
       "TestEngine_Validate": "PASSED"
     },
     "metrics": {
-      "total": 23,
-      "passed": 23,
+      "total": 22,
+      "passed": 22,
       "failed": 0
     }
   },

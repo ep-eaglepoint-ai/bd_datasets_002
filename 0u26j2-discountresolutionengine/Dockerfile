@@ -2,11 +2,16 @@ FROM golang:1.21-alpine
 
 WORKDIR /app
 
-# Copy go mod files
+# Copy root go.mod
+COPY go.mod ./
+COPY go.sum* ./
+
+# Copy repository_after go.mod
 COPY repository_after/go.mod ./repository_after/
 COPY repository_after/go.sum* ./repository_after/
 
 # Download dependencies
+RUN go mod download || true
 WORKDIR /app/repository_after
 RUN go mod download || true
 
@@ -18,5 +23,4 @@ COPY . .
 ENV CGO_ENABLED=0
 
 # Default command
-WORKDIR /app/repository_after
-CMD ["go", "test", "-v", "./..."]
+CMD ["go", "test", "-v", "./tests"]

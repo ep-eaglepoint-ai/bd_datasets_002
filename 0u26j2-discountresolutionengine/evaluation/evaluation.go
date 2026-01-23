@@ -20,7 +20,7 @@ type TestEvent struct {
 
 type Report struct {
 	Timestamp       string            `json:"timestamp"`
-	RepositoryAfter RepositoryResults `json:"repository_after"`
+	RepositoryAfter RepositoryResults `json:"tests"`
 	Success         bool              `json:"success"`
 }
 
@@ -65,7 +65,7 @@ func main() {
 
 	total := passed + failed
 
-	fmt.Printf("\n?? Evaluating repository_after...\n")
+	fmt.Printf("\n?? Evaluating tests...\n")
 	fmt.Printf("   ? Passed: %d\n", passed)
 	fmt.Printf("   ? Failed: %d\n", failed)
 
@@ -132,3 +132,4 @@ func repeat(char rune, count int) []rune {
 	}
 	return result
 }
+
