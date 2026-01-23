@@ -269,9 +269,13 @@ function generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics
     const reportPath = path.join(reportDir, 'report.json');
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
-    // Also write report.json in evaluation directory for CI to find
+    // Also write report.json in evaluation directory and project root for CI to find
     const ciReportPath = path.join(__dirname, 'report.json');
     fs.writeFileSync(ciReportPath, JSON.stringify(report, null, 2));
+    
+    // Write to project root as well (parent of evaluation directory)
+    const rootReportPath = path.join(__dirname, '..', 'report.json');
+    fs.writeFileSync(rootReportPath, JSON.stringify(report, null, 2));
 
     return { report, reportPath };
 }
@@ -342,6 +346,8 @@ function main() {
     console.log(`  - Code Complexity Change: ${report.comparison.code_complexity_change} lines`);
     console.log(`  - All Requirements Met: ${report.comparison.all_requirements_met ? '✓ YES' : '✗ NO'}`);
     console.log(`\nReport saved to: ${reportPath}`);
+    console.log(`CI report saved to: ${path.join(__dirname, 'report.json')}`);
+    console.log(`Root report saved to: ${path.join(__dirname, '..', 'report.json')}`);
     console.log(`CI report saved to: ${path.join(__dirname, 'report.json')}`);
 
     process.exit(report.success ? 0 : 1);
