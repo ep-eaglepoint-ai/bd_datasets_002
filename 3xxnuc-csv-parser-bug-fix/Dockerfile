@@ -1,5 +1,4 @@
-FROM python:3.11-slim
+FROM eclipse-temurin:17-jdk
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+CMD ["bash", "-c", "javac -d /tmp *.java repository_before/*.java tests/*.java && java -cp /tmp ObjectPoolCorrectnessTest"]

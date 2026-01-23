@@ -1,6 +1,18 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    command: bash -c "javac -d /tmp repository_before/*.java tests/*.java && cd /tmp && java ObjectPoolCorrectnessTest && java ObjectPoolConcurrencyTest && java ObjectPoolTimeoutTest && java ObjectPoolStressTest"
+  
+  test-after:
+    build: .
+    volumes:
+      - .:/app
+    command: bash -c "javac -d /tmp repository_after/*.java tests/*.java && cd /tmp && java ObjectPoolCorrectnessTest && java ObjectPoolConcurrencyTest && java ObjectPoolTimeoutTest && java ObjectPoolStressTest"
+  
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    command: bash -c "javac -d /tmp evaluation/*.java && java -cp /tmp Evaluation"

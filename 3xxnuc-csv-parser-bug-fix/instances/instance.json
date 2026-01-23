@@ -1,5 +1,5 @@
 {
-            "instance_id": "3XXNUC",
+            "instance_id": "3xxnuc-csv-parser-bug-fix",
             "problem_statement": "Noticed data corruption issues when testing a CSV parsing library used for financial data imports. The CsvParser class in a .NET 8 C# application fails to correctly handle several standard CSV scenarios: quoted fields containing delimiters are being split incorrectly, embedded newlines within quoted fields cause row misalignment, and escaped quote sequences appear doubled in the output. Additionally, files exported from Excel with UTF-8 BOM have invisible characters appearing in the first field, and processing large files causes memory exhaustion. The parser must comply with RFC 4180 while maintaining memory efficiency for files exceeding available RAM.",
             "base_commit": "repository_before/",
             "test_patch": "tests/",
