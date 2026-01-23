@@ -1,6 +1,119 @@
+# =============================================================================
+# Docker Compose for File Organizer Testing Framework
+# 
+# All services use the SAME image, just different MODE environment variable
+#
+# Commands:
+#   docker compose run --rm test-before   # Tests against repository_before (FAIL)
+#   docker compose run --rm test-after    # Tests against repository_after (PASS)  
+#   docker compose run --rm evaluation    # Run evaluation and generate report
+# =============================================================================
+
 services:
-  app:
+  # ---------------------------------------------------------------------------
+  # App running repository_before (empty/unimplemented - returns 404)
+  # ---------------------------------------------------------------------------
+  app-before:
     build: .
-    command: pytest -q tests
+    environment:
+      - MODE=app-before
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:3000 || exit 0"]
+      interval: 2s
+      timeout: 2s
+      retries: 3
+      start_period: 3s
+    networks:
+      - test-network
+
+  # ---------------------------------------------------------------------------
+  # App running repository_after (fully implemented)
+  # ---------------------------------------------------------------------------
+  app-after:
+    build: .
+    environment:
+      - MODE=app-after
+      - DATABASE_URL=file:./dev.db
     volumes:
-      - .:/app
+      - shared-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/scan || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - test-network
+
+  # ---------------------------------------------------------------------------
+  # Test runner against repository_before (expected to FAIL)
+  # ---------------------------------------------------------------------------
+  test-before:
+    build: .
+    environment:
+      - MODE=test
+      - APP_URL=http://app-before:3000
+      - TEST_DATA_DIR=/data
+    volumes:
+      - shared-data:/data
+    depends_on:
+      app-before:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  # ---------------------------------------------------------------------------
+  # Test runner against repository_after (expected to PASS)
+  # ---------------------------------------------------------------------------
+  test-after:
+    build: .
+    environment:
+      - MODE=test
+      - APP_URL=http://app-after:3000
+      - TEST_DATA_DIR=/data
+    volumes:
+      - shared-data:/data
+    depends_on:
+      app-after:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  # ---------------------------------------------------------------------------
+  # Alias for backward compatibility
+  # ---------------------------------------------------------------------------
+  tests:
+    extends:
+      service: test-after
+
+  # ---------------------------------------------------------------------------
+  # Evaluation runner
+  # ---------------------------------------------------------------------------
+  evaluation:
+    build: .
+    environment:
+      - MODE=evaluation
+      - APP_URL=http://app-after:3000
+      - TEST_DATA_DIR=/data
+    volumes:
+      - shared-data:/data
+      - ./evaluation:/app/evaluation
+    depends_on:
+      app-after:
+        condition: service_healthy
+    networks:
+      - test-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  shared-data:
+    driver: local
+
+# =============================================================================
+# Networks  
+# =============================================================================
+networks:
+  test-network:
+    driver: bridge
