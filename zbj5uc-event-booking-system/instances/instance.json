@@ -1,0 +1,13 @@
+{
+            "instance_id": "ZBJ5UC",
+            "problem_statement": "The community center currently tracks room bookings manually, causing scheduling confusion and lost information.
+Staff need a reliable digital system to manage events, including creating, updating, and canceling reservations.
+The system must persist data, ensure accurate availability, and provide a clear user interface for all bookings.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/zbj5uc-event-booking-system",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
