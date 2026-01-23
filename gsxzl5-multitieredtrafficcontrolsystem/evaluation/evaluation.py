@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""
+Evaluation runner for Mechanical Refactor (calc_score).
+
+This evaluation script:
+- Runs pytest tests on the tests/ folder for both before and after implementations
+- Collects individual test results with pass/fail status
+- Generates structured reports with environment metadata
+
+Run with:
+    docker compose run --rm app python evaluation/evaluation.py [options]
+"""
 import os
 import sys
 import json
@@ -61,7 +72,17 @@ def get_environment_info():
 
 
 def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
-   
+    """
+    Run pytest on the tests/ folder with specific PYTHONPATH.
+    
+    Args:
+        pythonpath: The PYTHONPATH to use for the tests
+        tests_dir: Path to the tests directory
+        label: Label for this test run (e.g., "before", "after")
+    
+    Returns:
+        dict with test results
+    """
     print(f"\n{'=' * 60}")
     print(f"RUNNING TESTS: {label.upper()}")
     print(f"{'=' * 60}")
@@ -107,11 +128,11 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
         # Print individual test results
         for test in tests:
             status_icon = {
-                "passed": "[PASS]",
-                "failed": "[FAIL]",
-                "error": "[ERR]",
-                "skipped": "[SKIP]"
-            }.get(test.get("outcome"), "[?]")
+                "passed": "✅",
+                "failed": "❌",
+                "error": "💥",
+                "skipped": "⏭️"
+            }.get(test.get("outcome"), "❓")
             print(f"  {status_icon} {test.get('nodeid', 'unknown')}: {test.get('outcome', 'unknown')}")
         
         return {
@@ -130,7 +151,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
         }
         
     except subprocess.TimeoutExpired:
-        print("[FAIL] Test execution timed out")
+        print("❌ Test execution timed out")
         return {
             "success": False,
             "exit_code": -1,
@@ -140,7 +161,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
             "stderr": "",
         }
     except Exception as e:
-        print(f"[ERR] Error running tests: {e}")
+        print(f"❌ Error running tests: {e}")
         return {
             "success": False,
             "exit_code": -1,
@@ -149,19 +170,6 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
             "stdout": "",
             "stderr": "",
         }
-
-    with open(output_path, "w") as f:
-        json.dump(report, f, indent=2)
-    print(f"\n[OK] Report saved to: {output_path}")
-    
-    print(f"\n{'=' * 60}")
-    print(f"EVALUATION COMPLETE")
-    print(f"{'=' * 60}")
-    print(f"Run ID: {run_id}")
-    print(f"Duration: {duration:.2f}s")
-    print(f"Success: {'[YES]' if success else '[NO]'}")
-    
-    return 0 if success else 1
 
 
 def parse_pytest_verbose_output(output):
@@ -172,6 +180,7 @@ def parse_pytest_verbose_output(output):
     for line in lines:
         line_stripped = line.strip()
         
+        # Match lines like: tests/test_before.py::test_before_matches_reference_vectors PASSED
         if '::' in line_stripped:
             outcome = None
             if ' PASSED' in line_stripped:
@@ -250,11 +259,11 @@ def run_evaluation():
     print(f"{'=' * 60}")
     
     print(f"\nBefore Implementation (repository_before):")
-    print(f"  Overall: {'[PASS]' if before_results.get('success') else '[FAIL]'}")
+    print(f"  Overall: {'✅ PASSED' if before_results.get('success') else '❌ FAILED'}")
     print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
     
     print(f"\nAfter Implementation (repository_after):")
-    print(f"  Overall: {'[PASS]' if after_results.get('success') else '[FAIL]'}")
+    print(f"  Overall: {'✅ PASSED' if after_results.get('success') else '❌ FAILED'}")
     print(f"  Tests: {comparison['after_passed']}/{comparison['after_total']} passed")
     
     # Determine expected behavior
@@ -265,9 +274,9 @@ def run_evaluation():
     # Before: functional tests should pass, structural tests might fail
     # After: all tests should pass
     if after_results.get("success"):
-        print("  [PASS] After implementation: All tests passed (expected)")
+        print("✅ After implementation: All tests passed (expected)")
     else:
-        print("  [FAIL] After implementation: Some tests failed (unexpected - should pass all)")
+        print("❌ After implementation: Some tests failed (unexpected - should pass all)")
     
     return {
         "before": before_results,
@@ -353,21 +362,14 @@ def main():
     
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2)
-    print(f"\n[OK] Report saved to: {output_path}")
-    if success:
-        print("\nAttempting to cleanup build failure markers...")
-        try:
-             subprocess.run("rm -f /tmp/BUILD_FAILED_*", shell=True, check=False)
-             print("Cleanup command executed.")
-        except Exception as e:
-            print(f"Error during marker cleanup: {e}")
+    print(f"\n✅ Report saved to: {output_path}")
     
     print(f"\n{'=' * 60}")
     print(f"EVALUATION COMPLETE")
     print(f"{'=' * 60}")
     print(f"Run ID: {run_id}")
     print(f"Duration: {duration:.2f}s")
-    print(f"Success: {'[YES]' if success else '[NO]'}")
+    print(f"Success: {'✅ YES' if success else '❌ NO'}")
     
     return 0 if success else 1
 
