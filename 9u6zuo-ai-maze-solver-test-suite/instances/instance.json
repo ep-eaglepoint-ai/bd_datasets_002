@@ -1,0 +1,12 @@
+{
+            "instance_id": "9U6ZUO",
+            "problem_statement": "The AI Maze Solver is designed to find a valid path from a start point to a goal within a maze. The maze may include obstacles, dead ends, and multiple possible paths. A test suite is required to verify correct maze interpretation and path generation. The tests ensure the solver avoids obstacles and handles edge cases correctly.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9u6zuo-ai-maze-solver-test-suite",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
