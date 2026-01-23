@@ -222,11 +222,15 @@ async function main() {
       process.env.TEST_REPO = repoType;
       
       // Run Jest tests directly with file-based checks only
-      const jestArgs = ['jest', '--testPathPattern=tests/sandbox.test.js', '--no-coverage', '--forceExit'];
+      // Use JSON reporter for easier parsing in evaluation mode
+      const jestArgs = ['jest', '--testPathPattern=tests/sandbox.test.js', '--no-coverage', '--forceExit', '--json', '--outputFile=/tmp/jest-results.json'];
+      
+      let jestOutput = '';
+      let jestError = '';
       
       const jest = spawn('npx', jestArgs, {
         cwd: projectRoot,
-        stdio: 'pipe', // Silent in evaluation
+        stdio: 'pipe', // Capture output for evaluation
         shell: true,
         env: { 
           ...process.env, 
@@ -236,12 +240,40 @@ async function main() {
         }
       });
       
+      // Capture stdout and stderr and forward to parent process
+      // This ensures evaluation.js can capture the output via execSync
+      jest.stdout.on('data', (data) => {
+        const dataStr = data.toString();
+        jestOutput += dataStr;
+        // Write to stdout so execSync in evaluation.js can capture it
+        process.stdout.write(dataStr);
+      });
+      
+      jest.stderr.on('data', (data) => {
+        const dataStr = data.toString();
+        jestError += dataStr;
+        // Write to stderr
+        process.stderr.write(dataStr);
+      });
+      
       jest.on('error', (error) => {
         console.error('Jest error:', error);
         process.exit(1);
       });
       
       jest.on('close', (code) => {
+        // Try to read JSON results if available
+        try {
+          const resultsPath = '/tmp/jest-results.json';
+          if (fs.existsSync(resultsPath)) {
+            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+            // Output summary in format evaluation can parse
+            console.log(`\nTest Suites: ${results.numPassedTestSuites} passed, ${results.numFailedTestSuites} failed, ${results.numTotalTestSuites} total`);
+            console.log(`Tests:       ${results.numPassedTests} passed, ${results.numFailedTests} failed, ${results.numTotalTests} total`);
+          }
+        } catch (e) {
+          // Ignore JSON parse errors, fall back to regular output
+        }
         process.exit(code);
       });
       

@@ -46,10 +46,48 @@ function runTests(repoType, timeout = 120000) { // Reduced from 180s to 120s
     
     // Parse test results from output
     const output = result.toString();
-    const passedMatch = output.match(/(\d+) passed/i);
-    const failedMatch = output.match(/(\d+) failed/i);
-    const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
-    const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+    
+    // Try to parse from Jest JSON output first (if available)
+    let passed = 0;
+    let failed = 0;
+    
+    try {
+      const resultsPath = '/tmp/jest-results.json';
+      if (fs.existsSync(resultsPath)) {
+        const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+        passed = results.numPassedTests || 0;
+        failed = results.numFailedTests || 0;
+      }
+    } catch (e) {
+      // Fall back to regex parsing
+    }
+    
+    // If JSON parsing didn't work, use regex on output
+    if (passed === 0 && failed === 0) {
+      // Try multiple patterns to match Jest output format
+      // Pattern 1: "Tests:       7 passed, 7 total" (Jest format with multiple spaces/tabs)
+      // Pattern 2: "Tests: 7 passed"
+      // Pattern 3: "7 passed, 0 failed"
+      let passedMatch = output.match(/Tests:\s+(\d+)\s+passed/i) || 
+                        output.match(/Tests:\s*(\d+)\s+passed/i) ||
+                        output.match(/(\d+)\s+passed(?:,\s*\d+\s+total)?/i) ||
+                        output.match(/(\d+)\s+passed/i);
+      
+      let failedMatch = output.match(/Tests:\s+\d+\s+passed,\s+(\d+)\s+failed/i) ||
+                        output.match(/Tests:\s*\d+\s+passed,\s*(\d+)\s+failed/i) ||
+                        output.match(/(\d+)\s+failed/i);
+      
+      // Count checkmarks as passed tests (fallback)
+      if (!passedMatch) {
+        const checkmarkCount = (output.match(/✓/g) || []).length;
+        if (checkmarkCount > 0) {
+          passedMatch = [null, checkmarkCount.toString()];
+        }
+      }
+      
+      passed = passedMatch ? parseInt(passedMatch[1]) : 0;
+      failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+    }
     
     // Simple check: if exit code is 0, tests passed
     const tests_passed = true;
@@ -69,10 +107,44 @@ function runTests(repoType, timeout = 120000) { // Reduced from 180s to 120s
     
     // Parse test results from output even if tests failed
     const output = (error.stdout || '').toString();
-    const passedMatch = output.match(/(\d+) passed/i);
-    const failedMatch = output.match(/(\d+) failed/i);
-    const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
-    const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+    
+    // Try to parse from Jest JSON output first (if available)
+    let passed = 0;
+    let failed = 0;
+    
+    try {
+      const resultsPath = '/tmp/jest-results.json';
+      if (fs.existsSync(resultsPath)) {
+        const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+        passed = results.numPassedTests || 0;
+        failed = results.numFailedTests || 0;
+      }
+    } catch (e) {
+      // Fall back to regex parsing
+    }
+    
+    // If JSON parsing didn't work, use regex on output
+    if (passed === 0 && failed === 0) {
+      let passedMatch = output.match(/Tests:\s+(\d+)\s+passed/i) || 
+                        output.match(/Tests:\s*(\d+)\s+passed/i) ||
+                        output.match(/(\d+)\s+passed(?:,\s*\d+\s+total)?/i) ||
+                        output.match(/(\d+)\s+passed/i);
+      
+      let failedMatch = output.match(/Tests:\s+\d+\s+passed,\s+(\d+)\s+failed/i) ||
+                        output.match(/Tests:\s*\d+\s+passed,\s*(\d+)\s+failed/i) ||
+                        output.match(/(\d+)\s+failed/i);
+      
+      // Count checkmarks as passed tests (fallback)
+      if (!passedMatch) {
+        const checkmarkCount = (output.match(/✓/g) || []).length;
+        if (checkmarkCount > 0) {
+          passedMatch = [null, checkmarkCount.toString()];
+        }
+      }
+      
+      passed = passedMatch ? parseInt(passedMatch[1]) : 0;
+      failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+    }
     
     // Simple check: if exit code is non-zero, tests failed
     const tests_passed = false;
