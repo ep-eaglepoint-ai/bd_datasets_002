@@ -1,0 +1,13 @@
+{
+            "instance_id": "D8EWY7",
+            "problem_statement": "A logistics company needs a data analytics platform where analysts can upload CSV files containing shipment records from multiple carriers. Each carrier provides files in slightly different formats but all contain core fields: tracking number, origin, destination, weight, dimensions, shipping date, and delivery status. The system must parse these files, validate the data against business rules, store valid records in MongoDB for analysis, and provide a web interface for viewing and exporting results. 
+
+The platform should handle files up to 100MB with thousands of rows while providing real-time progress feedback to users. Multiple analysts may upload files simultaneously, and the system must keep each upload's data isolated and traceable.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/d8ewy7-vue-c-mongodb-file-processing-pipeline",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
