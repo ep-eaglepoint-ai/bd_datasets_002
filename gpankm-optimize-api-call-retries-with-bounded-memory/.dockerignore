@@ -6,6 +6,10 @@ node_modules
 evaluation/202*
 evaluation/**/report.json
 patches
+trajectory
+instances
 .env
 .venv
 __pycache__
+scripts
+.dockerignore
