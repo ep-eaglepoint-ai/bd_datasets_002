@@ -1,14 +1,15 @@
 services:
   test:
     build: .
-    command: pytest -q tests
+    image: dependency-resolver:latest
+    command: pytest -v tests
     volumes:
       - .:/app
     environment:
       - PYTHONPATH=/app
 
   evaluation:
-    build: .
+    image: dependency-resolver:latest
     command: python evaluation/evaluation.py
     volumes:
       - .:/app

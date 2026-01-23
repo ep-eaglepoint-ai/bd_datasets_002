@@ -186,3 +186,214 @@ class TestDependencyResolver:
         for _ in range(10):
             assert run_shuffled() == expected
 
+    # ===== Additional Coverage Tests =====
+
+    def test_empty_graph(self):
+        # Empty dictionary should return empty list
+        graph = {}
+        assert resolve_execution_order(graph) == []
+
+    def test_single_node_no_deps(self):
+        # Single node with no dependencies
+        graph = {'A': []}
+        assert resolve_execution_order(graph) == ['A']
+
+    def test_multiple_independent_nodes(self):
+        # Multiple nodes with no dependencies - alphabetical order
+        graph = {
+            'Z': [],
+            'A': [],
+            'M': [],
+            'B': []
+        }
+        assert resolve_execution_order(graph) == ['A', 'B', 'M', 'Z']
+
+    def test_cycle_in_disconnected_subgraph(self):
+        # One subgraph has a cycle, other is valid
+        # Valid: A -> B
+        # Cycle: X -> Y -> Z -> X
+        graph = {
+            'A': ['B'],
+            'X': ['Y'],
+            'Y': ['Z'],
+            'Z': ['X']
+        }
+        with pytest.raises(CircularDependencyError) as excinfo:
+            resolve_execution_order(graph)
+        
+        msg = str(excinfo.value)
+        assert "Circular dependency detected" in msg
+        # Should detect the cycle in X->Y->Z->X
+        assert ('X' in msg and 'Y' in msg and 'Z' in msg)
+
+    def test_wide_deep_tree(self):
+        # A wide and deep tree to stress test recursion/iteration
+        # Create a tree: root depends on level1_0..9, each level1 depends on level2_0..9, etc.
+        graph = {}
+        
+        # 5 levels, 10 children per node = 10^4 edges (manageable)
+        # Root
+        graph['root'] = [f'L1_{i}' for i in range(10)]
+        
+        # Level 1 -> Level 2
+        for i in range(10):
+            graph[f'L1_{i}'] = [f'L2_{i}_{j}' for j in range(10)]
+        
+        # Level 2 -> Level 3
+        for i in range(10):
+            for j in range(10):
+                graph[f'L2_{i}_{j}'] = [f'L3_{i}_{j}_{k}' for k in range(10)]
+        
+        # Execute
+        result = resolve_execution_order(graph)
+        
+        # Should have root + 10 L1 + 100 L2 + 1000 L3 = 1111 nodes
+        assert len(result) == 1111
+        
+        # Root should be last
+        assert result[-1] == 'root'
+        
+        # All L3 nodes should come before their parent L2 nodes
+        # Check a few specific parent-child relationships
+        for i in range(10):
+            for j in range(10):
+                l2_node = f'L2_{i}_{j}'
+                l2_index = result.index(l2_node)
+                # All children of this L2 node should come before it
+                for k in range(10):
+                    l3_node = f'L3_{i}_{j}_{k}'
+                    l3_index = result.index(l3_node)
+                    assert l3_index < l2_index, f"{l3_node} should come before {l2_node}"
+        
+        # Similarly, all L2 should come before their L1 parents
+        for i in range(10):
+            l1_node = f'L1_{i}'
+            l1_index = result.index(l1_node)
+            for j in range(10):
+                l2_node = f'L2_{i}_{j}'
+                l2_index = result.index(l2_node)
+                assert l2_index < l1_index, f"{l2_node} should come before {l1_node}"
+
+    def test_large_scale_alphabetical_determinism(self):
+        # 500 nodes all at the same level (no dependencies)
+        # Should be sorted alphabetically
+        n = 500
+        nodes = [f'node_{i:04d}' for i in range(n)]
+        graph = {node: [] for node in nodes}
+        
+        result = resolve_execution_order(graph)
+        
+        # Should be sorted
+        assert result == sorted(nodes)
+
+    def test_multiple_independent_cycles(self):
+        # Two separate cycles in the graph
+        # Cycle 1: A -> B -> A
+        # Cycle 2: X -> Y -> X
+        graph = {
+            'A': ['B'],
+            'B': ['A'],
+            'X': ['Y'],
+            'Y': ['X']
+        }
+        
+        with pytest.raises(CircularDependencyError) as excinfo:
+            resolve_execution_order(graph)
+        
+        # Should detect at least one cycle
+        msg = str(excinfo.value)
+        assert "Circular dependency detected" in msg
+
+    def test_duplicate_dependencies(self):
+        # Node with duplicate dependencies - should handle gracefully
+        graph = {
+            'A': ['B', 'B', 'B']
+        }
+        result = resolve_execution_order(graph)
+        # Should still work correctly
+        assert result == ['B', 'A']
+
+    def test_mixed_disconnected_and_connected(self):
+        # Mix of connected and disconnected components with various patterns
+        graph = {
+            # Chain: A -> B -> C
+            'A': ['B'],
+            'B': ['C'],
+            # Diamond: D depends on E and F, both depend on G
+            'D': ['E', 'F'],
+            'E': ['G'],
+            'F': ['G'],
+            # Independent nodes
+            'X': [],
+            'Y': [],
+            # Another chain: Z -> W
+            'Z': ['W']
+        }
+        
+        result = resolve_execution_order(graph)
+        
+        # Check all nodes present (A-G, W-Z, X-Y = 11 total)
+        # Keys: A, B, D, E, F, X, Y, Z (8 keys)
+        # Additional values: C, G, W (3 more nodes)
+        assert len(result) == 11
+        assert set(result) == {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'W', 'X', 'Y', 'Z'}
+        
+        # Check ordering constraints
+        assert result.index('C') < result.index('B') < result.index('A')
+        assert result.index('G') < result.index('E') < result.index('D')
+        assert result.index('G') < result.index('F') < result.index('D')
+        assert result.index('W') < result.index('Z')
+
+    def test_long_cycle_path(self):
+        # A cycle with many nodes in the path
+        # A -> B -> C -> D -> E -> F -> G -> H -> I -> J -> A
+        nodes = list(string.ascii_uppercase[:10])  # A-J
+        graph = {}
+        for i in range(len(nodes)):
+            graph[nodes[i]] = [nodes[(i + 1) % len(nodes)]]
+        
+        with pytest.raises(CircularDependencyError) as excinfo:
+            resolve_execution_order(graph)
+        
+        msg = str(excinfo.value)
+        assert "Circular dependency detected" in msg
+        # Should contain the cycle path
+        assert "A" in msg
+
+    def test_node_with_self_and_other_deps(self):
+        # Node depends on itself AND other nodes
+        graph = {
+            'A': ['A', 'B']
+        }
+        
+        with pytest.raises(CircularDependencyError) as excinfo:
+            resolve_execution_order(graph)
+        
+        assert "A -> A" in str(excinfo.value)
+
+    def test_very_wide_graph(self):
+        # One node depends on 1000 others (all independent)
+        deps = [f'dep_{i:04d}' for i in range(1000)]
+        graph = {'root': deps}
+        
+        result = resolve_execution_order(graph)
+        
+        # All deps should come before root
+        assert result[-1] == 'root'
+        # Deps should be in alphabetical order
+        assert result[:-1] == sorted(deps)
+
+    def test_performance_wide_dependencies(self):
+        # Performance test: node with many dependencies
+        n = 5000
+        deps = [f'dep_{i}' for i in range(n)]
+        graph = {'root': deps}
+        
+        start_time = time.time()
+        result = resolve_execution_order(graph)
+        duration = time.time() - start_time
+        
+        assert len(result) == n + 1
+        assert result[-1] == 'root'
+        assert duration < 2.0
+
