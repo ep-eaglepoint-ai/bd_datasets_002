@@ -6,6 +6,7 @@ services:
       - /app/node_modules
     environment:
       - REPO_PATH=repository_before
+      - EXPECT_FAILURE=true
     command: npm test
 
   app-after:

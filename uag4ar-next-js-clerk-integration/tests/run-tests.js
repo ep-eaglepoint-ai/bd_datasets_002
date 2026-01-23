@@ -90,9 +90,21 @@ for (const t of tests) {
   }
 }
 
+const expectFailure = process.env.EXPECT_FAILURE === 'true';
+
 console.log('\nSummary:');
 console.log('Passed:', passed);
 console.log('Failed:', failed);
 
-if (failed > 0) process.exit(1);
-process.exit(0);
+if (expectFailure) {
+  if (failed > 0) {
+    console.log('Failures expected and found. Exiting with success (0).');
+    process.exit(0);
+  } else {
+    console.log('Expected failures but none found. Exiting with failure (1).');
+    process.exit(1);
+  }
+} else {
+  if (failed > 0) process.exit(1);
+  process.exit(0);
+}
