@@ -1,6 +1,12 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    command: npx ts-node tests/test_before.ts
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    command: npx ts-node tests/test_after.ts
     volumes:
       - .:/app

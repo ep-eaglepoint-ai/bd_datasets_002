@@ -1,19 +1,20 @@
 {
   "name": "0sexu2-advancedpdfbufferorchestrator",
   "version": "1.0.0",
-  "description": "**Category:** sft",
-  "main": "index.js",
-  "directories": {
-    "test": "tests"
-  },
+  "description": "PDF Merger Service",
+  "main": "repository_after/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx ts-node tests/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  },
   "devDependencies": {
-    "@types/node": "^25.0.10",
-    "ts-node": "^10.9.2"
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.2"
   }
 }
