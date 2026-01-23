@@ -3,6 +3,7 @@ services:
     build: .
     volumes:
       - .:/app
+      - /app/node_modules
     command:
       - npx
       - ts-node
@@ -26,10 +27,12 @@ services:
     build: .
     volumes:
       - .:/app
+      - /app/node_modules
     command: npm test
 
   evaluation:
     build: .
     volumes:
       - .:/app
+      - /app/node_modules
     command: npx ts-node evaluation/evaluation.ts
