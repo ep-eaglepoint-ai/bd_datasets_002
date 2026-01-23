@@ -17,11 +17,13 @@ function environmentInfo() {
 function runTests(repo: string): Promise<{ passed: boolean; returnCode: number; output: string }> {
   return new Promise((resolve) => {
     let cwd = ROOT;
+    const repoEnv = repo.replace('repository_', '');
+    const env = { ...process.env, REPO: repoEnv };
     if (repo === 'repository_before') {
       // cd repository_before && npm install && cd .. && npm test
       const installProc = spawn('npm', ['install'], { cwd: path.join(cwd, 'repository_before'), stdio: 'pipe' });
       installProc.on('close', (installCode: number | null) => {
-        const testProc = spawn('npm', ['test'], { cwd: cwd, stdio: 'pipe' });
+        const testProc = spawn('npm', ['test'], { cwd: cwd, env: env, stdio: 'pipe' });
         let output = '';
         testProc.stdout.on('data', (data: Buffer) => output += data.toString());
         testProc.stderr.on('data', (data: Buffer) => output += data.toString());
@@ -30,7 +32,7 @@ function runTests(repo: string): Promise<{ passed: boolean; returnCode: number; 
         });
       });
     } else {
-      const testProc = spawn('npm', ['test'], { cwd: cwd, stdio: 'pipe' });
+      const testProc = spawn('npm', ['test'], { cwd: cwd, env: env, stdio: 'pipe' });
       let output = '';
       testProc.stdout.on('data', (data: Buffer) => output += data.toString());
       testProc.stderr.on('data', (data: Buffer) => output += data.toString());
