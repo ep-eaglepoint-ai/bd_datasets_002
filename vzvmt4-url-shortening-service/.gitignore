@@ -9,3 +9,13 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Databases
+*.db
+
+# Tests
+.pytest_cache/
+
+# Evaluation Reports
+evaluation/*/
+temp_pytest_report.json
