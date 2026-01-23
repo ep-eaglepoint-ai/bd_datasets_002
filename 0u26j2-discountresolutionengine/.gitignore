@@ -1,11 +1,24 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.env
+# Go
+/bin/
+/pkg/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
 
-# Node
-node_modules/
+# IDE
+.idea/
+.vscode/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Evaluation reports
+evaluation/*/
+
+# Keep JSON config
+!instances/*.json
