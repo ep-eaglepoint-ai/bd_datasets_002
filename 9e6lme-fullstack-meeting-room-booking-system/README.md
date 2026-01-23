@@ -13,3 +13,10 @@ docker compose run --rm test
 ```bash
 docker compose run --rm evaluation
 ```
+
+### See the app live
+
+```bash
+docker compose up
+# Then visit http://localhost:5173
+```
