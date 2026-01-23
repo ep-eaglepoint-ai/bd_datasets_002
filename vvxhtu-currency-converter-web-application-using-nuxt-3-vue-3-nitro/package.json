@@ -1,0 +1,9 @@
+{
+  "name": "vvxhtu-currency-converter",
+  "version": "1.0.0",
+  "description": "Currency Converter Web Application using Nuxt 3",
+  "scripts": {
+    "evaluate": "node evaluation/evaluation.js",
+    "test": "cd repository_after && npm test"
+  }
+}
