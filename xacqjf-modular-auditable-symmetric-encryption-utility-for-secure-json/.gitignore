@@ -11,4 +11,5 @@ node_modules/
 .DS_Store
 
 # Date-formatted evaluation folders
+evaluation/
 evaluation/????-??-??/
