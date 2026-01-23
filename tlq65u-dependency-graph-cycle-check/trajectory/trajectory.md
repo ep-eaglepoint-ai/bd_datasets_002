@@ -1,4 +1,4 @@
-# Trajectory: High-Performance Graph Cycle Detection
+# Trajectory: Dependency Graph Cycle Check
 
 **Subject:** Efficiently detecting circular dependencies in large-scale build systems (≤ 105 tasks)
 
