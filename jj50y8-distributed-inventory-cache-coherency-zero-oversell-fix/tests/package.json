@@ -1,0 +1,19 @@
+{
+  "name": "inventory-cache-tests",
+  "version": "1.0.0",
+  "description": "Tests for distributed inventory cache coherency",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx ts-node test-inventory.ts"
+  },
+  "dependencies": {
+    "ioredis": "^5.3.2",
+    "pg": "^8.11.3",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/pg": "^8.10.9",
+    "typescript": "^5.3.3"
+  }
+}
