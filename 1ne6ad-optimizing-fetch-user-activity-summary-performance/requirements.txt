@@ -1,3 +1,3 @@
-# Add your Python dependencies here
-pytest
-psycopg2-binary
+psycopg2-binary==2.9.7
+pytest==7.4.0
+psutil==5.9.5

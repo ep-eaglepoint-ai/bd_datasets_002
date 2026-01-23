@@ -10,4 +10,5 @@ node_modules/
 # OS
 .DS_Store
 
+# Evaluation reports - only report.json files in date/time folders
 evaluation/reports/
