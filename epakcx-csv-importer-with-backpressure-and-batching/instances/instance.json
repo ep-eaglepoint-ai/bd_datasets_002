@@ -1,0 +1,11 @@
+{
+            "instance_id": "EPAKCX",
+            "problem_statement": "Node.js streams are efficient, but mixing synchronous streams (file reading) with asynchronous operations (Database Inserts) creates a "Fast Producer, Slow Consumer" problem. Without explicit Backpressure control, the Node.js memory buffer fills up instantly, crashing the process. The challenge is to implement a mechanism that pauses the file reader while the Database handles a batch of inserts, all while maintaining ACID compliance for batches and broadcasting progress via WebSockets.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/epakcx-csv-importer-with-backpressure-and-batching",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
