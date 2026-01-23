@@ -1,0 +1,11 @@
+{
+            "instance_id": "5L9UEG",
+            "problem_statement": "In distributed backend systems, the same request can be received multiple times due to client retries, network timeouts, or partial failures, which can cause operations to execute more than once and lead to inconsistent state, duplicated side effects, and incorrect results. The problem is to prevent these duplicate executions while still allowing clients to safely retry requests and receive consistent outcomes, even when requests are processed concurrently or when failures occur.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/5l9ueg-idempotent-processor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
