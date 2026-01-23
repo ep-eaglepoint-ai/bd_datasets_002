@@ -17,8 +17,8 @@ Three commands using the `evaluation` Docker service:
 
 **1. Run tests (before – expected failures)**
 ```bash
-docker compose run --rm evaluation npm run test:before
-```
+docker compose run --rm evaluation npm run test:before || :
+````
 **Expected behavior:**
 - Some tests will **FAIL** (repository_before lacks multi-file upload and related behavior)
 - Requirement tests (Req 1–19) and behavioral checks will fail on the baseline
