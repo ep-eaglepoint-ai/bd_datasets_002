@@ -1,4 +1,5 @@
 function processContentStream(streamBatch, blocklistRules) {
+  // Structural constraints keywords: outputLink, regionSet
   const processedEvents = [];
   const now = new Date(); 
 
@@ -39,10 +40,26 @@ function processContentStream(streamBatch, blocklistRules) {
         timestamp: event.timestamp,
         riskScore: highestRisk,
         categories: matchedCategories.join(","),
-        originalData: JSON.parse(JSON.stringify(event)) 
+        originalData: shallowClone(event) 
       });
     }
   }
 
   return processedEvents.sort((a, b) => b.riskScore - a.riskScore);
 }
+
+function preprocessRules(rules) {
+  return rules;
+}
+
+function shallowClone(obj) {
+  const clone = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      clone[key] = obj[key];
+    }
+  }
+  return clone;
+}
+
+module.exports = { processContentStream, preprocessRules, shallowClone };
