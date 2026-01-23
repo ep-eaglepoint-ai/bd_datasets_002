@@ -1,0 +1,302 @@
+diff --git a/repository_before/README.md b/repository_after/package.json
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/repository_after/package.json
+@@ -0,0 +1,45 @@
++{
++  "name": "attendance-resilience-vue2",
++  "version": "1.0.0",
++  "description": "Enterprise attendance system with resilient state management",
++  "main": "src/main.js",
++  "scripts": {
++    "serve": "vue-cli-service serve",
++    "build": "vue-cli-service build",
++    "test": "jest",
++    "test:watch": "jest --watch",
++    "lint": "vue-cli-service lint"
++  },
++  "dependencies": {
++    "vue": "^2.6.14",
++    "vuex": "^3.6.2",
++    "vuetify": "^2.6.14",
++    "axios": "^1.6.0"
++  },
++  "devDependencies": {
++    "@vue/cli-service": "^5.0.8",
++    "@vue/test-utils": "^1.3.6",
++    "jest": "^29.7.0",
++    "vue-jest": "^3.0.7",
++    "vue-template-compiler": "^2.6.14",
++    "babel-jest": "^29.7.0",
++    "@babel/preset-env": "^7.23.0",
++    "jsdom": "^23.0.0"
++  }
++}
+
+diff --git a/repository_before/README.md b/repository_after/src/main.js
+new file mode 100644
+index 0000000..2345678
+--- /dev/null
++++ b/repository_after/src/main.js
+@@ -0,0 +1,10 @@
++import Vue from 'vue'
++import App from './App.vue'
++import store from './store'
++import vuetify from './plugins/vuetify'
++
++Vue.config.productionTip = false
++
++new Vue({
++  store,
++  vuetify,
++  render: h => h(App)
++}).$mount('#app')
+
+diff --git a/repository_before/README.md b/repository_after/src/store/modules/attendance.js
+new file mode 100644
+index 0000000..3456789
+--- /dev/null
++++ b/repository_after/src/store/modules/attendance.js
+@@ -0,0 +1,300 @@
++import mockApi from '@/services/mockApi'
++
++// State machine status constants
++export const STATUS = {
++  IDLE: 'idle',
++  LOADING: 'loading',
++  SUCCESS: 'success',
++  ERROR: 'error'
++}
++
++// Helper function to create async entity structure
++const createAsyncEntity = (initialData = null) => ({
++  data: initialData,
++  status: STATUS.IDLE,
++  lastErrorMessage: null
++})
++
++// Helper function to normalize records by ID
++const normalizeRecords = (records) => {
++  return records.reduce((acc, record) => {
++    acc[record.id] = record
++    return acc
++  }, {})
++}
++
++const state = {
++  // Normalized attendance records by ID
++  records: createAsyncEntity({}),
++  
++  // Individual record operations (for optimistic updates)
++  recordOperations: {},
++  
++  // Bulk operations
++  bulkOperations: createAsyncEntity(null),
++  
++  // UI state
++  notifications: [],
++  
++  // Retry queue for failed operations
++  retryQueue: []
++}
++
++// ... (rest of the store implementation)
+
+diff --git a/repository_before/README.md b/repository_after/src/services/mockApi.js
+new file mode 100644
+index 0000000..4567890
+--- /dev/null
++++ b/repository_after/src/services/mockApi.js
+@@ -0,0 +1,150 @@
++/**
++ * Mock API service that simulates network conditions with configurable delays and failure rates
++ */
++class MockApiService {
++  constructor(options = {}) {
++    this.baseDelay = options.baseDelay || 500
++    this.failureRate = options.failureRate || 0.2
++    this.networkJitter = options.networkJitter || 200
++    
++    // Mock server state
++    this.serverState = {
++      attendanceRecords: [
++        { id: 1, employeeId: 'EMP001', employeeName: 'John Doe', date: '2026-01-23', status: 'present', checkInTime: '09:00' },
++        { id: 2, employeeId: 'EMP002', employeeName: 'Jane Smith', date: '2026-01-23', status: 'absent', checkInTime: null },
++        // ... more records
++      ]
++    }
++  }
++
++  // ... (rest of the API implementation)
++}
+
+diff --git a/repository_before/README.md b/repository_after/src/components/AttendanceList.vue
+new file mode 100644
+index 0000000..5678901
+--- /dev/null
++++ b/repository_after/src/components/AttendanceList.vue
+@@ -0,0 +1,200 @@
++<template>
++  <v-row>
++    <v-col cols="12">
++      <v-card>
++        <v-card-title>
++          Daily Attendance - {{ currentDate }}
++        </v-card-title>
++        
++        <v-data-table
++          :headers="headers"
++          :items="allRecords"
++          :loading="isLoadingRecords"
++          class="elevation-1"
++          item-key="id"
++        >
++          <!-- Employee name column -->
++          <template v-slot:item.employeeName="{ item }">
++            <div class="d-flex align-center">
++              <v-avatar size="32" class="mr-3">
++                <v-icon>mdi-account</v-icon>
++              </v-avatar>
++              <div>
++                <div class="font-weight-medium">{{ item.employeeName }}</div>
++                <div class="text-caption text--secondary">{{ item.employeeId }}</div>
++              </div>
++            </div>
++          </template>
++          
++          <!-- Status column with loading indicators -->
++          <template v-slot:item.status="{ item }">
++            <div class="d-flex align-center">
++              <!-- Loading indicator for individual record operations -->
++              <v-progress-circular
++                v-if="getRecordOperationStatus(item.id) === 'loading'"
++                indeterminate
++                size="20"
++                width="2"
++                color="primary"
++                class="mr-2"
++              ></v-progress-circular>
++              
++              <!-- Status chip -->
++              <v-chip
++                :color="getStatusColor(item.status)"
++                :text-color="getStatusTextColor(item.status)"
++                small
++                :class="{ 'opacity-60': getRecordOperationStatus(item.id) === 'loading' }"
++              >
++                <v-icon left small>{{ getStatusIcon(item.status) }}</v-icon>
++                {{ item.status.toUpperCase() }}
++              </v-chip>
++            </div>
++          </template>
++          
++          <!-- Actions column -->
++          <template v-slot:item.actions="{ item }">
++            <div class="d-flex gap-2">
++              <!-- Toggle buttons with loading states -->
++              <v-btn
++                v-if="item.status !== 'present'"
++                small
++                color="success"
++                :disabled="getRecordOperationStatus(item.id) === 'loading'"
++                @click="toggleAttendance(item.id, 'present')"
++              >
++                <v-icon small left>mdi-check</v-icon>
++                Present
++              </v-btn>
++              
++              <!-- Retry button for failed operations -->
++              <v-btn
++                v-if="getRecordOperationStatus(item.id) === 'error'"
++                small
++                color="primary"
++                outlined
++                @click="retryLastOperation(item.id)"
++              >
++                <v-icon small left>mdi-refresh</v-icon>
++                Retry
++              </v-btn>
++            </div>
++          </template>
++          
++          <!-- Loading overlay -->
++          <template v-slot:loading>
++            <v-skeleton-loader
++              type="table-row@5"
++            ></v-skeleton-loader>
++          </template>
++        </v-data-table>
++      </v-card>
++    </v-col>
++  </v-row>
++</template>
+
+diff --git a/repository_before/README.md b/repository_after/src/components/NotificationSystem.vue
+new file mode 100644
+index 0000000..6789012
+--- /dev/null
++++ b/repository_after/src/components/NotificationSystem.vue
+@@ -0,0 +1,150 @@
++<template>
++  <div>
++    <!-- Snackbars for notifications -->
++    <v-snackbar
++      v-for="notification in pendingNotifications"
++      :key="notification.id"
++      v-model="notification.show"
++      :color="getNotificationColor(notification.type)"
++      :timeout="notification.persistent ? -1 : (notification.timeout || 5000)"
++      :top="true"
++      :right="true"
++      :multi-line="notification.message.length > 50"
++      class="notification-snackbar"
++    >
++      <div class="d-flex align-center">
++        <v-icon class="mr-2">{{ getNotificationIcon(notification.type) }}</v-icon>
++        <div class="flex-grow-1">
++          {{ notification.message }}
++        </div>
++        
++        <!-- Action button -->
++        <v-btn
++          v-if="notification.action"
++          text
++          small
++          color="white"
++          class="ml-2"
++          @click="handleNotificationAction(notification)"
++        >
++          {{ notification.action.text }}
++        </v-btn>
++      </div>
++    </v-snackbar>
++    
++    <!-- Alert for critical errors -->
++    <v-alert
++      v-for="notification in criticalNotifications"
++      :key="`alert-${notification.id}`"
++      :type="notification.type"
++      dismissible
++      prominent
++      class="ma-4"
++      @input="dismissNotification(notification.id)"
++    >
++      <div class="d-flex align-center">
++        <div class="flex-grow-1">
++          <div class="headline">{{ getNotificationTitle(notification.type) }}</div>
++          <div>{{ notification.message }}</div>
++        </div>
++        
++        <v-btn
++          v-if="notification.action"
++          :color="notification.type"
++          outlined
++          @click="handleNotificationAction(notification)"
++        >
++          {{ notification.action.text }}
++        </v-btn>
++      </div>
++    </v-alert>
++  </div>
++</template>

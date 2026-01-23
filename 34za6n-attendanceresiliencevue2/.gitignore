@@ -1,11 +1,10 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.env
-
-# Node
 node_modules/
-
-# OS
+dist/
+*.log
+.env
 .DS_Store
+*.tsbuildinfo
+coverage/
+.vscode/
+.idea/
+evaluation/reports/

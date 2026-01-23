@@ -1,0 +1,17 @@
+{
+  "name": "attendance-resilience-vue2-evaluation",
+  "version": "1.0.0",
+  "description": "Evaluation environment for Attendance Resilience Vue 2 application",
+  "main": "evaluation/evaluation.js",
+  "scripts": {
+    "evaluate": "node evaluation/evaluation.js",
+    "test": "node tests/test_attendance_store.js && node tests/test_ui_resilience.js",
+    "test:store": "node tests/test_attendance_store.js",
+    "test:ui": "node tests/test_ui_resilience.js"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": ["vue", "vuex", "vuetify", "attendance", "resilience", "testing"],
+  "author": "Eaglepoint AI",
+  "license": "MIT"
+}
