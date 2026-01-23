@@ -1,11 +1,13 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.env
+# Go
+/bin/
+/pkg/
+*.test
+*.out
 
-# Node
-node_modules/
+# Evaluation
+/evaluation/*/
 
-# OS
-.DS_Store
+# IDE
+.idea/
+.vscode/
+

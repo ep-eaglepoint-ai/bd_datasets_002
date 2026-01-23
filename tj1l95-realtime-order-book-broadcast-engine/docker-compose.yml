@@ -1,6 +1,20 @@
 services:
-  app:
+  app-before:
     build: .
-    command: pytest -q tests
+    command: echo "No implementation in repository_before - skipping tests"
+    volumes:
+      - .:/app
+
+  app-after:
+    build: .
+    working_dir: /app
+    command: go test -v ./tests
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    working_dir: /app
+    command: sh -c "go test -json ./tests 2>&1 | PROJECT_ROOT=/app go run /app/evaluation/evaluation.go"
     volumes:
       - .:/app
