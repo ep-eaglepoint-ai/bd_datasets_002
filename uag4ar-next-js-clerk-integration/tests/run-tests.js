@@ -36,10 +36,10 @@ tests.push({
 tests.push({
   name: 'sign-in and sign-up catch-all pages exist and use Clerk components',
   run: () => {
-    const signInPath = path.join(root, 'clerk-app', 'app', '[[...sign-in]]', 'page.tsx');
-    const signUpPath = path.join(root, 'clerk-app', 'app', '[[...sign-up]]', 'page.tsx');
-    if (!fs.existsSync(signInPath)) throw new Error('[[...sign-in]]/page.tsx not found');
-    if (!fs.existsSync(signUpPath)) throw new Error('[[...sign-up]]/page.tsx not found');
+    const signInPath = path.join(root, 'clerk-app', 'app', 'sign-in', '[[...sign-in]]', 'page.tsx');
+    const signUpPath = path.join(root, 'clerk-app', 'app', 'sign-up', '[[...sign-up]]', 'page.tsx');
+    if (!fs.existsSync(signInPath)) throw new Error('sign-in/[[...sign-in]]/page.tsx not found');
+    if (!fs.existsSync(signUpPath)) throw new Error('sign-up/[[...sign-up]]/page.tsx not found');
     const sIn = fs.readFileSync(signInPath, 'utf8');
     const sUp = fs.readFileSync(signUpPath, 'utf8');
     if (!sIn.includes('SignIn')) throw new Error('SignIn component not referenced in sign-in page');
