@@ -1,0 +1,11 @@
+{
+            "instance_id": "IUPEFJ",
+            "problem_statement": "The current /api/chat/analyze endpoint computes per-user chat analytics using an implementation that performs unnecessary work, relies on shared mutable state, and does not safely handle concurrent requests or malformed input, which can lead to incorrect results, performance degradation under load, and unpredictable behavior as traffic and payload sizes grow. Optimizing this endpoint is necessary to ensure correct, deterministic analytics, linear scalability with respect to input size, safe concurrent execution, and consistent behavior across all edge cases while preserving the existing API contract.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/iupefj-real-time-chat-message-analytics-api",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
