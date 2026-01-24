@@ -18,7 +18,6 @@ docker compose build
 
 ### Run tests (before – expected to fail)
 ```bash
-docker compose --profile test-before run --rm test-before
 ```
 
 ### Run tests (after – expected all pass)
@@ -40,4 +39,4 @@ docker compose --profile test-before --profile test-after --profile evaluation u
 ```bash
 git diff --no-index repository_before repository_after > patches/diff.patch
 ```
- 
+ docker compose --profile test-before run --rm test-before
