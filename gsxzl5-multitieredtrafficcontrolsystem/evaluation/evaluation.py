@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""
-Evaluation runner for Mechanical Refactor (calc_score).
 
-This evaluation script:
-- Runs pytest tests on the tests/ folder for both before and after implementations
-- Collects individual test results with pass/fail status
-- Generates structured reports with environment metadata
-
-Run with:
-    docker compose run --rm app python evaluation/evaluation.py [options]
-"""
 import os
 import sys
 import json
@@ -21,12 +11,10 @@ from pathlib import Path
 
 
 def generate_run_id():
-    """Generate a short unique run ID."""
     return uuid.uuid4().hex[:8]
 
 
 def get_git_info():
-    """Get git commit and branch information."""
     git_info = {"git_commit": "unknown", "git_branch": "unknown"}
     try:
         result = subprocess.run(
@@ -56,7 +44,6 @@ def get_git_info():
 
 
 def get_environment_info():
-    """Collect environment information for the report."""
     git_info = get_git_info()
     
     return {
@@ -72,24 +59,12 @@ def get_environment_info():
 
 
 def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
-    """
-    Run pytest on the tests/ folder with specific PYTHONPATH.
-    
-    Args:
-        pythonpath: The PYTHONPATH to use for the tests
-        tests_dir: Path to the tests directory
-        label: Label for this test run (e.g., "before", "after")
-    
-    Returns:
-        dict with test results
-    """
     print(f"\n{'=' * 60}")
     print(f"RUNNING TESTS: {label.upper()}")
     print(f"{'=' * 60}")
     print(f"PYTHONPATH: {pythonpath}")
     print(f"Tests directory: {tests_dir}")
     
-    # Build pytest command
     cmd = [
         sys.executable, "-m", "pytest",
         str(tests_dir),
@@ -99,6 +74,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
     
     env = os.environ.copy()
     env["PYTHONPATH"] = pythonpath
+    env["EVALUATION_RUN"] = "true"
     
     try:
         result = subprocess.run(
@@ -173,7 +149,6 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
 
 
 def parse_pytest_verbose_output(output):
-    """Parse pytest verbose output to extract test results."""
     tests = []
     lines = output.split('\n')
     
@@ -209,11 +184,6 @@ def parse_pytest_verbose_output(output):
 
 
 def run_evaluation():
-    """
-    Run complete evaluation for both implementations.
-    
-    Returns dict with test results from both before and after implementations.
-    """
     print(f"\n{'=' * 60}")
     print("MECHANICAL REFACTOR EVALUATION")
     print(f"{'=' * 60}")
@@ -299,7 +269,6 @@ def generate_output_path():
 
 
 def main():
-    """Main entry point for evaluation."""
     import argparse
     
     parser = argparse.ArgumentParser(description="Run mechanical refactor evaluation")

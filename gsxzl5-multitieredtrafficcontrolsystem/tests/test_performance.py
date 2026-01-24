@@ -4,8 +4,6 @@ import os
 import time
 import statistics
 
-sys.path.append(os.path.join(os.getcwd(), 'repository_after'))
-
 from api_server import APIServer
 
 def test_performance_and_headers():

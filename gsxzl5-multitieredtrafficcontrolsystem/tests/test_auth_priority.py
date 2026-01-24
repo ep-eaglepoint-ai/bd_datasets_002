@@ -2,8 +2,6 @@
 import sys
 import os
 
-sys.path.append(os.path.join(os.getcwd(), 'repository_after'))
-
 from api_server import APIServer
 
 def test_auth_priority():

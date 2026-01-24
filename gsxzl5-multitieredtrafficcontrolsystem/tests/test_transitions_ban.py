@@ -4,8 +4,6 @@ import os
 import time
 
 # Add repository_after to path
-sys.path.append(os.path.join(os.getcwd(), 'repository_after'))
-
 from api_server import APIServer
 
 def test_transitions_and_ban():

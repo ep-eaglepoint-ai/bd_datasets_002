@@ -4,8 +4,6 @@ import os
 import threading
 import time
 
-sys.path.append(os.path.join(os.getcwd(), 'repository_after'))
-
 from api_server import APIServer
 
 def worker(server, ip, failures):
