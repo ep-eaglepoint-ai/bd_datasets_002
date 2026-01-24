@@ -17,8 +17,5 @@ tests/*_results.json
 # Evaluation reports
 evaluation/reports/
 
-# Logs
-logs/
-
 # OS
 .DS_Store
