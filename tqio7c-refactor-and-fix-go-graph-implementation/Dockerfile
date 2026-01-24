@@ -1,4 +1,7 @@
 FROM golang:1.21-alpine
 WORKDIR /app
-COPY . /app
-CMD ["go", "run", "tests/test_before.go"]
+COPY repository_after ./repository_after
+COPY repository_before ./repository_before
+COPY tests ./tests
+COPY evaluation ./evaluation
+CMD ["go", "run", "evaluation/evaluation.go"]

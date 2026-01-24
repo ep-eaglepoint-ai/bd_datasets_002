@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 )
@@ -26,10 +27,12 @@ type EvaluationReport struct {
 	RunID      string    `json:"run_id"`
 	StartedAt  string    `json:"started_at"`
 	FinishedAt string    `json:"finished_at"`
+	DurationSeconds float64 `json:"duration_seconds"`
 	Before     BeforeResult `json:"before"`
 	After      AfterResult  `json:"after"`
 	Comparison ComparisonResult `json:"comparison"`
 	Success    bool      `json:"success"`
+	Error      *string   `json:"error"`
 }
 
 type BeforeResult struct {
@@ -56,6 +59,8 @@ type TestStats struct {
 type ComparisonResult struct {
 	FailToPass []string `json:"fail_to_pass"`
 	TestsFixed int      `json:"tests_fixed"`
+	PassedGate bool     `json:"passed_gate"`
+	ImprovementSummary string `json:"improvement_summary"`
 }
 
 func loadTestResults(filename string) (*TestSuiteResult, error) {
@@ -70,6 +75,14 @@ func loadTestResults(filename string) (*TestSuiteResult, error) {
 	}
 
 	return &result, nil
+}
+
+func runTests(testFile string) error {
+	cmd := exec.Command("go", "run", testFile)
+	cmd.Dir = "/app"
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func findFailToPassTests(before, after *TestSuiteResult) []string {
@@ -96,8 +109,20 @@ func findFailToPassTests(before, after *TestSuiteResult) []string {
 
 func generateReport(beforeFile, afterFile string) (*EvaluationReport, error) {
 	startedAt := time.Now()
-	runID := fmt.Sprintf("run_%d", startedAt.Unix())
 
+	// Run test-before
+	fmt.Println("Running test-before...")
+	if err := runTests("tests/test_before.go"); err != nil {
+		fmt.Printf("Warning: test-before exited with error: %v\n", err)
+	}
+
+	// Run test-after
+	fmt.Println("Running test-after...")
+	if err := runTests("tests/test_after.go"); err != nil {
+		fmt.Printf("Warning: test-after exited with error: %v\n", err)
+	}
+
+	// Load results
 	beforeResults, err := loadTestResults(beforeFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load before results: %w", err)
@@ -109,13 +134,20 @@ func generateReport(beforeFile, afterFile string) (*EvaluationReport, error) {
 	}
 
 	failToPass := findFailToPassTests(beforeResults, afterResults)
-
 	finishedAt := time.Now()
+	duration := finishedAt.Sub(startedAt).Seconds()
+
+	passedGate := afterResults.Success
+	improvementSummary := "After implementation passed correctness tests"
+	if !passedGate {
+		improvementSummary = "After implementation failed correctness tests"
+	}
 
 	report := &EvaluationReport{
-		RunID:      runID,
+		RunID:      fmt.Sprintf("run_%d", startedAt.Unix()),
 		StartedAt:  startedAt.Format(time.RFC3339),
 		FinishedAt: finishedAt.Format(time.RFC3339),
+		DurationSeconds: duration,
 		Before: BeforeResult{
 			TestsPassed:        beforeResults.Success,
 			ViolationsDetected: !beforeResults.Success,
@@ -141,8 +173,11 @@ func generateReport(beforeFile, afterFile string) (*EvaluationReport, error) {
 		Comparison: ComparisonResult{
 			FailToPass: failToPass,
 			TestsFixed: len(failToPass),
+			PassedGate: passedGate,
+			ImprovementSummary: improvementSummary,
 		},
-		Success: afterResults.Success,
+		Success: passedGate,
+		Error: nil,
 	}
 
 	return report, nil
@@ -159,20 +194,24 @@ func main() {
 
 	report, err := generateReport(beforeFile, afterFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error generating report: %v\n", err)
-		os.Exit(1)
+		errorMsg := err.Error()
+		report = &EvaluationReport{
+			RunID:      fmt.Sprintf("run_%d", time.Now().Unix()),
+			StartedAt:  time.Now().Format(time.RFC3339),
+			FinishedAt: time.Now().Format(time.RFC3339),
+			DurationSeconds: 0,
+			Success: false,
+			Error: &errorMsg,
+		}
 	}
 
 	reportsDir := filepath.Join(baseDir, "evaluation", "reports")
-	timestamp := time.Now().Format("20060102_150405")
-	reportDir := filepath.Join(reportsDir, timestamp)
-	
-	if err := os.MkdirAll(reportDir, 0755); err != nil {
+	if err := os.MkdirAll(reportsDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating report directory: %v\n", err)
 		os.Exit(1)
 	}
 
-	reportFile := filepath.Join(reportDir, "report.json")
+	reportFile := filepath.Join(reportsDir, "latest.json")
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error marshaling report: %v\n", err)
@@ -184,8 +223,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Evaluation report written to: %s\n", reportFile)
-	fmt.Printf("Before: %d passed, %d failed out of %d total\n", report.Before.Tests.Passed, report.Before.Tests.Failed, report.Before.Tests.Total)
-	fmt.Printf("After: %d passed, %d failed out of %d total\n", report.After.Tests.Passed, report.After.Tests.Failed, report.After.Tests.Total)
-	fmt.Printf("Tests fixed: %d\n", report.Comparison.TestsFixed)
+	fmt.Printf("Report written to %s\n", reportFile)
+	if report.Success {
+		fmt.Println("Evaluation succeeded")
+	} else {
+		fmt.Println("Evaluation failed")
+	}
+
+	if report.Error != nil {
+		os.Exit(1)
+	}
+	if !report.Success {
+		os.Exit(1)
+	}
 }
