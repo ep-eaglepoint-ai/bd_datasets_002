@@ -18,22 +18,22 @@ function environmentInfo() {
 
 function runTests() {
   try {
-    console.log('Running tests...\n');
-    const proc = execSync('npm test', {
+    const proc = execSync('npm test 2>&1', {
       cwd: ROOT,
-      stdio: 'inherit',
-      timeout: 120000
+      stdio: 'pipe',
+      timeout: 120000,
+      encoding: 'utf8'
     });
     return {
       passed: true,
       return_code: 0,
-      output: 'Tests completed successfully'
+      output: proc
     };
   } catch (error) {
     return {
       passed: false,
       return_code: error.status || -1,
-      output: 'Tests failed'
+      output: error.stdout || error.stderr || 'Test execution failed'
     };
   }
 }
@@ -89,12 +89,13 @@ function main() {
   const report = runEvaluation();
   const reportPath = path.join(REPORTS, 'latest.json');
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
-  console.log(`\nReport written to ${reportPath}`);
+
+  console.log(`Report written to ${reportPath}`);
 
   if (report.success) {
-    console.log('\n🎉 Evaluation SUCCEEDED! All tests passed.');
+    console.log('🎉 Evaluation SUCCEEDED! All tests passed.');
   } else {
-    console.log('\n❌ Evaluation FAILED! Some tests failed.');
+    console.log('❌ Evaluation FAILED! Some tests failed.');
   }
 
   return report.success ? 0 : 1;
