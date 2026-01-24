@@ -30,7 +30,13 @@ function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      tasks = JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // Validate that parsed data is an array
+      if (Array.isArray(parsed)) {
+        tasks = parsed;
+      } else {
+        throw new Error('Invalid data format');
+      }
     } else {
       // Default sample tasks
       tasks = [
@@ -42,7 +48,17 @@ function loadState() {
     }
   } catch (e) {
     console.error('Failed to load state:', e);
-    tasks = [];
+    // Fallback to empty array or default tasks
+    try {
+      tasks = [
+        { id: generateId(), title: 'Design the landing page', column: 'todo' },
+        { id: generateId(), title: 'Set up project repository', column: 'progress' },
+        { id: generateId(), title: 'Create initial wireframes', column: 'done' },
+      ];
+      saveState();
+    } catch (fallbackError) {
+      tasks = [];
+    }
   }
 }
 
@@ -50,7 +66,9 @@ function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   } catch (e) {
+    // Handle quota exceeded or other storage errors gracefully
     console.error('Failed to save state:', e);
+    // Don't throw - allow application to continue functioning
   }
 }
 
@@ -63,9 +81,12 @@ function generateId() {
 // ==================
 
 function createTask(title, column) {
+  const trimmedTitle = title.trim();
+  if (!trimmedTitle) return null;
+  
   const task = {
     id: generateId(),
-    title: title.trim(),
+    title: trimmedTitle,
     column
   };
   tasks.push(task);
@@ -74,8 +95,16 @@ function createTask(title, column) {
 }
 
 function deleteTask(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  
+  const column = task.column;
   tasks = tasks.filter(t => t.id !== taskId);
   saveState();
+  
+  // Re-render the column to show empty state if needed
+  renderColumn(column);
+  updateAllCounts();
 }
 
 function updateTask(taskId, newTitle) {
@@ -83,6 +112,9 @@ function updateTask(taskId, newTitle) {
   if (task && newTitle.trim()) {
     task.title = newTitle.trim();
     saveState();
+    
+    // Re-render the column to update the display
+    renderColumn(task.column);
   }
 }
 
@@ -90,6 +122,7 @@ function moveTask(taskId, newColumn, insertBeforeId = null) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
+  const oldColumn = task.column;
   task.column = newColumn;
   
   // Reorder if inserting before another task
@@ -97,14 +130,25 @@ function moveTask(taskId, newColumn, insertBeforeId = null) {
     const taskIndex = tasks.findIndex(t => t.id === taskId);
     const beforeIndex = tasks.findIndex(t => t.id === insertBeforeId);
     
-    if (taskIndex !== -1 && beforeIndex !== -1) {
+    if (taskIndex !== -1 && beforeIndex !== -1 && taskIndex !== beforeIndex) {
       tasks.splice(taskIndex, 1);
       const newBeforeIndex = tasks.findIndex(t => t.id === insertBeforeId);
-      tasks.splice(newBeforeIndex, 0, task);
+      if (newBeforeIndex !== -1) {
+        tasks.splice(newBeforeIndex, 0, task);
+      } else {
+        tasks.push(task);
+      }
     }
   }
   
   saveState();
+  
+  // Re-render affected columns
+  if (oldColumn !== newColumn) {
+    renderColumn(oldColumn);
+    renderColumn(newColumn);
+    updateAllCounts();
+  }
 }
 
 function getTasksByColumn(column) {
@@ -124,6 +168,8 @@ function renderAllTasks() {
 
 function renderColumn(column) {
   const container = document.getElementById(`${column}-tasks`);
+  if (!container) return;
+  
   const columnTasks = getTasksByColumn(column);
   
   container.innerHTML = columnTasks.length === 0 
@@ -155,7 +201,10 @@ function escapeHtml(text) {
 function updateAllCounts() {
   ['todo', 'progress', 'done'].forEach(column => {
     const count = getTasksByColumn(column).length;
-    document.querySelector(`[data-count="${column}"]`).textContent = count;
+    const countElement = document.querySelector(`[data-count="${column}"]`);
+    if (countElement) {
+      countElement.textContent = count;
+    }
   });
 }
 
@@ -197,15 +246,19 @@ function setupTaskEvents(taskEl) {
   taskEl.addEventListener('dragend', handleDragEnd);
   
   // Delete button
-  taskEl.querySelector('.task-delete').addEventListener('click', () => {
-    taskEl.style.transform = 'scale(0.9)';
-    taskEl.style.opacity = '0';
-    setTimeout(() => {
-      deleteTask(taskId);
-      renderColumn(tasks.find(t => t.id === taskId)?.column || getColumnFromElement(taskEl));
-      updateAllCounts();
-    }, 150);
-  });
+  const deleteBtn = taskEl.querySelector('.task-delete');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      const column = tasks.find(t => t.id === taskId)?.column || getColumnFromElement(taskEl);
+      taskEl.style.transform = 'scale(0.9)';
+      taskEl.style.opacity = '0';
+      setTimeout(() => {
+        deleteTask(taskId);
+        renderColumn(column);
+        updateAllCounts();
+      }, 150);
+    });
+  }
   
   // Double click to edit
   taskEl.addEventListener('dblclick', () => startEditing(taskEl));
@@ -251,9 +304,11 @@ function handleFormSubmit(e) {
   
   if (!title || !activeColumn) return;
   
-  createTask(title, activeColumn);
-  renderColumn(activeColumn);
-  updateAllCounts();
+  const task = createTask(title, activeColumn);
+  if (task) {
+    renderColumn(activeColumn);
+    updateAllCounts();
+  }
   closeModal();
 }
 
@@ -274,11 +329,21 @@ function finishEditing(taskEl, newTitle) {
   if (!taskEl.classList.contains('editing')) return;
   
   const taskId = taskEl.dataset.id;
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) {
+    taskEl.classList.remove('editing');
+    return;
+  }
+  
   const trimmed = newTitle.trim();
   
+  // If empty or whitespace-only, preserve original title
   if (trimmed) {
     updateTask(taskId, trimmed);
-    taskEl.querySelector('.task-title').textContent = trimmed;
+    const titleEl = taskEl.querySelector('.task-title');
+    if (titleEl) {
+      titleEl.textContent = trimmed;
+    }
   }
   
   taskEl.classList.remove('editing');
@@ -334,17 +399,20 @@ function handleDragOver(e) {
   const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
   const draggingEl = document.querySelector('.dragging');
   
-  if (draggingEl && e.currentTarget.contains(draggingEl) === false) {
+  if (!draggingEl) return;
+  
+  // Remove empty state if present when dragging over
+  const emptyState = e.currentTarget.querySelector('.empty-state');
+  if (emptyState) emptyState.remove();
+  
+  if (e.currentTarget.contains(draggingEl) === false) {
     // Moving to a different column
     if (afterElement) {
       e.currentTarget.insertBefore(draggingEl, afterElement);
     } else {
-      // Remove empty state if present
-      const emptyState = e.currentTarget.querySelector('.empty-state');
-      if (emptyState) emptyState.remove();
       e.currentTarget.appendChild(draggingEl);
     }
-  } else if (draggingEl) {
+  } else {
     // Reordering within same column
     if (afterElement && afterElement !== draggingEl) {
       e.currentTarget.insertBefore(draggingEl, afterElement);
@@ -366,14 +434,42 @@ function handleDragLeave(e) {
 
 function handleDrop(e) {
   e.preventDefault();
+  e.stopPropagation();
   
   const column = e.currentTarget.closest('.column');
-  column.classList.remove('drag-over');
+  if (column) {
+    column.classList.remove('drag-over');
+  }
   
-  const taskId = e.dataTransfer.getData('text/plain');
+  // Try to get task ID from dataTransfer or from the dragged element
+  let taskId = e.dataTransfer.getData('text/plain');
+  if (!taskId && draggedTask) {
+    taskId = draggedTask.dataset.id;
+  }
+  
   const newColumn = e.currentTarget.dataset.column;
   
-  if (!taskId || !newColumn) return;
+  if (!taskId || !newColumn) {
+    renderAllTasks();
+    return;
+  }
+  
+  // Check if task exists
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) {
+    renderAllTasks();
+    return;
+  }
+  
+  // If dragging onto itself in the same position, do nothing
+  if (task.column === newColumn && e.currentTarget.querySelector(`[data-id="${taskId}"]`)) {
+    // Check if we're actually moving to a different position
+    const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
+    if (!afterElement || afterElement.dataset.id === taskId) {
+      renderAllTasks();
+      return;
+    }
+  }
   
   // Find the task we're inserting before (if any)
   const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
@@ -387,6 +483,8 @@ function handleDrop(e) {
 
 function getDragAfterElement(container, y) {
   const draggableElements = [...container.querySelectorAll('.task:not(.dragging)')];
+  
+  if (draggableElements.length === 0) return null;
   
   return draggableElements.reduce((closest, child) => {
     const box = child.getBoundingClientRect();

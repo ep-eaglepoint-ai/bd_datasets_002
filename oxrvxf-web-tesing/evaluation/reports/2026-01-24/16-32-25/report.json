@@ -1,7 +1,7 @@
 {
-  "run_id": "1769276608957-p9erah7wa",
-  "started_at": "2026-01-24T17:43:28.942Z",
-  "finished_at": "2026-01-24T17:43:28.957Z",
+  "run_id": "1769272346288-v79j5dwsm",
+  "started_at": "2026-01-24T16:32:25.882Z",
+  "finished_at": "2026-01-24T16:32:26.288Z",
   "environment": {
     "node_version": "v20.19.6",
     "platform": "linux-x64"
@@ -17,8 +17,8 @@
       "test_files_count": 9
     },
     "solution_tests": {
-      "passed": 5,
-      "failed": 4,
+      "passed": 2,
+      "failed": 7,
       "total": 9,
       "success": false
     },
@@ -30,8 +30,8 @@
     }
   },
   "summary": {
-    "solution_tests_passed": 5,
-    "solution_tests_failed": 4,
+    "solution_tests_passed": 2,
+    "solution_tests_failed": 7,
     "meta_tests_passed": 4,
     "meta_tests_failed": 2,
     "functions_exposed": true,

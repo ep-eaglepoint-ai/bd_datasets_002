@@ -1,135 +1,82 @@
 // Task Movement Tests
-// Requirements: Use page.evaluate() to validate moveTask updates column property
+// Requirement 3: Task movement tests must use page.evaluate() to validate that moveTask correctly updates the 
+// column property of the specified task, that when an insertBeforeId is provided the task is repositioned in 
+// the array immediately before the target task, that moving a task to its current column and position results 
+// in no net change to array order, and that invalid task IDs or column values are handled gracefully without 
+// corrupting the tasks array.
 
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/index.html');
-  await page.evaluate(() => localStorage.clear());
+  // Set localStorage to empty array to prevent default tasks from being created
+  await page.evaluate(() => {
+    localStorage.setItem('kanban-board-state', '[]');
+  });
   await page.reload();
 });
 
-test('moves task to different column using page.evaluate', async ({ page }) => {
-  const task = await page.evaluate(() => {
-    return window.createTask('Test Task', 'todo');
-  });
-  
-  // Move task to progress column
-  await page.evaluate(({ taskId, newColumn }) => {
-    window.moveTask(taskId, newColumn);
-  }, { taskId: task.id, newColumn: 'progress' });
-  
-  const tasks = await page.evaluate(() => window.tasks);
-  const movedTask = tasks.find(t => t.id === task.id);
-  expect(movedTask.column).toBe('progress');
-  expect(movedTask.title).toBe('Test Task');
-  expect(movedTask.id).toBe(task.id);
-});
-
-test('moves task with insertBeforeId repositions in array', async ({ page }) => {
+test('moves task correctly updates column, handles insertBeforeId, handles no-op moves, and handles invalid inputs gracefully', async ({ page }) => {
+  // Create tasks
   const tasks = await page.evaluate(() => {
     const t1 = window.createTask('Task 1', 'todo');
     const t2 = window.createTask('Task 2', 'todo');
-    const t3 = window.createTask('Task 3', 'todo');
-    return [t1, t2, t3];
-  });
-  
-  // Move task 1 to be before task 3
-  await page.evaluate(({ taskId, newColumn, insertBeforeId }) => {
-    window.moveTask(taskId, newColumn, insertBeforeId);
-  }, { taskId: tasks[0].id, newColumn: 'todo', insertBeforeId: tasks[2].id });
-  
-  const finalTasks = await page.evaluate(() => window.tasks);
-  const task1Index = finalTasks.findIndex(t => t.id === tasks[0].id);
-  const task3Index = finalTasks.findIndex(t => t.id === tasks[2].id);
-  
-  expect(task1Index).toBeLessThan(task3Index);
-  expect(task1Index).toBe(task3Index - 1);
-});
-
-test('moving task to current column and position results in no net change', async ({ page }) => {
-  const tasks = await page.evaluate(() => {
-    const t1 = window.createTask('Task 1', 'todo');
-    const t2 = window.createTask('Task 2', 'todo');
-    const t3 = window.createTask('Task 3', 'todo');
-    return [t1, t2, t3];
-  });
-  
-  const initialOrder = await page.evaluate(() => {
-    return window.tasks.map(t => t.id);
-  });
-  
-  // Move task 2 to its current position (before task 3)
-  await page.evaluate(({ taskId, newColumn, insertBeforeId }) => {
-    window.moveTask(taskId, newColumn, insertBeforeId);
-  }, { taskId: tasks[1].id, newColumn: 'todo', insertBeforeId: tasks[2].id });
-  
-  const finalOrder = await page.evaluate(() => {
-    return window.tasks.map(t => t.id);
-  });
-  
-  // Order should remain the same
-  expect(finalOrder).toEqual(initialOrder);
-});
-
-test('handles invalid task ID gracefully', async ({ page }) => {
-  const task = await page.evaluate(() => {
-    return window.createTask('Test Task', 'todo');
-  });
-  
-  const initialTasks = await page.evaluate(() => window.tasks);
-  expect(initialTasks).toHaveLength(1);
-  
-  // Try to move non-existent task
-  await page.evaluate(({ taskId, newColumn }) => {
-    window.moveTask(taskId, newColumn);
-  }, { taskId: 'invalid-task-id', newColumn: 'progress' });
-  
-  // Tasks array should not be corrupted
-  const finalTasks = await page.evaluate(() => window.tasks);
-  expect(finalTasks).toHaveLength(1);
-  expect(finalTasks[0].id).toBe(task.id);
-  expect(finalTasks[0].column).toBe('todo');
-});
-
-test('handles invalid column value gracefully', async ({ page }) => {
-  const task = await page.evaluate(() => {
-    return window.createTask('Test Task', 'todo');
-  });
-  
-  const initialTasks = await page.evaluate(() => window.tasks);
-  expect(initialTasks).toHaveLength(1);
-  
-  // Try to move to invalid column
-  await page.evaluate(({ taskId, newColumn }) => {
-    window.moveTask(taskId, newColumn);
-  }, { taskId: task.id, newColumn: 'invalid-column' });
-  
-  // Task should still exist, column might be invalid but array not corrupted
-  const finalTasks = await page.evaluate(() => window.tasks);
-  expect(finalTasks).toHaveLength(1);
-  expect(finalTasks[0].id).toBe(task.id);
-});
-
-test('moves task between columns with insertBeforeId', async ({ page }) => {
-  const tasks = await page.evaluate(() => {
-    const t1 = window.createTask('Task 1', 'todo');
-    const t2 = window.createTask('Task 2', 'progress');
     const t3 = window.createTask('Task 3', 'progress');
     return [t1, t2, t3];
   });
   
-  // Move task 1 from todo to progress, before task 2
+  // Validate that moveTask correctly updates column property using page.evaluate()
+  await page.evaluate(({ taskId, newColumn }) => {
+    window.moveTask(taskId, newColumn);
+  }, { taskId: tasks[0].id, newColumn: 'progress' });
+  
+  const tasksAfterMove = await page.evaluate(() => window.tasks);
+  const movedTask = tasksAfterMove.find(t => t.id === tasks[0].id);
+  expect(movedTask.column).toBe('progress');
+  
+  // Validate that when insertBeforeId is provided, task is repositioned immediately before target task
   await page.evaluate(({ taskId, newColumn, insertBeforeId }) => {
     window.moveTask(taskId, newColumn, insertBeforeId);
-  }, { taskId: tasks[0].id, newColumn: 'progress', insertBeforeId: tasks[1].id });
+  }, { taskId: tasks[1].id, newColumn: 'progress', insertBeforeId: tasks[0].id });
+  
+  const tasksAfterInsert = await page.evaluate(() => window.tasks);
+  const task1Index = tasksAfterInsert.findIndex(t => t.id === tasks[0].id);
+  const task2Index = tasksAfterInsert.findIndex(t => t.id === tasks[1].id);
+  expect(task2Index).toBeLessThan(task1Index);
+  expect(task2Index).toBe(task1Index - 1); // Immediately before
+  
+  // Validate that moving task to current column and position results in no net change
+  const orderBeforeNoOp = await page.evaluate(() => {
+    return window.tasks.map(t => t.id);
+  });
+  
+  await page.evaluate(({ taskId, newColumn, insertBeforeId }) => {
+    window.moveTask(taskId, newColumn, insertBeforeId);
+  }, { taskId: tasks[1].id, newColumn: 'progress', insertBeforeId: tasks[0].id });
+  
+  const orderAfterNoOp = await page.evaluate(() => {
+    return window.tasks.map(t => t.id);
+  });
+  expect(orderAfterNoOp).toEqual(orderBeforeNoOp);
+  
+  // Validate that invalid task IDs are handled gracefully without corrupting tasks array
+  const tasksBeforeInvalid = await page.evaluate(() => window.tasks.length);
+  await page.evaluate(({ taskId, newColumn }) => {
+    window.moveTask(taskId, newColumn);
+  }, { taskId: 'invalid-task-id', newColumn: 'progress' });
+  
+  const tasksAfterInvalid = await page.evaluate(() => window.tasks);
+  expect(tasksAfterInvalid).toHaveLength(tasksBeforeInvalid);
+  
+  // Validate that invalid column values are handled gracefully
+  await page.evaluate(({ taskId, newColumn }) => {
+    window.moveTask(taskId, newColumn);
+  }, { taskId: tasks[0].id, newColumn: 'invalid-column' });
   
   const finalTasks = await page.evaluate(() => window.tasks);
-  const task1 = finalTasks.find(t => t.id === tasks[0].id);
-  expect(task1.column).toBe('progress');
-  
-  // Verify positioning
-  const task1Index = finalTasks.findIndex(t => t.id === tasks[0].id);
-  const task2Index = finalTasks.findIndex(t => t.id === tasks[1].id);
-  expect(task1Index).toBeLessThan(task2Index);
+  expect(finalTasks).toHaveLength(tasksBeforeInvalid);
+  // Array not corrupted - all tasks still exist
+  expect(finalTasks.find(t => t.id === tasks[0].id)).toBeDefined();
+  expect(finalTasks.find(t => t.id === tasks[1].id)).toBeDefined();
+  expect(finalTasks.find(t => t.id === tasks[2].id)).toBeDefined();
 });

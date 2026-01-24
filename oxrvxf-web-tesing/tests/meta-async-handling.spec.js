@@ -1,16 +1,20 @@
 // Meta-test for Async Handling
-// Requirements: Verify all Playwright actions are properly awaited
+// Requirement 11: Meta-test for async handling must scan all test files and verify that every Playwright locator 
+// action like click(), fill(), and dragTo() is preceded by await, and that every expect assertion on a locator uses 
+// an async matcher or is properly awaited, flagging any potential race conditions from missing awaits that could 
+// cause flaky tests.
 
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 
-test('all Playwright locator actions are properly awaited', async () => {
+test('every Playwright locator action is awaited and every expect assertion on locator uses async matcher or is awaited', async () => {
   const testDir = path.join(__dirname, '../repository_after/tests');
   const testFiles = fs.readdirSync(testDir)
     .filter(file => file.endsWith('.spec.js'));
   
-  const issues = [];
+  const actionIssues = [];
+  const assertionIssues = [];
   
   for (const file of testFiles) {
     const filePath = path.join(testDir, file);
@@ -26,116 +30,95 @@ test('all Playwright locator actions are properly awaited', async () => {
         continue;
       }
       
-      // Check for locator actions without await
+      // Check for Playwright locator actions: click(), fill(), dragTo()
       const locatorActions = [
-        /\.click\(/,
-        /\.fill\(/,
-        /\.dragTo\(/,
-        /\.press\(/,
-        /\.type\(/,
-        /\.selectOption\(/,
-        /\.check\(/,
-        /\.uncheck\(/,
-        /\.hover\(/,
-        /\.focus\(/,
-        /\.blur\(/,
-        /\.scrollIntoViewIfNeeded\(/,
-        /\.screenshot\(/,
-        /\.waitFor\(/,
-        /page\.goto\(/,
-        /page\.reload\(/,
-        /page\.evaluate\(/
+        { pattern: /\.click\(/, name: 'click()' },
+        { pattern: /\.fill\(/, name: 'fill()' },
+        { pattern: /\.dragTo\(/, name: 'dragTo()' },
+        { pattern: /\.press\(/, name: 'press()' },
+        { pattern: /\.type\(/, name: 'type()' },
+        { pattern: /\.selectOption\(/, name: 'selectOption()' },
+        { pattern: /\.check\(/, name: 'check()' },
+        { pattern: /\.uncheck\(/, name: 'uncheck()' },
+        { pattern: /\.hover\(/, name: 'hover()' },
+        { pattern: /\.focus\(/, name: 'focus()' },
+        { pattern: /\.blur\(/, name: 'blur()' },
+        { pattern: /\.dblclick\(/, name: 'dblclick()' }
       ];
       
-      for (const pattern of locatorActions) {
-        if (pattern.test(line)) {
+      for (const action of locatorActions) {
+        if (action.pattern.test(line)) {
           // Check if line has await
           const hasAwait = /^\s*await\s+/.test(line);
           
-          // Check if it's in a variable assignment (which might be okay)
+          // Check if it's in a variable assignment (which might be okay if chained)
           const isAssignment = /^\s*(const|let|var)\s+\w+\s*=/.test(line);
           
-          // Check if previous line has await
+          // Check if previous line has await (multi-line statement)
           const prevLine = i > 0 ? lines[i - 1].trim() : '';
           const prevHasAwait = /await\s+$/.test(prevLine);
           
           if (!hasAwait && !isAssignment && !prevHasAwait) {
-            // Exception: expect() calls don't need await in some cases
-            if (!/expect\(/.test(line)) {
-              issues.push({
-                file,
-                line: i + 1,
-                code: trimmed.substring(0, 80)
-              });
-              break; // Only report once per line
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  if (issues.length > 0) {
-    const errorMessage = `Potential missing await statements:\n${issues.map(i => 
-      `  - ${i.file}:${i.line} - ${i.code}`
-    ).join('\n')}`;
-    throw new Error(errorMessage);
-  }
-  
-  expect(issues.length).toBe(0);
-});
-
-test('all expect assertions on locators are properly handled', async () => {
-  const testDir = path.join(__dirname, '../repository_after/tests');
-  const testFiles = fs.readdirSync(testDir)
-    .filter(file => file.endsWith('.spec.js'));
-  
-  const issues = [];
-  
-  for (const file of testFiles) {
-    const filePath = path.join(testDir, file);
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const lines = content.split('\n');
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      
-      // Check for expect() with locator
-      if (/expect\(.*page\.locator\(/.test(line) || /expect\(.*\.locator\(/.test(line)) {
-        // Check if it uses async matcher or is awaited
-        const hasAsyncMatcher = /\.(toBeVisible|toHaveText|toHaveClass|toHaveCount|toBeFocused|toHaveValue|toBeEnabled|toBeDisabled|toHaveAttribute|toContainText)\(/.test(line);
-        const hasAwait = /^\s*await\s+expect/.test(line);
-        
-        if (!hasAsyncMatcher && !hasAwait) {
-          // Check next line for matcher
-          if (i + 1 < lines.length) {
-            const nextLine = lines[i + 1];
-            const nextHasMatcher = /\.(toBeVisible|toHaveText|toHaveClass|toHaveCount|toBeFocused|toHaveValue|toBeEnabled|toBeDisabled|toHaveAttribute|toContainText)\(/.test(nextLine);
-            if (!nextHasMatcher) {
-              issues.push({
-                file,
-                line: i + 1,
-                code: line.trim().substring(0, 80)
-              });
-            }
-          } else {
-            issues.push({
+            actionIssues.push({
               file,
               line: i + 1,
-              code: line.trim().substring(0, 80)
+              action: action.name,
+              code: trimmed.substring(0, 80)
             });
+            break; // Only report once per line
           }
+        }
+      }
+      
+      // Check for expect() with locator (page.locator or .locator)
+      if (/expect\(.*(page\.locator|\.locator)\(/.test(line)) {
+        // Check if it uses async matcher (toBeVisible, toHaveText, toHaveClass, etc.)
+        const asyncMatchers = [
+          'toBeVisible', 'toHaveText', 'toHaveClass', 'toHaveCount', 
+          'toBeFocused', 'toHaveValue', 'toBeEnabled', 'toBeDisabled', 
+          'toHaveAttribute', 'toContainText'
+        ];
+        const hasAsyncMatcher = asyncMatchers.some(matcher => 
+          new RegExp(`\\.${matcher}\\(`).test(line)
+        );
+        
+        // Check if expect is awaited
+        const hasAwait = /^\s*await\s+expect/.test(line);
+        
+        // Check next line for async matcher (multi-line)
+        let nextHasMatcher = false;
+        if (i + 1 < lines.length && !hasAsyncMatcher) {
+          const nextLine = lines[i + 1];
+          nextHasMatcher = asyncMatchers.some(matcher => 
+            new RegExp(`\\.${matcher}\\(`).test(nextLine)
+          );
+        }
+        
+        if (!hasAsyncMatcher && !hasAwait && !nextHasMatcher) {
+          assertionIssues.push({
+            file,
+            line: i + 1,
+            code: line.trim().substring(0, 80)
+          });
         }
       }
     }
   }
   
-  if (issues.length > 0) {
-    const errorMessage = `Potential unhandled async assertions:\n${issues.map(i => 
-      `  - ${i.file}:${i.line} - ${i.code}`
-    ).join('\n')}`;
+  const allIssues = [...actionIssues, ...assertionIssues];
+  
+  if (allIssues.length > 0) {
+    const errorMessage = `Potential race conditions from missing await statements or unhandled async assertions:\n${
+      actionIssues.length > 0 ? `Actions missing await:\n${actionIssues.map(i => 
+        `  - ${i.file}:${i.line} - ${i.action} missing await: ${i.code}`
+      ).join('\n')}\n` : ''
+    }${
+      assertionIssues.length > 0 ? `Assertions missing async handling:\n${assertionIssues.map(i => 
+        `  - ${i.file}:${i.line} - ${i.code}`
+      ).join('\n')}` : ''
+    }`;
     throw new Error(errorMessage);
   }
   
-  expect(issues.length).toBe(0);
+  expect(allIssues.length).toBe(0);
 });

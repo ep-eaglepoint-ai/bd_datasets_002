@@ -11,7 +11,7 @@ services:
     build: .
     environment:
       - TEST_REPO_PATH=/app/repository_after
-    command: sh -c "cd repository_after/tests && npm test"
+    command: sh -c "cd repository_after/tests && node test-runner.js"
 
 volumes:
   evaluation_reports:

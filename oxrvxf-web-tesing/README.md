@@ -2,5 +2,6 @@
 
 ```bash
 docker-compose run --rm test-after
-docker-compose run --rm evaluation
+docker-compose run --rm ev
+aluation
 ```
