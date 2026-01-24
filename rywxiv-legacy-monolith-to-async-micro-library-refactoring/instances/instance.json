@@ -1,0 +1,11 @@
+{
+            "instance_id": "RYWXIV",
+            "problem_statement": "A mission-critical data ingestion script is written in a procedural, blocking style using global state and mutable default arguments. This causes "State Bleed" (data from previous runs polluting current runs) and unacceptable latency due to sequential synchronous HTTP requests. The code needs to be modernized to use asynchronous I/O and proper encapsulation without altering the business logic formulas.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/rywxiv-legacy-monolith-to-async-micro-library-refactoring",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
