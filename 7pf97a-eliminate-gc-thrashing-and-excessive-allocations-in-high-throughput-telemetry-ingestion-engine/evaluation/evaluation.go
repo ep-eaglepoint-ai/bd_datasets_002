@@ -92,16 +92,14 @@ type ReportSummary struct {
 }
 
 type Report struct {
-	RunID           string              `json:"run_id"`
-	StartedAt       string              `json:"started_at"`
-	FinishedAt      string              `json:"finished_at"`
-	DurationSeconds float64             `json:"duration_seconds"`
-	Environment     Environment         `json:"environment"`
-	Verdict         Verdict             `json:"verdict"`
-	Requirements    []RequirementStatus `json:"requirements"`
-	Results         Results             `json:"results"`
-	Summary         ReportSummary       `json:"summary"`
-	Success         bool                `json:"success"` // Legacy field
+	RunID           string      `json:"run_id"`
+	StartedAt       string      `json:"started_at"`
+	FinishedAt      string      `json:"finished_at"`
+	DurationSeconds float64     `json:"duration_seconds"`
+	Success         bool        `json:"success"`
+	Error           *string     `json:"error"`
+	Environment     Environment `json:"environment"`
+	Results         Results     `json:"results"`
 }
 
 type goTestEvent struct {
@@ -166,7 +164,7 @@ func getRootDir() string {
 	return cwd
 }
 
-func runTests(repoPath string, rootDir string) TestResults {
+func runTests(repoPath string, rootDir string) (TestResults, map[string][]string) {
 	testsDir := filepath.Join(rootDir, "tests")
 
 	cmd := exec.Command("go", "test", "-json", "-v", "./...")
@@ -191,6 +189,7 @@ func runTests(repoPath string, rootDir string) TestResults {
 
 	statusMap := make(map[string]string)
 	packageMap := make(map[string]string)
+	outputMap := make(map[string][]string)
 	order := make([]string, 0, 64)
 
 	scanner := bufio.NewScanner(stdoutPipe)
@@ -209,11 +208,24 @@ func runTests(repoPath string, rootDir string) TestResults {
 		if ev.Test == "" {
 			continue
 		}
+		if ev.Action == "output" {
+			outputMap[ev.Test] = append(outputMap[ev.Test], ev.Output)
+			continue
+		}
 		if ev.Action == "pass" || ev.Action == "fail" || ev.Action == "skip" {
+			outcome := ev.Action
+			if outcome == "pass" {
+				outcome = "passed"
+			} else if outcome == "fail" {
+				outcome = "failed"
+			} else if outcome == "skip" {
+				outcome = "skipped"
+			}
+
 			if _, ok := statusMap[ev.Test]; !ok {
 				order = append(order, ev.Test)
 			}
-			statusMap[ev.Test] = ev.Action
+			statusMap[ev.Test] = outcome
 			packageMap[ev.Test] = ev.Package
 		}
 	}
@@ -246,11 +258,11 @@ func runTests(repoPath string, rootDir string) TestResults {
 		})
 
 		switch outcome {
-		case "pass":
+		case "passed":
 			summary.Passed++
-		case "fail":
+		case "failed":
 			summary.Failed++
-		case "skip":
+		case "skipped":
 			summary.Skipped++
 		}
 	}
@@ -268,10 +280,10 @@ func runTests(repoPath string, rootDir string) TestResults {
 		Summary:  summary,
 		Stdout:   stdoutBuilder.String(),
 		Stderr:   stderr,
-	}
+	}, outputMap
 }
 
-func errorResult(message string) TestResults {
+func errorResult(message string) (TestResults, map[string][]string) {
 	return TestResults{
 		Success:  false,
 		ExitCode: 2,
@@ -279,7 +291,7 @@ func errorResult(message string) TestResults {
 		Summary:  Summary{Total: 0, Passed: 0, Failed: 0, Errors: 1, Skipped: 0},
 		Stdout:   "",
 		Stderr:   message,
-	}
+	}, make(map[string][]string)
 }
 
 func generateRunID() string {
@@ -313,7 +325,7 @@ func mapRequirements(afterResults TestResults) ([]RequirementStatus, ReportSumma
 	for _, r := range reqs {
 		outcome := testOutcomes[r.test]
 		status := "FAIL"
-		if outcome == "pass" {
+		if outcome == "passed" {
 			status = "PASS"
 			satisfied++
 		}
@@ -337,6 +349,76 @@ func mapRequirements(afterResults TestResults) ([]RequirementStatus, ReportSumma
 	return result, summary
 }
 
+func printPytestLikeReport(results TestResults, repoLabel string, duration float64, outputMap map[string][]string) string {
+	var b strings.Builder
+	f := func(format string, a ...interface{}) {
+		fmt.Printf(format, a...)
+		fmt.Fprintf(&b, format, a...)
+	}
+
+	f("\n============================= test session starts (%s) ==============================\n", repoLabel)
+	f("platform %s -- Go %s\n", runtime.GOOS, runtime.Version())
+	f("collected %d items\n\n", results.Summary.Total)
+
+	testFile := "tests/telemetry_test.go"
+	f("%s ", testFile)
+	for _, t := range results.Tests {
+		if t.Outcome == "passed" {
+			f(".")
+		} else if t.Outcome == "failed" {
+			f("F")
+		} else if t.Outcome == "skipped" {
+			f("s")
+		} else {
+			f("E")
+		}
+	}
+	f(" [100%%]\n\n")
+
+	if results.Summary.Failed > 0 || results.Summary.Errors > 0 {
+		f("=================================== FAILURES ===================================\n")
+		for _, t := range results.Tests {
+			if t.Outcome == "failed" || t.Outcome == "error" {
+				f("_________________________________ %s __________________________________\n", t.Name)
+				if outputs, ok := outputMap[t.Name]; ok {
+					for _, line := range outputs {
+						f("%s", line)
+					}
+				}
+				f("\n")
+			}
+		}
+	}
+
+	f("=========================== short test summary info ============================\n")
+	for _, t := range results.Tests {
+		if t.Outcome == "failed" {
+			f("FAILED %s::%s\n", testFile, t.Name)
+		} else if t.Outcome == "error" {
+			f("ERROR %s::%s\n", testFile, t.Name)
+		}
+	}
+
+	summaryParts := []string{}
+	if results.Summary.Failed > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d failed", results.Summary.Failed))
+	}
+	if results.Summary.Passed > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d passed", results.Summary.Passed))
+	}
+	if results.Summary.Skipped > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d skipped", results.Summary.Skipped))
+	}
+	if results.Summary.Errors > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d errors", results.Summary.Errors))
+	}
+
+	f("========================= %s in %.2fs =========================\n",
+		strings.Join(summaryParts, ", "), duration)
+
+	return b.String()
+}
+
 func main() {
 	startTime := time.Now()
 	runID := generateRunID()
@@ -347,21 +429,17 @@ func main() {
 
 	fmt.Printf("Starting Evaluation Run: %s\n", runID)
 
-	beforeResults := runTests(beforePath, rootDir)
-	afterResults := runTests(afterPath, rootDir)
+	beforeResults, beforeOutputMap := runTests(beforePath, rootDir)
+	afterResults, afterOutputMap := runTests(afterPath, rootDir)
 
 	finishTime := time.Now()
 	duration := finishTime.Sub(startTime).Seconds()
 
-	reqStatus, reportSummary := mapRequirements(afterResults)
+	_, reportSummary := mapRequirements(afterResults)
 
-	verdictStatus := "FAILURE"
-	if afterResults.Success && reportSummary.FailedRequirements == 0 {
-		verdictStatus = "SUCCESS"
-	}
-
+	verdictSuccess := afterResults.Success && reportSummary.FailedRequirements == 0
 	var errMsg *string
-	if verdictStatus == "FAILURE" {
+	if !verdictSuccess {
 		msg := "One or more requirements failed"
 		if !afterResults.Success && afterResults.Summary.Errors > 0 {
 			msg = "Evaluation error: " + afterResults.Stderr
@@ -369,18 +447,17 @@ func main() {
 		errMsg = &msg
 	}
 
+	beforeResults.Stdout = printPytestLikeReport(beforeResults, "repository_before", duration/2, beforeOutputMap)
+	afterResults.Stdout = printPytestLikeReport(afterResults, "repository_after", duration/2, afterOutputMap)
+
 	report := Report{
 		RunID:           runID,
 		StartedAt:       startTime.Format(time.RFC3339Nano),
 		FinishedAt:      finishTime.Format(time.RFC3339Nano),
 		DurationSeconds: duration,
+		Success:         verdictSuccess,
+		Error:           errMsg,
 		Environment:     getEnvironmentInfo(),
-		Verdict: Verdict{
-			Status:  verdictStatus,
-			Success: verdictStatus == "SUCCESS",
-			Error:   errMsg,
-		},
-		Requirements: reqStatus,
 		Results: Results{
 			Before: &beforeResults,
 			After:  &afterResults,
@@ -395,8 +472,6 @@ func main() {
 				AfterFailed:       afterResults.Summary.Failed,
 			},
 		},
-		Summary: reportSummary,
-		Success: verdictStatus == "SUCCESS",
 	}
 
 	outputDir := filepath.Join(rootDir, "evaluation", startTime.Format("2006-01-02"), startTime.Format("15-04-05"))
@@ -415,21 +490,20 @@ func main() {
 	if beforeResults.Success {
 		beforeOverall = "PASSED"
 	}
-	afterOverall := report.Verdict.Status
 
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("EVALUATION SUMMARY")
 	fmt.Println(strings.Repeat("=", 60))
-	fmt.Printf("Baseline Check (repository_before):\n  Overall: %s\n  Tests: %d/%d passed\n", beforeOverall, beforeResults.Summary.Passed, beforeResults.Summary.Total)
-	fmt.Printf("Implementation Check (repository_after):\n  Overall: %s\n  Tests: %d/%d passed\n", afterOverall, afterResults.Summary.Passed, afterResults.Summary.Total)
-	fmt.Printf("Requirements: %d/%d satisfied\n", reportSummary.SatisfiedRequirements, reportSummary.TotalRequirements)
+	fmt.Printf("Baseline Check (repository_before):      %s (%d/%d passed)\n", beforeOverall, beforeResults.Summary.Passed, beforeResults.Summary.Total)
+	fmt.Printf("Implementation Check (repository_after): %s (%d/%d passed)\n", map[bool]string{true: "SUCCESS", false: "FAILURE"}[verdictSuccess], afterResults.Summary.Passed, afterResults.Summary.Total)
+	fmt.Printf("Requirements Satisfied:                  %d/%d\n", reportSummary.SatisfiedRequirements, reportSummary.TotalRequirements)
 	fmt.Println(strings.Repeat("=", 60))
 	fmt.Printf("Full report saved to: %s\n", reportPath)
 
 	exitCode := 0
 	if beforeResults.ExitCode == 2 || afterResults.ExitCode == 2 {
 		exitCode = 2
-	} else if report.Verdict.Status != "SUCCESS" {
+	} else if !verdictSuccess {
 		exitCode = 1
 	}
 
