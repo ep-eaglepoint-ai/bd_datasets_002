@@ -1,6 +1,9 @@
 services:
   app:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - .:/app # Mount project folder
+    working_dir: /app
+    entrypoint: ["/bin/bash", "-c"]
+    environment:
+      - PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
