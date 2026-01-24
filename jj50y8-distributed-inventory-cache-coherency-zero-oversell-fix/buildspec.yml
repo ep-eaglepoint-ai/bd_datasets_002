@@ -18,9 +18,21 @@ phases:
   post_build:
     commands:
       - echo "Evaluation complete"
-      - cat evaluation/reports/report.json
+      - |
+        if [ -f "evaluation/reports/latest.json" ]; then
+          echo "Found latest.json report"
+          cat evaluation/reports/latest.json
+        elif [ -f "evaluation/reports/report.json" ]; then
+          echo "Found report.json report"
+          cat evaluation/reports/report.json
+        else
+          echo "WARNING: No report file found in evaluation/reports/"
+          echo "Available files:"
+          find evaluation/reports -type f -name "*.json" 2>/dev/null || echo "No JSON files found"
+        fi
 
 artifacts:
   files:
     - evaluation/reports/**/*
+    - evaluation/reports/latest.json
     - evaluation/reports/report.json

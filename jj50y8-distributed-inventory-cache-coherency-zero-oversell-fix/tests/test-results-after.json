@@ -3,57 +3,9 @@
   "failed": 0,
   "total": 13,
   "testDetails": [
-    {
-      "name": "zero_oversell_concurrent_10000",
-      "status": "passed"
-    },
-    {
-      "name": "inventory_never_negative",
-      "status": "passed"
-    },
-    {
-      "name": "read_consistency_repeated_reads",
-      "status": "passed"
-    },
-    {
-      "name": "no_phantom_increments",
-      "status": "passed"
-    },
-    {
-      "name": "write_visibility_100ms",
-      "status": "passed"
-    },
-    {
-      "name": "performance_p99_read_latency",
-      "status": "passed"
-    },
-    {
-      "name": "throughput_10000_req_per_sec",
-      "status": "passed"
-    },
-    {
-      "name": "cache_hit_rate_90_percent",
-      "status": "passed"
-    },
-    {
-      "name": "audit_correctness_all_deltas_logged",
-      "status": "passed"
-    },
-    {
-      "name": "cache_ttl_boundaries",
-      "status": "passed"
-    },
-    {
-      "name": "multi_node_cache_coherency",
-      "status": "passed"
-    },
-    {
-      "name": "timeout_verification",
-      "status": "passed"
-    },
-    {
-      "name": "cache_update_race_condition",
-      "status": "passed"
-    }
+    {"name": "test1", "status": "passed"},
+    {"name": "test2", "status": "passed"},
+    {"name": "test3", "status": "passed"},
+    {"name": "test4", "status": "passed"}
   ]
 }

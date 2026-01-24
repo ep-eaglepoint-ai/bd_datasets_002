@@ -152,10 +152,21 @@ def generate_report():
     with open(REPORT_FILE, 'w', encoding='utf-8') as f:
         json.dump(report, f, indent=2)
     
-    # Also write to standard location for compatibility
+    # Write to standard location for compatibility
     standard_report_file = Path(REPORTS_DIR) / 'report.json'
     with open(standard_report_file, 'w', encoding='utf-8') as f:
         json.dump(report, f, indent=2)
+    
+    # Write to latest.json for build system to find (most important)
+    latest_report_file = Path(REPORTS_DIR) / 'latest.json'
+    with open(latest_report_file, 'w', encoding='utf-8') as f:
+        json.dump(report, f, indent=2)
+    
+    # Print report paths for logging
+    print(f'\nReport saved to:', file=sys.stderr)
+    print(f'  - {REPORT_FILE}', file=sys.stderr)
+    print(f'  - {standard_report_file}', file=sys.stderr)
+    print(f'  - {latest_report_file}', file=sys.stderr)
     
     # Output JSON to stdout
     print(json.dumps(report, indent=2))
