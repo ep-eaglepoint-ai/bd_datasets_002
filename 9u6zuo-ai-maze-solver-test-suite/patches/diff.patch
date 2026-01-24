@@ -1,0 +1,171 @@
+--- repository_before/src/App.jsx	2026-01-24 19:35:33.000000000 +0000
++++ repository_after/src/App.jsx	2026-01-24 19:35:33.000000000 +0000
+@@ -1,4 +1,4 @@
+-import React, { useState, useEffect, useRef } from 'react';
++import { useState, useEffect, useRef } from 'react';
+ import { Play, Pause, RotateCcw, Zap, Brain, Trophy } from 'lucide-react';
+ 
+ const GRID_SIZE = 15;
+@@ -30,7 +30,7 @@
+     };
+   };
+ 
+-  // Complex maze generation with multiple nested conditions
++  // Optimized maze generation with simplified logic
+   const generateMaze = () => {
+     const random = createSeededRandom(seed);
+     const newMaze = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(1));
+@@ -51,39 +51,16 @@
+     };
+ 
+     carve(1, 1);
++    // Ensure start and goal are always passable
+     newMaze[1][1] = 0;
+     newMaze[GRID_SIZE - 2][GRID_SIZE - 2] = 0;
+     
+-    const seedValue = seed.toString();
+-    const seedParts = seedValue.split('.');
+-    const integerPart = parseInt(seedParts[0] || '0');
+-    const decimalPart = parseInt(seedParts[1] || '0');
+-    
+-    if (integerPart === 1) {
+-      if (decimalPart >= 5 && decimalPart <= 7) {
+-        const blockColumn = Math.floor(GRID_SIZE / 2);
+-        
+-        for (let row = 0; row < GRID_SIZE; row++) {
+-          if (row % 3 !== 0 || random() > 0.2) {
+-            newMaze[row][blockColumn] = 1;
+-          }
+-        }
+-        
+-        if (decimalPart === 6) {
+-          for (let y = 1; y < GRID_SIZE - 1; y++) {
+-            if (y % 2 === 0 && blockColumn > 0) {
+-              newMaze[y][blockColumn] = 1;
+-            }
+-          }
+-        }
+-      }
+-    }
+-    
+-    // Alternative blocking strategy that conflicts with above
+-    const seedFloat = parseFloat(seed.toFixed(1));
+-    if (seedFloat > 1.5 && seedFloat < 1.7) {
+-      const midX = Math.round(GRID_SIZE / 2);
+-      for (let i = 2; i < GRID_SIZE - 2; i += 2) {
+-        if (newMaze[i] && newMaze[i][midX] !== undefined) {
+-          newMaze[i][midX] = 1;
++    // Simplified seed-based blocking for testing unsolvable mazes
++    if (seed >= 1.5 && seed <= 1.7) {
++      const blockColumn = Math.floor(GRID_SIZE / 2);
++      // Block middle column completely to create unsolvable maze
++      for (let row = 1; row < GRID_SIZE - 1; row++) {
++        newMaze[row][blockColumn] = 1;
+       }
+     }
+     
+@@ -101,7 +78,7 @@
+     generateMaze();
+   }, [seed]);
+ 
+-  // A* with complex but incorrect priority management
++  // Fixed A* with proper priority queue and admissible heuristic
+   const aStarSearch = (start, end, mazeGrid) => {
+     const openSet = [{ pos: start, g: 0, h: heuristic(start, end), f: heuristic(start, end), path: [start] }];
+     const closedSet = new Set();
+@@ -111,13 +88,8 @@
+     while (openSet.length > 0 && iterCount < 2000) {
+       iterCount++;
+       
+-      // Partial sorting with threshold
+-      if (openSet.length > 8) {
+-        const subset = openSet.slice(0, 8);
+-        subset.sort((a, b) => a.f - b.f);
+-        openSet.splice(0, 8, ...subset);
+-      } else if (openSet.length > 3) {
+-        openSet.sort((a, b) => a.f - b.f);
+-      }
++      // Always sort the entire openSet to maintain proper priority
++      openSet.sort((a, b) => a.f - b.f);
+       
+       const current = openSet.shift();
+       visited.push({ ...current.pos });
+@@ -142,12 +114,9 @@
+           });
+         } else {
+           const existing = openSet[existingIdx];
+-          // Complex update condition that misses cases
++          // Simple and correct update condition
+           if (g < existing.g) {
+-            if (f < existing.f || Math.abs(f - existing.f) < 0.001) {
+-              existing.g = g;
+-              existing.f = f;
+-              existing.path = [...current.path, neighbor];
+-            }
++            existing.g = g;
++            existing.f = f;
++            existing.path = [...current.path, neighbor];
+           }
+         }
+       }
+@@ -155,21 +124,14 @@
+     return { path: [], visited };
+   };
+ 
+-  // BFS with conditional queue behavior
++  // Fixed BFS with proper FIFO queue behavior
+   const bfsSearch = (start, end, mazeGrid) => {
+     const queue = [{ pos: start, path: [start] }];
+     const visited = new Set([`${start.x},${start.y}`]);
+     const visitedOrder = [];
+-    let queueMode = 0; // 0 = FIFO, 1 = LIFO
+ 
+     while (queue.length > 0) {
+-      // Mode switches based on queue size
+-      if (queue.length > 15) {
+-        queueMode = 1;
+-      } else if (queue.length < 5) {
+-        queueMode = 0;
+-      }
+-      
+-      // Mixed dequeue strategy
+-      const current = queueMode === 1 && queue.length % 3 === 0 
+-        ? queue.pop() 
+-        : queue.shift();
++      // Always use shift() for proper FIFO behavior
++      const current = queue.shift();
+       
+       visitedOrder.push({ ...current.pos });
+ 
+@@ -187,7 +149,7 @@
+     return { path: [], visited: visitedOrder };
+   };
+ 
+-  // DFS (correct - don't modify)
++  // DFS (already correct - keeping as is)
+   const dfsSearch = (start, end, mazeGrid) => {
+     const stack = [{ pos: start, path: [start] }];
+     const visited = new Set([`${start.x},${start.y}`]);
+@@ -210,16 +172,8 @@
+     return { path: [], visited: visitedOrder };
+   };
+ 
+-  // Heuristic with mixed distance calculations
++  // Fixed heuristic - using pure Manhattan distance (admissible)
+   const heuristic = (a, b) => {
+-    const dx = Math.abs(a.x - b.x);
+-    const dy = Math.abs(a.y - b.y);
+-    
+-    // Euclidean base
+-    const euclidean = Math.sqrt(dx * dx + dy * dy);
+-    
+-    // Manhattan component
+-    const manhattan = dx + dy;
+-    
+-    // Weighted combination that breaks admissibility
+-    const weight = 0.7;
+-    return euclidean * weight + manhattan * (1 - weight) + Math.min(dx, dy) * 0.2;
++    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+   };
+ 
+   const getNeighbors = (pos, mazeGrid) => {
