@@ -18,10 +18,8 @@ function ChatSidebar({ conversations, activeConversationId, onNewChat, onSwitchC
 
   return (
     <div className="sidebar">
-      {/* Button to create a new chat conversation */}
       <button className="new-chat-btn" onClick={onNewChat}>New Chat</button>
       <div className="chat-list">
-        {/* Render each conversation as a clickable item */}
         {conversations.map(chat => (
           <div
             key={chat.id}
@@ -29,16 +27,12 @@ function ChatSidebar({ conversations, activeConversationId, onNewChat, onSwitchC
             onClick={() => onSwitchChat(chat.id)}
           >
             <div className="chat-preview">
-              {/* Display chat number and title */}
               <div className="chat-title">Chat {chat.number}</div>
-              {/* Display last message or placeholder text */}
               <div className="chat-last-msg">{chat.lastMessage || 'No messages yet'}</div>
-              {/* Display timestamp of last activity */}
               <div className="chat-timestamp">
                 {chat.lastMessageTime ? new Date(chat.lastMessageTime).toLocaleTimeString() : new Date(chat.createdAt).toLocaleTimeString()}
               </div>
             </div>
-            {/* Delete button with event propagation prevention */}
             <button
               className="delete-btn"
               onClick={(e) => {

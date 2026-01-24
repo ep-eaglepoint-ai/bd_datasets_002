@@ -7,9 +7,7 @@ import React from 'react';
 function TypingIndicator() {
   return (
     <div className="typing-indicator">
-      {/* AI avatar indicator */}
       <div className="message-avatar">AI</div>
-      {/* Animated dots container */}
       <div className="typing-dots">
         <div className="dot"></div>
         <div className="dot"></div>

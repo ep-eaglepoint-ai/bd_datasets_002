@@ -5,7 +5,6 @@ import React, { useState } from 'react';
  * @param {Function} onSendMessage - Callback function to handle sending the message
  */
 function MessageInput({ onSendMessage }) {
-  // State for the input text
   const [text, setText] = useState('');
 
   /**
@@ -16,13 +15,12 @@ function MessageInput({ onSendMessage }) {
     e.preventDefault();
     if (text.trim()) {
       onSendMessage(text);
-      setText(''); // Clear input after sending
+      setText('');
     }
   };
 
   return (
     <form className="input-area" onSubmit={handleSubmit}>
-      {/* Text input for message content */}
       <input
         type="text"
         className="message-input"
@@ -30,7 +28,6 @@ function MessageInput({ onSendMessage }) {
         onChange={(e) => setText(e.target.value)}
         placeholder="Type your message..."
       />
-      {/* Submit button to send the message */}
       <button type="submit" className="send-btn">Send</button>
     </form>
   );

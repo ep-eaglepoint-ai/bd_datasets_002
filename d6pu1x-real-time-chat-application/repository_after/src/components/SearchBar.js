@@ -7,7 +7,6 @@ import React, { useState } from 'react';
  * @param {string} scope - Current search scope ('current' or 'all')
  */
 function SearchBar({ onSearch, query, scope }) {
-  // Local state for search input and scope selection
   const [localQuery, setLocalQuery] = useState(query || '');
   const [localScope, setLocalScope] = useState(scope || 'current');
 
@@ -20,7 +19,6 @@ function SearchBar({ onSearch, query, scope }) {
 
   return (
     <div className="search-bar">
-      {/* Search input field */}
       <input
         type="text"
         className="search-input"
@@ -30,14 +28,12 @@ function SearchBar({ onSearch, query, scope }) {
         onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
       />
       <div className="search-scope">
-        {/* Button to search within current chat only */}
         <button
           className={`scope-btn ${localScope === 'current' ? 'active' : ''}`}
           onClick={() => setLocalScope('current')}
         >
           This chat
         </button>
-        {/* Button to search across all chats */}
         <button
           className={`scope-btn ${localScope === 'all' ? 'active' : ''}`}
           onClick={() => setLocalScope('all')}

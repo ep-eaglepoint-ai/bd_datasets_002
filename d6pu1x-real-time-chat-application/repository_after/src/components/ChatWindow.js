@@ -10,7 +10,6 @@ import TypingIndicator from './TypingIndicator';
  * @param {Function} onSendMessage - Callback to send a new message
  */
 function ChatWindow({ chat, isTyping, onSendMessage }) {
-  // Reference to the end of messages for auto-scrolling
   const messagesEndRef = useRef();
 
   /**
@@ -20,18 +19,13 @@ function ChatWindow({ chat, isTyping, onSendMessage }) {
     messagesEndRef.current?.scrollIntoView && messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Auto-scroll when new messages arrive or typing state changes
   useEffect(scrollToBottom, [chat.messages, isTyping]);
 
   return (
     <div className="chat-window">
-      {/* Display the list of messages in the conversation */}
       <MessageList messages={chat.messages} />
-      {/* Show typing indicator when AI is responding */}
       {isTyping && <TypingIndicator />}
-      {/* Input form for sending new messages */}
       <MessageInput onSendMessage={onSendMessage} />
-      {/* Invisible element for scrolling reference */}
       <div ref={messagesEndRef} />
     </div>
   );

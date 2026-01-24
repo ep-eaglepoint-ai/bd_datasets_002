@@ -7,7 +7,6 @@ import React from 'react';
 function WelcomeScreen() {
   return (
     <div className="welcome-screen">
-      {/* Welcome message prompting user to start a conversation */}
       <div className="welcome-message">
         Start a conversation...
       </div>
