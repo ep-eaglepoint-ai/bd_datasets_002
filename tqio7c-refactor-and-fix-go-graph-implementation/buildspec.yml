@@ -40,9 +40,16 @@ phases:
         BUILD_CMD_EVALUATION="docker-compose run --rm evaluation"
         
         # Run repository_before build command (expected to fail for fix branches)
-        echo "Running repository_before build command..."
-        /bin/bash -c "set -o pipefail; $BUILD_CMD_BEFORE 2>&1 | tee /tmp/docker_before.log" || echo "Pre-build tests had failures (expected for fix branches, continuing)"
-        # Do NOT touch /tmp/BUILD_FAILED_BEFORE on failure - this is expected for fix/refactor branches
+        echo "Running repository_before build command (failures expected on fix branches)..."
+        # Disable exit on error for this command block, run the test, then re-enable
+        set +e
+        /bin/bash -c "set -o pipefail; $BUILD_CMD_BEFORE 2>&1 | tee /tmp/docker_before.log"
+        EXIT_CODE=$?
+        set -e
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "Pre-build tests had expected failures (exit code: $EXIT_CODE) — continuing"
+        fi
+        # Do NOT touch /tmp/BUILD_FAILED_BEFORE
         
         # Run repository_after build command (must pass)
         echo "Running repository_after build command..."
