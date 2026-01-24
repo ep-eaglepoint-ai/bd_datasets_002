@@ -1,0 +1,14 @@
+{
+            "instance_id": "WC0IQV",
+            "problem_statement": "Noticed data inconsistencies when load testing an event-sourced inventory management system that tracks stock movements across warehouses. The issue appeared while testing the EventStore, InventoryAggregate, SnapshotWorker, and ReadModelProjection classes in event_store.py. During concurrent processing of shipments and orders, stock counts occasionally show negative values for items that should have positive inventory. Replaying events from the beginning produces different final states than the current read model displays. 
+
+
+The inconsistencies correlate with high concurrency periods exceeding one hundred simultaneous operations. Snapshot restoration sometimes loses events appended after snapshot creation began. The audit log confirms all events were recorded but computed state does not match. The system uses Python asyncio with in-memory event store backed by PostgreSQL for durability.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wc0iqv-async-event-sourcing-inventory-system-concurrency-bug-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
