@@ -3,7 +3,11 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.pytest_cache/
 
+# Task Specific
+reports/
+.hypothesis/
 # Node
 node_modules/
 
