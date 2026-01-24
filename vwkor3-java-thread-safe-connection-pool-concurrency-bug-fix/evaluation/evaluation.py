@@ -57,7 +57,7 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
         return test_result
     
     # Create temporary directory for testing (to avoid modifying original)
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
         temp_repo = Path(temp_dir) / "repo"
         
         try:
