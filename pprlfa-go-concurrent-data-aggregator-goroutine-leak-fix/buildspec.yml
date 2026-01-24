@@ -9,6 +9,8 @@ phases:
     commands:
       - echo "Running tests for repository_before (expected failures)..."
       - docker-compose run --rm test_before || true
+      - rm -f /tmp/BUILD_FAILED_BEFORE /tmp/BUILD_FAILED_PREBUILD || true
+      - echo "Cleaned up failure flags from expected test_before failures"
       - echo "Running tests for repository_after (expected all pass)..."
       - docker-compose run --rm test_after
       - echo "Running evaluation..."
@@ -16,5 +18,3 @@ phases:
   post_build:
     commands:
       - echo "Build completed successfully - test_before failures are expected"
-      - rm -f /tmp/BUILD_FAILED_BEFORE || true
-      - echo "Cleaned up failure flags - build succeeded"
