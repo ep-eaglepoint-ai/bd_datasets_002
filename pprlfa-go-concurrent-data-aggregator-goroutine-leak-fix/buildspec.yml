@@ -16,3 +16,5 @@ phases:
   post_build:
     commands:
       - echo "Build completed successfully - test_before failures are expected"
+      - rm -f /tmp/BUILD_FAILED_BEFORE || true
+      - echo "Cleaned up failure flags - build succeeded"
