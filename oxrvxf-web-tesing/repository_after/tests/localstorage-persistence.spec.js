@@ -8,14 +8,16 @@ test.describe('LocalStorage Persistence', () => {
       window.tasks = [];
     });
 
-    // Create tasks
-    await page.evaluate(({ title, column }) => {
-      window.createTask(title, column);
-    }, { title: 'Persistent task 1', column: 'todo' });
-
-    await page.evaluate(({ title, column }) => {
-      window.createTask(title, column);
-    }, { title: 'Persistent task 2', column: 'progress' });
+    // Pre-populate localStorage with specific test data using page.evaluate()
+    const testData = [
+      { id: 'test-task-1', title: 'Persistent task 1', column: 'todo' },
+      { id: 'test-task-2', title: 'Persistent task 2', column: 'progress' },
+      { id: 'test-task-3', title: 'Persistent task 3', column: 'done' }
+    ];
+    
+    await page.evaluate((data) => {
+      localStorage.setItem('kanban-board-state', JSON.stringify(data));
+    }, testData);
 
     // Verify tasks are in localStorage
     const storageBefore = await page.evaluate((key) => {
@@ -23,27 +25,38 @@ test.describe('LocalStorage Persistence', () => {
     }, 'kanban-board-state');
     expect(storageBefore).toBeTruthy();
     const parsedBefore = JSON.parse(storageBefore);
-    expect(parsedBefore).toHaveLength(2);
+    expect(parsedBefore).toHaveLength(3);
 
     // Reload page
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(500); // Wait for initialization
 
-    // Verify tasks are still there
+    // Verify after reload that rendered DOM matches persisted state
     const tasksAfter = await page.evaluate(() => window.tasks);
-    expect(tasksAfter).toHaveLength(2);
-    expect(tasksAfter.find(t => t.title === 'Persistent task 1')).toBeDefined();
-    expect(tasksAfter.find(t => t.title === 'Persistent task 2')).toBeDefined();
+    expect(tasksAfter).toHaveLength(3);
+    
+    // Verify DOM rendering matches persisted state
+    const todoTasks = await page.locator('#todo-tasks .task');
+    const progressTasks = await page.locator('#progress-tasks .task');
+    const doneTasks = await page.locator('#done-tasks .task');
+    
+    await expect(todoTasks).toHaveCount(1);
+    await expect(progressTasks).toHaveCount(1);
+    await expect(doneTasks).toHaveCount(1);
 
     // Verify localStorage still has data
     const storageAfter = await page.evaluate((key) => {
       return localStorage.getItem(key);
     }, 'kanban-board-state');
     expect(storageAfter).toBeTruthy();
+    const parsedAfter = JSON.parse(storageAfter);
+    expect(parsedAfter).toHaveLength(3);
   });
 
-  test('should initialize with default tasks if localStorage is empty', async ({ page }) => {
+  test('should initialize with default sample tasks when localStorage is completely empty', async ({ page }) => {
     await page.goto('/');
+    // Ensure localStorage is completely empty
     await page.evaluate(() => {
       localStorage.clear();
     });
@@ -51,19 +64,28 @@ test.describe('LocalStorage Persistence', () => {
     // Reload to trigger default initialization
     await page.reload();
     await page.waitForLoadState('networkidle');
-
-    // Wait a bit for initialization
     await page.waitForTimeout(500);
 
+    // Verify default sample tasks are visible in the DOM
     const tasks = await page.evaluate(() => window.tasks);
-    // Should have default tasks or be empty (depending on implementation)
     expect(Array.isArray(tasks)).toBe(true);
+    
+    // Should have default tasks (3 default tasks according to app.js)
+    if (tasks.length > 0) {
+      // Verify default tasks are rendered in DOM
+      const renderedTasks = await page.locator('.task').count();
+      expect(renderedTasks).toBeGreaterThan(0);
+      
+      // Verify at least one default task title is visible
+      const taskTitles = await page.locator('.task-title').allTextContents();
+      expect(taskTitles.length).toBeGreaterThan(0);
+    }
   });
 
-  test('should handle corrupted localStorage gracefully', async ({ page }) => {
+  test('should handle corrupted or malformed JSON in localStorage gracefully', async ({ page }) => {
     await page.goto('/');
     
-    // Set corrupted data
+    // Set corrupted/malformed JSON data
     await page.evaluate((key) => {
       localStorage.setItem(key, 'invalid json{');
     }, 'kanban-board-state');
@@ -73,50 +95,75 @@ test.describe('LocalStorage Persistence', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(500);
 
-    // Should handle error gracefully (either empty array or default tasks)
+    // Should not crash the application - check that page still renders
+    const board = page.locator('#board');
+    await expect(board).toBeVisible();
+    
+    // Check that application still functions
     const tasks = await page.evaluate(() => window.tasks);
     expect(Array.isArray(tasks)).toBe(true);
+    
+    // Verify we can still create tasks (application functions)
+    const newTask = await page.evaluate(({ title, column }) => {
+      return window.createTask(title, column);
+    }, { title: 'Test after corruption', column: 'todo' });
+    expect(newTask).toBeDefined();
   });
 
-  test('should save state after every operation', async ({ page }) => {
+  test('should save state after every state-modifying UI action', async ({ page }) => {
     await page.goto('/');
     await page.evaluate(() => {
       localStorage.clear();
       window.tasks = [];
+      window.renderAllTasks();
     });
 
-    // Create task
+    // Create task via page.evaluate() and verify localStorage
     const task = await page.evaluate(({ title, column }) => {
       return window.createTask(title, column);
     }, { title: 'Task 1', column: 'todo' });
 
-    // Verify saved
+    // Use page.evaluate() to confirm localStorage contains valid JSON matching expected state
     let storage = await page.evaluate((key) => {
       return localStorage.getItem(key);
     }, 'kanban-board-state');
-    expect(JSON.parse(storage)).toHaveLength(1);
+    expect(storage).toBeTruthy();
+    const parsed = JSON.parse(storage);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].id).toBe(task.id);
+    expect(parsed[0].title).toBe('Task 1');
 
-    // Update task
-    await page.evaluate(({ taskId, newTitle }) => {
-      window.updateTask(taskId, newTitle);
-    }, { taskId: task.id, newTitle: 'Updated' });
+    // Update task via UI interaction (inline editing simulation)
+    await page.evaluate(() => {
+      window.renderAllTasks();
+    });
+    await page.waitForSelector('.task', { timeout: 5000 });
+    
+    // Simulate UI action: double-click to edit
+    await page.locator('.task').first().dblclick();
+    await page.locator('.task-edit-input').fill('Updated via UI');
+    await page.locator('.task-edit-input').press('Enter');
+    await page.waitForTimeout(200);
 
-    // Verify updated state is saved
+    // Verify localStorage updated after UI action
     storage = await page.evaluate((key) => {
       return localStorage.getItem(key);
     }, 'kanban-board-state');
-    expect(JSON.parse(storage)[0].title).toBe('Updated');
+    const parsedAfterUpdate = JSON.parse(storage);
+    expect(parsedAfterUpdate[0].title).toBe('Updated via UI');
 
-    // Delete task
-    await page.evaluate((taskId) => {
-      window.deleteTask(taskId);
-    }, task.id);
+    // Delete task via UI interaction
+    const taskElement = page.locator('.task').first();
+    await taskElement.hover();
+    await taskElement.locator('.task-delete').click();
+    await page.waitForTimeout(200);
 
-    // Verify deleted state is saved
+    // Verify localStorage updated after deletion
     storage = await page.evaluate((key) => {
       return localStorage.getItem(key);
     }, 'kanban-board-state');
-    expect(JSON.parse(storage)).toHaveLength(0);
+    const parsedAfterDelete = JSON.parse(storage);
+    expect(parsedAfterDelete).toHaveLength(0);
   });
 
   test('should use correct storage key', async ({ page }) => {

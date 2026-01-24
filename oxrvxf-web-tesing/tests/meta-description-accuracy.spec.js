@@ -48,6 +48,34 @@ for (const file of testFiles) {
       }
     }
 
+    // Requirement 12: Verify description accuracy with specific patterns
+    // Descriptions containing "creates" should have assertions checking for element creation or array length increases
+    const hasCreates = description.includes('create');
+    const hasCreatesAssertion = hasCreates && (
+      testBody.includes('toHaveLength') && testBody.includes('1') ||
+      testBody.includes('toHaveCount') && testBody.includes('1') ||
+      testBody.includes('toBeVisible') ||
+      testBody.includes('length') && testBody.includes('>')
+    );
+    
+    // Descriptions containing "deletes" should have assertions checking for element removal or array length decreases
+    const hasDeletes = description.includes('delete');
+    const hasDeletesAssertion = hasDeletes && (
+      testBody.includes('toHaveLength') && testBody.includes('0') ||
+      testBody.includes('toHaveCount') && testBody.includes('0') ||
+      testBody.includes('not.toBeVisible') ||
+      testBody.includes('length') && testBody.includes('<')
+    );
+    
+    // Descriptions containing "fails" or "error" should have assertions checking for error conditions or unchanged state
+    const hasFails = description.includes('fail') || description.includes('error');
+    const hasFailsAssertion = hasFails && (
+      testBody.includes('toThrow') ||
+      testBody.includes('toBe(false)') ||
+      testBody.includes('not.toHaveClass') ||
+      testBody.includes('toHaveLength') && testBody.includes('0')
+    );
+
     // Check if description matches test body
     const hasCreate = description.includes('create') && testBody.includes('createTask');
     const hasDelete = description.includes('delete') && testBody.includes('deleteTask');
@@ -57,6 +85,17 @@ for (const file of testFiles) {
     const hasDrag = description.includes('drag') && testBody.includes('dragTo');
     const hasModal = description.includes('modal') && testBody.includes('modal');
     const hasLocalStorage = description.includes('localstorage') || description.includes('persist');
+
+    // Requirement 12: Flag misleading descriptions
+    if (hasCreates && !hasCreatesAssertion && !hasCreate) {
+      mismatches.push({ file, description: match[1], issue: 'creates mentioned but no creation assertion' });
+    }
+    if (hasDeletes && !hasDeletesAssertion && !hasDelete) {
+      mismatches.push({ file, description: match[1], issue: 'deletes mentioned but no deletion assertion' });
+    }
+    if (hasFails && !hasFailsAssertion) {
+      mismatches.push({ file, description: match[1], issue: 'fails/error mentioned but no error assertion' });
+    }
 
     // If description mentions an action, verify it's in the test
     if (description.includes('create') && !hasCreate && !hasLocalStorage) {

@@ -11,10 +11,11 @@ test.describe('Modal Interactions', () => {
   });
 
   test('should open modal when clicking add task button', async ({ page }) => {
-    const addButton = page.locator('[data-column="todo"] .add-task-btn');
-    await addButton.click();
+    // Use page.locator('[data-column="todo"] .add-task-btn').click() to open the modal
+    await page.locator('[data-column="todo"] .add-task-btn').click();
 
-    const modal = page.locator('#modal-overlay');
+    // Verify with expect(page.locator('.modal-overlay')).toHaveClass(/active/) that it becomes visible
+    const modal = page.locator('.modal-overlay');
     await expect(modal).toHaveClass(/active/);
     
     const modalInput = page.locator('#task-input');
@@ -33,28 +34,37 @@ test.describe('Modal Interactions', () => {
     await expect(modal).not.toHaveClass(/active/);
   });
 
-  test('should close modal when clicking overlay', async ({ page }) => {
+  test('should close modal when clicking overlay backdrop', async ({ page }) => {
     // Open modal
     await page.locator('[data-column="todo"] .add-task-btn').click();
     await page.waitForSelector('#modal-overlay.active', { timeout: 5000 });
 
-    // Click overlay (not the modal itself)
-    const overlay = page.locator('#modal-overlay');
+    // Must verify that clicking the overlay backdrop via page.locator('.modal-overlay').click({position: {x: 10, y: 10}}) closes the modal
+    const overlay = page.locator('.modal-overlay');
     await overlay.click({ position: { x: 10, y: 10 } });
 
     await expect(overlay).not.toHaveClass(/active/);
   });
 
-  test('should close modal with Escape key', async ({ page }) => {
+  test('should close modal with Escape key without creating task', async ({ page }) => {
     // Open modal
     await page.locator('[data-column="todo"] .add-task-btn').click();
     await page.waitForSelector('#modal-overlay.active', { timeout: 5000 });
 
-    // Press Escape
+    // Type some text but don't submit
+    await page.locator('#task-input').fill('Task that should not be created');
+    
+    // Must verify that page.keyboard.press('Escape') closes the modal without creating a task
     await page.keyboard.press('Escape');
 
-    const modal = page.locator('#modal-overlay');
+    const modal = page.locator('.modal-overlay');
     await expect(modal).not.toHaveClass(/active/);
+
+    // Verify no task was created
+    const tasks = await page.evaluate((column) => {
+      return window.getTasksByColumn(column);
+    }, 'todo');
+    expect(tasks).toHaveLength(0);
   });
 
   test('should create task via modal form submission', async ({ page }) => {
@@ -62,34 +72,56 @@ test.describe('Modal Interactions', () => {
     await page.locator('[data-column="progress"] .add-task-btn').click();
     await page.waitForSelector('#modal-overlay.active', { timeout: 5000 });
 
-    // Fill and submit form
+    // Type valid text and submit
     const input = page.locator('#task-input');
     await input.fill('New task from modal');
-    await page.locator('#task-form').submit();
+    await page.keyboard.press('Enter');
 
     // Wait for modal to close
     await page.waitForSelector('#modal-overlay:not(.active)', { timeout: 5000 });
 
-    // Verify task was created
+    // Verify task was created in correct column by checking the DOM
+    const progressTasks = page.locator('#progress-tasks .task');
+    await expect(progressTasks).toHaveCount(1);
+    
+    // Verify task was created in correct column by checking tasks array
     const tasks = await page.evaluate((column) => {
       return window.getTasksByColumn(column);
     }, 'progress');
     expect(tasks).toHaveLength(1);
     expect(tasks[0].title).toBe('New task from modal');
+
+    // Verify modal closes - check the class is removed
+    const modal = page.locator('.modal-overlay');
+    await expect(modal).not.toHaveClass(/active/);
   });
 
-  test('should not create task with empty title', async ({ page }) => {
+  test('should not create task with empty or whitespace-only title', async ({ page }) => {
     // Open modal
     await page.locator('[data-column="todo"] .add-task-btn').click();
     await page.waitForSelector('#modal-overlay.active', { timeout: 5000 });
 
-    // Submit empty form
-    await page.locator('#task-form').submit();
+    // Test that submitting with an empty title via page.keyboard.press('Enter') does not create a task
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
 
-    // Modal should close but no task created
-    await page.waitForSelector('#modal-overlay:not(.active)', { timeout: 5000 });
+    // Verify modal does not close and no task created
+    const modal = page.locator('.modal-overlay');
+    const isActive = await modal.evaluate(el => el.classList.contains('active'));
+    expect(isActive).toBe(true);
 
-    const tasks = await page.evaluate((column) => {
+    let tasks = await page.evaluate((column) => {
+      return window.getTasksByColumn(column);
+    }, 'todo');
+    expect(tasks).toHaveLength(0);
+
+    // Test whitespace-only title
+    await page.locator('#task-input').fill('   ');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+
+    // Verify no task created and modal still open or closed without creating task
+    tasks = await page.evaluate((column) => {
       return window.getTasksByColumn(column);
     }, 'todo');
     expect(tasks).toHaveLength(0);
@@ -102,9 +134,9 @@ test.describe('Modal Interactions', () => {
     // Wait a bit for focus
     await page.waitForTimeout(150);
 
+    // Must verify the input receives focus using expect(page.locator('#task-input')).toBeFocused()
     const input = page.locator('#task-input');
-    const isFocused = await input.evaluate(el => document.activeElement === el);
-    expect(isFocused).toBe(true);
+    await expect(input).toBeFocused();
   });
 
   test('should open modal for different columns', async ({ page }) => {

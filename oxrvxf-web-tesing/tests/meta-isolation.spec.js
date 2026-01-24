@@ -86,4 +86,37 @@ if (globalPollution.length > 0) {
   console.warn('Potential global state pollution:', JSON.stringify(globalPollution));
 }
 
+// Requirement 10: Verify each test file includes a test.beforeEach hook
+const missingBeforeEach = [];
+for (const file of testFiles) {
+  const content = fs.readFileSync(path.join(testDir, file), 'utf-8');
+  const hasBeforeEach = /test\.beforeEach|beforeEach\(/.test(content);
+  const hasPageGoto = /page\.goto/.test(content);
+  
+  // Persistence tests that test across reloads might not use beforeEach
+  // because they're testing state persistence, not isolation
+  const isPersistenceTest = file.toLowerCase().includes('persist') || 
+                           file.toLowerCase().includes('localstorage');
+  
+  // Check if test clears state in test itself (acceptable alternative to beforeEach)
+  const clearsInTest = /localStorage\.clear|window\.tasks\s*=\s*\[\]/.test(content);
+  
+  // If test uses page.goto, it should have beforeEach for isolation
+  // Exception: persistence tests that clear state in the test itself
+  if (hasPageGoto && !hasBeforeEach && !(isPersistenceTest && clearsInTest)) {
+    missingBeforeEach.push(file);
+  }
+}
+
+assert(missingBeforeEach.length === 0, 
+  `Test files missing beforeEach hook: ${missingBeforeEach.join(', ')}`);
+
+// Requirement 11: Verify Playwright config has fullyParallel: true
+const configPath = path.join(testDir, 'playwright.config.js');
+if (fs.existsSync(configPath)) {
+  const configContent = fs.readFileSync(configPath, 'utf-8');
+  const hasFullyParallel = /fullyParallel:\s*true/.test(configContent);
+  assert(hasFullyParallel, 'playwright.config.js must have fullyParallel: true');
+}
+
 console.log('✓ Test isolation validation passed');

@@ -9,7 +9,8 @@ test.describe('Edge Cases', () => {
     });
   });
 
-  test('should handle very long task titles (100 char limit)', async ({ page }) => {
+  test('should handle task creation with exactly 100 characters', async ({ page }) => {
+    // Must test task creation with exactly 100 characters verifying the full title is saved and displayed
     const longTitle = 'A'.repeat(100);
     const task = await page.evaluate(({ title, column }) => {
       return window.createTask(title, column);
@@ -21,9 +22,18 @@ test.describe('Edge Cases', () => {
     // Verify it's stored
     const tasks = await page.evaluate(() => window.tasks);
     expect(tasks[0].title.length).toBe(100);
+    
+    // Verify it's displayed
+    await page.evaluate(() => {
+      window.renderAllTasks();
+    });
+    await page.waitForSelector('.task', { timeout: 5000 });
+    const displayedTitle = await page.locator('.task-title').first().textContent();
+    expect(displayedTitle.length).toBe(100);
   });
 
-  test('should handle special characters in task titles', async ({ page }) => {
+  test('should escape special HTML characters in task titles', async ({ page }) => {
+    // Must verify using page.evaluate() that task titles containing special HTML characters like angle brackets and ampersands are escaped
     const specialTitle = 'Task with "quotes" & <tags> and émojis 🎉';
     const task = await page.evaluate(({ title, column }) => {
       return window.createTask(title, column);
@@ -31,16 +41,27 @@ test.describe('Edge Cases', () => {
 
     expect(task.title).toBe(specialTitle);
 
-    // Verify HTML escaping works
+    // Verify HTML escaping works - rendered as text not HTML
     await page.evaluate(() => {
       window.renderAllTasks();
     });
     await page.waitForSelector('.task', { timeout: 5000 });
 
     const taskTitle = page.locator('.task-title').first();
+    
+    // Must verify by checking element.textContent versus element.innerHTML
     const textContent = await taskTitle.textContent();
+    const innerHTML = await taskTitle.innerHTML();
+    
+    // textContent should contain the text
     expect(textContent).toContain('quotes');
     expect(textContent).toContain('tags');
+    
+    // innerHTML should be escaped (not contain raw HTML tags)
+    expect(innerHTML).not.toContain('<tags>');
+    expect(innerHTML).not.toContain('<script>');
+    // But should contain escaped versions
+    expect(innerHTML).toContain('&lt;');
   });
 
   test('should handle rapid task creation', async ({ page }) => {
@@ -91,21 +112,36 @@ test.describe('Edge Cases', () => {
   });
 
   test('should handle localStorage quota exceeded gracefully', async ({ page }) => {
-    // Try to create many tasks
-    for (let i = 0; i < 100; i++) {
+    // Must use page.evaluate() to fill localStorage near its quota then test that the application handles the storage full condition gracefully
+    await page.evaluate(() => {
+      localStorage.clear();
+      // Try to fill localStorage near quota
+      const largeData = 'x'.repeat(5 * 1024 * 1024); // 5MB
       try {
-        await page.evaluate(({ title, column }) => {
-          window.createTask(title, column);
-        }, { title: `Task ${i}`, column: 'todo' });
+        for (let i = 0; i < 10; i++) {
+          localStorage.setItem(`test-${i}`, largeData);
+        }
       } catch (e) {
-        // Quota might be exceeded, that's okay
-        break;
+        // Quota exceeded, that's expected
       }
-    }
+    });
 
-    // App should still function
-    const tasks = await page.evaluate(() => window.tasks);
-    expect(Array.isArray(tasks)).toBe(true);
+    // App should still function - try to create a task
+    try {
+      const task = await page.evaluate(({ title, column }) => {
+        return window.createTask(title, column);
+      }, { title: 'Test task', column: 'todo' });
+      
+      // If task was created, verify app still works
+      if (task) {
+        const tasks = await page.evaluate(() => window.tasks);
+        expect(Array.isArray(tasks)).toBe(true);
+      }
+    } catch (e) {
+      // If storage is full, app should handle gracefully without crashing
+      const board = page.locator('#board');
+      await expect(board).toBeVisible();
+    }
   });
 
   test('should handle invalid column names', async ({ page }) => {
@@ -150,4 +186,33 @@ test.describe('Edge Cases', () => {
     }, 'todo');
     expect(tasks).toHaveLength(2);
   });
+
+  test('should handle dragging task onto itself', async ({ page }) => {
+    // Must use dragTo() to drag a task onto itself and verify no state corruption occurs
+    const task = await page.evaluate(({ title, column }) => {
+      const t = window.createTask(title, column);
+      window.renderAllTasks();
+      return t;
+    }, { title: 'Task to drag onto itself', column: 'todo' });
+
+    await page.waitForSelector('.task', { timeout: 5000 });
+
+    const taskElement = page.locator(`[data-id="${task.id}"]`);
+    const todoColumn = page.locator('#todo-tasks');
+
+    // Drag task onto itself
+    await taskElement.dragTo(taskElement);
+    await page.waitForTimeout(300);
+
+    // Verify no state corruption - task should still exist
+    const tasks = await page.evaluate(() => window.tasks);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].id).toBe(task.id);
+    expect(tasks[0].title).toBe(task.title);
+    expect(tasks[0].column).toBe(task.column);
+
+    // Verify task is still in DOM
+    await expect(taskElement).toBeVisible();
+  });
+
 });

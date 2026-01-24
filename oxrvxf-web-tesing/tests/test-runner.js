@@ -5,7 +5,8 @@ const path = require('path');
 
 const testDir = path.join(__dirname);
 const specFiles = fs.readdirSync(testDir)
-  .filter(file => file.endsWith('.spec.js') && file.startsWith('meta-'));
+  .filter(file => file.endsWith('.spec.js') && file.startsWith('meta-'))
+  .sort(); // Sort for consistent execution order
 
 let passed = 0;
 let failed = 0;
@@ -21,7 +22,11 @@ for (const specFile of specFiles) {
     console.log(`✓ ${specFile} PASSED\n`);
     passed++;
   } catch (error) {
-    console.error(`✗ ${specFile} FAILED: ${error.message}\n`);
+    console.error(`✗ ${specFile} FAILED: ${error.message}`);
+    if (error.stack) {
+      console.error(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n')}`);
+    }
+    console.error('');
     failed++;
     errors.push({ file: specFile, error: error.message });
   }

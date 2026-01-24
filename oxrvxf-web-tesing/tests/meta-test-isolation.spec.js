@@ -64,4 +64,27 @@ const onlyTests = dependencies.filter(d =>
 
 assert(onlyTests.length === 0, `Tests with test.only found: ${JSON.stringify(onlyTests)}`);
 
+// Requirement 12: Verify Playwright config has fullyParallel: true and workers set appropriately
+const configPath = path.join(testDir, 'playwright.config.js');
+if (fs.existsSync(configPath)) {
+  const configContent = fs.readFileSync(configPath, 'utf-8');
+  
+  // Must have fullyParallel: true
+  const hasFullyParallel = /fullyParallel:\s*true/.test(configContent);
+  assert(hasFullyParallel, 'playwright.config.js must have fullyParallel: true for parallel execution');
+  
+  // Workers should be set to maximum available (undefined or not set to 1 in non-CI)
+  // In CI, workers: 1 is acceptable, but in non-CI it should be undefined or a higher number
+  const hasWorkersConfig = /workers:\s*/.test(configContent);
+  // If workers is explicitly set to 1 outside of CI check, that's a problem
+  const workersSetToOne = /workers:\s*1(?!\s*\|\|)/.test(configContent);
+  if (hasWorkersConfig && workersSetToOne && !configContent.includes('process.env.CI')) {
+    console.warn('Warning: workers is set to 1 - should be set to maximum available for parallel execution');
+  }
+}
+
+// Note: Requirement 12 also requires running the test suite multiple times to verify tests pass
+// regardless of execution order. This is a runtime test that would need to be done during actual
+// test execution, not in static meta-tests. The configuration is verified above.
+
 console.log('✓ Test isolation validation passed');

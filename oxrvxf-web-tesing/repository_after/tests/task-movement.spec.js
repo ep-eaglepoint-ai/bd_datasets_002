@@ -51,22 +51,33 @@ test.describe('Task Movement', () => {
       return window.createTask(title, column);
     }, { title: 'Task 3', column: 'progress' });
 
-    // Move task3 before task1
+    // Get initial order
+    const initialTasks = await page.evaluate((column) => {
+      return window.getTasksByColumn(column);
+    }, 'progress');
+    expect(initialTasks).toHaveLength(3);
+    const initialOrder = initialTasks.map(t => t.id);
+
+    // Move task3 before task1 - task should be repositioned immediately before target
     await page.evaluate(({ taskId, newColumn, insertBeforeId }) => {
       window.moveTask(taskId, newColumn, insertBeforeId);
     }, { taskId: task3.id, newColumn: 'progress', insertBeforeId: task1.id });
 
-    // Verify order
+    // Verify task is repositioned in array immediately before target task
     const progressTasks = await page.evaluate((column) => {
       return window.getTasksByColumn(column);
     }, 'progress');
     expect(progressTasks).toHaveLength(3);
-    expect(progressTasks[0].id).toBe(task3.id);
-    expect(progressTasks[1].id).toBe(task1.id);
-    expect(progressTasks[2].id).toBe(task2.id);
+    
+    // Find indices
+    const task3Index = progressTasks.findIndex(t => t.id === task3.id);
+    const task1Index = progressTasks.findIndex(t => t.id === task1.id);
+    
+    // task3 should be immediately before task1
+    expect(task3Index).toBe(task1Index - 1);
   });
 
-  test('should handle move to same column', async ({ page }) => {
+  test('should handle move to same column and position', async ({ page }) => {
     const task1 = await page.evaluate(({ title, column }) => {
       return window.createTask(title, column);
     }, { title: 'Task 1', column: 'todo' });
@@ -75,23 +86,59 @@ test.describe('Task Movement', () => {
       return window.createTask(title, column);
     }, { title: 'Task 2', column: 'todo' });
 
-    // Move task1 to same column (should be no-op for column change)
-    await page.evaluate(({ taskId, newColumn }) => {
-      window.moveTask(taskId, newColumn);
-    }, { taskId: task1.id, newColumn: 'todo' });
+    // Get initial order
+    const initialTasks = await page.evaluate((column) => {
+      return window.getTasksByColumn(column);
+    }, 'todo');
+    expect(initialTasks).toHaveLength(2);
+    const initialOrder = initialTasks.map(t => t.id);
 
+    // Move task1 to same column and same position (before task2, which is already before it)
+    await page.evaluate(({ taskId, newColumn, insertBeforeId }) => {
+      window.moveTask(taskId, newColumn, insertBeforeId);
+    }, { taskId: task1.id, newColumn: 'todo', insertBeforeId: task2.id });
+
+    // Verify no net change to array order
     const todoTasks = await page.evaluate((column) => {
       return window.getTasksByColumn(column);
     }, 'todo');
     expect(todoTasks).toHaveLength(2);
+    const finalOrder = todoTasks.map(t => t.id);
+    
+    // Order should remain the same (task1 before task2)
+    expect(finalOrder[0]).toBe(initialOrder[0]);
+    expect(finalOrder[1]).toBe(initialOrder[1]);
   });
 
-  test('should handle move of non-existent task', async ({ page }) => {
+  test('should handle invalid task IDs or column values gracefully', async ({ page }) => {
+    // Create a valid task first
+    const validTask = await page.evaluate(({ title, column }) => {
+      return window.createTask(title, column);
+    }, { title: 'Valid task', column: 'todo' });
+
+    const initialTasksArray = await page.evaluate(() => window.tasks);
+    expect(initialTasksArray).toHaveLength(1);
+
+    // Try to move with invalid task ID
     await page.evaluate(({ taskId, newColumn }) => {
       window.moveTask(taskId, newColumn);
     }, { taskId: 'non-existent-id', newColumn: 'progress' });
 
-    const tasksArray = await page.evaluate(() => window.tasks);
-    expect(tasksArray).toHaveLength(0);
+    // Verify tasks array is not corrupted
+    let tasksArray = await page.evaluate(() => window.tasks);
+    expect(tasksArray).toHaveLength(1);
+    expect(tasksArray[0].id).toBe(validTask.id);
+    expect(tasksArray[0].column).toBe('todo'); // Should remain unchanged
+
+    // Try to move with invalid column value
+    await page.evaluate(({ taskId, newColumn }) => {
+      window.moveTask(taskId, newColumn);
+    }, { taskId: validTask.id, newColumn: 'invalid-column-value' });
+
+    // Verify tasks array is not corrupted - task should still exist
+    tasksArray = await page.evaluate(() => window.tasks);
+    expect(tasksArray).toHaveLength(1);
+    // Column might be changed to invalid value, but array should not be corrupted
+    expect(Array.isArray(tasksArray)).toBe(true);
   });
 });

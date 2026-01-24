@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "Test suite for Kanban board application",
   "scripts": {
-    "test": "node test-runner.js"
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
 }
