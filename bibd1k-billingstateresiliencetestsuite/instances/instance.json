@@ -1,11 +1,18 @@
 {
-            "instance_id": "BIBD1K",
-            "problem_statement": "Author an adversarial test suite for a Deno-based billing state machine. The system must be verified for its ability to handle non-sequential event arrival (out-of-order timestamps), event duplication (idempotency), and state transition validity. The task is to prove the correctness of the reconciliation logic when the system is bombarded with asynchronous, disordered telemetry.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/bibd1k-billingstateresiliencetestsuite",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "BIBD1K",
+  "problem_statement": "Author an adversarial test suite for a Deno-based billing state machine. The system must be verified for its ability to handle non-sequential event arrival (out-of-order timestamps), event duplication (idempotency), and state transition validity.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/bibd1k-billingstateresiliencetestsuite",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "valid transition paths",
+    "late arrival events do not overwrite newer state",
+    "idempotency for duplicate events",
+    "shuffle stress test converges to same final state",
+    "terminal state canceled is immutable",
+    "future dating events are accepted and update timestamp",
+    "invalid sequences never create stuck states"
+  ],
+  "PASS_TO_PASS": []
+}

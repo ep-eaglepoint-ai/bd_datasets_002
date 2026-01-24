@@ -1,11 +1,9 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.env
+# Deno cache
+/deno.lock
 
-# Node
-node_modules/
+# Evaluation
+/evaluation/*/
 
 # OS
 .DS_Store
+Thumbs.db
