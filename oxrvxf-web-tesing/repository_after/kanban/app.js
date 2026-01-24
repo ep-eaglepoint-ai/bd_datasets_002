@@ -30,13 +30,7 @@ function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      // Validate that parsed data is an array
-      if (Array.isArray(parsed)) {
-        tasks = parsed;
-      } else {
-        throw new Error('Invalid data format');
-      }
+      tasks = JSON.parse(saved);
     } else {
       // Default sample tasks
       tasks = [
@@ -48,17 +42,7 @@ function loadState() {
     }
   } catch (e) {
     console.error('Failed to load state:', e);
-    // Fallback to empty array or default tasks
-    try {
-      tasks = [
-        { id: generateId(), title: 'Design the landing page', column: 'todo' },
-        { id: generateId(), title: 'Set up project repository', column: 'progress' },
-        { id: generateId(), title: 'Create initial wireframes', column: 'done' },
-      ];
-      saveState();
-    } catch (fallbackError) {
-      tasks = [];
-    }
+    tasks = [];
   }
 }
 
@@ -66,9 +50,7 @@ function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   } catch (e) {
-    // Handle quota exceeded or other storage errors gracefully
     console.error('Failed to save state:', e);
-    // Don't throw - allow application to continue functioning
   }
 }
 
@@ -81,12 +63,9 @@ function generateId() {
 // ==================
 
 function createTask(title, column) {
-  const trimmedTitle = title.trim();
-  if (!trimmedTitle) return null;
-  
   const task = {
     id: generateId(),
-    title: trimmedTitle,
+    title: title.trim(),
     column
   };
   tasks.push(task);
@@ -95,16 +74,8 @@ function createTask(title, column) {
 }
 
 function deleteTask(taskId) {
-  const task = tasks.find(t => t.id === taskId);
-  if (!task) return;
-  
-  const column = task.column;
   tasks = tasks.filter(t => t.id !== taskId);
   saveState();
-  
-  // Re-render the column to show empty state if needed
-  renderColumn(column);
-  updateAllCounts();
 }
 
 function updateTask(taskId, newTitle) {
@@ -112,9 +83,6 @@ function updateTask(taskId, newTitle) {
   if (task && newTitle.trim()) {
     task.title = newTitle.trim();
     saveState();
-    
-    // Re-render the column to update the display
-    renderColumn(task.column);
   }
 }
 
@@ -122,7 +90,6 @@ function moveTask(taskId, newColumn, insertBeforeId = null) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  const oldColumn = task.column;
   task.column = newColumn;
   
   // Reorder if inserting before another task
@@ -130,25 +97,14 @@ function moveTask(taskId, newColumn, insertBeforeId = null) {
     const taskIndex = tasks.findIndex(t => t.id === taskId);
     const beforeIndex = tasks.findIndex(t => t.id === insertBeforeId);
     
-    if (taskIndex !== -1 && beforeIndex !== -1 && taskIndex !== beforeIndex) {
+    if (taskIndex !== -1 && beforeIndex !== -1) {
       tasks.splice(taskIndex, 1);
       const newBeforeIndex = tasks.findIndex(t => t.id === insertBeforeId);
-      if (newBeforeIndex !== -1) {
-        tasks.splice(newBeforeIndex, 0, task);
-      } else {
-        tasks.push(task);
-      }
+      tasks.splice(newBeforeIndex, 0, task);
     }
   }
   
   saveState();
-  
-  // Re-render affected columns
-  if (oldColumn !== newColumn) {
-    renderColumn(oldColumn);
-    renderColumn(newColumn);
-    updateAllCounts();
-  }
 }
 
 function getTasksByColumn(column) {
@@ -168,8 +124,6 @@ function renderAllTasks() {
 
 function renderColumn(column) {
   const container = document.getElementById(`${column}-tasks`);
-  if (!container) return;
-  
   const columnTasks = getTasksByColumn(column);
   
   container.innerHTML = columnTasks.length === 0 
@@ -201,10 +155,7 @@ function escapeHtml(text) {
 function updateAllCounts() {
   ['todo', 'progress', 'done'].forEach(column => {
     const count = getTasksByColumn(column).length;
-    const countElement = document.querySelector(`[data-count="${column}"]`);
-    if (countElement) {
-      countElement.textContent = count;
-    }
+    document.querySelector(`[data-count="${column}"]`).textContent = count;
   });
 }
 
@@ -246,19 +197,15 @@ function setupTaskEvents(taskEl) {
   taskEl.addEventListener('dragend', handleDragEnd);
   
   // Delete button
-  const deleteBtn = taskEl.querySelector('.task-delete');
-  if (deleteBtn) {
-    deleteBtn.addEventListener('click', () => {
-      const column = tasks.find(t => t.id === taskId)?.column || getColumnFromElement(taskEl);
-      taskEl.style.transform = 'scale(0.9)';
-      taskEl.style.opacity = '0';
-      setTimeout(() => {
-        deleteTask(taskId);
-        renderColumn(column);
-        updateAllCounts();
-      }, 150);
-    });
-  }
+  taskEl.querySelector('.task-delete').addEventListener('click', () => {
+    taskEl.style.transform = 'scale(0.9)';
+    taskEl.style.opacity = '0';
+    setTimeout(() => {
+      deleteTask(taskId);
+      renderColumn(tasks.find(t => t.id === taskId)?.column || getColumnFromElement(taskEl));
+      updateAllCounts();
+    }, 150);
+  });
   
   // Double click to edit
   taskEl.addEventListener('dblclick', () => startEditing(taskEl));
@@ -304,11 +251,9 @@ function handleFormSubmit(e) {
   
   if (!title || !activeColumn) return;
   
-  const task = createTask(title, activeColumn);
-  if (task) {
-    renderColumn(activeColumn);
-    updateAllCounts();
-  }
+  createTask(title, activeColumn);
+  renderColumn(activeColumn);
+  updateAllCounts();
   closeModal();
 }
 
@@ -329,21 +274,11 @@ function finishEditing(taskEl, newTitle) {
   if (!taskEl.classList.contains('editing')) return;
   
   const taskId = taskEl.dataset.id;
-  const task = tasks.find(t => t.id === taskId);
-  if (!task) {
-    taskEl.classList.remove('editing');
-    return;
-  }
-  
   const trimmed = newTitle.trim();
   
-  // If empty or whitespace-only, preserve original title
   if (trimmed) {
     updateTask(taskId, trimmed);
-    const titleEl = taskEl.querySelector('.task-title');
-    if (titleEl) {
-      titleEl.textContent = trimmed;
-    }
+    taskEl.querySelector('.task-title').textContent = trimmed;
   }
   
   taskEl.classList.remove('editing');
@@ -399,20 +334,17 @@ function handleDragOver(e) {
   const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
   const draggingEl = document.querySelector('.dragging');
   
-  if (!draggingEl) return;
-  
-  // Remove empty state if present when dragging over
-  const emptyState = e.currentTarget.querySelector('.empty-state');
-  if (emptyState) emptyState.remove();
-  
-  if (e.currentTarget.contains(draggingEl) === false) {
+  if (draggingEl && e.currentTarget.contains(draggingEl) === false) {
     // Moving to a different column
     if (afterElement) {
       e.currentTarget.insertBefore(draggingEl, afterElement);
     } else {
+      // Remove empty state if present
+      const emptyState = e.currentTarget.querySelector('.empty-state');
+      if (emptyState) emptyState.remove();
       e.currentTarget.appendChild(draggingEl);
     }
-  } else {
+  } else if (draggingEl) {
     // Reordering within same column
     if (afterElement && afterElement !== draggingEl) {
       e.currentTarget.insertBefore(draggingEl, afterElement);
@@ -434,42 +366,14 @@ function handleDragLeave(e) {
 
 function handleDrop(e) {
   e.preventDefault();
-  e.stopPropagation();
   
   const column = e.currentTarget.closest('.column');
-  if (column) {
-    column.classList.remove('drag-over');
-  }
+  column.classList.remove('drag-over');
   
-  // Try to get task ID from dataTransfer or from the dragged element
-  let taskId = e.dataTransfer.getData('text/plain');
-  if (!taskId && draggedTask) {
-    taskId = draggedTask.dataset.id;
-  }
-  
+  const taskId = e.dataTransfer.getData('text/plain');
   const newColumn = e.currentTarget.dataset.column;
   
-  if (!taskId || !newColumn) {
-    renderAllTasks();
-    return;
-  }
-  
-  // Check if task exists
-  const task = tasks.find(t => t.id === taskId);
-  if (!task) {
-    renderAllTasks();
-    return;
-  }
-  
-  // If dragging onto itself in the same position, do nothing
-  if (task.column === newColumn && e.currentTarget.querySelector(`[data-id="${taskId}"]`)) {
-    // Check if we're actually moving to a different position
-    const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
-    if (!afterElement || afterElement.dataset.id === taskId) {
-      renderAllTasks();
-      return;
-    }
-  }
+  if (!taskId || !newColumn) return;
   
   // Find the task we're inserting before (if any)
   const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
@@ -484,8 +388,6 @@ function handleDrop(e) {
 function getDragAfterElement(container, y) {
   const draggableElements = [...container.querySelectorAll('.task:not(.dragging)')];
   
-  if (draggableElements.length === 0) return null;
-  
   return draggableElements.reduce((closest, child) => {
     const box = child.getBoundingClientRect();
     const offset = y - box.top - box.height / 2;
@@ -498,24 +400,24 @@ function getDragAfterElement(container, y) {
 }
 
 // ==================
-// Expose for Testing
+// Expose functions to window for Playwright testing
 // ==================
-// Expose functions and state to window object for Playwright tests
 if (typeof window !== 'undefined') {
   window.createTask = createTask;
   window.deleteTask = deleteTask;
   window.updateTask = updateTask;
   window.moveTask = moveTask;
   window.getTasksByColumn = getTasksByColumn;
-  window.renderAllTasks = renderAllTasks;
-  window.renderColumn = renderColumn;
   window.loadState = loadState;
   window.saveState = saveState;
+  window.generateId = generateId;
+  window.renderAllTasks = renderAllTasks;
+  window.renderColumn = renderColumn;
   window.openModal = openModal;
   window.closeModal = closeModal;
-  window.startEditing = startEditing;
-  window.finishEditing = finishEditing;
-  window.cancelEditing = cancelEditing;
+  window.STORAGE_KEY = STORAGE_KEY;
+  
+  // Expose tasks array via getter/setter for state inspection
   Object.defineProperty(window, 'tasks', {
     get: () => tasks,
     set: (value) => { tasks = value; }

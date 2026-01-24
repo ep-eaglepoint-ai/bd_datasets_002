@@ -1,17 +1,32 @@
 version: '3.8'
 
 services:
-  evaluation:
-    build: .
-    volumes:
-      - ./evaluation/reports:/app/evaluation/reports
-    command: node evaluation/evaluation.js
+  test-before:
+    image: oxrvxf-web-tesing:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - TEST_REPO_PATH=/app/repository_before
+    command: sh -c "if [ -d 'repository_before/tests' ] && [ -f 'repository_before/tests/test-runner.js' ]; then cd repository_before/tests && node test-runner.js; else echo 'No tests in repository_before (expected - this is the baseline state)'; exit 0; fi"
 
   test-after:
-    build: .
+    image: oxrvxf-web-tesing:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       - TEST_REPO_PATH=/app/repository_after
     command: sh -c "cd repository_after/tests && node test-runner.js"
+
+  evaluation:
+    image: oxrvxf-web-tesing:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: node evaluation/evaluation.js
 
 volumes:
   evaluation_reports:

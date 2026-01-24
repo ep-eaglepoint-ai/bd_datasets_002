@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-01-24T20:46:10.470Z",
+  "solutionTests": {
+    "status": "PASSED",
+    "error": null
+  },
+  "metaTests": {
+    "status": "FAILED",
+    "error": "Command failed: node /app/tests/test-runner.js",
+    "exitCode": 1
+  },
+  "summary": {
+    "solutionTestsPassed": true,
+    "metaTestsPassed": false,
+    "overallStatus": "FAILED"
+  }
+}

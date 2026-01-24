@@ -1,48 +1,111 @@
-// Task Creation Tests
-// Requirement 1: Task creation tests must use page.evaluate() to call createTask with a valid title and column 
-// and verify the returned task object contains a unique string ID matching the pattern "task-" followed by a 
-// timestamp and random characters, a title property exactly matching the trimmed input string, and a column 
-// property matching the specified column, while also confirming through additional page.evaluate() calls that 
-// the task was appended to the global tasks array and that localStorage under the correct key contains the 
-// serialized updated state.
-
 const { test, expect } = require('@playwright/test');
 
-test.beforeEach(async ({ page }) => {
-  await page.goto('/index.html');
-  // Set localStorage to empty array to prevent default tasks from being created
-  await page.evaluate(() => {
-    localStorage.setItem('kanban-board-state', '[]');
+test.describe('Task Creation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    // Clear localStorage and reset state
+    await page.evaluate(() => {
+      localStorage.clear();
+      window.tasks = [];
+      window.renderAllTasks();
+    });
   });
-  await page.reload();
-});
 
-test('creates task with valid title and column using page.evaluate and verifies task object properties, tasks array, and localStorage', async ({ page }) => {
-  const title = 'Test Task';
-  const column = 'todo';
-  
-  // Use page.evaluate() to call createTask
-  const task = await page.evaluate(({ title, column }) => {
-    return window.createTask(title, column);
-  }, { title, column });
-  
-  // Verify task object properties
-  expect(task).toHaveProperty('id');
-  expect(task.id).toMatch(/^task-\d+-[a-z0-9]+$/); // Pattern: task-timestamp-random
-  expect(task.title).toBe(title.trim()); // Exactly matching trimmed input
-  expect(task.column).toBe(column); // Matching specified column
-  
-  // Confirm task was appended to global tasks array via page.evaluate()
-  const tasks = await page.evaluate(() => window.tasks);
-  expect(tasks).toHaveLength(1);
-  expect(tasks[0]).toEqual(task);
-  
-  // Confirm localStorage contains serialized updated state
-  const storageData = await page.evaluate(() => {
-    return JSON.parse(localStorage.getItem('kanban-board-state') || '[]');
+  test('should create task using page.evaluate() with strict validation', async ({ page }) => {
+    const testTitle = '  Test Task Title  ';
+    const testColumn = 'todo';
+    
+    // Use page.evaluate() to call createTask
+    const task = await page.evaluate(({ title, column }) => {
+      return window.createTask(title, column);
+    }, { title: testTitle, column: testColumn });
+
+    // Verify returned task object structure
+    expect(task).toBeDefined();
+    expect(task).toHaveProperty('id');
+    expect(task).toHaveProperty('title');
+    expect(task).toHaveProperty('column');
+
+    // Verify ID is a unique string matching pattern: task-<timestamp><random>
+    expect(typeof task.id).toBe('string');
+    expect(task.id).toMatch(/^task-\d+-[a-z0-9]+$/);
+    
+    // Verify title exactly matches trimmed input
+    expect(task.title).toBe('Test Task Title');
+    expect(task.title).not.toContain('  '); // No leading/trailing spaces
+    
+    // Verify column matches provided column
+    expect(task.column).toBe(testColumn);
+
+    // Verify task was appended to global tasks array via page.evaluate()
+    const tasksArray = await page.evaluate(() => window.tasks);
+    expect(tasksArray).toHaveLength(1);
+    expect(tasksArray[0].id).toBe(task.id);
+    expect(tasksArray[0].title).toBe(task.title);
+    expect(tasksArray[0].column).toBe(task.column);
+
+    // Verify localStorage contains updated serialized state
+    const storageData = await page.evaluate((key) => {
+      return localStorage.getItem(key);
+    }, 'kanban-board-state');
+    
+    expect(storageData).toBeTruthy();
+    const parsedStorage = JSON.parse(storageData);
+    expect(parsedStorage).toHaveLength(1);
+    expect(parsedStorage[0].id).toBe(task.id);
+    expect(parsedStorage[0].title).toBe(task.title);
+    expect(parsedStorage[0].column).toBe(task.column);
+
+    // Verify correct storage key is used
+    const storageKey = await page.evaluate(() => window.STORAGE_KEY);
+    expect(storageKey).toBe('kanban-board-state');
   });
-  expect(storageData).toHaveLength(1);
-  expect(storageData[0].id).toBe(task.id);
-  expect(storageData[0].title).toBe(title.trim());
-  expect(storageData[0].column).toBe(column);
+
+  test('should create tasks in different columns', async ({ page }) => {
+    const columns = ['todo', 'progress', 'done'];
+    
+    for (const column of columns) {
+      const task = await page.evaluate(({ title, column }) => {
+        return window.createTask(title, column);
+      }, { title: `Task for ${column}`, column });
+      
+      expect(task.column).toBe(column);
+      expect(task.id).toMatch(/^task-\d+-[a-z0-9]+$/);
+    }
+
+    const tasksArray = await page.evaluate(() => window.tasks);
+    expect(tasksArray).toHaveLength(3);
+    
+    const tasksByColumn = await page.evaluate((column) => {
+      return window.getTasksByColumn(column);
+    }, 'todo');
+    expect(tasksByColumn).toHaveLength(1);
+  });
+
+  test('should handle empty title by trimming', async ({ page }) => {
+    const task = await page.evaluate(({ title, column }) => {
+      return window.createTask(title, column);
+    }, { title: '   ', column: 'todo' });
+    
+    expect(task.title).toBe('');
+  });
+
+  test('should create unique IDs for multiple tasks', async ({ page }) => {
+    const tasks = [];
+    for (let i = 0; i < 5; i++) {
+      const task = await page.evaluate(({ title, column }) => {
+        return window.createTask(title, column);
+      }, { title: `Task ${i}`, column: 'todo' });
+      tasks.push(task);
+    }
+
+    const ids = tasks.map(t => t.id);
+    const uniqueIds = new Set(ids);
+    expect(uniqueIds.size).toBe(5);
+    
+    // Verify all IDs match the pattern
+    ids.forEach(id => {
+      expect(id).toMatch(/^task-\d+-[a-z0-9]+$/);
+    });
+  });
 });

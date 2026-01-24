@@ -1,13 +1,9 @@
 {
-  "name": "kanban-meta-tests",
+  "name": "meta-test-suite",
   "version": "1.0.0",
-  "description": "Meta-tests to validate the Playwright test suite quality",
+  "description": "Meta-tests to validate test suite quality",
   "scripts": {
-    "test": "playwright test || exit 0",
-    "test:ui": "playwright test --ui"
+    "test": "node test-runner.js"
   },
-  "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "http-server": "^14.1.1"
-  }
+  "devDependencies": {}
 }
