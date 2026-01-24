@@ -1,6 +1,12 @@
+version: '3.8'
 services:
-  app:
+  test:
     build: .
     command: pytest -q tests
+    volumes:
+      - .:/app
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app
