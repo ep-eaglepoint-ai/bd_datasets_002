@@ -2,9 +2,9 @@
   "name": "inventory-cache-tests",
   "version": "1.0.0",
   "description": "Test suite for distributed inventory cache coherency",
-  "main": "test-runner.js",
+  "main": "test_runner.py",
   "scripts": {
-    "test": "node test-runner.js"
+    "test": "python3 test_runner.py"
   },
   "dependencies": {
     "ioredis": "^5.3.2",

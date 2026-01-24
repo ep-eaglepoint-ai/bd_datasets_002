@@ -2,11 +2,13 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including Python
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     postgresql-client \
     bash \
+    python3 \
+    python3-pip \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first for better caching
@@ -24,8 +26,13 @@ RUN cd evaluation && npm install
 # Copy all files
 COPY . .
 
-# Make evaluation script executable
-RUN chmod +x evaluation/evaluation.js || true
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt || true
+
+# Make scripts executable
+RUN chmod +x evaluation/evaluation.py || true
+RUN chmod +x tests/test_runner.py || true
 
 # Default command runs evaluation
-CMD ["node", "evaluation/evaluation.js"]
+CMD ["python3", "evaluation/evaluation.py"]

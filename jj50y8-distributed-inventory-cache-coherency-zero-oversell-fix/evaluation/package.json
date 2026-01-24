@@ -2,9 +2,9 @@
   "name": "evaluation-script",
   "version": "1.0.0",
   "description": "Evaluation script for test results",
-  "main": "evaluation.js",
+  "main": "evaluation.py",
   "scripts": {
-    "evaluate": "node evaluation.js"
+    "evaluate": "python3 evaluation.py"
   },
   "dependencies": {}
 }

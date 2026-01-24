@@ -1,1 +1,2 @@
-# Add your Python dependencies here
+# Python dependencies for test runner and evaluation
+# No external dependencies required - using standard library only

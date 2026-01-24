@@ -48,7 +48,7 @@ services:
       - DB_PASSWORD=inventory_pass
     volumes:
       - .:/app
-    command: sh -c "cd repository_before && npm install && npm run build 2>/dev/null || true && cd ../tests && npm install && node test-runner.js"
+    command: sh -c "cd repository_before && npm install && npm run build 2>/dev/null || true && cd ../tests && npm install && python3 test_runner.py"
 
   test-after:
     build: .
@@ -68,7 +68,7 @@ services:
       - DB_PASSWORD=inventory_pass
     volumes:
       - .:/app
-    command: sh -c "cd repository_after && npm install && npm run build 2>/dev/null || true && cd ../tests && npm install && node test-runner.js"
+    command: sh -c "cd repository_after && npm install && npm run build 2>/dev/null || true && cd ../tests && npm install && python3 test_runner.py"
 
   evaluation:
     build: .
@@ -88,7 +88,7 @@ services:
     volumes:
       - .:/app
       - ./evaluation/reports:/app/evaluation/reports
-    command: node evaluation/evaluation.js
+    command: python3 evaluation/evaluation.py
 
 volumes:
   redis_data:
