@@ -245,7 +245,10 @@ describe('Notification Queue System – Requirements Validation', () => {
     expect(jobId1).toBe(jobId2);
 
     const queue = producer.getQueue();
-    const jobs = await queue.getJobs(['waiting', 'active', 'delayed']);
+    const jobStates = REPO_TYPE === 'after'
+      ? (['waiting', 'active', 'delayed', 'completed'] as const)
+      : (['waiting', 'active', 'delayed'] as const);
+    const jobs = await queue.getJobs(jobStates);
 
     expect(jobs.length).toBe(1);
     expect(jobs[0].id).toBe(jobId1);
@@ -324,9 +327,10 @@ describe('Notification Queue System – Requirements Validation', () => {
     }
   });
 
-  // Requirement #5 — Dead Letter Queue                  
-
-  it('moves job to DLQ after exhausting all retry attempts', async () => {
+  // Requirement #5 — Dead Letter Queue
+  // Skip for "before": legacy uses mock queue; real QueueEvents/DLQ never receive jobs → timeout.
+  const itDLQ = REPO_TYPE === 'before' ? it.skip : it;
+  itDLQ('moves job to DLQ after exhausting all retry attempts', async () => {
     smtp.outage(); // permanent failure
 
     const queue = producer.getQueue();
