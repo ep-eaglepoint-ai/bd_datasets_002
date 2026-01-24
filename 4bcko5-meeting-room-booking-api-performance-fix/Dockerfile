@@ -2,12 +2,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY repository_before/server/package*.json ./
+# Copy root package.json
+COPY package*.json ./
 
+# Install dependencies
 RUN npm install
 
-COPY repository_before/server/ ./
+# Copy test and evaluation files
+COPY tests/ ./tests/
+COPY evaluation/ ./evaluation/
 
-EXPOSE 5000
-
-CMD ["sh", "-c", "node seed.js && node index.js"]
+# Default to running evaluation
+CMD ["npm", "run", "evaluate"]

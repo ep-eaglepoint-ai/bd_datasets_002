@@ -1,0 +1,245 @@
+diff -ruN repository_before/server/routes/bookings.js repository_after/server/routes/bookings.js
+--- repository_before/server/routes/bookings.js	2026-01-24 09:45:18.572598601 +0300
++++ repository_after/server/routes/bookings.js	2026-01-24 03:02:10.306200756 +0300
+@@ -74,7 +74,7 @@
+       return res.status(400).json({ error: validation.error });
+     }
+ 
+-    const roomCheck = await client.query('SELECT * FROM rooms WHERE id = $1', [roomId]);
++    const roomCheck = await client.query('SELECT id FROM rooms WHERE id = $1', [roomId]);
+     if (roomCheck.rows.length === 0) {
+       return res.status(404).json({ error: 'Room not found' });
+     }
+@@ -82,21 +82,6 @@
+     await client.query('BEGIN');
+ 
+     try {
+-      const roomInfo = await client.query('SELECT * FROM rooms WHERE id = $1', [roomId]);
+-      
+-      const overlapCheck = await client.query(`
+-        SELECT * FROM bookings 
+-        WHERE room_id = $1 
+-        AND status = 'active'
+-        AND start_time < $3 
+-        AND end_time > $2
+-      `, [roomId, startTime, endTime]);
+-
+-      if (overlapCheck.rows.length > 0) {
+-        await client.query('ROLLBACK');
+-        return res.status(409).json({ error: 'This time slot overlaps with an existing booking' });
+-      }
+-
+       const result = await client.query(`
+         INSERT INTO bookings (room_id, user_id, start_time, end_time, status)
+         VALUES ($1, $2, $3, $4, 'active')
+@@ -131,34 +116,22 @@
+ });
+ 
+ router.get('/mine', authenticate, async (req, res) => {
+-  const client = await pool.connect();
+-  
+   try {
+-    const bookingsResult = await client.query(
+-      'SELECT * FROM bookings WHERE user_id = $1 ORDER BY start_time DESC',
+-      [req.user.id]
+-    );
++    const result = await pool.query(`
++      SELECT 
++        b.*,
++        r.name as room_name,
++        r.capacity as room_capacity
++      FROM bookings b
++      JOIN rooms r ON b.room_id = r.id
++      WHERE b.user_id = $1
++      ORDER BY b.start_time DESC
++    `, [req.user.id]);
+ 
+-    const bookingsWithRooms = [];
+-    for (const booking of bookingsResult.rows) {
+-      const roomResult = await client.query(
+-        'SELECT * FROM rooms WHERE id = $1',
+-        [booking.room_id]
+-      );
+-      
+-      bookingsWithRooms.push({
+-        ...booking,
+-        room_name: roomResult.rows[0]?.name,
+-        room_capacity: roomResult.rows[0]?.capacity
+-      });
+-    }
+-
+-    res.json(bookingsWithRooms);
++    res.json(result.rows);
+   } catch (error) {
+     console.error('Get my bookings error:', error);
+     res.status(500).json({ error: 'Failed to fetch bookings' });
+-  } finally {
+-    client.release();
+   }
+ });
+ 
+@@ -169,7 +142,7 @@
+     const { id } = req.params;
+ 
+     const bookingResult = await client.query(
+-      'SELECT * FROM bookings WHERE id = $1',
++      'SELECT user_id, status, start_time FROM bookings WHERE id = $1',
+       [id]
+     );
+ 
+diff -ruN repository_before/server/routes/rooms.js repository_after/server/routes/rooms.js
+--- repository_before/server/routes/rooms.js	2026-01-24 09:45:20.815190824 +0300
++++ repository_after/server/routes/rooms.js	2026-01-24 03:01:30.737717871 +0300
+@@ -5,47 +5,31 @@
+ const router = express.Router();
+ 
+ router.get('/', async (req, res) => {
+-  const client = await pool.connect();
+-  
+   try {
+-    const roomsResult = await client.query('SELECT * FROM rooms ORDER BY capacity DESC');
+-    
+-    const roomsWithStatus = [];
+-    for (const room of roomsResult.rows) {
+-      const bookingsResult = await client.query(
+-        'SELECT * FROM bookings WHERE room_id = $1 AND status = $2',
+-        [room.id, 'active']
+-      );
+-      
+-      const now = new Date();
+-      let isOccupied = false;
+-      for (const booking of bookingsResult.rows) {
+-        const start = new Date(booking.start_time);
+-        const end = new Date(booking.end_time);
+-        if (now >= start && now <= end) {
+-          isOccupied = true;
+-          break;
+-        }
+-      }
+-      
+-      roomsWithStatus.push({
+-        ...room,
+-        status: isOccupied ? 'occupied' : 'available'
+-      });
+-    }
++    const result = await pool.query(`
++      SELECT 
++        r.*,
++        CASE 
++          WHEN EXISTS (
++            SELECT 1 FROM bookings b
++            WHERE b.room_id = r.id 
++            AND b.status = 'active'
++            AND NOW() BETWEEN b.start_time AND b.end_time
++          ) THEN 'occupied'
++          ELSE 'available'
++        END as status
++      FROM rooms r
++      ORDER BY r.capacity DESC
++    `);
+ 
+-    res.json(roomsWithStatus);
++    res.json(result.rows);
+   } catch (error) {
+     console.error('Get rooms error:', error);
+     res.status(500).json({ error: 'Failed to fetch rooms' });
+-  } finally {
+-    client.release();
+   }
+ });
+ 
+ router.get('/:id/bookings', authenticate, async (req, res) => {
+-  const client = await pool.connect();
+-  
+   try {
+     const { id } = req.params;
+     const { date } = req.query;
+@@ -59,37 +43,27 @@
+       return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+     }
+ 
+-    const bookingsResult = await client.query(`
+-      SELECT * FROM bookings
+-      WHERE room_id = $1
+-      AND status = 'active'
+-      AND DATE(start_time) = $2
+-      ORDER BY start_time
++    const result = await pool.query(`
++      SELECT 
++        b.id,
++        b.start_time,
++        b.end_time,
++        b.status,
++        u.name as booker_name,
++        u.id as booker_id
++      FROM bookings b
++      JOIN users u ON b.user_id = u.id
++      WHERE b.room_id = $1
++      AND b.status = 'active'
++      AND b.start_time >= $2::date
++      AND b.start_time < ($2::date + INTERVAL '1 day')
++      ORDER BY b.start_time
+     `, [id, date]);
+ 
+-    const bookingsWithUsers = [];
+-    for (const booking of bookingsResult.rows) {
+-      const userResult = await client.query(
+-        'SELECT * FROM users WHERE id = $1',
+-        [booking.user_id]
+-      );
+-      
+-      bookingsWithUsers.push({
+-        id: booking.id,
+-        start_time: booking.start_time,
+-        end_time: booking.end_time,
+-        status: booking.status,
+-        booker_name: userResult.rows[0]?.name,
+-        booker_id: userResult.rows[0]?.id
+-      });
+-    }
+-
+-    res.json(bookingsWithUsers);
++    res.json(result.rows);
+   } catch (error) {
+     console.error('Get room bookings error:', error);
+     res.status(500).json({ error: 'Failed to fetch bookings' });
+-  } finally {
+-    client.release();
+   }
+ });
+ 
+diff -ruN repository_before/server/seed.js repository_after/server/seed.js
+--- repository_before/server/seed.js	2026-01-24 10:25:37.419473230 +0300
++++ repository_after/server/seed.js	2026-01-24 09:50:24.387356774 +0300
+@@ -56,6 +56,26 @@
+       END $$;
+     `);
+ 
++    await client.query(`
++      CREATE INDEX IF NOT EXISTS idx_bookings_room_status 
++      ON bookings(room_id, status);
++    `);
++
++    await client.query(`
++      CREATE INDEX IF NOT EXISTS idx_bookings_user_id 
++      ON bookings(user_id);
++    `);
++
++    await client.query(`
++      CREATE INDEX IF NOT EXISTS idx_bookings_start_time 
++      ON bookings(start_time);
++    `);
++
++    await client.query(`
++      CREATE INDEX IF NOT EXISTS idx_bookings_room_start_time 
++      ON bookings(room_id, start_time) WHERE status = 'active';
++    `);
++
+     const rooms = [
+       { name: 'Boardroom', capacity: 10 },
+       { name: 'Focus Room', capacity: 4 },
+@@ -99,4 +119,3 @@
+   console.error(err);
+   process.exit(1);
+ });
+-
