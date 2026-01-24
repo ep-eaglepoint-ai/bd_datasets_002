@@ -3,17 +3,17 @@
 ### Run tests on repository_before:
 
 ```bash
-docker compose run --rm -e REPO_PATH=../repository_before app go test -v ./...
+docker compose run --rm app go test -v ./... -args -repo=../repository_before
 ```
 
 ### Run tests on repository_after:
 
 ```bash
-docker compose run --rm -e REPO_PATH=../repository_after app go test -v ./...
+docker compose run --rm app go test -v ./... -args -repo=../repository_after
 ```
 
 ### Run evaluation and generate report.json:
 
 ```bash
-docker compose run --rm -w /app/evaluation app go run evaluation.go
+docker compose run --rm app go run ../evaluation/evaluation.go
 ```

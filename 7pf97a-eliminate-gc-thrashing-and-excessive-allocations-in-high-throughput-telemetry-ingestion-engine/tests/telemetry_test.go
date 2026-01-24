@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,9 @@ import (
 	opt "repository_after/telemetry"
 	unopt "scenario-008-go-slice-realloc/telemetry"
 )
+
+// Command line flag for repo path
+var repoPathFlag = flag.String("repo", "", "Path to repository (repository_before or repository_after)")
 
 // Test results tracking
 var testResults []testResult
@@ -29,8 +33,21 @@ func recordResult(name string, passed bool, message string) {
 	testResults = append(testResults, testResult{name: name, passed: passed, message: message})
 }
 
+// getRepoPath returns the repository path from flag or environment
+func getRepoPath() string {
+	if *repoPathFlag != "" {
+		return *repoPathFlag
+	}
+	if envPath := os.Getenv("REPO_PATH"); envPath != "" {
+		return envPath
+	}
+	return "../repository_after"
+}
+
 // TestMain provides pytest-style output formatting
 func TestMain(m *testing.M) {
+	flag.Parse()
+	
 	start := time.Now()
 	
 	fmt.Println("============================= test session starts ==============================")
@@ -114,10 +131,7 @@ func (w *UnoptWrapper) Flush() interface{} {
 }
 
 func getBuffer(t *testing.T, capacity int) (IngestionBuffer, string) {
-	repoPath := os.Getenv("REPO_PATH")
-	if repoPath == "" {
-		repoPath = "../repository_after"
-	}
+	repoPath := getRepoPath()
 	
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
@@ -133,10 +147,7 @@ func getBuffer(t *testing.T, capacity int) (IngestionBuffer, string) {
 
 // Req 6: Must not modify the existing TelemetryPacket struct
 func TestReq6_PacketStructUnchanged(t *testing.T) {
-	repoPath := os.Getenv("REPO_PATH")
-	if repoPath == "" {
-		repoPath = "../repository_after"
-	}
+	repoPath := getRepoPath()
 	
 	var subjectType reflect.Type
 	if strings.Contains(strings.ToLower(repoPath), "repository_before") {
@@ -181,10 +192,7 @@ func TestReq6_PacketStructUnchanged(t *testing.T) {
 
 // Req 7
 func TestReq7_NoUnsafe(t *testing.T) {
-	repoPath := os.Getenv("REPO_PATH")
-	if repoPath == "" {
-		repoPath = "../repository_after"
-	}
+	repoPath := getRepoPath()
 	
 	targetFile := filepath.Join(repoPath, "telemetry", "telemetry.go")
 	if _, err := os.Stat(targetFile); os.IsNotExist(err) {
@@ -253,10 +261,7 @@ func TestReq11_ThreadSafety(t *testing.T) {
 }
 
 func TestPerformanceAndRequirements(t *testing.T) {
-	repoPath := os.Getenv("REPO_PATH")
-	if repoPath == "" {
-		repoPath = "../repository_after"
-	}
+	repoPath := getRepoPath()
 	absPath, _ := filepath.Abs(repoPath)
 	mode := "after"
 	if strings.Contains(strings.ToLower(absPath), "repository_before") {
