@@ -1,5 +1,18 @@
 services:
-  app:
+  test_before:
     build: .
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "go mod edit -replace aggregator=./repository_before && go test -v ./tests/..."
+
+  test_after:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "go mod edit -replace aggregator=./repository_after && go test -v ./tests/..."
+
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd evaluation && go mod tidy && go run evaluation.go"

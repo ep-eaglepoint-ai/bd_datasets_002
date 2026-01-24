@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Building Docker image..."
+      - docker-compose build
+  build:
+    commands:
+      - echo "Running tests for repository_before (expected failures)..."
+      - docker-compose run --rm test_before || true
+      - echo "Running tests for repository_after (expected all pass)..."
+      - docker-compose run --rm test_after
+      - echo "Running evaluation..."
+      - docker-compose run --rm evaluation
