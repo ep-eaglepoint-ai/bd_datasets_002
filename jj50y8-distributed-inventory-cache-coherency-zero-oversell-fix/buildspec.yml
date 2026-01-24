@@ -19,20 +19,41 @@ phases:
     commands:
       - echo "Evaluation complete"
       - |
+        # Explicitly find and verify the report file in evaluation/reports/ only (exclude package.json)
+        REPORT_FILE=""
         if [ -f "evaluation/reports/latest.json" ]; then
+          REPORT_FILE="evaluation/reports/latest.json"
           echo "Found latest.json report"
-          cat evaluation/reports/latest.json
         elif [ -f "evaluation/reports/report.json" ]; then
+          REPORT_FILE="evaluation/reports/report.json"
           echo "Found report.json report"
-          cat evaluation/reports/report.json
         else
           echo "WARNING: No report file found in evaluation/reports/"
-          echo "Available files:"
-          find evaluation/reports -type f -name "*.json" 2>/dev/null || echo "No JSON files found"
+          echo "Available files in evaluation/reports/:"
+          find evaluation/reports -type f -name "*.json" ! -name "package.json" 2>/dev/null || echo "No JSON files found"
+          exit 1
+        fi
+        # Verify it's actually a report (has run_id field, not a package.json)
+        if grep -q '"run_id"' "$REPORT_FILE" 2>/dev/null; then
+          echo "✓ Verified report file contains run_id (valid report)"
+          echo "Report file: $REPORT_FILE"
+          echo "Report size: $(wc -c < "$REPORT_FILE") bytes"
+          cat "$REPORT_FILE"
+          # Copy to root as report.json for build system
+          cp "$REPORT_FILE" report.json
+          echo "✓ Copied report to report.json for artifact upload"
+        else
+          echo "ERROR: File $REPORT_FILE does not appear to be a valid report (missing run_id)"
+          echo "First 200 chars of file:"
+          head -c 200 "$REPORT_FILE" || echo "Could not read file"
+          exit 1
         fi
 
 artifacts:
   files:
-    - evaluation/reports/**/*
+    - report.json
     - evaluation/reports/latest.json
     - evaluation/reports/report.json
+    - evaluation/reports/log_summary
+    - evaluation/reports/report_content
+    - evaluation/reports/**/*

@@ -15,13 +15,11 @@ RUN apt-get update \
 COPY repository_before/package*.json ./repository_before/
 COPY repository_after/package*.json ./repository_after/
 COPY tests/package*.json ./tests/
-COPY evaluation/package*.json ./evaluation/
 
 # Install Node dependencies
 RUN cd repository_before && npm install
 RUN cd repository_after && npm install
 RUN cd tests && npm install
-RUN cd evaluation && npm install
 
 # Copy all files
 COPY . .

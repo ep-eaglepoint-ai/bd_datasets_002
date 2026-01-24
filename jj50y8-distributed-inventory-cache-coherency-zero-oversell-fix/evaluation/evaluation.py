@@ -162,11 +162,44 @@ def generate_report():
     with open(latest_report_file, 'w', encoding='utf-8') as f:
         json.dump(report, f, indent=2)
     
-    # Print report paths for logging
+    # Write log_summary (human-readable summary)
+    log_summary_file = Path(REPORTS_DIR) / 'log_summary'
+    with open(log_summary_file, 'w', encoding='utf-8') as f:
+        f.write(f"Evaluation Report Summary\n")
+        f.write(f"{'='*60}\n")
+        f.write(f"Run ID: {run_id}\n")
+        f.write(f"Started: {started_at}\n")
+        f.write(f"Finished: {report['finished_at']}\n")
+        f.write(f"\nBefore Repository:\n")
+        f.write(f"  Tests Passed: {before['passed']}/{before['total']}\n")
+        f.write(f"  Tests Failed: {before['failed']}/{before['total']}\n")
+        f.write(f"  Violations Detected: {violations_detected}\n")
+        f.write(f"\nAfter Repository:\n")
+        f.write(f"  Tests Passed: {after['passed']}/{after['total']}\n")
+        f.write(f"  Tests Failed: {after['failed']}/{after['total']}\n")
+        f.write(f"  Throughput Verified: {throughput_verified}\n")
+        f.write(f"  Timeouts Verified: {timeouts_verified}\n")
+        f.write(f"  Concurrency Verified: {concurrency_verified}\n")
+        f.write(f"\nComparison:\n")
+        f.write(f"  Tests Fixed: {len(fail_to_pass)}\n")
+        f.write(f"  Overall Success: {report['success']}\n")
+        if fail_to_pass:
+            f.write(f"\nFixed Tests:\n")
+            for test_name in fail_to_pass:
+                f.write(f"  - {test_name}\n")
+    
+    # Write report_content (JSON content as text for easy viewing)
+    report_content_file = Path(REPORTS_DIR) / 'report_content'
+    with open(report_content_file, 'w', encoding='utf-8') as f:
+        f.write(json.dumps(report, indent=2))
+    
+    # Print report paths for logging (all reports are in evaluation/reports/)
     print(f'\nReport saved to:', file=sys.stderr)
     print(f'  - {REPORT_FILE}', file=sys.stderr)
     print(f'  - {standard_report_file}', file=sys.stderr)
     print(f'  - {latest_report_file}', file=sys.stderr)
+    print(f'  - {log_summary_file}', file=sys.stderr)
+    print(f'  - {report_content_file}', file=sys.stderr)
     
     # Output JSON to stdout
     print(json.dumps(report, indent=2))
