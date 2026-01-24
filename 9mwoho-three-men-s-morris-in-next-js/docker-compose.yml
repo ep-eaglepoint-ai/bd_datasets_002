@@ -1,15 +1,4 @@
 services:
-  test-before:
-    build: .
-    working_dir: /app/tests
-    environment:
-      - TARGET_REPO=repository_before
-    command: npm test
-    volumes:
-      - .:/app
-      - /app/tests/node_modules
-      - /app/repository_after/three-mens-morris/node_modules
-
   test-after:
     build: .
     working_dir: /app/tests
