@@ -3,16 +3,16 @@
 #### Test Before Version (Unoptimized)
 
 ```bash
-docker-compose down -v && docker-compose up --build server-before test-before
+docker-compose up --build --abort-on-container-exit server-before test-before
 ```
 #### Test After Version (Optimized)
 
 ```bash
-docker-compose down -v && docker-compose up --build server-after test-after
+docker-compose up --build --abort-on-container-exit server-after test-after
 ```
 
 #### Run Full Evaluation
 
 ```bash
-docker-compose down -v && docker-compose up --build evaluate
+docker-compose up --build --abort-on-container-exit evaluate
 ```
