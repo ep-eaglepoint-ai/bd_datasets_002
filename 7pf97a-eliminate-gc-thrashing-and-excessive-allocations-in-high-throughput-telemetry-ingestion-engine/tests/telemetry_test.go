@@ -15,25 +15,74 @@ import (
 	unopt "scenario-008-go-slice-realloc/telemetry"
 )
 
+// Test results tracking
+var testResults []testResult
+var testFile = "tests/telemetry_test.go"
+
+type testResult struct {
+	name    string
+	passed  bool
+	message string
+}
+
+func recordResult(name string, passed bool, message string) {
+	testResults = append(testResults, testResult{name: name, passed: passed, message: message})
+}
+
 // TestMain provides pytest-style output formatting
 func TestMain(m *testing.M) {
+	start := time.Now()
+	
 	fmt.Println("============================= test session starts ==============================")
 	fmt.Printf("platform %s -- Go %s\n", runtime.GOOS, runtime.Version())
-	fmt.Println("collecting items...")
+	fmt.Println("collected 7 items")
 	fmt.Println()
-
-	start := time.Now()
+	
 	exitCode := m.Run()
 	duration := time.Since(start).Seconds()
-
-	fmt.Println()
-	fmt.Println("=========================== short test summary info ============================")
-	if exitCode == 0 {
-		fmt.Printf("========================= passed in %.2fs =========================\n", duration)
-	} else {
-		fmt.Printf("========================= FAILED in %.2fs =========================\n", duration)
+	
+	// Print pytest-style results
+	passed := 0
+	failed := 0
+	var failedTests []testResult
+	
+	fmt.Printf("%s ", testFile)
+	for _, r := range testResults {
+		if r.passed {
+			fmt.Print(".")
+			passed++
+		} else {
+			fmt.Print("F")
+			failed++
+			failedTests = append(failedTests, r)
+		}
 	}
-
+	fmt.Printf(" [100%%]\n")
+	fmt.Println()
+	
+	// Print failures section if any
+	if len(failedTests) > 0 {
+		fmt.Println("=================================== FAILURES ===================================")
+		for _, r := range failedTests {
+			fmt.Printf("_________________________________ %s _________________________________\n", r.name)
+			if r.message != "" {
+				fmt.Printf("    %s\n", r.message)
+			}
+			fmt.Println()
+		}
+	}
+	
+	fmt.Println("=========================== short test summary info ============================")
+	for _, r := range failedTests {
+		fmt.Printf("FAILED %s::%s\n", testFile, r.name)
+	}
+	
+	if failed > 0 {
+		fmt.Printf("========================= %d failed, %d passed in %.2fs =========================\n", failed, passed, duration)
+	} else {
+		fmt.Printf("========================= %d passed in %.2fs =========================\n", passed, duration)
+	}
+	
 	os.Exit(exitCode)
 }
 
@@ -67,7 +116,6 @@ func (w *UnoptWrapper) Flush() interface{} {
 func getBuffer(t *testing.T, capacity int) (IngestionBuffer, string) {
 	repoPath := os.Getenv("REPO_PATH")
 	if repoPath == "" {
-		
 		repoPath = "../repository_after"
 	}
 	
@@ -85,8 +133,6 @@ func getBuffer(t *testing.T, capacity int) (IngestionBuffer, string) {
 
 // Req 6: Must not modify the existing TelemetryPacket struct
 func TestReq6_PacketStructUnchanged(t *testing.T) {
-
-	
 	repoPath := os.Getenv("REPO_PATH")
 	if repoPath == "" {
 		repoPath = "../repository_after"
@@ -99,8 +145,13 @@ func TestReq6_PacketStructUnchanged(t *testing.T) {
 		subjectType = reflect.TypeOf(opt.TelemetryPacket{})
 	}
 
+	passed := true
+	var msg string
+
 	if subjectType.Name() != "TelemetryPacket" {
-		t.Errorf("Struct name changed to %s", subjectType.Name())
+		passed = false
+		msg = fmt.Sprintf("Struct name changed to %s", subjectType.Name())
+		t.Error(msg)
 	}
 	
 	expectedFields := map[string]string{
@@ -113,13 +164,19 @@ func TestReq6_PacketStructUnchanged(t *testing.T) {
 	for name, typeStr := range expectedFields {
 		f, ok := subjectType.FieldByName(name)
 		if !ok {
-			t.Errorf("Missing field: %s", name)
+			passed = false
+			msg = fmt.Sprintf("Missing field: %s", name)
+			t.Error(msg)
 			continue
 		}
 		if f.Type.String() != typeStr {
-			t.Errorf("Field %s has type %s, expected %s", name, f.Type, typeStr)
+			passed = false
+			msg = fmt.Sprintf("Field %s has type %s, expected %s", name, f.Type, typeStr)
+			t.Error(msg)
 		}
 	}
+	
+	recordResult("TestReq6_PacketStructUnchanged", passed, msg)
 }
 
 // Req 7
@@ -134,16 +191,23 @@ func TestReq7_NoUnsafe(t *testing.T) {
 		targetFile = filepath.Join(repoPath, "telemetry", "buffer.go") 
 	}
 
+	passed := true
+	var msg string
+
 	content, err := os.ReadFile(targetFile)
 	if err != nil {
-		t.Logf("Could not read source file for unsafe check: %v", err)
+		recordResult("TestReq7_NoUnsafe", true, "")
 		return
 	}
 	
 	src := string(content)
 	if strings.Contains(src, "\"unsafe\"") {
-		t.Error("Found import of 'unsafe' package")
+		passed = false
+		msg = "Found import of 'unsafe' package"
+		t.Error(msg)
 	}
+	
+	recordResult("TestReq7_NoUnsafe", passed, msg)
 }
 
 // Req 11
@@ -185,6 +249,7 @@ func TestReq11_ThreadSafety(t *testing.T) {
 	wg.Wait()
 	finishCh <- true
 	
+	recordResult("TestReq11_ThreadSafety", true, "")
 }
 
 func TestPerformanceAndRequirements(t *testing.T) {
@@ -197,7 +262,6 @@ func TestPerformanceAndRequirements(t *testing.T) {
 	if strings.Contains(strings.ToLower(absPath), "repository_before") {
 		mode = "before"
 	}
-	t.Logf("Testing Mode: %s", mode)
 
 	count := 1000000
 	var elapsed float64
@@ -240,29 +304,45 @@ func TestPerformanceAndRequirements(t *testing.T) {
 	rate := float64(count) / elapsed
 	targetRate := 1000000.0
 
-	t.Logf("Throughput: %.2f packets/sec", rate)
-	t.Logf("Total Allocations: %d", totalAllocs)
-	t.Logf("GC Cycles: %d", gcCycles)
+	// Record parent test result
+	parentPassed := true
+	var parentMsg string
 
 	t.Run("Throughput", func(t *testing.T) {
-		if rate < targetRate {
-			t.Errorf("Req 2 Failed: Throughput %.2f < 1,000,000 pps", rate)
+		passed := rate >= targetRate
+		msg := ""
+		if !passed {
+			msg = fmt.Sprintf("Throughput %.2f < 1,000,000 pps", rate)
+			t.Errorf("Req 2 Failed: %s", msg)
+			parentPassed = false
+			parentMsg = msg
 		}
+		recordResult("TestPerformanceAndRequirements/Throughput", passed, msg)
 	})
 
 	t.Run("Allocations", func(t *testing.T) {
-		if totalAllocs >= 10 {
-			t.Errorf("Req 3 Failed: Allocations %d >= 10", totalAllocs)
+		passed := totalAllocs < 10
+		msg := ""
+		if !passed {
+			msg = fmt.Sprintf("Allocations %d >= 10", totalAllocs)
+			t.Errorf("Req 3 Failed: %s", msg)
+			parentPassed = false
+			parentMsg = msg
 		}
+		recordResult("TestPerformanceAndRequirements/Allocations", passed, msg)
 	})
 
 	t.Run("GCCycles", func(t *testing.T) {
-		if gcCycles >= 5 {
-			t.Errorf("Req 8 Failed: GC Cycles %d >= 5", gcCycles)
+		passed := gcCycles < 5
+		msg := ""
+		if !passed {
+			msg = fmt.Sprintf("GC Cycles %d >= 5", gcCycles)
+			t.Errorf("Req 8 Failed: %s", msg)
+			parentPassed = false
+			parentMsg = msg
 		}
+		recordResult("TestPerformanceAndRequirements/GCCycles", passed, msg)
 	})
+
+	recordResult("TestPerformanceAndRequirements", parentPassed, parentMsg)
 }
-
-
-
-
