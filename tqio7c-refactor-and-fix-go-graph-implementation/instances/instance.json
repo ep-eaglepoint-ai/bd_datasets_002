@@ -1,7 +1,6 @@
 {
             "instance_id": "TQIO7C",
-            "problem_statement": "The provided Go graph implementation contains BFS, DFS, and shortest path algorithms with runtime panics and incorrect behavior. You must refactor the code to fix all bugs, improve code quality, and ensure algorithm correctness.
-The refactored implementation must handle all edge cases gracefully and follow Go best practices.",
+            "problem_statement": "The provided Go graph implementation contains BFS, DFS, and shortest path algorithms with runtime panics and incorrect behavior. You must refactor the code to fix all bugs, improve code quality, and ensure algorithm correctness.The refactored implementation must handle all edge cases gracefully and follow Go best practices.",
             "base_commit": "repository_before/",
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tqio7c-refactor-and-fix-go-graph-implementation",
