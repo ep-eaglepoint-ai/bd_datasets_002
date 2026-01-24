@@ -16,5 +16,3 @@ docker-compose run --rm -e REPO_PATH=repository_after app pytest -q tests
 ```bash
 docker-compose run --rm app python evaluation/evaluation.py
 ```
-
-The evaluation runs tests on both repositories and generates a JSON report in `evaluation/reports/latest.json`.
