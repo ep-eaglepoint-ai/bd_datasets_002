@@ -1,6 +1,3 @@
-diff --git a/repository_after/__init__.py b/repository_after/__init__.py
-new file mode 100644
-index 0000000..e69de29
 diff --git a/repository_after/init.sql b/repository_after/init.sql
 new file mode 100644
 index 0000000..7270908
