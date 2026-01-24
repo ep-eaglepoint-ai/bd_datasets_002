@@ -13,3 +13,6 @@ phases:
       - docker-compose run --rm test_after
       - echo "Running evaluation..."
       - docker-compose run --rm evaluation
+  post_build:
+    commands:
+      - echo "Build completed successfully - test_before failures are expected"
