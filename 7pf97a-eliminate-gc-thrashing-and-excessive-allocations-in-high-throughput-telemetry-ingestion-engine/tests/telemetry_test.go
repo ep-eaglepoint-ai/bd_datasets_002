@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +14,28 @@ import (
 	opt "repository_after/telemetry"
 	unopt "scenario-008-go-slice-realloc/telemetry"
 )
+
+// TestMain provides pytest-style output formatting
+func TestMain(m *testing.M) {
+	fmt.Println("============================= test session starts ==============================")
+	fmt.Printf("platform %s -- Go %s\n", runtime.GOOS, runtime.Version())
+	fmt.Println("collecting items...")
+	fmt.Println()
+
+	start := time.Now()
+	exitCode := m.Run()
+	duration := time.Since(start).Seconds()
+
+	fmt.Println()
+	fmt.Println("=========================== short test summary info ============================")
+	if exitCode == 0 {
+		fmt.Printf("========================= passed in %.2fs =========================\n", duration)
+	} else {
+		fmt.Printf("========================= FAILED in %.2fs =========================\n", duration)
+	}
+
+	os.Exit(exitCode)
+}
 
 type IngestionBuffer interface {
 	Push(p interface{})
