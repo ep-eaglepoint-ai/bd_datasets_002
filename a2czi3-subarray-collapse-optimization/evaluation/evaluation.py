@@ -89,7 +89,7 @@ def run_evaluation():
     run_id = str(uuid.uuid4())
     start = datetime.utcnow()
     
-    before = evaluate("repository_before")
+    # before = evaluate("repository_before") # Removed as requested
     after = evaluate("repository_after")
     
     comparison = {
@@ -105,61 +105,15 @@ def run_evaluation():
         "finished_at": end.isoformat() + "Z",
         "duration_seconds": (end - start).total_seconds(),
         "environment": environment_info(),
-        "before": before,
+        # "before": before,
         "after": after,
         "comparison": comparison,
         "success": comparison["passed_gate"],
         "error": None
     }
 
-def parse_py_output(output_str):
-    passed = 0
-    failed = 0
-    
-    lines = output_str.strip().splitlines()
-    summary_line = ""
-    for line in reversed(lines):
-        if "passed" in line or "failed" in line:
-            if "in" in line and "s" in line:
-                 summary_line = line
-                 break
-    
-    if summary_line:
-        p_match = re.search(r'(\d+) passed', summary_line)
-        f_match = re.search(r'(\d+) failed', summary_line)
-        e_match = re.search(r'(\d+) error', summary_line)
-        
-        if p_match: passed = int(p_match.group(1))
-        if f_match: failed += int(f_match.group(1))
-        if e_match: failed += int(e_match.group(1))
-    
-    reqs = {
-        "Amenity": True,
-        "BaseModel": True,
-        "Place": True,
-        "Review": True,
-        "State": True,
-        "User": True
-    }
-    
-    if failed > 0:
-        for line in lines:
-            if line.startswith("FAILED") or line.startswith("ERROR"):
-                lower = line.lower()
-                if "amenity" in lower: reqs["Amenity"] = False
-                if "base_model" in lower: reqs["BaseModel"] = False
-                if "place" in lower: reqs["Place"] = False
-                if "review" in lower: reqs["Review"] = False
-                if "state" in lower: reqs["State"] = False
-                if "user" in lower: reqs["User"] = False
-                
-    covered = sum(1 for v in reqs.values() if v)
-    total = len(reqs)
-    
-    return passed, failed, covered, total
-
 def print_report(report, report_path):
-    b_p, b_f, b_cov, b_tot = parse_py_output(report["before"]["tests"]["output"])
+    # b_p, b_f, b_cov, b_tot = parse_py_output(report["before"]["tests"]["output"])
     a_p, a_f, a_cov, a_tot = parse_py_output(report["after"]["tests"]["output"])
     
     print("=" * 60)
@@ -169,11 +123,11 @@ def print_report(report, report_path):
     print(f"Run ID: {report['run_id']}")
     print(f"Duration: {report['duration_seconds']:.2f} seconds")
     print()
-    print("BEFORE (repository_before):")
-    print(f"  Tests passed: {report['before']['tests']['passed']}")
-    print(f"  Passed: {b_p} | Failed: {b_f}")
-    print(f"  Requirements covered: {b_cov}/{b_tot}")
-    print()
+    # print("BEFORE (repository_before):")
+    # print(f"  Tests passed: {report['before']['tests']['passed']}")
+    # print(f"  Passed: {b_p} | Failed: {b_f}")
+    # print(f"  Requirements covered: {b_cov}/{b_tot}")
+    # print()
     print("AFTER (repository_after):")
     print(f"  Tests passed: {report['after']['tests']['passed']}")
     print(f"  Passed: {a_p} | Failed: {a_f}")
@@ -181,7 +135,7 @@ def print_report(report, report_path):
     print()
     print("COMPARISON:")
     print(f"  Passed gate: {report['comparison']['passed_gate']}")
-    print(f"  Summary: {report['comparison']['improvement_summary']} ({a_cov}/{a_tot} covered vs {b_cov}/{b_tot} before)")
+    print(f"  Summary: {report['comparison']['improvement_summary']}")
     print()
     print("=" * 60)
     print(f"SUCCESS: {report['success']}")

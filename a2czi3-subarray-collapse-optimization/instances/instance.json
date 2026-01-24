@@ -1,12 +1,12 @@
 {
-            "instance_id": "A2CZI3",
-            "problem_statement": "You are given an integer array where you may merge any contiguous subarray into its sum. Each merge reduces the array length but changes element values. After any number of merges, the resulting array must be non-decreasing.
-Your goal is to maximize the final array length while preserving this property. Return the maximum achievable length.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/a2czi3-subarray-collapse-optimization",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "A2CZI3",
+    "problem_statement": "You are given an integer array where you may merge any contiguous subarray into its sum. Each merge reduces the array length but changes element values. After any number of merges, the resulting array must be non-decreasing. Your goal is to maximize the final array length while preserving this property. Return the maximum achievable length.",
+    "base_commit": "repository_before/",    
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/a2czi3-subarray-collapse-optimization",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "tests/test_solution.py"
+    ],
+    "PASS_TO_PASS": []
+}
