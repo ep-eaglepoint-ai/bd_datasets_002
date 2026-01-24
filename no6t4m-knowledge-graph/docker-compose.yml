@@ -1,14 +1,4 @@
 services:
-  test-before:
-    build: .
-    container_name: test-before
-    command: pytest -v tests
-    environment:
-      - TARGET_REPOSITORY=repository_before
-      - PYTHONPATH=/app
-    volumes:
-      - .:/app
-
   test-after:
     build: .
     container_name: test-after
