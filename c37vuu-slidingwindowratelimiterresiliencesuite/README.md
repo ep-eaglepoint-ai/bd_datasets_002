@@ -4,7 +4,7 @@
 
 Run test
 ```bash
-docker-compose run app sh -c "PYTHONPATH=repository_before pytest repository_after -q"
+docker-compose run app pytest repository_after -q
 ```
 
 Run meta test

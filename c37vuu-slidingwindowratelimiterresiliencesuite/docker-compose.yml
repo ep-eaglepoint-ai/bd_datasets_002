@@ -3,3 +3,5 @@ services:
     build: .
     volumes:
       - .:/app
+    environment:
+      - PYTHONPATH=repository_before
