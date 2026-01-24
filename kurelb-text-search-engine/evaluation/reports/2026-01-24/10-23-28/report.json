@@ -1,0 +1,137 @@
+{
+  "run_id": "3e36839b",
+  "tool": "Search Engine Evaluator",
+  "started_at": "2026-01-24T10:23:28.150202",
+  "environment": {
+    "python_version": "3.11.14",
+    "platform": "Linux-6.14.0-37-generic-x86_64-with-glibc2.41",
+    "os": "Linux",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "before": {
+    "success": false,
+    "exit_code": 1,
+    "tests": [
+      {
+        "nodeid": "tests/test_search_engine.py::test_tokenization_correctness_and_performance",
+        "name": "test_tokenization_correctness_and_performance",
+        "outcome": "failed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_stopword_performance",
+        "name": "test_stopword_performance",
+        "outcome": "failed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_doc_lookup_complexity",
+        "name": "test_doc_lookup_complexity",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_inverted_index_structure",
+        "name": "test_inverted_index_structure",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_tfidf_calculation",
+        "name": "test_tfidf_calculation",
+        "outcome": "failed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_similarity_sparse_vectors",
+        "name": "test_similarity_sparse_vectors",
+        "outcome": "failed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_phrase_search_optimized",
+        "name": "test_phrase_search_optimized",
+        "outcome": "failed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_sorting_performance",
+        "name": "test_sorting_performance",
+        "outcome": "failed"
+      }
+    ],
+    "summary": {
+      "total": 8,
+      "passed": 2,
+      "failed": 6,
+      "errors": 0,
+      "skipped": 0
+    },
+    "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /usr/local/bin/python\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 8 items\n\ntests/test_search_engine.py::test_tokenization_correctness_and_performance FAILED [ 12%]\ntests/test_search_engine.py::test_stopword_performance FAILED            [ 25%]\ntests/test_search_engine.py::test_doc_lookup_complexity PASSED           [ 37%]\ntests/test_search_engine.py::test_inverted_index_structure PASSED        [ 50%]\ntests/test_search_engine.py::test_tfidf_calculation FAILED               [ 62%]\ntests/test_search_engine.py::test_similarity_sparse_vectors FAILED       [ 75%]\ntests/test_search_engine.py::test_phrase_search_optimized FAILED         [ 87%]\ntests/test_search_engine.py::test_sorting_performance FAILED             [100%]\n\n=================================== FAILURES ===================================\n________________ test_tokenization_correctness_and_performance _________________\ntests/test_search_engine.py:78: in test_tokenization_correctness_and_performance\n    assert duration_ms < 20, f\"Tokenization too slow: {duration_ms:.2f}ms (Limit: 20ms)\"\nE   AssertionError: Tokenization too slow: 26.59ms (Limit: 20ms)\nE   assert 26.591777801513672 < 20\n----------------------------- Captured stdout call -----------------------------\nTokenization Time: 26.59ms\n__________________________ test_stopword_performance ___________________________\ntests/test_search_engine.py:102: in test_stopword_performance\n    assert duration_ms < 50, f\"Indexing/Stopwords too slow: {duration_ms:.2f}ms (Limit: 50ms)\"\nE   AssertionError: Indexing/Stopwords too slow: 75.49ms (Limit: 50ms)\nE   assert 75.49405097961426 < 50\n----------------------------- Captured stdout call -----------------------------\nStopword/Index Time: 75.49ms\n____________________________ test_tfidf_calculation ____________________________\ntests/test_search_engine.py:151: in test_tfidf_calculation\n    assert duration_ms < 50, f\"TF-IDF calc too slow: {duration_ms:.2f}ms (Limit: 50ms)\"\nE   AssertionError: TF-IDF calc too slow: 214.35ms (Limit: 50ms)\nE   assert 214.35284614562988 < 50\n________________________ test_similarity_sparse_vectors ________________________\ntests/test_search_engine.py:168: in test_similarity_sparse_vectors\n    assert duration_ms < 100, f\"Similarity too slow: {duration_ms:.2f}ms LIMIT: 100ms\"\nE   AssertionError: Similarity too slow: 593.57ms LIMIT: 100ms\nE   assert 593.574047088623 < 100\n_________________________ test_phrase_search_optimized _________________________\ntests/test_search_engine.py:192: in test_phrase_search_optimized\n    assert duration_ms < 25, f\"Phrase search too slow: {duration_ms:.2f}ms (Limit: 25ms)\"\nE   AssertionError: Phrase search too slow: 39.95ms (Limit: 25ms)\nE   assert 39.95466232299805 < 25\n___________________________ test_sorting_performance ___________________________\ntests/test_search_engine.py:210: in test_sorting_performance\n    assert duration_ms < 300, f\"Search/Sort too slow: {duration_ms:.2f}ms (Limit: 300ms)\"\nE   AssertionError: Search/Sort too slow: 1304.39ms (Limit: 300ms)\nE   assert 1304.387092590332 < 300\n=========================== short test summary info ============================\nFAILED tests/test_search_engine.py::test_tokenization_correctness_and_performance\nFAILED tests/test_search_engine.py::test_stopword_performance - AssertionErro...\nFAILED tests/test_search_engine.py::test_tfidf_calculation - AssertionError: ...\nFAILED tests/test_search_engine.py::test_similarity_sparse_vectors - Assertio...\nFAILED tests/test_search_engine.py::test_phrase_search_optimized - AssertionE...\nFAILED tests/test_search_engine.py::test_sorting_performance - AssertionError...\n========================= 6 failed, 2 passed in 2.51s ==========================\n",
+    "stderr": ""
+  },
+  "after": {
+    "success": true,
+    "exit_code": 0,
+    "tests": [
+      {
+        "nodeid": "tests/test_search_engine.py::test_tokenization_correctness_and_performance",
+        "name": "test_tokenization_correctness_and_performance",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_stopword_performance",
+        "name": "test_stopword_performance",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_doc_lookup_complexity",
+        "name": "test_doc_lookup_complexity",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_inverted_index_structure",
+        "name": "test_inverted_index_structure",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_tfidf_calculation",
+        "name": "test_tfidf_calculation",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_similarity_sparse_vectors",
+        "name": "test_similarity_sparse_vectors",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_phrase_search_optimized",
+        "name": "test_phrase_search_optimized",
+        "outcome": "passed"
+      },
+      {
+        "nodeid": "tests/test_search_engine.py::test_sorting_performance",
+        "name": "test_sorting_performance",
+        "outcome": "passed"
+      }
+    ],
+    "summary": {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /usr/local/bin/python\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 8 items\n\ntests/test_search_engine.py::test_tokenization_correctness_and_performance PASSED [ 12%]\ntests/test_search_engine.py::test_stopword_performance PASSED            [ 25%]\ntests/test_search_engine.py::test_doc_lookup_complexity PASSED           [ 37%]\ntests/test_search_engine.py::test_inverted_index_structure PASSED        [ 50%]\ntests/test_search_engine.py::test_tfidf_calculation PASSED               [ 62%]\ntests/test_search_engine.py::test_similarity_sparse_vectors PASSED       [ 75%]\ntests/test_search_engine.py::test_phrase_search_optimized PASSED         [ 87%]\ntests/test_search_engine.py::test_sorting_performance PASSED             [100%]\n\n============================== 8 passed in 0.18s ===============================\n",
+    "stderr": ""
+  },
+  "criteria_analysis": {
+    "req1_tokenization_efficiency": "Not Run",
+    "req2_stopword_efficiency": "Not Run",
+    "req3_doc_lookup_efficiency": "Not Run",
+    "req4_inverted_index_structure": "Not Run",
+    "req5_tfidf_efficiency": "Not Run",
+    "req6_similarity_efficiency": "Not Run",
+    "req7_phrase_search_efficiency": "Not Run",
+    "req8_sorting_efficiency": "Not Run"
+  },
+  "comparison": {
+    "summary": "Comparison of Legacy (O(N^2)) vs Optimized (Inverted Index + O(1)) Engine",
+    "improvement_detected": true,
+    "success": true
+  }
+}

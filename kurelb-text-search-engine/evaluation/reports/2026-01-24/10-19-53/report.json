@@ -1,0 +1,31 @@
+{
+  "run_id": "55ae7432",
+  "tool": "Search Engine Evaluator",
+  "started_at": "2026-01-24T10:19:53.141875",
+  "environment": {
+    "python_version": "3.11.14",
+    "platform": "Linux-6.14.0-37-generic-x86_64-with-glibc2.41",
+    "os": "Linux",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "before": null,
+  "after": {
+    "success": false,
+    "exit_code": -1,
+    "tests": [],
+    "summary": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "errors": 0
+    },
+    "stderr": "repository_after directory not found"
+  },
+  "criteria_analysis": {},
+  "comparison": {
+    "summary": "Comparison of Legacy (O(N^2)) vs Optimized (Inverted Index + O(1)) Engine",
+    "improvement_detected": false,
+    "success": false
+  }
+}
