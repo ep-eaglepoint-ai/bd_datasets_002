@@ -6,7 +6,8 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Install all dependencies 
-RUN npm ci
+RUN npm install
+RUN npm install -g jest cross-env
 
 # Copy source code
 COPY . /app

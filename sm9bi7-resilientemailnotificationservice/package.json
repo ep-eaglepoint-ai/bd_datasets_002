@@ -9,10 +9,10 @@
   },
   "scripts": {
     "test": "jest",
-    "test:before": "cross-env REPO=before NODE_ENV=test jest",
-    "test:after": "cross-env REPO=after NODE_ENV=test jest",
-    "test:watch": "jest --watch",
-    "evaluation": "cross-env TS_NODE_PROJECT=tsconfig.json node --loader ts-node/esm --no-warnings evaluation/evaluation.ts",
+    "test:before": "npx cross-env REPO=before NODE_ENV=test jest",
+    "test:after": "npx cross-env REPO=after NODE_ENV=test jest",
+    "test:watch": "npx jest --watch",
+    "evaluation": "npx cross-env TS_NODE_PROJECT=tsconfig.json node --loader ts-node/esm --no-warnings evaluation/evaluation.ts",
     "build": "tsc"
   },
   "keywords": [],

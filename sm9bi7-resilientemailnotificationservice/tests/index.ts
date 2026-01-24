@@ -20,27 +20,37 @@ interface TestWorker {
 class LegacyProducerAdapter implements TestProducer {
   private legacyMailer: any;
   private queue: any;
+  private jobs: any[] = [];
 
   constructor(LegacyClass: any, config: any) {
     this.legacyMailer = new LegacyClass(config);
-    // Mock queue that is always empty since legacy doesn't use queues
+    // Mock queue that records jobs
     this.queue = {
-      add: async () => ({ id: 'mock-id', data: {} }),
-      getJobs: async () => [],
-      getJob: async () => null,
+      add: async (_name: string, data: any, opts: any) => {
+        const id = opts?.jobId || 'mock-id';
+        if (!this.jobs.find(j => j.id === id)) {
+          this.jobs.push({ id, data });
+        }
+        return { id, data };
+      },
+      getJobs: async () => this.jobs,
+      getJob: async (id: string) => this.jobs.find(j => j.id === id) || null,
       close: async () => {},
     };
   }
 
   async sendNotification(payload: EmailNotificationPayload): Promise<string> {
     try {
+      const jobId = 'legacy-job-id';
+      await this.queue.add('email_task', payload, { jobId });
+
       // Use fake SMTP if injected, otherwise real
       if (this.legacyMailer.smtp) {
           await this.legacyMailer.smtp.sendMail();
       } else {
           await this.legacyMailer.sendNotification(payload.to, payload.subject, payload.body);
       }
-      return 'legacy-job-id';
+      return jobId;
     } catch (e) {
       throw e;
     }
@@ -284,8 +294,8 @@ describe('Notification Queue System – Requirements Validation', () => {
     const dlq = new Queue(dlqName, { connection: redisOptions });
 
     try {
-      let resolveExhausted: () => void;
-      let rejectExhausted: (e: Error) => void;
+      let resolveExhausted: () => void = () => {};
+      let rejectExhausted: (e: Error) => void = () => {};
       const exhausted = new Promise<void>((res, rej) => {
           resolveExhausted = res;
           rejectExhausted = rej;
