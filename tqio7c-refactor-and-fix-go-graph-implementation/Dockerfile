@@ -1,5 +1,4 @@
-FROM python:3.11-slim
+FROM golang:1.21-alpine
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+CMD ["go", "run", "tests/test_before.go"]
