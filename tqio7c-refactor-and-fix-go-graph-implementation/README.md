@@ -4,22 +4,15 @@
 
 Test repository_before:
 ```bash
-docker-compose run --rm -e REPO=before app go run tests/test_before.go
+docker-compose run --rm test-before
 ```
 
 Test the repository_after:
 ```bash
-docker-compose run --rm -e REPO=after app go run tests/test_after.go
+docker-compose run --rm test-after
 ```
 
-
+Run evaluation:
 ```bash
-# Test before
-docker-compose run --rm -e REPO=before app go run tests/test_before.go
-
-# Test after  
-docker-compose run --rm -e REPO=after app go run tests/test_after.go
-
-# Run evaluation (runs both tests and generates report)
-docker-compose run --rm app go run evaluation/evaluation.go
+docker-compose run --rm evaluation
 ```

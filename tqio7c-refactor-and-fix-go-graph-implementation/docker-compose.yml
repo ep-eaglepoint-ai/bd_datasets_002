@@ -1,6 +1,23 @@
 services:
-  app:
+  test-before:
     build: .
+    command: go run tests/test_before.go
+    volumes:
+      - .:/app
+      - /app/go/pkg
+    working_dir: /app
+
+  test-after:
+    build: .
+    command: go run tests/test_after.go
+    volumes:
+      - .:/app
+      - /app/go/pkg
+    working_dir: /app
+
+  evaluation:
+    build: .
+    command: go run evaluation/evaluation.go
     volumes:
       - .:/app
       - /app/go/pkg
