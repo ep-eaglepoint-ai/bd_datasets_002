@@ -1,0 +1,11 @@
+{
+            "instance_id": "PWRDDI",
+            "problem_statement": "The synchronization logic fails to maintain consistency in a distributed environment where network partitions and clock skew are prevalent. The goal is to implement a conflict-free or causally consistent synchronization layer that allows for concurrent modifications to the same document without state divergence or data loss.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/pwrddi-consistency-state-sync-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
