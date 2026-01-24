@@ -1,29 +1,19 @@
 #!/usr/bin/env python3
-"""
-Evaluation runner for Task Scheduler Refactor.
-
-This evaluation script:
-- Runs pytest tests on the tests/ folder for both before and after implementations
-- Collects individual test results with pass/fail status
-- Generates structured reports with environment metadata
-
-Run with:
-    docker compose run --rm app python evaluation/evaluation.py [options]
-"""
 import os
 import sys
 import json
 import uuid
 import platform
 import subprocess
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
 
+ROOT = Path(__file__).resolve().parent.parent
+REPORTS = ROOT / "evaluation" / "reports"
 
 def generate_run_id():
     """Generate a short unique run ID."""
-    return uuid.uuid4().hex[:8]
-
+    return uuid.uuid4().hex
 
 def get_git_info():
     """Get git commit and branch information."""
@@ -54,7 +44,6 @@ def get_git_info():
     
     return git_info
 
-
 def get_environment_info():
     """Collect environment information for the report."""
     git_info = get_git_info()
@@ -70,29 +59,13 @@ def get_environment_info():
         "git_branch": git_info["git_branch"],
     }
 
-
 def run_pytest_with_pythonpath(pythonpath, tests_dir, label, pattern="test_*.py"):
     """
     Run pytest on the tests/ folder with specific PYTHONPATH.
-    
-    Args:
-        pythonpath: The PYTHONPATH to use for the tests
-        tests_dir: Path to the tests directory
-        label: Label for this test run (e.g., "before", "after")
-        pattern: Pattern of tests to run (default all)
     """
     print(f"\n{'=' * 60}")
     print(f"RUNNING TESTS: {label.upper()}")
     print(f"{'=' * 60}")
-    print(f"PYTHONPATH: {pythonpath}")
-    print(f"Tests directory: {tests_dir}")
-    print(f"Pattern: {pattern}")
-    
-    # Build pytest command
-    # NOTE: We specifically target tests that are safe to run against both.
-    # For 'before', run functional tests mainly to show correctness (or failures if broken).
-    # For 'after', run everything.
-    # But to match reference simple logic, we run what is given.
     
     cmd = [
         sys.executable, "-m", "pytest",
@@ -106,280 +79,130 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label, pattern="test_*.py"
     
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{pythonpath}{os.pathsep}{tests_dir}"
-    env["EVALUATION_RUN"] = "true"
+    env["EVALUATION_RUN"] = "true" # Critical for verifying strict failures in before implementation
     
     try:
+        # 3 minute timeout to catch unoptimized code hangs
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             cwd=str(Path(tests_dir).parent),
             env=env,
-            timeout=180 # 3 minutes timeout to catch before implementation hangs
+            timeout=180 
         )
         
         stdout = result.stdout
         stderr = result.stderr
+        passed = result.returncode == 0
         
-        # Parse verbose output to get test results
-        tests = parse_pytest_verbose_output(stdout)
+        # Count passed/failed from output string for summary (optional but helpful logging)
+        # Note: We rely on returncode for simple boolean success
         
-        # Count results
-        passed = sum(1 for t in tests if t.get("outcome") == "passed")
-        failed = sum(1 for t in tests if t.get("outcome") == "failed")
-        errors = sum(1 for t in tests if t.get("outcome") == "error")
-        skipped = sum(1 for t in tests if t.get("outcome") == "skipped")
-        total = len(tests)
+        print(f"Return code: {result.returncode}")
         
-        print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, {skipped} skipped (total: {total})")
-        
-        # Print individual test results
-        for test in tests:
-            status_icon = {
-                "passed": "✅",
-                "failed": "❌",
-                "error": "💥",
-                "skipped": "⏭️"
-            }.get(test.get("outcome"), "❓")
-            print(f"  {status_icon} {test.get('nodeid', 'unknown')}: {test.get('outcome', 'unknown')}")
+        output_log = (stdout + stderr)[:8000] # Truncate as per guideline suggestion
         
         return {
-            "success": result.returncode == 0,
-            "exit_code": result.returncode,
-            "tests": tests,
-            "summary": {
-                "total": total,
-                "passed": passed,
-                "failed": failed,
-                "errors": errors,
-                "skipped": skipped,
-            },
-            "stdout": stdout[-3000:] if len(stdout) > 3000 else stdout,
-            "stderr": stderr[-1000:] if len(stderr) > 1000 else stderr,
+            "passed": passed,
+            "return_code": result.returncode,
+            "output": output_log
         }
         
     except subprocess.TimeoutExpired:
         print("❌ Test execution timed out")
         return {
-            "success": False,
-            "exit_code": -1,
-            "tests": [],
-            "summary": {"error": "Test execution timed out"},
-            "stdout": "",
-            "stderr": "",
+            "passed": False,
+            "return_code": -1,
+            "output": "pytest timeout"
         }
     except Exception as e:
         print(f"❌ Error running tests: {e}")
         return {
-            "success": False,
-            "exit_code": -1,
-            "tests": [],
-            "summary": {"error": str(e)},
-            "stdout": "",
-            "stderr": "",
+            "passed": False,
+            "return_code": -1,
+            "output": str(e)
         }
 
-
-def parse_pytest_verbose_output(output):
-    """Parse pytest verbose output to extract test results."""
-    tests = []
-    lines = output.split('\n')
-    
-    for line in lines:
-        line_stripped = line.strip()
-        
-        # Match lines like: tests/test_before.py::test_before_matches_reference_vectors PASSED
-        if '::' in line_stripped:
-            outcome = None
-            if ' PASSED' in line_stripped:
-                outcome = "passed"
-            elif ' FAILED' in line_stripped:
-                outcome = "failed"
-            elif ' ERROR' in line_stripped:
-                outcome = "error"
-            elif ' SKIPPED' in line_stripped:
-                outcome = "skipped"
-            
-            if outcome:
-                # Extract nodeid (everything before the status)
-                for status_word in [' PASSED', ' FAILED', ' ERROR', ' SKIPPED']:
-                    if status_word in line_stripped:
-                        nodeid = line_stripped.split(status_word)[0].strip()
-                        break
-                
-                tests.append({
-                    "nodeid": nodeid,
-                    "name": nodeid.split("::")[-1] if "::" in nodeid else nodeid,
-                    "outcome": outcome,
-                })
-    
-    return tests
-
-
-def run_evaluation():
-    """
-    Run complete evaluation for both implementations.
-    """
-    print(f"\n{'=' * 60}")
-    print("SCHEDULER REFACTOR EVALUATION")
-    print(f"{'=' * 60}")
-    
+def evaluate(repo_name):
     project_root = Path(__file__).parent.parent
+    repo_path = project_root / repo_name
     tests_dir = project_root / "tests"
     
-    # PYTHONPATH for before implementation
-    before_pythonpath = str(project_root / "repository_before")
+    # We do not have separate specific metrics yet, returning empty dict
+    metrics = {}
     
-    # PYTHONPATH for after implementation  
-    after_pythonpath = str(project_root / "repository_after")
-    
-    # Run tests with BEFORE implementation
-    # Run ALL tests as requested by user.
-    before_results = run_pytest_with_pythonpath(
-        before_pythonpath,
+    tests_result = run_pytest_with_pythonpath(
+        str(repo_path),
         tests_dir,
-        "before (repository_before)",
-        pattern="" # Run everything
+        repo_name,
+        pattern=""
     )
-    
-    # Run tests with AFTER implementation (Run ALL)
-    after_results = run_pytest_with_pythonpath(
-        after_pythonpath,
-        tests_dir,
-        "after (repository_after)",
-        pattern="" # Run everything
-    )
-    
-    # Build comparison
-    comparison = {
-        "before_tests_passed": before_results.get("success", False),
-        "after_tests_passed": after_results.get("success", False),
-        "before_total": before_results.get("summary", {}).get("total", 0),
-        "before_passed": before_results.get("summary", {}).get("passed", 0),
-        "before_failed": before_results.get("summary", {}).get("failed", 0),
-        "after_total": after_results.get("summary", {}).get("total", 0),
-        "after_passed": after_results.get("summary", {}).get("passed", 0),
-        "after_failed": after_results.get("summary", {}).get("failed", 0),
-    }
-    
-    # Print summary
-    print(f"\n{'=' * 60}")
-    print("EVALUATION SUMMARY")
-    print(f"{'=' * 60}")
-    
-    print(f"\nBefore Implementation (repository_before):")
-    print(f"  Overall: {'✅ PASSED' if before_results.get('success') else '❌ FAILED'}")
-    print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
-    
-    print(f"\nAfter Implementation (repository_after):")
-    print(f"  Overall: {'✅ PASSED' if after_results.get('success') else '❌ FAILED'}")
-    print(f"  Tests: {comparison['after_passed']}/{comparison['after_total']} passed")
-    
-    # Determine expected behavior
-    print(f"\n{'=' * 60}")
-    print("EXPECTED BEHAVIOR CHECK")
-    print(f"{'=' * 60}")
-    
-    if after_results.get("success"):
-        print("✅ After implementation: All tests passed (expected)")
-    else:
-        print("❌ After implementation: Some tests failed (unexpected - should pass all)")
     
     return {
-        "before": before_results,
-        "after": after_results,
-        "comparison": comparison,
+        "tests": tests_result,
+        "metrics": metrics
     }
 
-
-def generate_output_path():
-    """Generate output path in format: evaluation/YYYY-MM-DD/HH-MM-SS/report.json"""
-    now = datetime.now()
-    date_str = now.strftime("%Y-%m-%d")
-    time_str = now.strftime("%H-%M-%S")
+def run_evaluation():
+    run_id = generate_run_id()
+    start = datetime.utcnow() # using utcnow as per sample
     
-    project_root = Path(__file__).parent.parent
-    output_dir = project_root / "evaluation" / date_str / time_str
-    output_dir.mkdir(parents=True, exist_ok=True)
+    before = evaluate("repository_before")
+    after = evaluate("repository_after")
     
-    return output_dir / "report.json"
-
+    passed_gate = after["tests"]["passed"]
+    improvement_summary = "After implementation passed correctness checks" if passed_gate else "After implementation failed checks"
+    
+    comparison = {
+        "passed_gate": passed_gate,
+        "improvement_summary": improvement_summary
+    }
+    
+    end = datetime.utcnow()
+    
+    return {
+        "run_id": run_id,
+        "started_at": start.isoformat() + "Z",
+        "finished_at": end.isoformat() + "Z",
+        "duration_seconds": (end - start).total_seconds(),
+        "environment": get_environment_info(),
+        "before": before,
+        "after": after,
+        "comparison": comparison,
+        "success": comparison["passed_gate"],
+        "error": None
+    }
 
 def main():
-    """Main entry point for evaluation."""
     import argparse
-    
-    parser = argparse.ArgumentParser(description="Run scheduler refactor evaluation")
-    parser.add_argument(
-        "--output", 
-        type=str, 
-        default=None, 
-        help="Output JSON file path (default: evaluation/YYYY-MM-DD/HH-MM-SS/report.json)"
-    )
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", help="Optional output path")
     args = parser.parse_args()
-    
-    # Generate run ID and timestamps
-    run_id = generate_run_id()
-    started_at = datetime.now()
-    
-    print(f"Run ID: {run_id}")
-    print(f"Started at: {started_at.isoformat()}")
-    
-    try:
-        results = run_evaluation()
-        
-        # Success if after implementation passes all tests
-        success = results["after"].get("success", False)
-        error_message = None if success else "After implementation tests failed"
-        
-    except Exception as e:
-        import traceback
-        print(f"\nERROR: {str(e)}")
-        traceback.print_exc()
-        results = None
-        success = False
-        error_message = str(e)
-    
-    finished_at = datetime.now()
-    duration = (finished_at - started_at).total_seconds()
-    
-    # Collect environment information
-    environment = get_environment_info()
-    
-    # Build report
-    report = {
-        "run_id": run_id,
-        "started_at": started_at.isoformat(),
-        "finished_at": finished_at.isoformat(),
-        "duration_seconds": round(duration, 6),
-        "success": success,
-        "error": error_message,
-        "environment": environment,
-        "results": results,
-    }
-    
-    # Determine output path
-    if args.output:
-        output_path = Path(args.output)
-    else:
-        output_path = generate_output_path()
-    
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_path, "w") as f:
-        json.dump(report, f, indent=2)
-    print(f"\n✅ Report saved to: {output_path}")
-    
-    print(f"\n{'=' * 60}")
-    print(f"EVALUATION COMPLETE")
-    print(f"{'=' * 60}")
-    print(f"Run ID: {run_id}")
-    print(f"Duration: {duration:.2f}s")
-    print(f"Success: {'✅ YES' if success else '❌ NO'}")
-    
-    return 0 if success else 1
 
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    
+    report = run_evaluation()
+    
+    # Write to specific path if requested, otherwise standard latest.json and report.json in reports/
+    
+    # 1. Standard report.json (as per guideline text 'Standard Report Structure (report.json)')
+    path = REPORTS / "report.json"
+    path.write_text(json.dumps(report, indent=2))
+    print(f"Report written to {path}")
+    
+    # 2. latest.json (as per sample code)
+    latest_path = REPORTS / "latest.json"
+    latest_path.write_text(json.dumps(report, indent=2))
+    
+    # 3. If output arg provided (CI often uses this)
+    if args.output:
+        out_p = Path(args.output)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(json.dumps(report, indent=2))
+        print(f"Report also written to {out_p}")
+
+    return 0 if report["success"] else 1
 
 if __name__ == "__main__":
     sys.exit(main())
