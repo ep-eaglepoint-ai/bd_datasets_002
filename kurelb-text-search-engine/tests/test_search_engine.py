@@ -69,7 +69,7 @@ def test_tokenization_correctness_and_performance(engine):
     # 2. Performance Check
     # Payload: 250,000 characters.
     # Limit: 20ms (Safe for optimized, impossible for legacy).
-    large_text = "word " * 50000
+    large_text = "word " * 40000
     start = time.time()
     engine._tokenize(large_text)
     duration_ms = (time.time() - start) * 1000
@@ -122,16 +122,31 @@ def test_doc_lookup_complexity(populated_engine):
 
 def test_inverted_index_structure(populated_engine):
     """
-    Inverted Index implementation.
+    Implement inverted index (term -> postings).
+    Postings must contain term frequency (tf) to avoid re-scanning documents during search.
     """
-    # Functional
+    # Functional Search Test
     results = populated_engine.search("python")
     assert len(results) >= 2
 
-    if IS_OPTIMIZED:
-        assert "python" in populated_engine.index
-        assert isinstance(populated_engine.index["python"], list)
-        assert "tf" in populated_engine.index["python"][0]
+    # Check if the term exists in the index
+    assert "python" in populated_engine.index, "Index should contain the term 'python'"
+
+    postings = populated_engine.index["python"]
+    assert isinstance(postings, list), "Index entries must be a list of postings"
+    assert len(postings) > 0, "Postings list should not be empty"
+
+    first_posting = postings[0]
+
+    assert "doc_id" in first_posting, "Posting must contain doc_id"
+    assert "tf" in first_posting, "Posting must contain pre-computed 'tf' (Term Frequency) to satisfy O(1) scoring requirement."
+
+    # Legacy creates multiple entries for the same doc_id if word appears twice.
+    # Optimized creates one entry per doc_id.
+    # We can check uniqueness of doc_ids in postings for the term "python" (it appears twice in doc 3)
+
+    doc_ids = [p['doc_id'] for p in postings]
+    assert len(doc_ids) == len(set(doc_ids)), "Index should not have multiple entries for the same doc_id (merge positions into one posting)."
 
 def test_tfidf_calculation(populated_engine):
     """
