@@ -1,0 +1,11 @@
+{
+            "instance_id": "E6WXTP",
+            "problem_statement": "You are a Senior Frontend Engineer fixing reliability issues in a React-based Code Editor. The editor shows incorrect undo/redo behavior, wrong modified-state detection, and broken search/replace. Refactor the code to fix all bugs without changing the component architecture or features. Ensure correctness, edge-case handling, and adherence to React best practices.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/e6wxtp-react-code-editor-reliability-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
