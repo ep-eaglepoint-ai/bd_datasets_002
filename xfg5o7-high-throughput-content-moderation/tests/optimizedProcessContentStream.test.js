@@ -159,7 +159,6 @@ describe("TC-07: Performance SLA", () => {
       });
     }
 
-    // Generate 10,000 events
     const events = [];
     for (let i = 0; i < 10000; i++) {
       events.push({
@@ -170,10 +169,8 @@ describe("TC-07: Performance SLA", () => {
       });
     }
 
-    // Preprocess rules (done once, not counted in SLA)
     const automaton = preprocessRules(rules);
 
-    // Measure processing time
     const start = performance.now();
     const result = processContentStream(events, automaton);
     const elapsed = performance.now() - start;
@@ -214,7 +211,6 @@ describe("TC-08: Behavioral parity with original implementation", () => {
 
     const result = processContentStream(events, rules);
 
-    // After normalization: "hello world" should match
     assert.equal(result.length, 1);
     assert.equal(result[0].categories, "greeting");
   });
@@ -331,11 +327,8 @@ describe("TC-08: Behavioral parity with original implementation", () => {
     const result = processContentStream([originalEvent], rules);
 
     assert.equal(result.length, 1);
-    // Should be a separate object (not same reference)
     assert.notEqual(result[0].originalData, originalEvent);
-    // But properties should be equal
     assert.deepEqual(result[0].originalData, originalEvent);
-    // Nested objects should have same reference (shallow clone)
     assert.equal(result[0].originalData.nested, originalEvent.nested);
   });
 
@@ -362,7 +355,6 @@ describe("TC-08: Behavioral parity with original implementation", () => {
 
     const result = processContentStream(events, rules);
 
-    // All variations should match (4 occurrences, but same category)
     assert.equal(result.length, 1);
     assert.equal(result[0].categories, "case");
   });
