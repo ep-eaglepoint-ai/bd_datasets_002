@@ -178,6 +178,6 @@ h1 {
 
 @media (max-width: 768px) {
   .table-header, .table-row {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, 1fr)
   }
 }
