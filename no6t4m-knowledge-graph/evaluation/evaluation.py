@@ -214,16 +214,12 @@ def run_evaluation():
     project_root = Path(__file__).parent.parent
     tests_dir = project_root / "tests"
     
-    # PYTHONPATH for before implementation
-    before_pythonpath = str(project_root / "repository_before")
-    
-    # PYTHONPATH for after implementation  
-    after_pythonpath = str(project_root / "repository_after")
+    # PYTHONPATH should be project root for both, as logic is handled by TARGET_REPOSITORY
+    project_pythonpath = str(project_root)
     
     # Run tests with BEFORE implementation
-    # No test because this is a code generation task
     before_results = run_pytest_with_pythonpath(
-        before_pythonpath,
+        project_pythonpath,
         tests_dir,
         "before (repository_before)",
         "repository_before"
@@ -231,7 +227,7 @@ def run_evaluation():
     
     # Run tests with AFTER implementation
     after_results = run_pytest_with_pythonpath(
-        after_pythonpath,
+        project_pythonpath,
         tests_dir,
         "after (repository_after)",
         "repository_after"
