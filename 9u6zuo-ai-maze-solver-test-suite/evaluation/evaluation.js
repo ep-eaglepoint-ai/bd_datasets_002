@@ -89,37 +89,44 @@ function analyzeAlgorithmMetrics(testResults) {
     unsolvable_maze_handling: false
   };
 
-  testResults.forEach(testSuite => {
-    if (testSuite.testResults) {
-      testSuite.testResults.forEach(test => {
-        const testName = test.title.toLowerCase();
-        
-        if (testName.includes('bfs') && test.status === 'passed') {
+  // Check if testResults is an array of test suites or contains testResults property
+  const testSuites = Array.isArray(testResults) ? testResults : (testResults.testResults || []);
+  
+  testSuites.forEach(testSuite => {
+    // Handle both direct test results and nested structure
+    const tests = testSuite.assertionResults || testSuite.testResults || [];
+    
+    tests.forEach(test => {
+      const testName = (test.title || test.fullName || '').toLowerCase();
+      const testStatus = test.status;
+      
+      if (testStatus === 'passed') {
+        if (testName.includes('bfs')) {
           metrics.bfs_algorithm_fixed = true;
         }
-        if (testName.includes('a*') && test.status === 'passed') {
+        if (testName.includes('a*') || testName.includes('astar')) {
           metrics.astar_algorithm_fixed = true;
         }
-        if (testName.includes('dfs') && test.status === 'passed') {
+        if (testName.includes('dfs')) {
           metrics.dfs_algorithm_working = true;
         }
-        if (testName.includes('maze') && test.status === 'passed') {
+        if (testName.includes('maze')) {
           metrics.maze_generation_optimized = true;
         }
-        if (testName.includes('path') && test.status === 'passed') {
+        if (testName.includes('path') || testName.includes('valid')) {
           metrics.path_validation_working = true;
         }
-        if (testName.includes('performance') && test.status === 'passed') {
+        if (testName.includes('performance') || testName.includes('efficient')) {
           metrics.performance_improved = true;
         }
-        if (testName.includes('edge') && test.status === 'passed') {
+        if (testName.includes('edge') || testName.includes('single') || testName.includes('adjacent')) {
           metrics.edge_cases_handled = true;
         }
-        if (testName.includes('unsolvable') && test.status === 'passed') {
+        if (testName.includes('unsolvable')) {
           metrics.unsolvable_maze_handling = true;
         }
-      });
-    }
+      }
+    });
   });
 
   return metrics;

@@ -1,8 +1,62 @@
 services:
-  app:
+  # Build the base image
+  maze-solver-tests:
     build: .
-    command: npm test
     volumes:
       - .:/app
       - /app/tests/node_modules
-    working_dir: /app/tests
+    working_dir: /app
+
+  # Before version tests (should fail - demonstrates bugs)
+  test-before:
+    build: .
+    command: sh -c "cd tests && (npx jest before-version.test.js --verbose --forceExit || echo 'Expected test failures - exit code 0') && exit 0"
+    volumes:
+      - .:/app
+      - /app/tests/node_modules
+    working_dir: /app
+    depends_on:
+      - maze-solver-tests
+
+  # After version tests (should pass - demonstrates fixes)
+  test-after:
+    build: .
+    command: sh -c "cd tests && npx jest after-version.test.js --verbose"
+    volumes:
+      - .:/app
+      - /app/tests/node_modules
+    working_dir: /app
+    depends_on:
+      - maze-solver-tests
+
+  # Complete evaluation
+  evaluation:
+    build: .
+    command: node evaluation/evaluation.js
+    volumes:
+      - .:/app
+      - /app/tests/node_modules
+      - ./evaluation/reports:/app/evaluation/reports
+    working_dir: /app
+    depends_on:
+      - maze-solver-tests
+
+  # Run all tests in sequence
+  test-all:
+    build: .
+    command: >
+      sh -c "
+      echo '=== Running Before Tests (should fail) ===' &&
+      (cd tests && npx jest before-version.test.js --verbose || echo 'Before tests failed as expected') &&
+      echo '=== Running After Tests (should pass) ===' &&
+      cd tests && npx jest after-version.test.js --verbose &&
+      echo '=== Running Complete Evaluation ===' &&
+      cd .. && node evaluation/evaluation.js
+      "
+    volumes:
+      - .:/app
+      - /app/tests/node_modules
+      - ./evaluation/reports:/app/evaluation/reports
+    working_dir: /app
+    depends_on:
+      - maze-solver-tests
