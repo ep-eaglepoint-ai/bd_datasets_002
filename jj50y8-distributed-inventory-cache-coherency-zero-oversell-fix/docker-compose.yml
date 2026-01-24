@@ -48,7 +48,7 @@ services:
       - DB_PASSWORD=inventory_pass
     volumes:
       - .:/app
-    command: sh -c "cd repository_before && npm install && cd ../tests && npm install && npm test"
+    command: sh -c "cd repository_before && npm install && npm run build 2>/dev/null || true && cd ../tests && npm install && node test-runner.js"
 
   test-after:
     build: .
@@ -68,7 +68,7 @@ services:
       - DB_PASSWORD=inventory_pass
     volumes:
       - .:/app
-    command: sh -c "cd repository_after && npm install && cd ../tests && npm install && npm test"
+    command: sh -c "cd repository_after && npm install && npm run build 2>/dev/null || true && cd ../tests && npm install && node test-runner.js"
 
   evaluation:
     build: .

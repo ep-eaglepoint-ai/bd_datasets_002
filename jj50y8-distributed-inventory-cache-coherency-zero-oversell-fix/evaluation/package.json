@@ -1,17 +1,10 @@
 {
-  "name": "inventory-cache-evaluation",
+  "name": "evaluation-script",
   "version": "1.0.0",
-  "description": "Evaluation script for inventory cache coherency fix",
+  "description": "Evaluation script for test results",
   "main": "evaluation.js",
   "scripts": {
-    "start": "node evaluation.js"
+    "evaluate": "node evaluation.js"
   },
-  "dependencies": {
-    "ioredis": "^5.3.2",
-    "pg": "^8.11.3"
-  },
-  "devDependencies": {
-    "@types/node": "^20.11.5",
-    "@types/pg": "^8.10.9"
-  }
+  "dependencies": {}
 }
