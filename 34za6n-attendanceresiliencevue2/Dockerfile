@@ -10,11 +10,18 @@ COPY repository_after/package*.json ./repository_after/
 WORKDIR /app/repository_after
 RUN npm install
 
+# Copy test package.json and install if needed
+WORKDIR /app
+COPY tests/package*.json ./tests/
+WORKDIR /app/tests
+RUN npm install --production || true
+
 # Copy the rest of the application
 WORKDIR /app
 COPY repository_after/ ./repository_after/
 COPY tests/ ./tests/
 COPY evaluation/ ./evaluation/
 
-# Run evaluation (which includes tests)
-CMD ["node", "evaluation/evaluation.js"]
+# Run comprehensive tests for evaluation
+WORKDIR /app/tests
+CMD ["npm", "run", "evaluate"]

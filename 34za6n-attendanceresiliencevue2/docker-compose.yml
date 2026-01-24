@@ -1,6 +1,7 @@
 services:
   app:
     build: .
-    command: node evaluation/evaluation.js
+    working_dir: /app/tests
+    command: npm run evaluate
     volumes:
       - .:/app
