@@ -11,14 +11,6 @@ const { processContentStream, preprocessRules, shallowClone } = require(
   modulePath,
 );
 
-/**
- * REQ-01: Decoupled Complexity & Scalability
- * REQ-02: Correct overlapping token detection
- * REQ-03: Zero-allocation hot path behavior
- * REQ-04: Performance SLA
- * REQ-05: Exact behavioral parity
- * REQ-06: Structural/implementation constraints
- */
 
 describe("TC-01: Overlapping token detection", () => {
   test("should detect multiple overlapping tokens in the same message", () => {
