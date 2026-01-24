@@ -13,9 +13,6 @@ WORKDIR /app
 # Copy project files
 COPY . /app
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
 # Install dependencies for tests and application
 # This ensures they are available in the container image
 WORKDIR /app/tests
