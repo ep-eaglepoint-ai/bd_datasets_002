@@ -1,24 +1,20 @@
+version: '3.8'
+
 services:
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: python evaluation/evaluation.py
+
   test-before:
     build: .
+    environment:
+      - TEST_REPO_PATH=/app/repository_before
     command: python tests/test_before.py
-    volumes:
-      - .:/app
-    working_dir: /app
 
   test-after:
     build: .
+    environment:
+      - TEST_REPO_PATH=/app/repository_after
     command: python tests/test_after.py
-    volumes:
-      - .:/app
-    working_dir: /app
-
-  evaluation:
-    build: .
-    command: python evaluation/evaluation.py
-    volumes:
-      - .:/app
-    working_dir: /app
-    depends_on:
-      - test-before
-      - test-after
