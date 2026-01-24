@@ -501,12 +501,23 @@ func main() {
 	fmt.Println(strings.Repeat("=", 60))
 	fmt.Printf("Full report saved to: %s\n", reportPath)
 
+	// Exit code logic:
+	// - 0: Success (repository_after passes all tests and requirements)
+	// - 1: Failure (repository_after failed tests or requirements not met)
+	// - 2: System error (e.g., could not run tests)
+	//
+	// NOTE: repository_before failures are EXPECTED (they demonstrate the problem exists)
+	// and do NOT cause a non-zero exit code.
 	exitCode := 0
-	if beforeResults.ExitCode == 2 || afterResults.ExitCode == 2 {
+	if afterResults.ExitCode == 2 {
+		// System error running the "after" tests
 		exitCode = 2
 	} else if !verdictSuccess {
+		// repository_after tests failed or requirements not satisfied
 		exitCode = 1
 	}
+	// beforeResults.ExitCode is intentionally ignored for exit status
+	// because the baseline is expected to fail (showing the problem exists)
 
 	os.Exit(exitCode)
 }
