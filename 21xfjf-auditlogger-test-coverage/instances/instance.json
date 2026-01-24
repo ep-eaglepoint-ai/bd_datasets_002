@@ -1,0 +1,11 @@
+{
+            "instance_id": "21XFJF",
+            "problem_statement": "Ensure the AuditLogger behaves correctly, deterministically, and safely across edge cases involving sampling, storage limits, data transformation, truncation, and flushing.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/21xfjf-auditlogger-test-coverage",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
