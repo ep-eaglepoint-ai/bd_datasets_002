@@ -23,7 +23,7 @@ services:
     build: .
     volumes:
       - maven_data:/root/.m2
-      - ./repository_after/TextProcessingController.java:/app/src/main/java/com/example/textapi/TextProcessingController.java
+      - ./repository_after:/app/src/main/java/com/example/textapi
       # Mount the Main App (Required for Spring to start)
       - ./tests/TextApiApplication.java:/app/src/main/java/com/example/textapi/TextApiApplication.java
       - ./tests/TextProcessingControllerTest.java:/app/src/test/java/com/example/textapi/TextProcessingControllerTest.java
@@ -39,4 +39,4 @@ services:
 
       # Ensure the Main App is available for the evaluation script logic
       - ./tests/TextApiApplication.java:/app/src/main/java/com/example/textapi/TextApiApplication.java
-    command: python3 evaluation.py
+    command: python3 evaluation/evaluation.py

@@ -61,14 +61,28 @@ def run_maven_test(source_repo_path, label):
     print(f"RUNNING TESTS: {label.upper()}")
     print(f"{'=' * 60}")
     
-    source_file = Path(source_repo_path) / CONTROLLER_FILE
-    dest_file = JAVA_PACKAGE_PATH / CONTROLLER_FILE
+    source_dir = Path(source_repo_path)
     
-    if not source_file.exists():
-        return {"success": False, "summary": {"error": f"Source file not found: {source_file}"}}
+    if not source_dir.exists():
+        return {"success": False, "summary": {"error": f"Source directory not found: {source_dir}"}}
 
-    print(f"Copying {source_file} -> {dest_file}")
-    shutil.copy(source_file, dest_file)
+    # Copy all .java files from the source repository
+    java_files = list(source_dir.glob("*.java"))
+    if not java_files:
+        return {"success": False, "summary": {"error": f"No .java files found in: {source_dir}"}}
+    
+    # Clean up existing .java files (except TextApiApplication.java which is mounted from tests/)
+    for existing_file in JAVA_PACKAGE_PATH.glob("*.java"):
+        if existing_file.name != "TextApiApplication.java":
+            existing_file.unlink()
+    
+    for source_file in java_files:
+        # Skip TextApiApplication.java as it's mounted from tests/ directory
+        if source_file.name == "TextApiApplication.java":
+            continue
+        dest_file = JAVA_PACKAGE_PATH / source_file.name
+        print(f"Copying {source_file} -> {dest_file}")
+        shutil.copy(source_file, dest_file)
 
     cmd = ["mvn", "test", "-Dtest=TextProcessingControllerTest"]
     
