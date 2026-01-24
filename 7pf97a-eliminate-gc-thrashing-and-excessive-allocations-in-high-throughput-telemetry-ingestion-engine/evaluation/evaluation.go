@@ -158,7 +158,8 @@ func getRootDir() string {
 	if err != nil {
 		return "."
 	}
-	if filepath.Base(cwd) == "evaluation" {
+	base := filepath.Base(cwd)
+	if base == "evaluation" || base == "tests" {
 		return filepath.Dir(cwd)
 	}
 	return cwd
