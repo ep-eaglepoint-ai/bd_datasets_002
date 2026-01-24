@@ -1,9 +1,5 @@
 # Investment Portfolio Analytics Dashboard
 
-### Build Image
-```bash
-docker compose build
-```
 
 ### Run Tests After
 ```bash

@@ -1,15 +1,8 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { formatCurrency } from '../utils/formatters.js';
 
 function SectorAllocation({ sectors }) {
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
   
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -24,7 +17,7 @@ function SectorAllocation({ sectors }) {
         }}>
           <p style={{ margin: 0, fontWeight: 'bold' }}>{data.sector}</p>
           <p style={{ margin: '5px 0 0 0' }}>
-            Value: {formatCurrency(data.value)}
+            Value: {formatCurrency(data.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </p>
           <p style={{ margin: '5px 0 0 0' }}>
             Allocation: {data.percentage.toFixed(1)}%
@@ -118,7 +111,7 @@ function SectorAllocation({ sectors }) {
                       {sector.sector}
                     </div>
                   </td>
-                  <td>{formatCurrency(sector.value)}</td>
+                  <td>{formatCurrency(sector.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
                   <td>{sector.percentage.toFixed(1)}%</td>
                 </tr>
               ))}

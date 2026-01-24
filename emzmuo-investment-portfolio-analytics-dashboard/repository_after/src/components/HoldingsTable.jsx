@@ -1,24 +1,7 @@
 import React from 'react';
+import { formatCurrency, formatPercent, getColorClass, formatNumber } from '../utils/formatters.js';
 
 function HoldingsTable({ holdings, currentPrices }) {
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(value);
-  };
-  
-  const formatPercent = (value) => {
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
-  };
-  
-  const getColorClass = (value) => {
-    if (value > 0) return 'positive';
-    if (value < 0) return 'negative';
-    return 'neutral';
-  };
   
   const holdingsArray = Object.values(holdings).sort((a, b) => b.currentValue - a.currentValue);
   
@@ -61,7 +44,7 @@ function HoldingsTable({ holdings, currentPrices }) {
                   {holding.symbol}
                 </td>
                 <td className="hide-mobile">{priceData?.name || 'Unknown'}</td>
-                <td>{holding.shares.toLocaleString()}</td>
+                <td>{formatNumber(holding.shares)}</td>
                 <td className="hide-mobile">{formatCurrency(holding.averageCost)}</td>
                 <td>{formatCurrency(priceData?.currentPrice || 0)}</td>
                 <td style={{ fontWeight: 'bold' }}>

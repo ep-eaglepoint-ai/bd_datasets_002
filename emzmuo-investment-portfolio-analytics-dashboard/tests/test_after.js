@@ -98,32 +98,39 @@ async function runTests() {
 
   setupMockDOM();
 
-  // Test 1: File Structure Validation
-  test('Project structure contains all required files', () => {
-    const repoPath = path.join(__dirname, '../repository_after');
+  // Test 1: File Structure Validation (Both Repositories)
+  test('Project structure contains all required files in both repositories', () => {
+    const repoAfterPath = path.join(__dirname, '../repository_after');
+    const repoBeforePath = path.join(__dirname, '../repository_before');
     
-    // Core files
-    expect(fs.existsSync(path.join(repoPath, 'package.json'))).toBe(true);
-    expect(fs.existsSync(path.join(repoPath, 'index.html'))).toBe(true);
-    expect(fs.existsSync(path.join(repoPath, 'vite.config.ts'))).toBe(true);
+    // Test repository_after structure
+    expect(fs.existsSync(path.join(repoAfterPath, 'package.json'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'index.html'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'vite.config.ts'))).toBe(true);
     
     // Source structure
-    expect(fs.existsSync(path.join(repoPath, 'src/App.jsx'))).toBe(true);
-    expect(fs.existsSync(path.join(repoPath, 'src/main.jsx'))).toBe(true);
-    expect(fs.existsSync(path.join(repoPath, 'src/index.css'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'src/App.jsx'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'src/main.jsx'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'src/index.css'))).toBe(true);
     
     // Utils
-    expect(fs.existsSync(path.join(repoPath, 'src/utils/portfolioEngine.js'))).toBe(true);
-    expect(fs.existsSync(path.join(repoPath, 'src/utils/marketData.js'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'src/utils/portfolioEngine.js'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'src/utils/marketData.js'))).toBe(true);
+    expect(fs.existsSync(path.join(repoAfterPath, 'src/utils/formatters.js'))).toBe(true);
     
     // Components
-    const componentsPath = path.join(repoPath, 'src/components');
+    const componentsPath = path.join(repoAfterPath, 'src/components');
     expect(fs.existsSync(path.join(componentsPath, 'PortfolioSummary.jsx'))).toBe(true);
     expect(fs.existsSync(path.join(componentsPath, 'HoldingsTable.jsx'))).toBe(true);
     expect(fs.existsSync(path.join(componentsPath, 'HistoricalChart.jsx'))).toBe(true);
     expect(fs.existsSync(path.join(componentsPath, 'SectorAllocation.jsx'))).toBe(true);
     expect(fs.existsSync(path.join(componentsPath, 'TransactionHistory.jsx'))).toBe(true);
     expect(fs.existsSync(path.join(componentsPath, 'PerformanceMetrics.jsx'))).toBe(true);
+    expect(fs.existsSync(path.join(componentsPath, 'MarketDataProvider.jsx'))).toBe(true);
+    
+    // Test repository_before structure (basic files)
+    expect(fs.existsSync(path.join(repoBeforePath, 'package.json'))).toBe(true);
+    expect(fs.existsSync(path.join(repoBeforePath, 'README.md'))).toBe(true);
   });
 
   // Test 2: Package.json Validation
@@ -690,6 +697,93 @@ async function runTests() {
     }
   });
 
+  // Test 26: Formatters Utility Functions
+  test('Formatters utility provides consistent formatting across components', async () => {
+    try {
+      const formattersPath = path.join(__dirname, '../repository_after/src/utils/formatters.js');
+      const { formatCurrency, formatPercent, getColorClass, formatDate, getTypeIcon, getTypeColor } = await import(`file://${formattersPath}`);
+      
+      // Test currency formatting
+      expect(formatCurrency(1234.56)).toBe('$1,234.56');
+      expect(formatCurrency(1000, { minimumFractionDigits: 0, maximumFractionDigits: 0 })).toBe('$1,000');
+      
+      // Test percentage formatting
+      expect(formatPercent(12.34)).toBe('+12.34%');
+      expect(formatPercent(-5.67)).toBe('-5.67%');
+      expect(formatPercent(0)).toBe('+0.00%');
+      
+      // Test color class logic
+      expect(getColorClass(100)).toBe('positive');
+      expect(getColorClass(-50)).toBe('negative');
+      expect(getColorClass(0)).toBe('neutral');
+      
+      // Test date formatting
+      const testDate = new Date('2024-01-15');
+      expect(formatDate(testDate)).toContain('Jan');
+      expect(formatDate(testDate)).toContain('15');
+      
+      // Test transaction type functions
+      expect(getTypeIcon('BUY')).toBe('↗');
+      expect(getTypeIcon('SELL')).toBe('↘');
+      expect(getTypeIcon('DIVIDEND')).toBe('💰');
+      
+      expect(getTypeColor('BUY')).toBe('#10b981');
+      expect(getTypeColor('SELL')).toBe('#ef4444');
+      expect(getTypeColor('DIVIDEND')).toBe('#8b5cf6');
+    } catch (error) {
+      throw new Error(`Formatters utility test failed: ${error.message}`);
+    }
+  });
+
+  // Test 27: MarketDataProvider Component
+  test('MarketDataProvider component provides market data context', () => {
+    const providerPath = path.join(__dirname, '../repository_after/src/components/MarketDataProvider.jsx');
+    const content = fs.readFileSync(providerPath, 'utf8');
+    
+    expect(content).toContain('createContext');
+    expect(content).toContain('useContext');
+    expect(content).toContain('MarketDataProvider');
+    expect(content).toContain('useMarketData');
+    expect(content).toContain('generateCurrentPrices');
+    expect(content).toContain('generateSampleTransactions');
+    expect(content).toContain('generateDividends');
+    expect(content).toContain('generateStockSplits');
+  });
+
+  // Test 28: Component Refactoring - No Duplicate Helper Functions
+  test('Components use shared formatters instead of duplicate helper functions', () => {
+    const componentsPath = path.join(__dirname, '../repository_after/src/components');
+    const components = [
+      'HistoricalChart.jsx',
+      'PerformanceMetrics.jsx',
+      'PortfolioSummary.jsx',
+      'SectorAllocation.jsx',
+      'TransactionHistory.jsx',
+      'HoldingsTable.jsx'
+    ];
+    
+    components.forEach(component => {
+      const componentPath = path.join(componentsPath, component);
+      const content = fs.readFileSync(componentPath, 'utf8');
+      
+      // Should import from formatters utility
+      expect(content).toContain('from \'../utils/formatters.js\'');
+      
+      // Should NOT contain duplicate helper function definitions
+      const duplicatePatterns = [
+        /const formatCurrency = \(value\) => {/,
+        /const formatPercent = \(value\) => {/,
+        /const getColorClass = \(value\) => {/,
+        /const formatDate = \(date\) => {/
+      ];
+      
+      duplicatePatterns.forEach(pattern => {
+        if (pattern.test(content)) {
+          throw new Error(`Component ${component} contains duplicate helper function that should use formatters utility`);
+        }
+      });
+    });
+  });
   // Test 25: Meta-Testing and Adversarial Testing
   test('Meta-testing: Test suite validates all requirements', () => {
     // Verify we have tests for all major requirements

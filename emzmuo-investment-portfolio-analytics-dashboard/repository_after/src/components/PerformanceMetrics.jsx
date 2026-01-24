@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency, formatPercent, getColorClass } from '../utils/formatters.js';
 
 const PerformanceMetrics = ({ metrics }) => {
   if (!metrics) {
@@ -8,26 +9,6 @@ const PerformanceMetrics = ({ metrics }) => {
       </div>
     );
   }
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
-
-  const formatPercent = (value) => {
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
-  };
-
-  const getColorClass = (value) => {
-    if (value > 0) return 'positive';
-    if (value < 0) return 'negative';
-    return 'neutral';
-  };
 
   return (
     <div className="performance-metrics">
@@ -72,10 +53,10 @@ const PerformanceMetrics = ({ metrics }) => {
           </div>
         </div>
 
-        <div className="metric-card">
+          <div className="metric-card">
           <div className="metric-label">Max Drawdown</div>
           <div className="metric-value negative">
-            -{formatPercent(Math.abs(metrics.maxDrawdown))}
+            -{formatPercent(Math.abs(metrics.maxDrawdown), false)}
           </div>
           <div className="metric-subtitle">
             Largest decline

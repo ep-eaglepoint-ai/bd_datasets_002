@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PortfolioEngine } from './utils/portfolioEngine.js';
-import { 
-  generateCurrentPrices, 
-  generateSampleTransactions, 
-  generateDividends, 
-  generateStockSplits,
-  SECTOR_COLORS 
-} from './utils/marketData.js';
+import { SECTOR_COLORS } from './utils/marketData.js';
+import MarketDataProvider, { useMarketData } from './components/MarketDataProvider.jsx';
 import PortfolioSummary from './components/PortfolioSummary.jsx';
 import HoldingsTable from './components/HoldingsTable.jsx';
 import HistoricalChart from './components/HistoricalChart.jsx';
@@ -14,43 +9,37 @@ import SectorAllocation from './components/SectorAllocation.jsx';
 import TransactionHistory from './components/TransactionHistory.jsx';
 import PerformanceMetrics from './components/PerformanceMetrics.jsx';
 
-function App() {
+// Main dashboard component that uses market data
+function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
+  const marketData = useMarketData();
   
-  // Initialize portfolio engine and data
-  const portfolioData = useMemo(() => {
-    console.log('Generating portfolio data...');
+  // Initialize portfolio engine with market data
+  const portfolioEngine = useMemo(() => {
+    console.log('Initializing portfolio engine...');
     
-    // Generate all market data
-    const currentPrices = generateCurrentPrices();
-    const transactions = generateSampleTransactions();
-    const dividends = generateDividends(transactions);
-    const stockSplits = generateStockSplits();
-    
-    // Initialize portfolio engine
     const engine = new PortfolioEngine();
-    engine.setMarketData(transactions, dividends, stockSplits, currentPrices);
+    engine.setMarketData(
+      marketData.transactions, 
+      marketData.dividends, 
+      marketData.stockSplits, 
+      marketData.currentPrices
+    );
     
-    return {
-      engine,
-      transactions,
-      dividends,
-      stockSplits,
-      currentPrices
-    };
-  }, []);
+    return engine;
+  }, [marketData]);
   
   // Calculate all portfolio metrics (memoized for performance)
   const portfolioMetrics = useMemo(() => {
-    if (!portfolioData.engine) return null;
+    if (!portfolioEngine) return null;
     
     console.log('Calculating portfolio metrics...');
     
-    const holdings = portfolioData.engine.getCurrentHoldings();
-    const summary = portfolioData.engine.getPortfolioSummary();
-    const sectorAllocation = portfolioData.engine.getSectorAllocation();
-    const historicalData = portfolioData.engine.getHistoricalData(365);
-    const performanceMetrics = portfolioData.engine.getPerformanceMetrics();
+    const holdings = portfolioEngine.getCurrentHoldings();
+    const summary = portfolioEngine.getPortfolioSummary();
+    const sectorAllocation = portfolioEngine.getSectorAllocation();
+    const historicalData = portfolioEngine.getHistoricalData(365);
+    const performanceMetrics = portfolioEngine.getPerformanceMetrics();
     
     return {
       holdings,
@@ -62,7 +51,7 @@ function App() {
       historicalData,
       performanceMetrics
     };
-  }, [portfolioData]);
+  }, [portfolioEngine]);
   
   // Simulate loading delay to show the app is working
   useEffect(() => {
@@ -137,7 +126,7 @@ function App() {
           <h2 className="section-title">Current Holdings</h2>
           <HoldingsTable 
             holdings={portfolioMetrics.holdings} 
-            currentPrices={portfolioData.currentPrices}
+            currentPrices={marketData.currentPrices}
           />
         </div>
         
@@ -157,8 +146,8 @@ function App() {
         <div className="dashboard-section">
           <h2 className="section-title">Recent Transactions</h2>
           <TransactionHistory 
-            transactions={portfolioData.transactions.slice(-10)} 
-            dividends={portfolioData.dividends.slice(-5)}
+            transactions={marketData.transactions.slice(-10)} 
+            dividends={marketData.dividends.slice(-5)}
           />
         </div>
       </div>
@@ -171,6 +160,15 @@ function App() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Main App component with MarketDataProvider wrapper
+function App() {
+  return (
+    <MarketDataProvider>
+      <Dashboard />
+    </MarketDataProvider>
   );
 }
 

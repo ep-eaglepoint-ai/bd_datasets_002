@@ -1,23 +1,8 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { formatCurrency, formatChartDate } from '../utils/formatters.js';
 
 function HistoricalChart({ data }) {
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-  
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  };
   
   // Prepare data for chart (sample every 7 days for performance)
   const chartData = data
@@ -25,7 +10,7 @@ function HistoricalChart({ data }) {
     .map(point => ({
       date: point.date.toISOString(),
       value: point.value,
-      formattedDate: formatDate(point.date)
+      formattedDate: formatChartDate(point.date)
     }));
   
   const CustomTooltip = ({ active, payload, label }) => {
@@ -92,7 +77,7 @@ function HistoricalChart({ data }) {
           <YAxis 
             stroke="#666"
             fontSize={12}
-            tickFormatter={formatCurrency}
+            tickFormatter={(value) => formatCurrency(value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             domain={[minValue - padding, maxValue + padding]}
           />
           <Tooltip content={<CustomTooltip />} />

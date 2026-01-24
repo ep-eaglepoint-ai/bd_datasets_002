@@ -1,24 +1,14 @@
 import React from 'react';
+import { formatCurrency, formatPercent, getColorClass } from '../utils/formatters.js';
 
 function PortfolioSummary({ summary }) {
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(value);
-  };
-  
-  const formatPercent = (value) => {
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
-  };
-  
-  const getColorClass = (value) => {
-    if (value > 0) return 'positive';
-    if (value < 0) return 'negative';
-    return 'neutral';
-  };
+  if (!summary) {
+    return (
+      <div className="portfolio-summary">
+        <p>Loading portfolio summary...</p>
+      </div>
+    );
+  }
   
   return (
     <div className="portfolio-summary">

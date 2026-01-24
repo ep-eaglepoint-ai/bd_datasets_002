@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency, formatDate, getTypeColor, getTypeIcon } from '../utils/formatters.js';
 
 const TransactionHistory = ({ transactions, dividends }) => {
   if (!transactions && !dividends) {
@@ -8,23 +9,6 @@ const TransactionHistory = ({ transactions, dividends }) => {
       </div>
     );
   }
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
-
-  const formatDate = (date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }).format(new Date(date));
-  };
 
   // Combine and sort transactions and dividends
   const allEvents = [
@@ -39,24 +23,6 @@ const TransactionHistory = ({ transactions, dividends }) => {
       type: 'DIVIDEND'
     }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'BUY': return '#10b981';
-      case 'SELL': return '#ef4444';
-      case 'DIVIDEND': return '#8b5cf6';
-      default: return '#6b7280';
-    }
-  };
-
-  const getTypeIcon = (type) => {
-    switch (type) {
-      case 'BUY': return '↗';
-      case 'SELL': return '↘';
-      case 'DIVIDEND': return '💰';
-      default: return '•';
-    }
-  };
 
   return (
     <div className="transaction-history">
