@@ -12,7 +12,7 @@ services:
 
   app:
     build: .
-    command: sh -c "pytest -q tests || true"
+    command: sh -c "pytest --tb=no -q tests 2>/dev/null | tail -1 || true"
     volumes:
       - .:/app
     depends_on:

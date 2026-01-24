@@ -30,10 +30,19 @@ def run_tests(repo_name: str):
             timeout=120,
             env=env
         )
+        full_output = proc.stdout + proc.stderr
+        # Extract the summary line (last line with "X passed/failed in Y s")
+        lines = full_output.strip().split('\n')
+        summary_line = None
+        for line in reversed(lines):
+            if 'passed' in line or 'failed' in line:
+                summary_line = line
+                break
+        output = summary_line if summary_line else full_output[:8000]
         return {
             "passed": proc.returncode == 0,
             "return_code": proc.returncode,
-            "output": (proc.stdout + proc.stderr)[:8000]
+            "output": output
         }
     except subprocess.TimeoutExpired:
         return {
@@ -85,9 +94,9 @@ def main():
     path.write_text(json.dumps(report, indent=2))
     print(f"Report written to {path}")
     if report["success"]:
-        print("evaluation succeed")
+        print("evaluation succeed ✅✅")
     else:
-        print("evaluation failed")
+        print("evaluation failed ❌❌")
     return 0 if report["success"] else 1
 
 if __name__ == "__main__":
