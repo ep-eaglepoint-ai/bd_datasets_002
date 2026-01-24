@@ -1,0 +1,11 @@
+{
+            "instance_id": "WUJGIR",
+            "problem_statement": "The project requires the creation of a brand-new distributed governance system capable of managing multi-tenant resource consumption. The primary challenge is designing a system that accurately tracks 'spent' units across a cluster while handling the 'thundering herd' problem and providing clients with an exact recovery timeline when their specific quota is exhausted.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wujgir-architecting-weighted-resource-governor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
