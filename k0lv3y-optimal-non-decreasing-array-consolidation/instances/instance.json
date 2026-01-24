@@ -1,0 +1,11 @@
+{
+            "instance_id": "K0LV3Y",
+            "problem_statement": "Given an integer array nums, you can repeatedly consolidate any contiguous subarray into its sum. After any number of such operations, the array must be non-decreasing (arr[k] ≤ arr[k+1]). Your goal is to maximize the final array length achievable through optimal consolidations. Implement a function to return this maximum possible length efficiently.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/k0lv3y-optimal-non-decreasing-array-consolidation",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
