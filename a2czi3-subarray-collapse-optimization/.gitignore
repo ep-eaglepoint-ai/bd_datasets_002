@@ -6,6 +6,6 @@ __pycache__/
 
 # Node
 node_modules/
-
+evaluation/reports
 # OS
 .DS_Store

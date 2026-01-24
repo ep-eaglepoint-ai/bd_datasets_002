@@ -85,6 +85,31 @@ def evaluate(repo_name: str):
         "metrics": metrics
     }
 
+def parse_py_output(output):
+    """Parse pytest output to extract test results."""
+    passed = 0
+    failed = 0
+    coverage = 0
+    total = 0
+    
+    # Look for pattern like "20 passed in 1.61s"
+    passed_match = re.search(r'(\d+)\s+passed', output)
+    if passed_match:
+        passed = int(passed_match.group(1))
+    
+    # Look for pattern like "2 failed"
+    failed_match = re.search(r'(\d+)\s+failed', output)
+    if failed_match:
+        failed = int(failed_match.group(1))
+    
+    # Total is passed + failed
+    total = passed + failed if (passed + failed) > 0 else passed
+    
+    # Coverage is same as passed for now
+    coverage = passed
+    
+    return passed, failed, coverage, total
+
 def run_evaluation():
     run_id = str(uuid.uuid4())
     start = datetime.utcnow()
