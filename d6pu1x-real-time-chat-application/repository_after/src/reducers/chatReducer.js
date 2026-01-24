@@ -1,10 +1,10 @@
 /**
  * Action types for the chat reducer
  */
-const CREATE_NEW_CHAT = 'CREATE_NEW_CHAT';
-const SWITCH_CHAT = 'SWITCH_CHAT';
-const ADD_MESSAGE_TO_CHAT = 'ADD_MESSAGE_TO_CHAT';
-const DELETE_CHAT = 'DELETE_CHAT';
+export const CREATE_NEW_CHAT = 'CREATE_NEW_CHAT';
+export const SWITCH_CHAT = 'SWITCH_CHAT';
+export const ADD_MESSAGE_TO_CHAT = 'ADD_MESSAGE_TO_CHAT';
+export const DELETE_CHAT = 'DELETE_CHAT';
 
 /**
  * Initial state for the chat application

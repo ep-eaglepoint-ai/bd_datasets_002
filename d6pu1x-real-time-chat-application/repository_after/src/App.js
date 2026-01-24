@@ -3,7 +3,7 @@ import ChatSidebar from './components/ChatSidebar';
 import ChatWindow from './components/ChatWindow';
 import WelcomeScreen from './components/WelcomeScreen';
 import SearchBar from './components/SearchBar';
-import { chatReducer, initialState } from './reducers/chatReducer';
+import { chatReducer, initialState, CREATE_NEW_CHAT, SWITCH_CHAT, ADD_MESSAGE_TO_CHAT, DELETE_CHAT } from './reducers/chatReducer';
 
 /**
  * Main App component for the real-time chat application
