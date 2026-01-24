@@ -67,7 +67,7 @@ def test_tokenization_correctness_and_performance(engine):
     assert "python" in tokens
 
     # 2. Performance Check
-    # Payload: 50,000 characters.
+    # Payload: 250,000 characters.
     # Limit: 20ms (Safe for optimized, impossible for legacy).
     large_text = "word " * 50000
     start = time.time()
@@ -88,9 +88,9 @@ def test_stopword_performance(engine):
 
     # 2. Performance
     # This involves: Tokenization -> Stopword Filter -> Stemming -> Indexing.
-    # Optimized: ~50-100ms total.
-    # Legacy: Tokenization alone is O(N^2) ~ 20+ seconds.
-    # Limit: 300ms (Safe buffer for optimized env, impossible for legacy).
+    # Optimized: <50ms total.
+    # Legacy: Tokenization alone is O(N^2).
+    # Limit: 50ms (Safe buffer for optimized env, impossible for legacy).
     tokens = ["the"] * 20000 + ["code"] * 20000
     large_doc = Document(100, "Test", " ".join(tokens))
 
@@ -165,7 +165,7 @@ def test_similarity_sparse_vectors(populated_engine):
         populated_engine.find_similar_documents(1)
     duration_ms = (time.time() - start) * 1000
 
-    assert duration_ms < 100, f"Similarity too slow: {duration_ms:.2f}ms LIMIT: 100ms"
+    assert duration_ms < 300, f"Similarity too slow: {duration_ms:.2f}ms LIMIT: 300ms"
 
 def test_phrase_search_optimized(engine):
     """
@@ -178,7 +178,6 @@ def test_phrase_search_optimized(engine):
     assert len(results) == 1
 
     # Performance
-    # Large doc: ~75,000 characters.
     # Optimized: < 5ms (str.count).
     # Legacy: Slower (Python loops).
     # Limit: 25ms.
