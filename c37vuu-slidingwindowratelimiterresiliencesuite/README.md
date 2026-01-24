@@ -1,4 +1,4 @@
-# C37VUU - slidingWindowRateLimiterResilienceSuite
+# C37VUU - sliding Window Rate Limiter Resilience Suite
 
 ## Commands
 
