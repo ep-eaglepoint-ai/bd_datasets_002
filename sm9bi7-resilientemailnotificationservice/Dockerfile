@@ -1,19 +1,11 @@
-FROM node:18-slim
+FROM node:20-alpine
+
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# Install all dependencies 
-RUN npm install
-RUN npm install -g jest cross-env
+COPY . .
 
-# Copy source code
-COPY . /app
-
-# Build TypeScript
-RUN npm run build
-
-# Default command runs tests
-CMD ["npm", "test"]
+# Default: run evaluation (compose overrides for test-before / test-after)
+CMD ["npm", "run", "evaluation"]

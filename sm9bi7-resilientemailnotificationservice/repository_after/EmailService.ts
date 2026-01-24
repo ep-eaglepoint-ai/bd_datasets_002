@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer'
 import { Queue, Worker, Job } from 'bullmq'
-import IORedis from 'ioredis'
+import { Redis } from 'ioredis'
 import crypto from 'crypto'
 
 /* ===================== TYPES ===================== */
@@ -52,7 +52,7 @@ function backoffWithJitter(attempt: number): number {
 export class EmailProducer {
   private queue: Queue
 
-  constructor(redis: IORedis, queueName = 'email_task') {
+  constructor(redis: Redis, queueName = 'email_task') {
     this.queue = new Queue(queueName, {
       connection: redis,
       defaultJobOptions: {
@@ -93,16 +93,16 @@ export class NotificationWorker {
   private worker: Worker
   private transporter: any
   private dlq: Queue
-  private redisMain: IORedis
-  private redisDLQ: IORedis
-  private redisWorker: IORedis
+  private redisMain: Redis
+  private redisDLQ: Redis
+  private redisWorker: Redis
 
   private consecutiveFailures = 0
   private circuitOpen = false
   private readonly MAX_FAILURES = 10
 
   constructor(
-    redis: IORedis,
+    redis: Redis,
     smtpConfig: any,
     queueName = 'email_task',
     dlqName = 'email_dlq',
@@ -115,9 +115,9 @@ export class NotificationWorker {
     // We clone the options from the provided redis instance.
     const redisOpts = { ...redis.options, maxRetriesPerRequest: null }
     
-    this.redisMain = new IORedis(redisOpts)
-    this.redisDLQ = new IORedis(redisOpts)
-    this.redisWorker = new IORedis(redisOpts)
+    this.redisMain = new Redis(redisOpts)
+    this.redisDLQ = new Redis(redisOpts)
+    this.redisWorker = new Redis(redisOpts)
 
     this.dlq = new Queue(dlqName, { connection: this.redisDLQ })
 

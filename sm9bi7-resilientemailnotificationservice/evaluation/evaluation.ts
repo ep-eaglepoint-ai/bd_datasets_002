@@ -60,13 +60,9 @@ async function runTests(repoName: string): Promise<TestResult> {
         let testCommand: string;
         
         if (repoName === 'repository_before') {
-            testCommand = isWindows 
-                ? 'set REPO=before && npm test'
-                : 'REPO=before npm test';
+            testCommand = 'npm run test:before';
         } else if (repoName === 'repository_after') {
-            testCommand = isWindows
-                ? 'set REPO=after && npm test'
-                : 'REPO=after npm test';
+            testCommand = 'npm run test:after';
         } else {
             testCommand = 'npm test';
         }

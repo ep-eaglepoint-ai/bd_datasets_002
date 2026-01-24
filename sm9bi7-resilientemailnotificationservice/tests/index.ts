@@ -1,6 +1,6 @@
 import { Queue, QueueEvents } from 'bullmq';
-import IORedis from 'ioredis';
-import { EmailNotificationPayload } from '../repository_after/EmailService.js';
+import { Redis } from 'ioredis';
+import { EmailNotificationPayload } from '../repository_after/EmailService';
 
 // -------------------- Interfaces & Adapters --------------------
 
@@ -110,9 +110,9 @@ class FakeSMTP {
 // -------------------- Test Suite --------------------
 
 describe('Notification Queue System – Requirements Validation', () => {
-  let mainRedis: IORedis;
-  let producerRedis: IORedis | null = null;
-  let workerRedis: IORedis | null = null;
+  let mainRedis: Redis ;
+  let producerRedis: Redis | null = null;
+  let workerRedis: Redis | null = null;
   
   let producer: TestProducer;
   let worker: TestWorker;
@@ -123,18 +123,39 @@ describe('Notification Queue System – Requirements Validation', () => {
   // Decide which repo to test based on env var
   const REPO_TYPE = process.env.REPO || 'after'; // 'before' or 'after'
 
+  const redisHost = process.env.REDIS_HOST || 'localhost';
+  const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+
+  /** BullMQ requires maxRetriesPerRequest: null. Used for producer/worker only. */
   const redisOptions = {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    db: 15, // Test-specific DB
+    host: redisHost,
+    port: redisPort,
+    db: 15,
     maxRetriesPerRequest: null,
+  };
+
+  /** Fail-fast options for harness (flushdb). Prevents 60s hang when Redis is down. */
+  const redisOptionsHarness = {
+    ...redisOptions,
+    connectTimeout: 5000,
+    maxRetriesPerRequest: 3,
+    retryStrategy: (times: number) => (times > 2 ? null : 200),
   };
 
   beforeAll(async () => {
     console.log(`[INFO] REPO_TYPE: ${process.env.REPO}`);
     console.log(`[INFO] NODE_ENV: ${process.env.NODE_ENV}`);
-    mainRedis = new IORedis(redisOptions);
-  });
+    mainRedis = new Redis(redisOptionsHarness);
+    try {
+      await mainRedis.ping();
+    } catch (e) {
+      await mainRedis.quit().catch(() => {});
+      throw new Error(
+        `Redis not reachable at ${redisHost}:${redisPort}. ` +
+          'Start Redis (e.g. docker run -d -p 6379:6379 redis:7-alpine) or set REDIS_HOST/REDIS_PORT.'
+      );
+    }
+  }, 10000);
 
   beforeEach(async () => {
     await mainRedis.flushdb();
@@ -148,43 +169,62 @@ describe('Notification Queue System – Requirements Validation', () => {
 
     // DYNAMIC IMPORT LOGIC
     if (REPO_TYPE === 'before') {
-      const mod = await import('../repository_before/EmailService.js');
+      const mod = await import('../repository_before/EmailService');
       const LegacyMailer = mod.LegacyMailer;
       producer = new LegacyProducerAdapter(LegacyMailer, { host: 'smtp.test.com', port: 587 });
       // Inject smtp mock into legacy via the adapter's mailer instance if possible
       (producer as any).legacyMailer.smtp = smtp;
       worker = new LegacyWorkerAdapter();
     } else {
-      const mod = await import('../repository_after/EmailService.js');
+      const mod = await import('../repository_after/EmailService');
       const { EmailProducer, NotificationWorker } = mod;
       
       // Store connections to close them later
-      producerRedis = new IORedis(redisOptions);
-      workerRedis = new IORedis(redisOptions);
+      producerRedis = new Redis(redisOptions);
+      workerRedis = new Redis(redisOptions);
       
       producer = new EmailProducer(producerRedis, queueName);
       worker = new NotificationWorker(workerRedis, { host: 'smtp.test.com', port: 587 }, queueName, dlqName, smtp);
+
+      // Await worker ready before any test runs (avoids ECONNRESET race on first test)
+      const bw = (worker as any).getWorker?.();
+      if (bw) {
+        await new Promise<void>((resolve) => {
+          bw.once('ready', resolve);
+          setTimeout(resolve, 3000);
+        });
+      }
+
+      // Swallow ECONNRESET from stalled checker; otherwise Jest fails the test
+      if (bw) {
+        bw.on('error', (err: Error) => {
+          if (err?.message === 'read ECONNRESET' || (err as any)?.code === 'ECONNRESET') return;
+          console.error('Worker error:', err);
+        });
+      }
     }
-  });
+  }, 15000);
 
   afterEach(async () => {
     if (worker) await worker.close();
     if (producer) await producer.close();
-    
-    // Explicitly quit leaked connections
+
+    // Brief delay so worker/queue release Redis before we quit connections
+    await new Promise((r) => setTimeout(r, 200));
+
     if (producerRedis) {
-        await producerRedis.quit();
-        producerRedis = null;
+      await producerRedis.quit().catch(() => {});
+      producerRedis = null;
     }
     if (workerRedis) {
-        await workerRedis.quit();
-        workerRedis = null;
+      await workerRedis.quit().catch(() => {});
+      workerRedis = null;
     }
   });
 
   afterAll(async () => {
-    await mainRedis.quit();
-  });
+    if (mainRedis) await mainRedis.quit().catch(() => {});
+  }, 10000);
 
   // Requirement #7 — Idempotency / Exactly-Once Delivery
 

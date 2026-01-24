@@ -1,12 +1,21 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
   test-before:
     build: .
-    command: npm test
+    command: ["npm", "run", "test:before"]
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REPO=before
-      - NODE_ENV=test
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NODE_ENV: test
     depends_on:
       redis:
         condition: service_healthy
@@ -15,14 +24,11 @@ services:
 
   test-after:
     build: .
-    command: npm test
-    volumes:
-      - .:/app:delegated 
+    command: ["npm", "run", "test:after"]
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REPO=after
-      - NODE_ENV=test
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NODE_ENV: test
     depends_on:
       redis:
         condition: service_healthy
@@ -31,25 +37,15 @@ services:
 
   evaluation:
     build: .
-    command: npm run evaluation
-    volumes:
-      - .:/app:delegated 
+    command: ["npm", "run", "evaluation"]
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - NODE_ENV=test
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NODE_ENV: test
     depends_on:
       redis:
         condition: service_healthy
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
     profiles:
       - evaluation
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
