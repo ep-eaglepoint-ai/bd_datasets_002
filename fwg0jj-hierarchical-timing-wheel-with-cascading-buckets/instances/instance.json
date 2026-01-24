@@ -1,0 +1,11 @@
+{
+            "instance_id": "FWG0JJ",
+            "problem_statement": "Standard priority queues (Min-Heaps) used for timers operate in O(log N). For systems with millions of ephemeral timers (like TCP retransmission timeouts), this is too slow. The solution is the "Hierarchical Timing Wheel" (used in the Linux Kernel and Netty). The challenge is managing "Time Layers." A task scheduled for 1 hour from now sits in the "Hour" wheel. When 1 hour passes, it doesn't execute; it moves to the "Minute" wheel. Implementing this "Cascading" logic requires precise pointer arithmetic and modulo operations.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/fwg0jj-hierarchical-timing-wheel-with-cascading-buckets",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
