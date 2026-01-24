@@ -11,25 +11,18 @@ def test_auth_priority():
     
     print("Testing Auth Priority over IP Ban...")
     
-    # 1. Ban the IP
-    # Consume 100 tokens
     for _ in range(100):
         server.handle_request({'path': '/weather', 'ip': ip, 'user_id': None, 'payload': {}})
     
-    # Trigger 5 violations
     for _ in range(5):
         server.handle_request({'path': '/weather', 'ip': ip, 'user_id': None, 'payload': {}})
         
-    # Verify IP is banned
     res = server.handle_request({'path': '/weather', 'ip': ip, 'user_id': None, 'payload': {}})
     if res['status'] != 403:
         print("Setup failed: IP not banned.")
         return False
         
     print("IP is banned.")
-    
-    # 2. Try with Authenticated User from SAME IP
-    # Logged in user should use user capacity and bypass IP ban.
     
     req = {'path': '/weather', 'ip': ip, 'user_id': user, 'payload': {}}
     res = server.handle_request(req)

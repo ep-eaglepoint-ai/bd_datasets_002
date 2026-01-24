@@ -2,14 +2,18 @@
 import sys
 import os
 import time
-
-# Add repository_after to path so we can import api_server
-# sys.path.append(os.path.join(os.getcwd(), 'repository_after'))
+import pytest
 from api_server import APIServer
+
+# Determine if we are running against the Optimized implementation
+try:
+    import api_server
+    IS_OPTIMIZED = hasattr(api_server, 'RateLimiter')
+except ImportError:
+    IS_OPTIMIZED = False
 
 def test_rate_limiter():
     server = APIServer()
-    # Use IP limit (100) instead of User limit (1000) for faster test
     client_id = None 
     
     print("Testing Rate Limiter...")
@@ -24,13 +28,13 @@ def test_rate_limiter():
     # 2. Exceed limit (101st request)
     req = {'path': '/weather', 'ip': '127.0.0.1', 'user_id': client_id, 'payload': {}}
     res = server.handle_request(req)
+    
     if res['status'] != 429:
         print(f"Expected 429, got {res['status']}")
-        from tests.test_utils import check_should_fail
-        if check_should_fail(server):
+        if IS_OPTIMIZED:
             assert False, "Expected 429"
         else:
-            print("Ignoring failure (lenient mode)")
+            assert False, "Expected 429 (Baseline Expected Fail)"
     
     print("Rate Limiter passed.")
 
@@ -50,23 +54,20 @@ def test_reputation_engine():
              assert False, f"Expected 401, got {res['status']}"
              
     # 2. Verify stricter limit (Capacity 10)
-    # Poll until we hit the limit
     hit_limit = False
     for i in range(50):
         req = {'path': '/weather', 'ip': '127.0.0.2', 'user_id': client_id, 'payload': {}}
         res = server.handle_request(req)
-        # We accept 429 (Rate Limit) or 403 (Ban) if we spammed too hard too fast
         if res['status'] in [429, 403]:
             hit_limit = True
             break
             
     if not hit_limit:
          print(f"Expected 429/403 under strict limit, but never hit it in 50 requests")
-         from tests.test_utils import check_should_fail
-         if check_should_fail(server):
+         if IS_OPTIMIZED:
              assert False, "Expected 429/403 under strict limit"
          else:
-             print("Ignoring failure (lenient mode)")
+             assert False, "Expected 429/403 under strict limit (Baseline Expected Fail)"
 
     print("Reputation Engine passed.")
 

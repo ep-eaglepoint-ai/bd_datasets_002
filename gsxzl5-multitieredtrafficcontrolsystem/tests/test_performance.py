@@ -35,7 +35,7 @@ def test_performance_and_headers():
 
     total_time = time.time() - start_time
     rps = 2000 / total_time
-    p99 = statistics.quantiles(latencies, n=100)[98] # approx P99
+    p99 = statistics.quantiles(latencies, n=100)[98]
     
     if p99 > 2.0:
         print("P99 latency exceeded 2ms!")

@@ -1,21 +1,28 @@
 
 from api_server import APIServer
+import os
+import sys
+import pytest
+
+# Feature detection
+try:
+    import api_server
+    IS_OPTIMIZED = hasattr(api_server, 'RateLimiter')
+except ImportError:
+    IS_OPTIMIZED = False
 
 def test_rl_ban_enforcement():
     server = APIServer()
     ip = "4.4.4.4"
     
-    # We assume helper to manually ban or just trigger it.
-    # Triggering is safer as it uses public API.
     for _ in range(100): server.handle_request({'path': '/weather', 'ip': ip, 'user_id': None, 'payload': {}})
     for _ in range(6): server.handle_request({'path': '/weather', 'ip': ip, 'user_id': None, 'payload': {}})
     
-    # Keep hitting it
     res = server.handle_request({'path': '/weather', 'ip': ip, 'user_id': None, 'payload': {}})
     
-    from tests.test_utils import check_should_fail
-    if check_should_fail(server):
+    
+    if IS_OPTIMIZED:
         assert res['status'] == 403, f"Expected 403, got {res['status']}"
         assert 'Forbidden' in res.get('error', '')
     else:
-        print("Ignoring failure (lenient mode)")
+        assert res['status'] == 403, f"Expected 403 (Baseline Expected Fail), got {res['status']}"
