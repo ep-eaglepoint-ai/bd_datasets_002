@@ -1,6 +1,3 @@
--- PostgreSQL function for processing customer orders in an e-commerce system
-
--- Custom type for function return value
 DROP TYPE IF EXISTS order_result CASCADE;
 CREATE TYPE order_result AS (
     success BOOLEAN,
@@ -9,12 +6,6 @@ CREATE TYPE order_result AS (
     message TEXT
 );
 
--- SQLite-style error codes mapping
--- SQLITE_OK (0) -> SUCCESS
--- SQLITE_NOTFOUND (12) -> NOT_FOUND
--- SQLITE_CONSTRAINT (19) -> CONSTRAINT_VIOLATION
--- SQLITE_MISMATCH (20) -> INVALID_INPUT
--- SQLITE_BUSY (5) -> INSUFFICIENT_INVENTORY
 
 CREATE OR REPLACE FUNCTION process_customer_order(
     p_customer_id INTEGER,
@@ -38,13 +29,11 @@ DECLARE
     v_new_order_id INTEGER;
     v_duplicate_exists BOOLEAN;
 BEGIN
-    -- Initialize result
     v_result.success := FALSE;
     v_result.order_id := NULL;
     v_result.error_code := NULL;
     v_result.message := NULL;
 
-    -- Defensive check: Validate input parameters are not null
     IF p_customer_id IS NULL THEN
         v_result.error_code := 'SQLITE_MISMATCH';
         v_result.message := 'Invalid input: customer_id cannot be null';
@@ -100,7 +89,6 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Defensive check: Validate order quantity is positive
     IF p_order_quantity <= 0 THEN
         v_result.error_code := 'SQLITE_MISMATCH';
         v_result.message := 'Invalid input: order_quantity must be greater than zero';
@@ -112,7 +100,6 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Check for duplicate request_id to prevent duplicate order processing
     SELECT EXISTS(SELECT 1 FROM orders WHERE request_id = p_request_id) INTO v_duplicate_exists;
     
     IF v_duplicate_exists THEN
@@ -126,7 +113,6 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Verify customer exists
     SELECT EXISTS(SELECT 1 FROM customers WHERE customer_id = p_customer_id) INTO v_customer_exists;
     
     IF NOT v_customer_exists THEN
@@ -140,7 +126,6 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Verify customer is active
     SELECT is_active INTO v_customer_active FROM customers WHERE customer_id = p_customer_id;
     
     IF NOT v_customer_active THEN
@@ -154,7 +139,6 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Verify product exists
     SELECT EXISTS(SELECT 1 FROM products WHERE product_id = p_product_id) INTO v_product_exists;
     
     IF NOT v_product_exists THEN
@@ -168,7 +152,6 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Verify product is available for sale
     SELECT is_available, unit_price INTO v_product_available, v_unit_price 
     FROM products WHERE product_id = p_product_id;
     
@@ -183,7 +166,6 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Check inventory availability with row-level locking for concurrency control
     SELECT quantity INTO v_current_inventory 
     FROM inventory 
     WHERE product_id = p_product_id
@@ -211,12 +193,9 @@ BEGIN
         RETURN v_result;
     END IF;
 
-    -- Calculate total order price
     v_total_price := v_unit_price * p_order_quantity;
 
-    -- Begin transactional operations (implicit in function)
     BEGIN
-        -- Insert new order with PENDING status
         INSERT INTO orders (
             customer_id,
             product_id,
@@ -237,13 +216,11 @@ BEGIN
             p_order_timestamp
         ) RETURNING order_id INTO v_new_order_id;
 
-        -- Update inventory to deduct ordered quantity
         UPDATE inventory
         SET quantity = quantity - p_order_quantity,
             last_updated = CURRENT_TIMESTAMP
         WHERE product_id = p_product_id;
 
-        -- Insert audit log entry for successful order
         INSERT INTO order_audit_log (
             order_id,
             request_id,
@@ -273,7 +250,6 @@ BEGIN
             )
         );
 
-        -- Set success result
         v_result.success := TRUE;
         v_result.order_id := v_new_order_id;
         v_result.error_code := 'SQLITE_OK';

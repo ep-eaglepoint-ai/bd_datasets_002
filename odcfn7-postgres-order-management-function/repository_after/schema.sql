@@ -1,7 +1,3 @@
--- Schema for e-commerce order processing system
--- Tables required by the process_customer_order function
-
--- Customers table
 CREATE TABLE IF NOT EXISTS customers (
     customer_id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -10,7 +6,6 @@ CREATE TABLE IF NOT EXISTS customers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Products table
 CREATE TABLE IF NOT EXISTS products (
     product_id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -20,7 +15,6 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Inventory table
 CREATE TABLE IF NOT EXISTS inventory (
     inventory_id SERIAL PRIMARY KEY,
     product_id INTEGER NOT NULL REFERENCES products(product_id),
@@ -29,7 +23,6 @@ CREATE TABLE IF NOT EXISTS inventory (
     UNIQUE(product_id)
 );
 
--- Orders table
 CREATE TABLE IF NOT EXISTS orders (
     order_id SERIAL PRIMARY KEY,
     customer_id INTEGER NOT NULL REFERENCES customers(customer_id),
@@ -43,7 +36,6 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Order audit log table
 CREATE TABLE IF NOT EXISTS order_audit_log (
     log_id SERIAL PRIMARY KEY,
     order_id INTEGER REFERENCES orders(order_id),
@@ -58,7 +50,6 @@ CREATE TABLE IF NOT EXISTS order_audit_log (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_product_id ON orders(product_id);
 CREATE INDEX IF NOT EXISTS idx_orders_request_id ON orders(request_id);
