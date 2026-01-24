@@ -88,7 +88,7 @@ async function main() {
   console.log('Environment: repository_before');
   console.log('Tests directory: /app/tests');
   
-  const beforeResult = await runCommand('npx', ['jest', '--config', 'tests/jest.before.config.js', '--no-cache'], '/app');
+  const beforeResult = await runCommand('npx', ['cross-env', 'TEST_IMPL=before', 'jest', '--config', 'tests/jest.config.js', '--no-cache'], '/app');
   const beforeResults = parseJestOutput(beforeResult.output);
   printResults(beforeResults, 'before');
   
@@ -99,7 +99,7 @@ async function main() {
   console.log('Environment: repository_after');
   console.log('Tests directory: /app/tests');
   
-  const afterResult = await runCommand('npx', ['jest', '--config', 'tests/jest.after.config.js', '--no-cache'], '/app');
+  const afterResult = await runCommand('npx', ['cross-env', 'TEST_IMPL=after', 'jest', '--config', 'tests/jest.config.js', '--no-cache'], '/app');
   const afterResults = parseJestOutput(afterResult.output);
   printResults(afterResults, 'after');
   
