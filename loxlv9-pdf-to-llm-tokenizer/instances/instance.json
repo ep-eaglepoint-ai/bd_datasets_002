@@ -1,0 +1,11 @@
+{
+            "instance_id": "LOXLV9",
+            "problem_statement": "Build a deterministic Python utility that accurately converts PDF documents into true LLM tokens, reports the exact document token count, and produces standardized, token-bounded chunks suitable for downstream LLM workflows.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/loxlv9-pdf-to-llm-tokenizer",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
