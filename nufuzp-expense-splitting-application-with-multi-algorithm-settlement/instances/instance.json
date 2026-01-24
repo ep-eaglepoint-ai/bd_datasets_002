@@ -1,0 +1,11 @@
+{
+            "instance_id": "NUFUZP",
+            "problem_statement": "During testing of a collaborative finance feature, users reported confusion when splitting shared expenses among group members. The challenge involves building a complete expense tracking system where users can create groups, add members via email invitation, record expenses with multiple split methods, and see who owes whom. The system must handle monetary calculations without floating-point errors, support different splitting strategies (equal, exact amounts, percentages, shares), and suggest the minimum number of transactions needed to settle all debts. The application should work seamlessly on mobile devices and provide real-time balance updates as expenses are added or modified.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/nufuzp-expense-splitting-application-with-multi-algorithm-settlement",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
