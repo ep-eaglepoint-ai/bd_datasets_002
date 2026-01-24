@@ -81,37 +81,18 @@ def test_avg_order_customer_not_exists():
 def test_avg_order_null_input():
     conn = get_db_connection()
     cur = conn.cursor()
-    if REPO_PATH == 'repository_after':
-        with pytest.raises(psycopg2.errors.NullValueNotAllowed) as exc_info:
-            cur.execute("SELECT get_avg_order_amount(NULL);")
-        assert exc_info.value.pgcode == '22004'
-    else:
-        # For before, expect it to handle NULL gracefully (return NULL)
-        try:
-            cur.execute("SELECT get_avg_order_amount(NULL);")
-            result = cur.fetchone()[0]
-            assert result is None
-        except Exception:
-            assert False, "Function should handle NULL input gracefully"
+    with pytest.raises(psycopg2.errors.NullValueNotAllowed) as exc_info:
+        cur.execute("SELECT get_avg_order_amount(NULL);")
+    assert exc_info.value.pgcode == '22004'
     cur.close()
     conn.close()
 
 def test_avg_order_invalid_input():
     conn = get_db_connection()
     cur = conn.cursor()
-    if REPO_PATH == 'repository_after':
-        with pytest.raises(psycopg2.errors.InvalidParameterValue) as exc_info:
-            cur.execute("SELECT get_avg_order_amount(0);")
-        assert exc_info.value.pgcode == '22023'
-    else:
-        # For before, expect it to reject invalid input
-        try:
-            cur.execute("SELECT get_avg_order_amount(0);")
-            result = cur.fetchone()[0]
-            assert False, "Should reject invalid input"
-        except Exception:
-            # For before, if it raises, that's not proper rejection, should return error
-            assert False, "Should properly validate input"
+    with pytest.raises(psycopg2.errors.InvalidParameterValue) as exc_info:
+        cur.execute("SELECT get_avg_order_amount(0);")
+    assert exc_info.value.pgcode == '22023'
     cur.close()
     conn.close()
 
