@@ -1,79 +1,30 @@
-/**
- * Optimized processContentStream using Aho-Corasick algorithm for efficient multi-pattern matching.
- *
- * This implementation transforms the O(N * M) naive nested loop approach into an O(N * S) solution
- * where N is event count, M is rule count, and S is average event body length. The Aho-Corasick
- * automaton enables O(1) character transitions regardless of ruleset size, making it scale to
- * 50,000+ rules with negligible per-event processing time.
- *
- * Complexity Analysis:
- * - Pre-processing: O(M * L) where M is rule count, L is average token length
- * - Runtime per batch: O(N * S) where N is event count, S is average body length
- * - Result sorting: O(K log K) where K is number of flagged events
- *
- * Performance Optimizations:
- * 1. Aho-Corasick trie structure for constant-time character transitions
- * 2. Inline character normalization to eliminate regex and temporary string allocations
- * 3. Pre-computed numeric timestamps to avoid Date object creation in hot path
- * 4. Reused Set data structures to minimize garbage collection pressure
- * 5. Shallow object cloning to avoid deep serialization overhead
- * 6. Pre-computed region Sets for O(1) membership testing
- * 7. Output links for efficient overlapping pattern detection
- *
- * Requirements Compliance:
- * - REQ-01 (Decoupled Complexity): Scales linearly with events, constant per-rule overhead
- * - REQ-02 (Correctness & Overlaps): Aho-Corasick detects all overlapping token matches
- * - REQ-03 (Zero-Allocation Hot Path): No Date, RegExp, or serialization in event loop
- * - REQ-04 (Performance SLA): Processes 10,000 events vs 50,000 rules in <250ms
- * - REQ-05 (Standard Library Only): Pure ES2022+ JavaScript, no external dependencies
- */
 
-/**
- * Preprocesses blocklist rules into an optimized Aho-Corasick automaton.
- *
- * This function builds a finite state automaton that enables efficient multi-pattern matching.
- * The automaton is constructed once when rules change and can be reused across multiple event
- * batches, amortizing the preprocessing cost. The automaton structure allows O(1) character
- * transitions during matching, making it independent of the total number of rules.
- *
- * @param {Array} blocklistRules - Array of rule objects with token, category, riskLevel, etc.
- * @returns {Object} - Preprocessed automaton containing root node and build timestamp
- */
 function preprocessRules(blocklistRules) {
   const currentTimestamp = Date.now();
-
-  // Initialize root node of the Aho-Corasick trie
-  // Using Object.create(null) creates a dictionary without prototype chain for faster lookups
+  
   const root = {
-    next: Object.create(null), // Character transitions from this node
-    fail: null, // Failure link for backtracking on mismatch
-    output: null, // Rules that match at this node
-    outputLink: null, // Link to nodes with output for overlapping matches
+    next: Object.create(null), 
+    fail: null,
+    output: null,
+    outputLink: null,
   };
 
-  // Phase 1: Build the trie structure by inserting all active, non-expired rules
   for (let ruleIndex = 0; ruleIndex < blocklistRules.length; ruleIndex++) {
     const rule = blocklistRules[ruleIndex];
     if (!rule || !rule.isActive) continue;
 
-    // Convert expiry to numeric timestamp to avoid Date object allocation in hot path
-    // This enables simple numeric comparison during event processing
     const expiryTimestamp =
       typeof rule.expiresAt === "number"
         ? rule.expiresAt
         : new Date(rule.expiresAt).getTime();
 
-    // Filter expired rules during preprocessing to reduce automaton size
     if (expiryTimestamp < currentTimestamp) continue;
 
     const normalizedToken = (rule.token || "").toLowerCase();
     if (!normalizedToken) continue;
 
-    // Pre-compute region Set for O(1) membership testing during matching
-    // Array.includes() is O(n), Set.has() is O(1) - critical for performance
     const regionSet = new Set(rule.targetRegions);
 
-    // Traverse or create path in trie for this token
     let currentNode = root;
     for (let charIndex = 0; charIndex < normalizedToken.length; charIndex++) {
       const character = normalizedToken[charIndex];
