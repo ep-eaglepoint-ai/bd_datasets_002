@@ -2,14 +2,11 @@
 .git
 .gitignore
 
-# Documentation
-README.md
-trajectory/
+ 
 
 # Reports and outputs
 evaluation/reports/
-patches/
-
+ 
 # OS files
 .DS_Store
 *.swp
