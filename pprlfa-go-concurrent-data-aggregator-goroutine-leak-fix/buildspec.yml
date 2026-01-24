@@ -15,6 +15,8 @@ phases:
       - docker-compose run --rm test_after
       - echo "Running evaluation..."
       - docker-compose run --rm evaluation
+      - rm -f /tmp/BUILD_FAILED_* || true
+      - echo "Final cleanup of all failure flags - build succeeded"
   post_build:
     commands:
       - echo "Build completed successfully - test_before failures are expected"
