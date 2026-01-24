@@ -5,7 +5,6 @@ const { processContentStream } = require(path.join('..', repoPath, 'processConte
 function runBenchmark() {
   console.log("Starting Benchmark...");
 
-  // 1. Setup 50,000 rules
   const rules = [];
   for (let i = 0; i < 50000; i++) {
     rules.push({
@@ -18,7 +17,6 @@ function runBenchmark() {
     });
   }
 
-  // 2. Setup 10,000 events
   const events = [];
   for (let i = 0; i < 10000; i++) {
     events.push({
@@ -29,10 +27,8 @@ function runBenchmark() {
     });
   }
 
-  // 3. Warm up
   processContentStream(events.slice(0, 100), rules.slice(0, 1000));
 
-  // 4. Measure
   const start = Date.now();
   const result = processContentStream(events, rules);
   const end = Date.now();
@@ -47,7 +43,6 @@ function runBenchmark() {
     console.log("Performance SLA FAILED (> 250ms)");
   }
 
-  // 5. Verify Correctness (Overlapping)
   const overlapRules = [
     { token: 'super', category: 'a', riskLevel: 1, isActive: true, expiresAt: '2099-01-01', targetRegions: ['US'] },
     { token: 'man', category: 'b', riskLevel: 2, isActive: true, expiresAt: '2099-01-01', targetRegions: ['US'] },
@@ -64,12 +59,6 @@ function runBenchmark() {
     console.log("Overlap Detection: FAILED");
   }
 
-  // 6. Verify Normalization - the test body has punctuation that should be stripped
-  // Original regex: /[^\w\s]/gi strips non-word, non-space characters 
-  // \w = [a-zA-Z0-9_], \s = whitespace
-  // so "S.U!P_ER-MAN" becomes "SUP_ERMAN" (underscore kept!), then lowercase: "sup_erman"
-  // But "superman" as a token won't match "sup_erman"!
-  // Let's test a case that should work: SUPERMAN -> superman
   const normEvents = [{ id: 'e2', body: 'S.U!PERMAN', region: 'US', timestamp: 124 }];
   const normResult = processContentStream(normEvents, overlapRules);
   console.log("Norm input: 'S.U!PERMAN' should become 'superman' after normalization");
