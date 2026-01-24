@@ -105,8 +105,8 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label, pattern="test_*.py"
         cmd.extend(["-k", pattern])
     
     env = os.environ.copy()
-    # Add tests dir to PYTHONPATH so utils can be imported
     env["PYTHONPATH"] = f"{pythonpath}{os.pathsep}{tests_dir}"
+    env["EVALUATION_RUN"] = "true"
     
     try:
         result = subprocess.run(
