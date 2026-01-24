@@ -81,7 +81,7 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
                     pass
 
             # Copy tests to the repository
-            tests_src = ROOT / "tests" / "test_connection_pool.java"
+            tests_src = ROOT / "tests" / "pool" / "ConnectionPoolTest.java"
             test_dest = temp_repo / "src" / "test" / "java" / "pool"
             test_dest.mkdir(parents=True, exist_ok=True)
             
