@@ -1,12 +1,12 @@
 services:
   test-before:
     build: .
-    command: npm run test:before
-    volumes:
-      - .:/app
+    command: npm test
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REPO=before
+      - NODE_ENV=test
     depends_on:
       redis:
         condition: service_healthy
@@ -15,12 +15,14 @@ services:
 
   test-after:
     build: .
-    command: npm run test:after
+    command: npm test
     volumes:
-      - .:/app
+      - .:/app:delegated 
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REPO=after
+      - NODE_ENV=test
     depends_on:
       redis:
         condition: service_healthy
@@ -31,10 +33,11 @@ services:
     build: .
     command: npm run evaluation
     volumes:
-      - .:/app
+      - .:/app:delegated 
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - NODE_ENV=test
     depends_on:
       redis:
         condition: service_healthy

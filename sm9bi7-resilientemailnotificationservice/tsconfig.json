@@ -11,7 +11,11 @@
     "outDir": "./dist",
     "rootDir": "./",
     "declaration": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types"
+    ]
   },
   "include": [
     "**/*.ts"
@@ -19,5 +23,9 @@
   "exclude": [
     "node_modules",
     "dist"
-  ]
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
 }

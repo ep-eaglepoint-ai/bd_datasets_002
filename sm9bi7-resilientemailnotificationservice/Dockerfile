@@ -5,14 +5,14 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm install
+# Install all dependencies 
+RUN npm ci
 
 # Copy source code
 COPY . /app
 
-# Build TypeScript (optional, for production)
-# RUN npm run build
+# Build TypeScript
+RUN npm run build
 
 # Default command runs tests
 CMD ["npm", "test"]

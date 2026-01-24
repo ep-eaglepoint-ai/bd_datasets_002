@@ -35,7 +35,7 @@ The solution must implement:
 - Hash-based approach is deterministic and collision-resistant
 
 ### 3. Circuit Breaker Pattern
-**Decision**: Opossum library with manual tracking of consecutive failures
+**Decision**: Manual implementation of circuit breaker pattern
 **Rationale**:
 - Protects SMTP provider reputation during outages
 - Halts processing after 10 consecutive failures (prevents resource waste)
@@ -73,7 +73,7 @@ The solution must implement:
 
 ### Phase 2: NotificationWorker Implementation
 1. Created `NotificationWorker` class that processes jobs from the queue
-2. Integrated Opossum circuit breaker wrapping SMTP sendMail operation
+2. Implemented manual circuit breaker wrapping SMTP sendMail operation
 3. Implemented manual consecutive failure tracking (opens after 10 failures)
 4. Added DLQ entry creation when jobs exhaust all retries
 5. Configured worker with rate limiting (10 jobs/second, 5 concurrent)
@@ -99,29 +99,55 @@ The solution must implement:
 
 ## Resources & References
 
-- **BullMQ Documentation**: https://docs.bullmq.io/ - Queue configuration and job options
-- **Opossum Circuit Breaker**: https://github.com/nodeshift/opossum - Circuit breaker pattern implementation
-- **Redis Best Practices**: https://redis.io/docs/manual/patterns/ - Queue patterns and idempotency
-- **Exponential Backoff**: https://en.wikipedia.org/wiki/Exponential_backoff - Algorithm theory
-- **Idempotency Patterns**: https://stripe.com/docs/api/idempotent_requests - Industry best practices
+### External Web Resources Consulted
+
+1. **BullMQ Documentation**
+   - **URL**: https://docs.bullmq.io/
+   - **Purpose**: Queue configuration and job options
+   - **Key Information Retrieved**:
+     - Job options configuration (attempts, backoff strategies)
+     - Queue and Worker API usage
+     - Job state management
+
+2. **Redis Best Practices**
+   - **URL**: https://redis.io/docs/manual/patterns/
+   - **Purpose**: Queue patterns and idempotency strategies
+
+3. **Exponential Backoff Theory**
+   - **URL**: https://en.wikipedia.org/wiki/Exponential_backoff
+   - **Purpose**: Algorithm theory and best practices
+
+4. **Idempotency Patterns**
+   - **URL**: https://stripe.com/docs/api/idempotent_requests
+   - **Purpose**: Industry best practices for idempotent operations
+
+## Maintenance & Environment Adjustments
+
+### 1. TypeScript Definite Assignment
+**Issue**: `TS2454: Variable 'resolveFail' is used before being assigned` in `tests/index.ts`.
+**Resolution**: Initialized `resolveFail` and `rejectFail` with NO-OP functions in the test setup. logically they are assigned within the Promise executor, but explicit initialization satisfies compiler checks for direct access in the `before` repository test path.
+
+### 2. Docker & CommonJS Transition
+**Issue**: ESM (`type: module`) in Docker containers occasionally led to binary path resolution issues for test runners when volumes were semi-configured.
+**Resolution**: 
+- Switched `package.json` to `"type": "commonjs"`.
+- Added explicit `RUN npm run build` to `Dockerfile`.
+- Simplified `docker-compose.yml` to use built images for consistency.
 
 ## Self-Correction: Dead Ends Encountered
 
 ### Initial Approach: Custom Backoff Function
-**Problem**: Attempted to use `setBackoffStrategy()` which doesn't exist in BullMQ API
-**Solution**: Used BullMQ's built-in exponential backoff with default randomization (jitter)
+**Problem**: Attempted to use `setBackoffStrategy()` which doesn't exist in BullMQ API.
+**Solution**: Used BullMQ's built-in exponential backoff with default randomization (jitter).
 
-### Circuit Breaker Configuration
-**Problem**: Opossum's percentage-based error threshold didn't match requirement (10 consecutive failures)
-**Solution**: Implemented manual tracking of consecutive failures with manual circuit opening
+### Circuit Breaker Implementation
+**Problem**: Evaluated external libraries but found they often use percentage-based error thresholds. This didn't match the strict requirement of "10 consecutive failures".
+**Solution**: Implemented a lightweight, manual circuit breaker with a simple counter for consecutive failures embedded directly in `NotificationWorker`.
 
 ### Test Mocking Strategy
-**Problem**: ES modules don't support `require.cache` for module mocking
-**Solution**: Used dependency injection pattern - passed transporter as constructor parameter
+**Problem**: ES modules don't support `require.cache` for module mocking.
+**Solution**: Used dependency injection pattern - passed transporter as constructor parameter.
 
-### Evaluation Script Module Detection
-**Problem**: ES modules require different approach for detecting direct execution
-**Solution**: Simplified to always run main() when script is executed
 
 ## Verification: Requirement Traceability
 
@@ -131,7 +157,7 @@ The solution must implement:
 | Exponential backoff (5s initial, 3 attempts) | BullMQ defaultJobOptions | ✅ Backoff timing tests |
 | Randomized jitter | BullMQ built-in randomization | ✅ Verified in backoff tests |
 | Job deduplication key | `generateDeduplicationKey()` | ✅ Idempotency tests |
-| Circuit breaker (10 failures) | Manual tracking + Opossum | ✅ Circuit breaker tests |
+| Circuit breaker (10 failures) | Manual tracking | ✅ Circuit breaker tests |
 | Dead Letter Queue | `sendToDeadLetterQueue()` | ✅ DLQ tests |
 | SMTP outage simulation | Mock transporter with failure/recovery | ✅ Outage simulation tests |
 | Idempotency verification | Duplicate job prevention | ✅ Duplicate payload tests |
