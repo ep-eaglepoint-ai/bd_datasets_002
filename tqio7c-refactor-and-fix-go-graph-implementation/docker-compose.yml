@@ -1,21 +1,21 @@
 services:
   test-before:
     build: .
-    command: go run tests/test_before.go
+    command: python tests/test_before.py
     volumes:
       - .:/app
     working_dir: /app
 
   test-after:
     build: .
-    command: go run tests/test_after.go
+    command: python tests/test_after.py
     volumes:
       - .:/app
     working_dir: /app
 
   evaluation:
     build: .
-    command: go run evaluation/evaluation.go
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app
     working_dir: /app
