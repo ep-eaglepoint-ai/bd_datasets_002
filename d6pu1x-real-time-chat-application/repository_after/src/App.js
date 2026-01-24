@@ -12,7 +12,6 @@ import { chatReducer, initialState } from './reducers/chatReducer';
 function App() {
   const [state, dispatch] = useReducer(chatReducer, initialState);
   const [isTyping, setIsTyping] = useState(false);
-  const inputRef = useRef();
 
   const activeChat = state.activeConversationId ? state.conversations[state.activeConversationId] : null;
 
