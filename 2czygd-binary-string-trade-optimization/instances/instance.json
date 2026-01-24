@@ -1,0 +1,12 @@
+{
+            "instance_id": "2CZYGD",
+            "problem_statement": "You are given a binary string representing active ('1') and inactive ('0') network segments.
+For each query substring, you may perform at most one trade: deactivate a '1' block surrounded by '0's, then activate a '0' block surrounded by '1's. Substrings are virtually augmented with extra '1's at both ends for trade validation. Each query is independent, and modifications do not persist. Return the maximum number of active segments achievable per query.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/2czygd-binary-string-trade-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
