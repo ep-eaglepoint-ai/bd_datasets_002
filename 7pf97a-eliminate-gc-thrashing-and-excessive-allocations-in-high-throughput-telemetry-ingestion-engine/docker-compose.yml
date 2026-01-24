@@ -2,7 +2,7 @@ services:
   app:
     build: .
     volumes:
-      - .:/app # Mount project folder
+      - .:/app
     working_dir: /app
     entrypoint: ["/bin/bash", "-c"]
     environment:
