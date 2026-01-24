@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      # NO DOCKER LOGIN NEEDED - All images are public
+      # redis:7-alpine, postgres:15-alpine, node:20-slim are all public images
+      # Docker Hub rate-limits authenticated requests more aggressively
+      # Removing docker login prevents 429 Too Many Requests errors
+      - echo "Skipping Docker login - using public images only"
+      - docker-compose --version
+  build:
+    commands:
+      - echo "Building and running tests..."
+      - docker-compose run --rm test-before
+      - docker-compose run --rm test-after
+      - docker-compose run --rm evaluation
+  post_build:
+    commands:
+      - echo "Evaluation complete"
+      - cat evaluation/reports/report.json
+
+artifacts:
+  files:
+    - evaluation/reports/**/*
+    - evaluation/reports/report.json
