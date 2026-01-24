@@ -1,5 +1,9 @@
-FROM python:3.11-slim
+FROM node:18-alpine
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+COPY package*.json ./
+RUN echo "Invalidate cache v2"
+# Install dependencies
+ENV NODE_ENV=development
+RUN npm install --no-cache
+COPY . .
+CMD ["npm", "test"]
