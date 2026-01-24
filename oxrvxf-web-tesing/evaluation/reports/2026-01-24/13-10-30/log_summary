@@ -4,5 +4,5 @@ success: false
 passed_gate: false
 before.tests.success: false
 after.tests.success: false
-after.tests.passed: 11
-after.tests.failed: 3
+after.tests.passed: 0
+after.tests.failed: 0

@@ -1,11 +1,12 @@
 {
   "name": "kanban-playwright-tests",
   "version": "1.0.0",
-  "description": "Playwright test suite for Kanban board",
+  "description": "Playwright test suite for Kanban board application",
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed"
+    "test:debug": "playwright test --debug",
+    "test:coverage": "playwright test --coverage"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0"

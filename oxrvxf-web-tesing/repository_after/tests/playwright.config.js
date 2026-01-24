@@ -1,8 +1,12 @@
-import { defineConfig, devices } from '@playwright/test';
-import path from 'path';
+// @ts-check
+const { defineConfig, devices } = require('@playwright/test');
+const path = require('path');
 
-export default defineConfig({
-  testDir: './tests',
+/**
+ * @see https://playwright.dev/docs/test-configuration
+ */
+module.exports = defineConfig({
+  testDir: './',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -11,17 +15,20 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:8000',
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
+
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+
   webServer: {
-    command: 'python3 -m http.server 8000',
+    command: 'http-server -p 8000 -c-1',
     url: 'http://localhost:8000',
+    cwd: path.resolve(__dirname, '../kanban'),
     reuseExistingServer: !process.env.CI,
-    cwd: path.join(__dirname, 'kanban'),
   },
 });

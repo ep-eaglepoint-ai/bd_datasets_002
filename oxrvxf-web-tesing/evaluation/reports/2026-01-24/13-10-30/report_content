@@ -1,0 +1,32 @@
+## Summary
+- **success**: `false`
+- **passed_gate**: `false`
+- **improvement_summary**: Implementation failed some tests.
+
+## Before (`repository_before`)
+- **passed**: `false`
+- **tests_passed**: `0`
+- **tests_failed**: `0`
+### Output (truncated)
+```
+No tests in repository_before
+```
+
+## After (`repository_after`)
+- **passed**: `false`
+- **tests_passed**: `0`
+- **tests_failed**: `0`
+### Output (truncated)
+```
+
+> kanban-playwright-tests@1.0.0 test
+> playwright test
+
+[1A[2K[2m[WebServer] [22m127.0.0.1 - - [24/Jan/2026 13:10:25] "GET / HTTP/1.1" 200 -
+
+
+Running 14 tests using 4 workers
+
+[1A[2K  14 did not run
+
+```

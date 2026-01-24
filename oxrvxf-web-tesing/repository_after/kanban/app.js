@@ -8,18 +8,6 @@ let tasks = [];
 let activeColumn = null;
 let draggedTask = null;
 
-// Expose tasks array globally for testing
-// Use a function to get current tasks array reference
-window.getTasks = () => tasks;
-window.setTasks = (value) => { tasks = value; };
-// Also expose as property for convenience
-Object.defineProperty(window, 'tasks', {
-  get: () => tasks,
-  set: (value) => { tasks = value; },
-  configurable: true,
-  enumerable: true
-});
-
 // DOM Elements
 const board = document.getElementById('board');
 const modalOverlay = document.getElementById('modal-overlay');
@@ -41,34 +29,21 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    // Check for a special flag to skip default tasks (for testing)
-    const skipDefaults = localStorage.getItem('skip-default-tasks') === 'true';
-    
-    if (saved && saved.trim() !== '' && saved !== '[]') {
+    if (saved) {
       tasks = JSON.parse(saved);
-    } else if (!skipDefaults) {
-      // Default sample tasks (only if localStorage is truly empty, not just cleared)
+    } else {
+      // Default sample tasks
       tasks = [
         { id: generateId(), title: 'Design the landing page', column: 'todo' },
         { id: generateId(), title: 'Set up project repository', column: 'progress' },
         { id: generateId(), title: 'Create initial wireframes', column: 'done' },
       ];
       saveState();
-    } else {
-      // Skip defaults for testing
-      tasks = [];
     }
   } catch (e) {
     console.error('Failed to load state:', e);
     tasks = [];
   }
-  // Ensure window.tasks is always in sync
-  Object.defineProperty(window, 'tasks', {
-    get: () => tasks,
-    set: (value) => { tasks = value; },
-    configurable: true,
-    enumerable: true
-  });
 }
 
 function saveState() {
@@ -79,9 +54,6 @@ function saveState() {
   }
 }
 
-// Expose saveState for testing
-window.saveState = saveState;
-
 function generateId() {
   return `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
@@ -90,8 +62,7 @@ function generateId() {
 // Task Operations
 // ==================
 
-// Expose functions globally for testing
-window.createTask = function createTask(title, column) {
+function createTask(title, column) {
   const task = {
     id: generateId(),
     title: title.trim(),
@@ -102,12 +73,12 @@ window.createTask = function createTask(title, column) {
   return task;
 }
 
-window.deleteTask = function deleteTask(taskId) {
+function deleteTask(taskId) {
   tasks = tasks.filter(t => t.id !== taskId);
   saveState();
 }
 
-window.updateTask = function updateTask(taskId, newTitle) {
+function updateTask(taskId, newTitle) {
   const task = tasks.find(t => t.id === taskId);
   if (task && newTitle.trim()) {
     task.title = newTitle.trim();
@@ -115,7 +86,7 @@ window.updateTask = function updateTask(taskId, newTitle) {
   }
 }
 
-window.moveTask = function moveTask(taskId, newColumn, insertBeforeId = null) {
+function moveTask(taskId, newColumn, insertBeforeId = null) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
@@ -426,4 +397,29 @@ function getDragAfterElement(container, y) {
     }
     return closest;
   }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// ==================
+// Expose for Testing
+// ==================
+// Expose functions and state to window object for Playwright tests
+if (typeof window !== 'undefined') {
+  window.createTask = createTask;
+  window.deleteTask = deleteTask;
+  window.updateTask = updateTask;
+  window.moveTask = moveTask;
+  window.getTasksByColumn = getTasksByColumn;
+  window.renderAllTasks = renderAllTasks;
+  window.renderColumn = renderColumn;
+  window.loadState = loadState;
+  window.saveState = saveState;
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+  window.startEditing = startEditing;
+  window.finishEditing = finishEditing;
+  window.cancelEditing = cancelEditing;
+  Object.defineProperty(window, 'tasks', {
+    get: () => tasks,
+    set: (value) => { tasks = value; }
+  });
 }

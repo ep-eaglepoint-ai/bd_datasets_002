@@ -1,0 +1,12 @@
+{
+  "name": "kanban-meta-tests",
+  "version": "1.0.0",
+  "description": "Meta-tests to validate the Playwright test suite quality",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

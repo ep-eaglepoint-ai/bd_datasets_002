@@ -7,17 +7,11 @@ services:
       - ./evaluation/reports:/app/evaluation/reports
     command: node evaluation/evaluation.js
 
-  test-before:
-    build: .
-    environment:
-      - TEST_REPO_PATH=/app/repository_before
-    command: sh -c "cd repository_after && npm test || echo 'Tests failed as expected (no tests in repository_before)'"
-
   test-after:
     build: .
     environment:
       - TEST_REPO_PATH=/app/repository_after
-    command: sh -c "cd repository_after && npm test"
+    command: sh -c "cd repository_after/tests && npm test"
 
 volumes:
   evaluation_reports:

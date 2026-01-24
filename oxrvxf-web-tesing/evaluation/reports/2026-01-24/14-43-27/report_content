@@ -1,7 +1,7 @@
 {
-  "run_id": "1769266968969-cnpm76bi6",
-  "started_at": "2026-01-24T15:02:48.957Z",
-  "finished_at": "2026-01-24T15:02:48.969Z",
+  "run_id": "1769265807282-fn7g39nq7",
+  "started_at": "2026-01-24T14:43:27.262Z",
+  "finished_at": "2026-01-24T14:43:27.282Z",
   "environment": {
     "node_version": "v20.19.6",
     "platform": "linux-x64"
@@ -36,7 +36,6 @@
     "meta_tests_failed": 6,
     "functions_exposed": true,
     "test_files_count": 9,
-    "overall_success": true,
-    "evaluation_completed": true
+    "overall_success": false
   }
 }
