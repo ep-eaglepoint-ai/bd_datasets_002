@@ -113,13 +113,23 @@ func generateReport(beforeFile, afterFile string) (*EvaluationReport, error) {
 	// Run test-before
 	fmt.Println("Running test-before...")
 	if err := runTests("tests/test_before.go"); err != nil {
-		fmt.Printf("Warning: test-before exited with error: %v\n", err)
+		// Check if it's an exit error (expected for test failures) vs actual execution error
+		if _, ok := err.(*exec.ExitError); !ok {
+			// Only warn on actual execution errors (e.g., command not found), not expected exit codes
+			fmt.Printf("Warning: test-before execution error: %v\n", err)
+		}
+		// Exit status 1 from test-before is expected (buggy implementation fails tests)
 	}
 
 	// Run test-after
 	fmt.Println("Running test-after...")
 	if err := runTests("tests/test_after.go"); err != nil {
-		fmt.Printf("Warning: test-after exited with error: %v\n", err)
+		// Check if it's an exit error (expected for test failures) vs actual execution error
+		if _, ok := err.(*exec.ExitError); !ok {
+			// Only warn on actual execution errors (e.g., command not found), not expected exit codes
+			fmt.Printf("Warning: test-after execution error: %v\n", err)
+		}
+		// Exit status 1 from test-after would indicate test failures
 	}
 
 	// Load results

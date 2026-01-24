@@ -1,24 +1,24 @@
 services:
   test-before:
     build: .
-    command: go run tests/test_before.go
+    command: sh -c "go run tests/test_before.go > logs/test-before.log 2>&1"
     volumes:
       - .:/app
-      - /app/go/pkg
     working_dir: /app
 
   test-after:
     build: .
-    command: go run tests/test_after.go
+    command: sh -c "go run tests/test_after.go > logs/test-after.log 2>&1"
     volumes:
       - .:/app
-      - /app/go/pkg
     working_dir: /app
 
   evaluation:
     build: .
-    command: go run evaluation/evaluation.go
+    command: sh -c "go run evaluation/evaluation.go > logs/evaluation.log 2>&1"
     volumes:
       - .:/app
-      - /app/go/pkg
     working_dir: /app
+    depends_on:
+      - test-before
+      - test-after

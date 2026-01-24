@@ -1,7 +1,7 @@
 # TQIO7C - Refactor and Fix Go Graph Implementation
 
 ```bash
-docker-compose run --rm test-before
-docker-compose run --rm test-after
-docker-compose run --rm evaluation
+docker-compose run --rm app go run tests/test_before.go
+docker-compose run --rm app go run tests/test_after.go
+docker-compose run --rm app go run evaluation/evaluation.go
 ```
