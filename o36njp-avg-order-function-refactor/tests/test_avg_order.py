@@ -20,14 +20,16 @@ def setup_database():
     cur = conn.cursor()
     # Drop existing function
     cur.execute("DROP FUNCTION IF EXISTS get_avg_order_amount(INT);")
-    # Drop and create tables
-    cur.execute("DROP TABLE IF EXISTS customers;")
-    cur.execute("""
-        CREATE TABLE customers (
-            id INT PRIMARY KEY,
-            name TEXT
-        );
-    """)
+    # Drop and create customers table only for after
+    if REPO_PATH == 'repository_after':
+        cur.execute("DROP TABLE IF EXISTS customers;")
+        cur.execute("""
+            CREATE TABLE customers (
+                id INT PRIMARY KEY,
+                name TEXT
+            );
+        """)
+    # Drop and create orders table
     cur.execute("DROP TABLE IF EXISTS orders;")
     cur.execute("""
         CREATE TABLE orders (
@@ -42,7 +44,8 @@ def setup_database():
     cur.execute(sql)
     conn.commit()
     # Insert test data
-    cur.execute("INSERT INTO customers (id, name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie');")
+    if REPO_PATH == 'repository_after':
+        cur.execute("INSERT INTO customers (id, name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie');")
     cur.execute("INSERT INTO orders (customer_id, total_amount) VALUES (1, 100), (1, 200), (2, 150);")
     conn.commit()
     cur.close()
