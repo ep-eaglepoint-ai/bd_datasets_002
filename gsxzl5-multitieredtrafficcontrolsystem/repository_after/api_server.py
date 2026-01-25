@@ -5,49 +5,37 @@ from typing import Dict, Any, Optional
 
 # time: Used for timestamping requests and calculating windows.
 # typing: Standard library for type hinting and interface definition.
-# threading: Used for thread safety (RLock).
 
 class RateLimiter:
     def __init__(self):
         self.lock = threading.RLock()
-        self.buckets = {}  # {key: {'tokens': float, 'last_update': float, 'violations': int, 'ban_expiry': float}}
-        self.window_size = 60  # seconds
+        self.buckets = {} 
+        self.window_size = 60
         
         # Configuration
-        self.ip_limit = 2000  # requests per window (2000 RPS roughly scaled to window) -> Actually spec says 2000 RPS load.
-                              # Let's interpret "limit" as capacity. 
-                              # Spec: "Rate-limiting logic must maintain P99 < 2ms under 2000 RPS". 
-                              # It doesn't explicitly state the LIMIT value, just the load to test against.
-                              # Let's set a reasonable limit, e.g., 100 requests per minute for IP, and higher for User.
+        self.ip_limit = 2000  
         self.ip_capacity = 100
         self.user_capacity = 1000
-        self.refill_rate_ip = 100 / 60.0 # tokens per second
+        self.refill_rate_ip = 100 / 60.0 
         self.refill_rate_user = 1000 / 60.0
         
         self.ban_threshold = 5
-        self.ban_duration = 30 * 60  # 30 minutes in seconds
+        self.ban_duration = 30 * 60 
 
     def _get_bucket(self, key: str):
         if key not in self.buckets:
             self.buckets[key] = {
-                'tokens': 0, # Starting empty or full? Usually full. Let's start full.
+                'tokens': 0,
                 'last_update': time.time(),
                 'violations': 0,
                 'ban_expiry': 0,
                 'violation_window_start': time.time()
             }
-            # Initialize tokens based on key type is hard inside _get_bucket without helper.
-            # Let's initialize with 0 and let refill handle it, or pass capacity.
-            # Simply init with max capacity for the type would be better.
-            # But we don't know type here easily.
-            # Let's handle initialization in check_limit.
         return self.buckets[key]
 
     def check_limit(self, key: str, capacity: int, refill_rate: float) -> Dict[str, Any]:
         with self.lock:
             current_time = time.time()
-            
-            # Maintenance / Cleanup for memory could go here (e.g. random check)
             
             if key not in self.buckets:
                 self.buckets[key] = {
@@ -86,8 +74,6 @@ class RateLimiter:
                     "retry_after": 0
                 }
             else:
-                # 4. Handle Violation (Rate Limit Exceeded)
-                # Check violation window (sliding 60s) for ban logic
                 if current_time - bucket['violation_window_start'] > 60:
                     bucket['violations'] = 0
                     bucket['violation_window_start'] = current_time
@@ -131,7 +117,7 @@ class WeatherAPI:
 
 class ReputationEngine:
     def __init__(self):
-        self.scores = {} # {id: score} (0-100)
+        self.scores = {} 
         self.lock = threading.RLock()
 
     def get_score(self, key: str) -> int:
@@ -158,23 +144,8 @@ class APIServer:
         path = request.get('path')
         ip = request.get('ip')
         user_id = request.get('user_id')
-        
-        # Dual-layer check
-        # Priority: Check Authenticated User first (if exists), then IP.
-        # Requirement 7: "Authenticated user remains unblocked even if originating from a banned IP"
-        # This implies we check User Limit. If User Limit passes, we might skip IP check?
-        # Or do we check both?
-        # "Identity-priority validation": If we identify the user, we use the user's reputation/limit.
-        # If the IP is banned, but the user is fine, we should probably allow it IF the user quota is ok.
-        
-        
-        # Get Reputation Score
-        # Prefer user_id if present
         reputation_key = user_id if user_id else ip
         score = self.reputation.get_score(reputation_key)
-        
-        # Adjust Capacity based on Score
-        # If score < 50, strictly limit capacity to 10
         user_cap = self.limiter.user_capacity
         ip_cap = self.limiter.ip_capacity
         
@@ -185,13 +156,10 @@ class APIServer:
         limit_result = None
         
         if user_id:
-            # Check User Quota
             limit_result = self.limiter.check_limit(f"user:{user_id}", user_cap, self.limiter.refill_rate_user)
         else:
-            # Check IP Quota (Anonymous)
             limit_result = self.limiter.check_limit(f"ip:{ip}", ip_cap, self.limiter.refill_rate_ip)
             
-        # Construct Headers
         headers = {
             "X-RateLimit-Limit": str(limit_result['limit']),
             "X-RateLimit-Remaining": str(limit_result['remaining']),
@@ -204,11 +172,9 @@ class APIServer:
             else:
                 return {"status": 429, "error": "Too Many Requests", "headers": headers}
 
-        # Business Logic
         if path == '/login':
             success = self.auth.login(request['payload']['user'], request['payload']['pwd'])
             if not success:
-                # Penalize reputation on failed login
                 self.reputation.penalize(reputation_key, 20)
             return {"status": 200 if success else 401, "headers": headers}
         elif path.startswith('/weather'):

@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
+"""
+Evaluation runner for Mechanical Refactor (calc_score).
 
+This evaluation script:
+- Runs pytest tests on the tests/ folder for both before and after implementations
+- Collects individual test results with pass/fail status
+- Generates structured reports with environment metadata
+
+Run with:
+    docker compose run --rm app python evaluation/evaluation.py [options]
+"""
 import os
 import sys
 import json
@@ -11,10 +21,12 @@ from pathlib import Path
 
 
 def generate_run_id():
+    """Generate a short unique run ID."""
     return uuid.uuid4().hex[:8]
 
 
 def get_git_info():
+    """Get git commit and branch information."""
     git_info = {"git_commit": "unknown", "git_branch": "unknown"}
     try:
         result = subprocess.run(
@@ -44,6 +56,7 @@ def get_git_info():
 
 
 def get_environment_info():
+    """Collect environment information for the report."""
     git_info = get_git_info()
     
     return {
@@ -59,12 +72,24 @@ def get_environment_info():
 
 
 def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
+    """
+    Run pytest on the tests/ folder with specific PYTHONPATH.
+    
+    Args:
+        pythonpath: The PYTHONPATH to use for the tests
+        tests_dir: Path to the tests directory
+        label: Label for this test run (e.g., "before", "after")
+    
+    Returns:
+        dict with test results
+    """
     print(f"\n{'=' * 60}")
     print(f"RUNNING TESTS: {label.upper()}")
     print(f"{'=' * 60}")
     print(f"PYTHONPATH: {pythonpath}")
     print(f"Tests directory: {tests_dir}")
     
+    # Build pytest command
     cmd = [
         sys.executable, "-m", "pytest",
         str(tests_dir),
@@ -74,7 +99,6 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
     
     env = os.environ.copy()
     env["PYTHONPATH"] = pythonpath
-    env["EVALUATION_RUN"] = "true"
     
     try:
         result = subprocess.run(
@@ -104,11 +128,11 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
         # Print individual test results
         for test in tests:
             status_icon = {
-                "passed": "[PASS]",
-                "failed": "[FAIL]",
-                "error": "[ERR]",
-                "skipped": "[SKIP]"
-            }.get(test.get("outcome"), "[?]")
+                "passed": "✅",
+                "failed": "❌",
+                "error": "💥",
+                "skipped": "⏭️"
+            }.get(test.get("outcome"), "❓")
             print(f"  {status_icon} {test.get('nodeid', 'unknown')}: {test.get('outcome', 'unknown')}")
         
         return {
@@ -127,7 +151,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
         }
         
     except subprocess.TimeoutExpired:
-        print("[FAIL] Test execution timed out")
+        print("❌ Test execution timed out")
         return {
             "success": False,
             "exit_code": -1,
@@ -137,7 +161,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
             "stderr": "",
         }
     except Exception as e:
-        print(f"[ERR] Error running tests: {e}")
+        print(f"❌ Error running tests: {e}")
         return {
             "success": False,
             "exit_code": -1,
@@ -149,6 +173,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
 
 
 def parse_pytest_verbose_output(output):
+    """Parse pytest verbose output to extract test results."""
     tests = []
     lines = output.split('\n')
     
@@ -184,6 +209,11 @@ def parse_pytest_verbose_output(output):
 
 
 def run_evaluation():
+    """
+    Run complete evaluation for both implementations.
+    
+    Returns dict with test results from both before and after implementations.
+    """
     print(f"\n{'=' * 60}")
     print("MECHANICAL REFACTOR EVALUATION")
     print(f"{'=' * 60}")
@@ -229,11 +259,11 @@ def run_evaluation():
     print(f"{'=' * 60}")
     
     print(f"\nBefore Implementation (repository_before):")
-    print(f"  Overall: {'[PASS]' if before_results.get('success') else '[FAIL]'}")
+    print(f"  Overall: {'✅ PASSED' if before_results.get('success') else '❌ FAILED'}")
     print(f"  Tests: {comparison['before_passed']}/{comparison['before_total']} passed")
     
     print(f"\nAfter Implementation (repository_after):")
-    print(f"  Overall: {'[PASS]' if after_results.get('success') else '[FAIL]'}")
+    print(f"  Overall: {'✅ PASSED' if after_results.get('success') else '❌ FAILED'}")
     print(f"  Tests: {comparison['after_passed']}/{comparison['after_total']} passed")
     
     # Determine expected behavior
@@ -244,9 +274,9 @@ def run_evaluation():
     # Before: functional tests should pass, structural tests might fail
     # After: all tests should pass
     if after_results.get("success"):
-        print("[PASS] After implementation: All tests passed (expected)")
+        print("✅ After implementation: All tests passed (expected)")
     else:
-        print("[FAIL] After implementation: Some tests failed (unexpected - should pass all)")
+        print("❌ After implementation: Some tests failed (unexpected - should pass all)")
     
     return {
         "before": before_results,
@@ -269,6 +299,7 @@ def generate_output_path():
 
 
 def main():
+    """Main entry point for evaluation."""
     import argparse
     
     parser = argparse.ArgumentParser(description="Run mechanical refactor evaluation")
@@ -331,14 +362,14 @@ def main():
     
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2)
-    print(f"\n[OK] Report saved to: {output_path}")
+    print(f"\n✅ Report saved to: {output_path}")
     
     print(f"\n{'=' * 60}")
     print(f"EVALUATION COMPLETE")
     print(f"{'=' * 60}")
     print(f"Run ID: {run_id}")
     print(f"Duration: {duration:.2f}s")
-    print(f"Success: {'[YES]' if success else '[NO]'}")
+    print(f"Success: {'✅ YES' if success else '❌ NO'}")
     
     return 0 if success else 1
 
