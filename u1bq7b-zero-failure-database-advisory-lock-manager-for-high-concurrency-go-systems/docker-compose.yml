@@ -1,6 +1,8 @@
 services:
   app:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    environment:
+      - CGO_ENABLED=0
+    working_dir: /app

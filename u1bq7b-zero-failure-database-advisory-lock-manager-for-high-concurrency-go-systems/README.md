@@ -29,19 +29,40 @@
 - Security Standards: (none)
 
 ## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
+- repository_before/: baseline code (`go.mod`, `dblock/`)
+- repository_after/: optimized code (`go.mod`, `dblock/`)
+- tests/: test suite (`*_test.go`)
+- evaluation/: evaluation scripts (`evaluation.go`)
 - instances/: sample/problem instances (JSON)
 - patches/: patches for diffing
 - trajectory/: notes or write-up (Markdown)
 
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+### Standalone Tests
+You can run tests against a specific repository version using the `TEST_TARGET` environment variable.
+
+- Run tests `repository_before`:
+  ```bash
+  docker compose run --rm -e TEST_TARGET=before app go test -v ./tests/...
+  ```
+  
+- Run tests `repository_after`:
+  ```bash
+  docker compose run --rm app go test -v ./tests/...
+  ```
+
+- Run evaluation (Comparison):
+  ```bash
+  docker compose run --rm app go run evaluation/evaluation.go
+  ```
+
+- With Docker (interactive): `docker compose up --build`
+
+### Local Development
+- Run evaluation: `go run evaluation/evaluation.go`
+- Run specific tests: `go test -v ./tests/...` (Requires manual `go.mod` configuration)
 
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
+
+

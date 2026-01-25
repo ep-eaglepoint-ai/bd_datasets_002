@@ -1,5 +1,19 @@
-FROM python:3.11-slim
+FROM golang:1.21-alpine
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+RUN apk add --no-cache git
+
+COPY go.mod .
+COPY . .
+
+RUN go mod download
+
+# Now download/tidy to ensure everything is ready
+RUN go mod download
+
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["go", "run", "evaluation/evaluation.go"]
