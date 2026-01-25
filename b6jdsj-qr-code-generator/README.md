@@ -5,11 +5,6 @@
 docker compose build
 ```
 
-### Run repository_after
-```bash
-docker compose run --rm --service-ports app
-```
-
 ### Run tests
 ```bash
 docker compose run --rm tests
