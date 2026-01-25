@@ -1,20 +1,5 @@
 # SM9BI7 - resilientEmailNotificationService
 
-## Folder Layout
-- `repository_before/` — baseline (synchronous) implementation
-- `repository_after/` — refactored (queue-based) implementation
-- `tests/` — test suite (before.test.ts / index.ts)
-- `evaluation/` — evaluation.ts and comparison reports
-- `instances/` — sample instances (JSON)
-- `patches/` — diff between before/after
-- `trajectory/` — notes (Markdown)
-
-## Run with Docker
-
-### Build image
-```bash
-docker compose build
-```
 
 ### Run tests (before – expected to fail)
 ```bash
@@ -30,8 +15,4 @@ docker compose --profile test-after run --rm test-after
 ```bash
 docker compose --profile evaluation run --rm evaluation
 ```
-
-## Regenerate Patch
-```bash
-git diff --no-index repository_before repository_after > patches/diff.patch
-```
+ 
