@@ -5,30 +5,15 @@ const TEST_REPO_PATH = process.env.TEST_REPO_PATH || '/app/repository_before';
 
 // Dynamically load the inventory service from the repository
 const repoPath = path.resolve(TEST_REPO_PATH);
-const servicePath = path.join(repoPath, 'src', 'inventory-service.ts');
 
-// We'll use ts-node to run TypeScript directly, or compile first
-// For now, let's use a Node.js compatible approach
 let InventoryService;
 let db, redis;
 
-// Load TypeScript using ts-node
+// Load compiled JavaScript from dist/
 try {
-  // Register ts-node
-  const tsNode = require('ts-node');
-  tsNode.register({
-    project: path.join(repoPath, 'tsconfig.json'),
-    transpileOnly: true,
-    compilerOptions: {
-      module: 'commonjs',
-      esModuleInterop: true,
-      skipLibCheck: true
-    }
-  });
-  
-  // Load infrastructure and service
-  const infra = require(path.join(repoPath, 'src', 'infrastructure.ts'));
-  const serviceModule = require(path.join(repoPath, 'src', 'inventory-service.ts'));
+  // Load infrastructure and service from compiled dist/ directory
+  const infra = require(path.join(repoPath, 'dist', 'infrastructure.js'));
+  const serviceModule = require(path.join(repoPath, 'dist', 'inventory-service.js'));
   InventoryService = serviceModule.InventoryService;
   db = infra.db;
   redis = infra.redis;

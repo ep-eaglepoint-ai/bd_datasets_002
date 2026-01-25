@@ -3,9 +3,48 @@
   "failed": 3,
   "total": 10,
   "testDetails": [
-    {"name": "test1", "status": "passed"},
-    {"name": "test2", "status": "failed", "error": "BUG DETECTED"},
-    {"name": "test3", "status": "failed", "error": "BUG DETECTED"},
-    {"name": "test4", "status": "failed", "error": "BUG DETECTED"}
+    {
+      "name": "oversell_detection_high_concurrency",
+      "status": "passed"
+    },
+    {
+      "name": "cache_race_condition_strict",
+      "status": "passed"
+    },
+    {
+      "name": "cache_update_race_after_transaction",
+      "status": "passed"
+    },
+    {
+      "name": "non_monotonic_stock_detection",
+      "status": "passed"
+    },
+    {
+      "name": "write_visibility_strict",
+      "status": "passed"
+    },
+    {
+      "name": "cache_invalidation_on_error",
+      "status": "passed"
+    },
+    {
+      "name": "concurrent_reads_during_write",
+      "status": "passed"
+    },
+    {
+      "name": "missing_distributed_locks",
+      "status": "failed",
+      "error": "BUG DETECTED: Missing distributed locks and reads DB after transaction. This causes cache race conditions."
+    },
+    {
+      "name": "missing_cache_invalidation",
+      "status": "failed",
+      "error": "BUG DETECTED: Missing proper cache invalidation before update. Cache may serve stale values."
+    },
+    {
+      "name": "missing_thundering_herd_protection",
+      "status": "failed",
+      "error": "BUG DETECTED: Missing thundering herd protection. Multiple servers may repopulate cache simultaneously."
+    }
   ]
 }

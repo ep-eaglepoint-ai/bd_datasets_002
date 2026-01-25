@@ -9,21 +9,11 @@ const repoPath = path.resolve(TEST_REPO_PATH);
 let InventoryService;
 let db, redis;
 
-// Load TypeScript using ts-node
+// Load compiled JavaScript from dist/
 try {
-  const tsNode = require('ts-node');
-  tsNode.register({
-    project: path.join(repoPath, 'tsconfig.json'),
-    transpileOnly: true,
-    compilerOptions: {
-      module: 'commonjs',
-      esModuleInterop: true,
-      skipLibCheck: true
-    }
-  });
-  
-  const infra = require(path.join(repoPath, 'src', 'infrastructure.ts'));
-  const serviceModule = require(path.join(repoPath, 'src', 'inventory-service.ts'));
+  // Load infrastructure and service from compiled dist/ directory
+  const infra = require(path.join(repoPath, 'dist', 'infrastructure.js'));
+  const serviceModule = require(path.join(repoPath, 'dist', 'inventory-service.js'));
   InventoryService = serviceModule.InventoryService;
   db = infra.db;
   redis = infra.redis;
