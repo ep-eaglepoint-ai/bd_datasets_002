@@ -1,11 +1,11 @@
 # 2CZYGD - Binary String Trade Optimization
 
-### Run Ground Truth solution
+### Run tests (after – expected all pass)
 ```bash
-docker compose run --rm app sh -c "PYTHONPATH=/app/repository_after python -m pytest -q tests"
+docker compose --profile test-after run --rm test-after
 ```
 
 ### Run evaluation
 ```bash
-docker compose run --rm app python evaluation/evaluation.py
+docker compose --profile evaluation run --rm evaluation
 ```

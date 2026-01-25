@@ -1,9 +1,14 @@
 services:
-  app:
+  test-after:
     build: .
+    profiles: ["test-after"]
+    command: sh -c "PYTHONPATH=/app/repository_after python -m pytest -q tests"
     volumes:
       - .:/app
-    # Default command runs tests
-    command: python -m pytest -q tests
-    environment:
-      - PYTHONUNBUFFERED=1
+
+  evaluation:
+    build: .
+    profiles: ["evaluation"]
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app
