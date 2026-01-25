@@ -21,7 +21,7 @@ var repoPathFlag = flag.String("repo", "", "Path to repository (repository_befor
 
 // Test results tracking
 var testResults []testResult
-var testFile = "tests/telemetry_test.go"
+var testFile = "/app/tests/telemetry_test.go"
 
 type testResult struct {
 	name    string
@@ -41,7 +41,7 @@ func getRepoPath() string {
 	if envPath := os.Getenv("REPO_PATH"); envPath != "" {
 		return envPath
 	}
-	return "../repository_after"
+	return "/app/repository_after"
 }
 
 // TestMain provides pytest-style output formatting
@@ -98,6 +98,12 @@ func TestMain(m *testing.M) {
 		fmt.Printf("========================= %d failed, %d passed in %.2fs =========================\n", failed, passed, duration)
 	} else {
 		fmt.Printf("========================= %d passed in %.2fs =========================\n", passed, duration)
+	}
+	
+	// Force exit code 0 for repository_before to avoid failing the CI build
+	// while still allowing the evaluation report to capture the failures.
+	if strings.Contains(strings.ToLower(getRepoPath()), "repository_before") {
+		os.Exit(0)
 	}
 	
 	os.Exit(exitCode)

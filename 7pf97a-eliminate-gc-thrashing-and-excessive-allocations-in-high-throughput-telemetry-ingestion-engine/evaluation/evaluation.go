@@ -168,7 +168,7 @@ func getRootDir() string {
 func runTests(repoPath string, rootDir string) (TestResults, map[string][]string) {
 	testsDir := filepath.Join(rootDir, "tests")
 
-	cmd := exec.Command("go", "test", "-json", "-v", "./...")
+	cmd := exec.Command("go", "test", "-json", "-v", "/app/tests/...")
 	cmd.Dir = testsDir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("REPO_PATH=%s", repoPath))
 
@@ -274,9 +274,17 @@ func runTests(repoPath string, rootDir string) (TestResults, map[string][]string
 
 	summary.Total = summary.Passed + summary.Failed + summary.Errors + summary.Skipped
 
+	// Determine logical success based on test outcomes, not just process exit code.
+	// This is important because repository_before tests are forced to exit 0 to avoid CI failures.
+	logicalSuccess := exitCode == 0 && summary.Failed == 0 && summary.Errors == 0
+	logicalExitCode := exitCode
+	if !logicalSuccess && exitCode == 0 {
+		logicalExitCode = 1
+	}
+
 	return TestResults{
-		Success:  exitCode == 0,
-		ExitCode: exitCode,
+		Success:  logicalSuccess,
+		ExitCode: logicalExitCode,
 		Tests:    results,
 		Summary:  summary,
 		Stdout:   stdoutBuilder.String(),
@@ -361,7 +369,7 @@ func printPytestLikeReport(results TestResults, repoLabel string, duration float
 	f("platform %s -- Go %s\n", runtime.GOOS, runtime.Version())
 	f("collected %d items\n\n", results.Summary.Total)
 
-	testFile := "tests/telemetry_test.go"
+	testFile := "/app/tests/telemetry_test.go"
 	f("%s ", testFile)
 	for _, t := range results.Tests {
 		if t.Outcome == "passed" {

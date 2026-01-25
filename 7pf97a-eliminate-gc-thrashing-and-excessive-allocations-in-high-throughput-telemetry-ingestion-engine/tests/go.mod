@@ -8,6 +8,6 @@ require (
 )
 
 replace (
-	repository_after => ../repository_after
-	scenario-008-go-slice-realloc => ../repository_before
+	repository_after => /app/repository_after
+	scenario-008-go-slice-realloc => /app/repository_before
 )
