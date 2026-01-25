@@ -3,18 +3,24 @@ services:
   before:
     build:
       context: .
-      dockerfile: Dockerfile.before
+      dockerfile: Dockerfile
+      args:
+        MODE: before
 
   # repository_after — run tests
   after:
     build:
       context: .
-      dockerfile: Dockerfile.after
+      dockerfile: Dockerfile
+      args:
+        MODE: after
 
   # evaluation — run evaluation tests
   evaluation:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        MODE: evaluation
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
