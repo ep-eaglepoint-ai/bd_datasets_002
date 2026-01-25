@@ -10,6 +10,16 @@ node_modules/
 # Go
 *.test
 *.exe
+# Go build artifacts
+*.out
+/bin/
+/dist/
+/build/
+# Compiled binaries (without extension)
+graph_Implementation
+test_before
+test_after
+evaluation
 
 # Test results
 tests/*_results.json
@@ -19,6 +29,3 @@ evaluation/reports/
 
 # OS
 .DS_Store
-
-# Build configuration
-buildspec.yml
