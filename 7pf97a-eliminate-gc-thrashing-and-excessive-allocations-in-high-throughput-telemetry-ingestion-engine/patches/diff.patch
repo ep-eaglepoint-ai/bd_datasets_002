@@ -125,7 +125,4 @@ index 6edae01..ea136da 100644
  
 -	batch := b.data
 -	b.data = make([]TelemetryPacket, 0)
-+	batch := b.data[:b.head] 
-+	b.head = 0    
- 	return batch
  }
