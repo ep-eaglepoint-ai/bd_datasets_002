@@ -1,0 +1,11 @@
+{
+            "instance_id": "VSB1XC",
+            "problem_statement": "Build an offline-first survey analysis web application using Next.js and TailwindCSS that allows full survey design, response import via CSV, data cleaning, statistical analysis, and interactive visualization—all running client-side with IndexedDB persistence and Zod validation. Implement state management with Zustand/Redux and performance optimizations like virtualization and Web Workers to ensure responsiveness with large datasets. The tool must prioritize statistical correctness, reproducible analysis, and robust handling of noisy or incomplete data while generating exportable research reports without external APIs.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vsb1xc-survey-analysis-tool",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
