@@ -1,6 +1,9 @@
 services:
   app:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    # Default command runs tests
+    command: python -m pytest -q tests
+    environment:
+      - PYTHONUNBUFFERED=1
