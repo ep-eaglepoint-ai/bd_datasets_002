@@ -8,4 +8,4 @@ require (
 	github.com/lib/pq v1.10.9
 )
 
-replace dblock-demo => ./repository_after
+replace dblock-demo => /src/repository_before/dblock-demo
