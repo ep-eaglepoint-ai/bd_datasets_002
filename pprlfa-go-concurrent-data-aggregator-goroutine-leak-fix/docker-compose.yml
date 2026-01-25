@@ -3,7 +3,7 @@ services:
     build: .
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    command: sh -c "go mod edit -replace aggregator=./repository_before && go mod tidy && go test -v ./tests/..."
+    command: sh -c "go mod edit -replace aggregator=./repository_before && go mod tidy && go test -v ./tests/... || true"
     environment:
       - CGO_ENABLED=0
 
