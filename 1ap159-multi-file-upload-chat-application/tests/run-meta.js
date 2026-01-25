@@ -1,8 +1,4 @@
-#!/usr/bin/env node
-/**
- * Meta-test runner: run Jest against repository_before (must have failures) and
- * repository_after (must pass). Exits 0 only if before fails and after passes.
- */
+
 const { spawnSync } = require('child_process');
 const path = require('path');
 
@@ -15,14 +11,14 @@ function run(cmd, args, opts = {}) {
 }
 
 console.log('--- Meta: run against repository_before (expect some failures) ---');
-const r1 = run('npm', ['run', 'test:before']);
+const r1 = run('docker-compose', ['run', '--rm', '--build', 'before']);
 if (r1.status === 0) {
   console.error('Meta FAIL: repository_before must have failing tests (FAIL_TO_PASS).');
   process.exit(1);
 }
 
 console.log('--- Meta: run against repository_after (expect all pass) ---');
-const r2 = run('npm', ['run', 'test:after']);
+const r2 = run('docker-compose', ['run', '--rm', '--build', 'after']);
 if (r2.status !== 0) {
   console.error('Meta FAIL: repository_after must pass all tests.');
   process.exit(1);
