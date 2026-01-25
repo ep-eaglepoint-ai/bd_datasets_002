@@ -1,28 +1,28 @@
-# Use Python slim image as base
-FROM python:3.11-slim
+# Use Node.js as base (no Python needed)
+FROM node:20-slim
 
-# Install Node.js
-RUN apt-get update && apt-get install -y \
-    curl \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# Install git for git info collection
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy project files
 COPY . /app
 
-# Install dependencies for tests and application
-# This ensures they are available in the container image
+# Install dependencies for tests
 WORKDIR /app/tests
 RUN npm install
 
+# Install dependencies for evaluation
+WORKDIR /app/evaluation
+RUN npm install
+
+# Install dependencies for repository_after
 WORKDIR /app/repository_after/three-mens-morris
 RUN npm install
 
 # Reset working directory
 WORKDIR /app
 
-# Default command
-CMD ["python", "evaluation/evaluation.py"]
+# Default command (runs evaluation)
+CMD ["npx", "ts-node", "evaluation/evaluation.ts"]

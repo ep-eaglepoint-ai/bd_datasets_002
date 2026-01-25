@@ -1,4 +1,16 @@
 services:
+  test-before:
+    build: .
+    working_dir: /app/tests
+    environment:
+      - TARGET_REPO=repository_before
+    command: npm test
+    volumes:
+      - .:/app
+      - /app/tests/node_modules
+      - /app/evaluation/node_modules
+      - /app/repository_after/three-mens-morris/node_modules
+
   test-after:
     build: .
     working_dir: /app/tests
@@ -8,13 +20,15 @@ services:
     volumes:
       - .:/app
       - /app/tests/node_modules
+      - /app/evaluation/node_modules
       - /app/repository_after/three-mens-morris/node_modules
 
   evaluation:
     build: .
-    working_dir: /app
+    working_dir: /app/evaluation
     volumes:
       - .:/app
       - /app/tests/node_modules
+      - /app/evaluation/node_modules
       - /app/repository_after/three-mens-morris/node_modules
-    command: python evaluation/evaluation.py
+    command: npm run evaluate
