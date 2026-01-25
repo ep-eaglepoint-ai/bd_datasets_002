@@ -84,12 +84,14 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
             };
     }, [initialData]);
 
+    const defaultValues = useMemo(
+        () => initialData || { name: "", billboardId: "" },
+        [initialData]
+    );
+
     const form = useForm<CategoryFormValues>({
         resolver: zodResolver(formSchema),
-        defaultValues: initialData || {
-            name: "",
-            billboardId: "",
-        },
+        defaultValues,
     });
 
     useEffect(() => {
@@ -137,7 +139,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
                 router.push(`/${params.storeId}/categories`);
             } catch (err: any) {
                 if (err.name !== "AbortError") {
-                    toast.error("Something went wrong.");
+                    toast.error(err?.message || "Something went wrong.");
                 }
             } finally {
                 if (isMounted.current && requestId === requestIdRef.current) {
@@ -187,15 +189,14 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
         }
     }, [params.storeId, params.categoryId, router]);
 
-    const billboardOptions = useMemo(
-        () =>
-            billboards.map((billboard) => (
-                <SelectItem key={billboard.id} value={billboard.id}>
-                    {billboard.label}
-                </SelectItem>
-            )),
-        [billboards]
-    );
+    const billboardOptions = useMemo(() => {
+        if (!billboards?.length) return [];
+        return billboards.map((billboard) => (
+            <SelectItem key={billboard.id} value={billboard.id}>
+                {billboard.label}
+            </SelectItem>
+        ));
+    }, [billboards]);
 
     return (
         <>
@@ -257,7 +258,6 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue
-                                                    defaultValue={field.value}
                                                     placeholder="Select a billboard"
                                                 />
                                             </SelectTrigger>

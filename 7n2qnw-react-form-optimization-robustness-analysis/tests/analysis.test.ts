@@ -92,4 +92,16 @@ describe('CategoryForm Static Analysis', () => {
         const onDeleteCallback = /const\s+onDelete\s*=\s*useCallback\(/.test(fileContent);
         expect(onDeleteCallback).toBe(true);
     });
+
+    test('Optimization: Form defaultValues should be memoized', () => {
+        // Check for useMemo wrapping of defaultValues object
+        const memoizesDefaultValues = /const\s+defaultValues\s*=\s*useMemo\(/.test(fileContent);
+        expect(memoizesDefaultValues).toBe(true);
+    });
+
+    test('Robustness: Should handle empty billboards array safely', () => {
+        // Check for null/length check before mapping billboards
+        const checksLength = /if\s*\(!billboards\?\.length\)/.test(fileContent);
+        expect(checksLength).toBe(true);
+    });
 });
