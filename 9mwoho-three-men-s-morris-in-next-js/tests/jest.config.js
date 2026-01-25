@@ -4,9 +4,6 @@ const path = require('path');
 const targetRepo = process.env.TARGET_REPO || 'repository_after';
 const repoPath = path.resolve(__dirname, '..', targetRepo, 'three-mens-morris');
 
-// Root node_modules path (for npm workspaces - dependencies are hoisted to root)
-const rootNodeModules = path.resolve(__dirname, '..', 'node_modules');
-
 /** @type {import('jest').Config} */
 const config = {
   testEnvironment: 'jsdom',
@@ -15,22 +12,22 @@ const config = {
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
       tsconfig: {
+        target: 'ES2020',
+        lib: ['ES2020', 'DOM', 'DOM.Iterable'],
         jsx: 'react-jsx',
         module: 'commonjs',
         esModuleInterop: true,
         strict: true,
         skipLibCheck: true,
         moduleResolution: 'node',
+        baseUrl: '.',
+        paths: {
+          '@/*': [`${repoPath}/src/*`]
+        }
       },
     }],
   },
   moduleNameMapper: {
-    // Force Jest to use react from root node_modules (npm workspaces hoists dependencies)
-    '^react$': path.resolve(rootNodeModules, 'react'),
-    '^react/jsx-runtime$': path.resolve(rootNodeModules, 'react/jsx-runtime'),
-    '^react/jsx-dev-runtime$': path.resolve(rootNodeModules, 'react/jsx-dev-runtime'),
-    '^react-dom$': path.resolve(rootNodeModules, 'react-dom'),
-    '^react-dom/test-utils$': path.resolve(rootNodeModules, 'react-dom/test-utils'),
     // Map @/* imports to the target repository's src folder
     '^@/(.*)$': `${repoPath}/src/$1`,
   },

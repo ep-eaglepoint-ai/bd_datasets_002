@@ -6,11 +6,14 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy all project files
-COPY . /app
+# Copy package files first for better caching
+COPY package.json package-lock.json* ./
 
-# Single npm install at root (workspaces handles all dependencies)
+# Install dependencies
 RUN npm install
+
+# Copy remaining project files
+COPY . .
 
 # Default command (runs evaluation)
 CMD ["npm", "run", "evaluate"]

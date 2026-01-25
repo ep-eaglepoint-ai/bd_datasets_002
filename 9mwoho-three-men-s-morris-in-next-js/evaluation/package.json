@@ -1,8 +1,0 @@
-{
-  "name": "evaluation",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "evaluate": "ts-node evaluation.ts"
-  }
-}
