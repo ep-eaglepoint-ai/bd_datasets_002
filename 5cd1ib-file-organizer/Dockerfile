@@ -5,25 +5,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         openssl \
         curl \
-        python3 \
-        python3-pip \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3 /usr/bin/python
+        git \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY . .
-RUN npm ci
-
-RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
-
-
-WORKDIR /app/repository_after/local-file-organizer
 RUN npm ci && \
-    npx prisma generate
-
-# Return to root
-WORKDIR /app
+    npx prisma generate --schema=repository_after/local-file-organizer/prisma/schema.prisma
 
 
 ENV NODE_ENV=development
@@ -57,8 +46,9 @@ case "$MODE" in
   app-after)
     echo "Starting repository_after app..."
     cd "$REPO_PATH"
-    npx prisma db push
-    exec npm run dev
+    npx prisma db push --schema=prisma/schema.prisma
+    cd /app
+    exec npx next dev "$REPO_PATH"
     ;;
     
   test)
@@ -70,7 +60,7 @@ case "$MODE" in
   evaluation)
     echo "Running evaluation..."
     cd /app
-    exec python evaluation/evaluation.py
+    exec npx tsx evaluation/evaluation.ts
     ;;
     
   *)
