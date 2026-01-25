@@ -1,34 +1,28 @@
 services:
   test-before:
     build: .
-    working_dir: /app/tests
+    working_dir: /app
     environment:
       - TARGET_REPO=repository_before
     command: npm test
     volumes:
       - .:/app
-      - /app/tests/node_modules
-      - /app/evaluation/node_modules
-      - /app/repository_after/three-mens-morris/node_modules
+      - /app/node_modules
 
   test-after:
     build: .
-    working_dir: /app/tests
+    working_dir: /app
     environment:
       - TARGET_REPO=repository_after
     command: npm test
     volumes:
       - .:/app
-      - /app/tests/node_modules
-      - /app/evaluation/node_modules
-      - /app/repository_after/three-mens-morris/node_modules
+      - /app/node_modules
 
   evaluation:
     build: .
-    working_dir: /app/evaluation
+    working_dir: /app
     volumes:
       - .:/app
-      - /app/tests/node_modules
-      - /app/evaluation/node_modules
-      - /app/repository_after/three-mens-morris/node_modules
+      - /app/node_modules
     command: npm run evaluate

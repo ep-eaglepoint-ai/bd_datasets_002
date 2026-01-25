@@ -1,4 +1,4 @@
-# Use Node.js as base (no Python needed)
+# Use Node.js as base
 FROM node:20-slim
 
 # Install git for git info collection
@@ -6,23 +6,11 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy project files
+# Copy all project files
 COPY . /app
 
-# Install dependencies for tests
-WORKDIR /app/tests
+# Single npm install at root (workspaces handles all dependencies)
 RUN npm install
-
-# Install dependencies for evaluation
-WORKDIR /app/evaluation
-RUN npm install
-
-# Install dependencies for repository_after
-WORKDIR /app/repository_after/three-mens-morris
-RUN npm install
-
-# Reset working directory
-WORKDIR /app
 
 # Default command (runs evaluation)
-CMD ["npx", "ts-node", "evaluation/evaluation.ts"]
+CMD ["npm", "run", "evaluate"]

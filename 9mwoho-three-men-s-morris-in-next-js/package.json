@@ -1,0 +1,22 @@
+{
+  "name": "three-mens-morris-project",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "evaluation",
+    "tests",
+    "repository_after/three-mens-morris"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=repository_after/three-mens-morris",
+    "build": "npm run build --workspace=repository_after/three-mens-morris",
+    "start": "npm run start --workspace=repository_after/three-mens-morris",
+    "test": "npm test --workspace=tests",
+    "evaluate": "npm run evaluate --workspace=evaluation"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}
