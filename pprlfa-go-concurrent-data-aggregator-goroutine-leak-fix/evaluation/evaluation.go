@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -13,6 +14,19 @@ import (
 	"github.com/google/uuid"
 )
 
+// InstanceConfig represents the instance.json structure
+type InstanceConfig struct {
+	InstanceID      string   `json:"instance_id"`
+	ProblemStatement string  `json:"problem_statement"`
+	BaseCommit      string   `json:"base_commit"`
+	TestPatch       string   `json:"test_patch"`
+	Repo            string   `json:"repo"`
+	EnvironmentSetup string  `json:"environment_setup"`
+	FAIL_TO_PASS    []string `json:"FAIL_TO_PASS"`
+	PASS_TO_PASS    []string `json:"PASS_TO_PASS"`
+}
+
+// Report represents the standard evaluation report structure
 type Report struct {
 	RunID           string     `json:"run_id"`
 	StartedAt       string     `json:"started_at"`
@@ -21,35 +35,49 @@ type Report struct {
 	Environment     EnvInfo    `json:"environment"`
 	Before          RepoResult `json:"before"`
 	After           RepoResult `json:"after"`
-	Comparison      Comparison `json:"comparison"`
+	Comparison      Comparison  `json:"comparison"`
 	Success         bool       `json:"success"`
 	Error           *string    `json:"error"`
 }
 
+// EnvInfo represents environment information
 type EnvInfo struct {
 	GoVersion string `json:"go_version"`
 	Platform  string `json:"platform"`
 }
 
+// RepoResult represents test results and metrics for a repository
 type RepoResult struct {
 	Tests   TestResult             `json:"tests"`
 	Metrics map[string]interface{} `json:"metrics"`
 }
 
+// TestResult represents test execution results
 type TestResult struct {
 	Passed     bool   `json:"passed"`
 	ReturnCode int    `json:"return_code"`
 	Output     string `json:"output"`
 }
 
+// Comparison represents the comparison between before and after
 type Comparison struct {
 	PassedGate         bool   `json:"passed_gate"`
 	ImprovementSummary string `json:"improvement_summary"`
 }
 
+// TestStatus represents individual test status
+type TestStatus struct {
+	Name   string
+	Passed bool
+}
+
 func getProjectRoot() string {
 	wd, _ := os.Getwd()
-	return filepath.Dir(wd)
+	// If we're in evaluation directory, go up one level
+	if strings.HasSuffix(wd, "evaluation") {
+		return filepath.Dir(wd)
+	}
+	return wd
 }
 
 func environmentInfo() EnvInfo {
@@ -59,6 +87,23 @@ func environmentInfo() EnvInfo {
 	}
 }
 
+func loadInstanceConfig() (*InstanceConfig, error) {
+	root := getProjectRoot()
+	instancePath := filepath.Join(root, "instances", "instance.json")
+	
+	data, err := os.ReadFile(instancePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read instance.json: %w", err)
+	}
+	
+	var config InstanceConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse instance.json: %w", err)
+	}
+	
+	return &config, nil
+}
+
 func switchRepo(repoName string) error {
 	root := getProjectRoot()
 	cmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("aggregator=./%s", repoName))
@@ -66,7 +111,55 @@ func switchRepo(repoName string) error {
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to switch repo to %s: %s", repoName, output)
 	}
+	
+	// Run go mod tidy to ensure dependencies are resolved
+	cmd = exec.Command("go", "mod", "tidy")
+	cmd.Dir = root
+	if _, err := cmd.CombinedOutput(); err != nil {
+		// Non-fatal, continue
+	}
+	
 	return nil
+}
+
+func parseTestOutput(output string) map[string]bool {
+	testResults := make(map[string]bool)
+	
+	// Pattern to match test results: "--- PASS: TestName" or "--- FAIL: TestName"
+	passPattern := regexp.MustCompile(`--- PASS:\s+(\S+)`)
+	failPattern := regexp.MustCompile(`--- FAIL:\s+(\S+)`)
+	
+	// Find all passing tests
+	for _, matches := range passPattern.FindAllStringSubmatch(output, -1) {
+		if len(matches) > 1 {
+			testResults[matches[1]] = true
+		}
+	}
+	
+	// Find all failing tests
+	for _, matches := range failPattern.FindAllStringSubmatch(output, -1) {
+		if len(matches) > 1 {
+			testResults[matches[1]] = false
+		}
+	}
+	
+	// Also handle subtests (e.g., "TestName/SubtestName")
+	subtestPassPattern := regexp.MustCompile(`\s+--- PASS:\s+(\S+)`)
+	subtestFailPattern := regexp.MustCompile(`\s+--- FAIL:\s+(\S+)`)
+	
+	for _, matches := range subtestPassPattern.FindAllStringSubmatch(output, -1) {
+		if len(matches) > 1 {
+			testResults[matches[1]] = true
+		}
+	}
+	
+	for _, matches := range subtestFailPattern.FindAllStringSubmatch(output, -1) {
+		if len(matches) > 1 {
+			testResults[matches[1]] = false
+		}
+	}
+	
+	return testResults
 }
 
 func runTests(repoName string) TestResult {
@@ -86,7 +179,7 @@ func runTests(repoName string) TestResult {
 
 	outputStr := string(output)
 	if len(outputStr) > 8000 {
-		outputStr = outputStr[:8000]
+		outputStr = outputStr[:8000] + "... (truncated)"
 	}
 
 	returnCode := 0
@@ -107,34 +200,25 @@ func runTests(repoName string) TestResult {
 	}
 }
 
-func runMetrics(repoName string) map[string]interface{} {
+func runMetrics(repoName string, testOutput string) map[string]interface{} {
 	metrics := make(map[string]interface{})
-
-	// Re-run usage of runTests implicitly handles the switching, but assuming runTests called first or we ensure switch here
-	// For metrics, we essentially check the output of the tests we just ran (or run again if needed).
-	// Since runTests already returns output, we can't easily parse it here without re-running or passing it.
-	// For simplicity, we'll re-run or better yet, rely on the fact that if tests passed, leaks are gone (since tests assertNoLeaks).
-
-	// Let's re-run to be safe and independent
-	if err := switchRepo(repoName); err != nil {
-		metrics["goroutine_leak_test_passed"] = false
-		return metrics
-	}
-
-	root := getProjectRoot()
-	cmd := exec.Command("go", "test", "-v", "./tests/...")
-	cmd.Dir = root
-	output, err := cmd.CombinedOutput()
-
-	outputStr := string(output)
-
-	// If tests passed (err == nil) and no "Potential goroutine leak" message
-	if err == nil && !strings.Contains(outputStr, "Potential goroutine leak") {
-		metrics["goroutine_leak_test_passed"] = true
+	
+	// Check for goroutine leaks in output
+	if strings.Contains(testOutput, "Goroutine leak detected") || 
+	   strings.Contains(testOutput, "Potential goroutine leak") {
+		metrics["goroutine_leak_detected"] = true
 	} else {
-		metrics["goroutine_leak_test_passed"] = false
+		metrics["goroutine_leak_detected"] = false
 	}
-
+	
+	// Count test failures
+	failCount := strings.Count(testOutput, "--- FAIL:")
+	metrics["test_failures"] = failCount
+	
+	// Count test passes
+	passCount := strings.Count(testOutput, "--- PASS:")
+	metrics["test_passes"] = passCount
+	
 	return metrics
 }
 
@@ -154,12 +238,61 @@ func evaluate(repoName string) RepoResult {
 	}
 
 	tests := runTests(repoName)
-	metrics := runMetrics(repoName)
+	metrics := runMetrics(repoName, tests.Output)
 
 	return RepoResult{
 		Tests:   tests,
 		Metrics: metrics,
 	}
+}
+
+func verifyTestRequirements(beforeResult, afterResult RepoResult, config *InstanceConfig) (bool, string) {
+	beforeTests := parseTestOutput(beforeResult.Tests.Output)
+	afterTests := parseTestOutput(afterResult.Tests.Output)
+	
+	var issues []string
+	
+	// Verify FAIL_TO_PASS tests: should fail in before, pass in after
+	for _, testName := range config.FAIL_TO_PASS {
+		beforePassed, beforeExists := beforeTests[testName]
+		afterPassed, afterExists := afterTests[testName]
+		
+		if !beforeExists {
+			issues = append(issues, fmt.Sprintf("FAIL_TO_PASS test '%s' not found in before output", testName))
+		} else if beforePassed {
+			issues = append(issues, fmt.Sprintf("FAIL_TO_PASS test '%s' unexpectedly passed in before", testName))
+		}
+		
+		if !afterExists {
+			issues = append(issues, fmt.Sprintf("FAIL_TO_PASS test '%s' not found in after output", testName))
+		} else if !afterPassed {
+			issues = append(issues, fmt.Sprintf("FAIL_TO_PASS test '%s' failed in after (expected to pass)", testName))
+		}
+	}
+	
+	// Verify PASS_TO_PASS tests: should pass in both
+	for _, testName := range config.PASS_TO_PASS {
+		beforePassed, beforeExists := beforeTests[testName]
+		afterPassed, afterExists := afterTests[testName]
+		
+		if !beforeExists {
+			issues = append(issues, fmt.Sprintf("PASS_TO_PASS test '%s' not found in before output", testName))
+		} else if !beforePassed {
+			issues = append(issues, fmt.Sprintf("PASS_TO_PASS test '%s' failed in before (expected to pass)", testName))
+		}
+		
+		if !afterExists {
+			issues = append(issues, fmt.Sprintf("PASS_TO_PASS test '%s' not found in after output", testName))
+		} else if !afterPassed {
+			issues = append(issues, fmt.Sprintf("PASS_TO_PASS test '%s' failed in after (expected to pass)", testName))
+		}
+	}
+	
+	if len(issues) > 0 {
+		return false, strings.Join(issues, "; ")
+	}
+	
+	return true, "All test requirements verified"
 }
 
 func runEvaluation() Report {
@@ -189,21 +322,48 @@ func runEvaluation() Report {
 		}
 	}()
 
-	before = evaluate("repository_before")
-	after = evaluate("repository_after")
-
-	// Determine improvement summary
-	if after.Tests.Passed && !before.Tests.Passed {
-		comparison.ImprovementSummary = "After implementation passed correctness tests while before failed"
-	} else if after.Tests.Passed && before.Tests.Passed {
-		comparison.ImprovementSummary = "Both implementations passed tests, but after fixes goroutine leaks"
-	} else if !after.Tests.Passed {
-		comparison.ImprovementSummary = "After implementation failed tests - needs review"
+	// Load instance configuration
+	config, err := loadInstanceConfig()
+	if err != nil {
+		errMsg := err.Error()
+		errStr = &errMsg
+		before = RepoResult{
+			Tests:   TestResult{Passed: false, ReturnCode: -1, Output: err.Error()},
+			Metrics: make(map[string]interface{}),
+		}
+		after = RepoResult{
+			Tests:   TestResult{Passed: false, ReturnCode: -1, Output: err.Error()},
+			Metrics: make(map[string]interface{}),
+		}
+		comparison = Comparison{
+			PassedGate:         false,
+			ImprovementSummary: "Failed to load instance configuration",
+		}
 	} else {
-		comparison.ImprovementSummary = "Before passed but after failed - regression detected"
-	}
+		before = evaluate("repository_before")
+		after = evaluate("repository_after")
 
-	comparison.PassedGate = after.Tests.Passed
+		// Verify test requirements from instance.json
+		requirementsMet, reqSummary := verifyTestRequirements(before, after, config)
+
+		// Determine improvement summary
+		if after.Tests.Passed && !before.Tests.Passed {
+			comparison.ImprovementSummary = "After implementation passed correctness tests while before failed"
+		} else if after.Tests.Passed && before.Tests.Passed {
+			comparison.ImprovementSummary = "Both implementations passed tests, but after fixes goroutine leaks"
+		} else if !after.Tests.Passed {
+			comparison.ImprovementSummary = "After implementation failed tests - needs review"
+		} else {
+			comparison.ImprovementSummary = "Before passed but after failed - regression detected"
+		}
+
+		if !requirementsMet {
+			comparison.ImprovementSummary += ". " + reqSummary
+		}
+
+		// Success rule: after.tests.passed == true
+		comparison.PassedGate = after.Tests.Passed && requirementsMet
+	}
 
 	end := time.Now().UTC()
 
@@ -236,8 +396,16 @@ func main() {
 	os.MkdirAll(reportDir, 0755)
 
 	reportPath := filepath.Join(reportDir, "report.json")
-	reportJSON, _ := json.MarshalIndent(report, "", "  ")
-	os.WriteFile(reportPath, reportJSON, 0644)
+	reportJSON, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to marshal report: %v\n", err)
+		os.Exit(1)
+	}
+	
+	if err := os.WriteFile(reportPath, reportJSON, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write report: %v\n", err)
+		os.Exit(1)
+	}
 
 	fmt.Printf("Report written to %s\n", reportPath)
 
@@ -245,6 +413,7 @@ func main() {
 	fmt.Printf("Before tests passed: %v\n", report.Before.Tests.Passed)
 	fmt.Printf("After tests passed: %v\n", report.After.Tests.Passed)
 	fmt.Printf("Success: %v\n", report.Success)
+	fmt.Printf("Improvement Summary: %s\n", report.Comparison.ImprovementSummary)
 	if report.Error != nil {
 		fmt.Printf("Error: %s\n", *report.Error)
 	}
@@ -252,4 +421,5 @@ func main() {
 	if !report.Success {
 		os.Exit(1)
 	}
+	os.Exit(0)
 }
