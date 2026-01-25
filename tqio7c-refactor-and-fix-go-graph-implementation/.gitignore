@@ -19,3 +19,6 @@ evaluation/reports/
 
 # OS
 .DS_Store
+
+# Build configuration
+buildspec.yml

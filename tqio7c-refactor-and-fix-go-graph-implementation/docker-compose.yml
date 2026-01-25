@@ -5,16 +5,16 @@ services:
     build: .
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    command: python evaluation/evaluation.py
+    command: go run evaluation/evaluation.go
 
   test-before:
     build: .
     environment:
       - TEST_REPO_PATH=/app/repository_before
-    command: python tests/test_before.py
+    command: go run tests/test_before.go
 
   test-after:
     build: .
     environment:
       - TEST_REPO_PATH=/app/repository_after
-    command: python tests/test_after.py
+    command: go run tests/test_after.go

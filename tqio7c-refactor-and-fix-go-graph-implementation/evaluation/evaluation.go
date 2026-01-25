@@ -6,7 +6,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
+)
+
+const (
+	REPO_BEFORE = "repository_before"
+	REPO_AFTER  = "repository_after"
 )
 
 type TestResult struct {
@@ -21,229 +28,347 @@ type TestSuiteResult struct {
 	Failed int          `json:"failed"`
 	Total  int          `json:"total"`
 	Success bool        `json:"success"`
+	Output string       `json:"output,omitempty"`
+}
+
+type StructureMetrics struct {
+	TotalFiles              int  `json:"total_files"`
+	GraphFiles              int  `json:"graph_files"`
+	HasGraphImplementation bool `json:"has_graph_implementation"`
+	GraphLines              int  `json:"graph_lines"`
+}
+
+type TestResults struct {
+	Success bool   `json:"success"`
+	Passed  int    `json:"passed"`
+	Failed  int    `json:"failed"`
+	Total   int    `json:"total"`
+	Output  string `json:"output,omitempty"`
+	Tests   []TestResult `json:"tests,omitempty"`
 }
 
 type EvaluationReport struct {
 	RunID      string    `json:"run_id"`
 	StartedAt  string    `json:"started_at"`
 	FinishedAt string    `json:"finished_at"`
-	DurationSeconds float64 `json:"duration_seconds"`
-	Before     BeforeResult `json:"before"`
-	After      AfterResult  `json:"after"`
-	Comparison ComparisonResult `json:"comparison"`
+	Environment EnvironmentInfo `json:"environment"`
+	Before     BeforeAfterData `json:"before"`
+	After      BeforeAfterData `json:"after"`
+	Comparison ComparisonData  `json:"comparison"`
 	Success    bool      `json:"success"`
-	Error      *string   `json:"error"`
 }
 
-type BeforeResult struct {
-	TestsPassed        bool `json:"tests_passed"`
-	ViolationsDetected bool `json:"violations_detected"`
-	Tests              TestStats `json:"tests"`
+type EnvironmentInfo struct {
+	GoVersion string `json:"go_version"`
+	Platform  string `json:"platform"`
 }
 
-type AfterResult struct {
-	TestsPassed        bool `json:"tests_passed"`
-	ThroughputVerified bool `json:"throughput_verified"`
-	TimeoutsVerified   bool `json:"timeouts_verified"`
-	ConcurrencyVerified bool `json:"concurrency_verified"`
-	Tests              TestStats `json:"tests"`
+type BeforeAfterData struct {
+	Metrics StructureMetrics `json:"metrics"`
+	Tests   TestResults      `json:"tests"`
 }
 
-type TestStats struct {
-	Passed  int  `json:"passed"`
-	Failed  int  `json:"failed"`
-	Total   int  `json:"total"`
-	Success bool `json:"success"`
+type ComparisonData struct {
+	FailToPass            []string `json:"fail_to_pass"`
+	TestsFixed            int      `json:"tests_fixed"`
+	TestsImproved         int      `json:"tests_improved"`
+	StructureImproved     bool     `json:"structure_improved"`
+	GraphImplementationExists bool `json:"graph_implementation_exists"`
 }
 
-type ComparisonResult struct {
-	FailToPass []string `json:"fail_to_pass"`
-	TestsFixed int      `json:"tests_fixed"`
-	PassedGate bool     `json:"passed_gate"`
-	ImprovementSummary string `json:"improvement_summary"`
-}
+func runTests(repoPath, repoName, baseDir string) TestResults {
+	fmt.Printf("\n%s\n", strings.Repeat("=", 60))
+	fmt.Printf("Running tests on %s\n", repoName)
+	fmt.Println(strings.Repeat("=", 60))
 
-func loadTestResults(filename string) (*TestSuiteResult, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
+	var output string
+	passed := 0
+	failed := 0
+	total := 0
+
+	// Set environment variable to tell tests which repo to check
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("TEST_REPO_PATH=%s", repoPath))
+
+	// Run the appropriate test file
+	var testFile string
+	if strings.Contains(strings.ToLower(repoName), "before") {
+		testFile = filepath.Join(baseDir, "tests", "test_before.go")
+	} else {
+		testFile = filepath.Join(baseDir, "tests", "test_after.go")
 	}
 
-	var result TestSuiteResult
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, err
-	}
-
-	return &result, nil
-}
-
-func runTests(testFile string) error {
 	cmd := exec.Command("go", "run", testFile)
-	cmd.Dir = "/app"
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	cmd.Dir = baseDir
+	cmd.Env = env
+	outputBytes, err := cmd.CombinedOutput()
+	output = string(outputBytes)
+
+	if err != nil {
+		// Exit errors are expected for test failures
+		if _, ok := err.(*exec.ExitError); !ok {
+			output = fmt.Sprintf("Error running tests: %v\n%s", err, output)
+		}
+	}
+
+	fmt.Println(output)
+
+	// Parse results from JSON file
+	var resultsFile string
+	if strings.Contains(strings.ToLower(repoName), "before") {
+		resultsFile = filepath.Join(baseDir, "tests", "test_before_results.json")
+	} else {
+		resultsFile = filepath.Join(baseDir, "tests", "test_after_results.json")
+	}
+
+	var testResults TestSuiteResult
+	if data, err := os.ReadFile(resultsFile); err == nil {
+		json.Unmarshal(data, &testResults)
+		passed = testResults.Passed
+		failed = testResults.Failed
+		total = testResults.Total
+	}
+
+	fmt.Printf("\nParsed results: %d passed, %d failed, %d total\n", passed, failed, total)
+
+	return TestResults{
+		Success: failed == 0 && passed > 0,
+		Passed:  passed,
+		Failed:  failed,
+		Total:   total,
+		Output:  output,
+		Tests:   testResults.Tests,
+	}
 }
 
-func findFailToPassTests(before, after *TestSuiteResult) []string {
+func analyzeStructure(repoPath string) StructureMetrics {
+	metrics := StructureMetrics{
+		TotalFiles:              0,
+		GraphFiles:              0,
+		HasGraphImplementation: false,
+		GraphLines:              0,
+	}
+
+	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
+		return metrics
+	}
+
+	// Check for Go graph implementation files
+	graphFile := filepath.Join(repoPath, "graph_Implementation.go")
+	if _, err := os.Stat(graphFile); err == nil {
+		metrics.HasGraphImplementation = true
+		metrics.GraphFiles = 1
+
+		// Count lines
+		if data, err := os.ReadFile(graphFile); err == nil {
+			lines := strings.Split(string(data), "\n")
+			metrics.GraphLines = len(lines)
+		}
+	}
+
+	metrics.TotalFiles = metrics.GraphFiles
+
+	return metrics
+}
+
+func generateReport(beforeResults, afterResults TestResults, beforeMetrics, afterMetrics StructureMetrics, baseDir string) map[string]interface{} {
+	now := time.Now()
+	dateStr := now.Format("2006-01-02")
+	timeStr := now.Format("15-04-05")
+
+	reportDir := filepath.Join(baseDir, "evaluation", "reports", dateStr, timeStr)
+	os.MkdirAll(reportDir, 0755)
+
+	// Find fail-to-pass tests
+	failToPass := []string{}
 	beforeMap := make(map[string]bool)
-	for _, test := range before.Tests {
+	for _, test := range beforeResults.Tests {
 		beforeMap[test.Name] = test.Passed
 	}
-
 	afterMap := make(map[string]bool)
-	for _, test := range after.Tests {
+	for _, test := range afterResults.Tests {
 		afterMap[test.Name] = test.Passed
 	}
 
-	var failToPass []string
 	for testName, beforePassed := range beforeMap {
-		afterPassed, exists := afterMap[testName]
-		if exists && !beforePassed && afterPassed {
+		if afterPassed, exists := afterMap[testName]; exists && !beforePassed && afterPassed {
 			failToPass = append(failToPass, testName)
 		}
 	}
 
-	return failToPass
-}
+	// Get Go version
+	goVersion := runtime.Version()
+	platform := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
 
-func generateReport(beforeFile, afterFile string) (*EvaluationReport, error) {
-	startedAt := time.Now()
-
-	// Run test-before
-	fmt.Println("Running test-before...")
-	if err := runTests("tests/test_before.go"); err != nil {
-		// Check if it's an exit error (expected for test failures) vs actual execution error
-		if _, ok := err.(*exec.ExitError); !ok {
-			// Only warn on actual execution errors (e.g., command not found), not expected exit codes
-			fmt.Printf("Warning: test-before execution error: %v\n", err)
-		}
-		// Exit status 1 from test-before is expected (buggy implementation fails tests)
-	}
-
-	// Run test-after
-	fmt.Println("Running test-after...")
-	if err := runTests("tests/test_after.go"); err != nil {
-		// Check if it's an exit error (expected for test failures) vs actual execution error
-		if _, ok := err.(*exec.ExitError); !ok {
-			// Only warn on actual execution errors (e.g., command not found), not expected exit codes
-			fmt.Printf("Warning: test-after execution error: %v\n", err)
-		}
-		// Exit status 1 from test-after would indicate test failures
-	}
-
-	// Load results
-	beforeResults, err := loadTestResults(beforeFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load before results: %w", err)
-	}
-
-	afterResults, err := loadTestResults(afterFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load after results: %w", err)
-	}
-
-	failToPass := findFailToPassTests(beforeResults, afterResults)
-	finishedAt := time.Now()
-	duration := finishedAt.Sub(startedAt).Seconds()
-
-	passedGate := afterResults.Success
-	improvementSummary := "After implementation passed correctness tests"
-	if !passedGate {
-		improvementSummary = "After implementation failed correctness tests"
-	}
-
-	report := &EvaluationReport{
-		RunID:      fmt.Sprintf("run_%d", startedAt.Unix()),
-		StartedAt:  startedAt.Format(time.RFC3339),
-		FinishedAt: finishedAt.Format(time.RFC3339),
-		DurationSeconds: duration,
-		Before: BeforeResult{
-			TestsPassed:        beforeResults.Success,
-			ViolationsDetected: !beforeResults.Success,
-			Tests: TestStats{
-				Passed:  beforeResults.Passed,
-				Failed:  beforeResults.Failed,
-				Total:   beforeResults.Total,
-				Success: beforeResults.Success,
+	report := map[string]interface{}{
+		"run_id": fmt.Sprintf("%d-%x", now.Unix(), []byte{byte(now.Nanosecond() % 256)}),
+		"started_at":  now.Format(time.RFC3339),
+		"finished_at": time.Now().Format(time.RFC3339),
+		"environment": map[string]interface{}{
+			"go_version": goVersion,
+			"platform":   platform,
+		},
+		"before": map[string]interface{}{
+			"metrics": beforeMetrics,
+			"tests": map[string]interface{}{
+				"passed":  beforeResults.Passed,
+				"failed":  beforeResults.Failed,
+				"total":   beforeResults.Total,
+				"success": beforeResults.Success,
 			},
 		},
-		After: AfterResult{
-			TestsPassed:        afterResults.Success,
-			ThroughputVerified: afterResults.Success,
-			TimeoutsVerified:   afterResults.Success,
-			ConcurrencyVerified: afterResults.Success,
-			Tests: TestStats{
-				Passed:  afterResults.Passed,
-				Failed:  afterResults.Failed,
-				Total:   afterResults.Total,
-				Success: afterResults.Success,
+		"after": map[string]interface{}{
+			"metrics": afterMetrics,
+			"tests": map[string]interface{}{
+				"passed":  afterResults.Passed,
+				"failed":  afterResults.Failed,
+				"total":   afterResults.Total,
+				"success": afterResults.Success,
 			},
 		},
-		Comparison: ComparisonResult{
-			FailToPass: failToPass,
-			TestsFixed: len(failToPass),
-			PassedGate: passedGate,
-			ImprovementSummary: improvementSummary,
+		"comparison": map[string]interface{}{
+			"fail_to_pass":              failToPass,
+			"tests_fixed":               len(failToPass),
+			"tests_improved":            afterResults.Passed - beforeResults.Passed,
+			"structure_improved":        !beforeMetrics.HasGraphImplementation && afterMetrics.HasGraphImplementation,
+			"graph_implementation_exists": afterMetrics.HasGraphImplementation,
 		},
-		Success: passedGate,
-		Error: nil,
+		"success": !beforeResults.Success && afterResults.Success,
 	}
 
-	return report, nil
+	reportPath := filepath.Join(reportDir, "report.json")
+	data, _ := json.MarshalIndent(report, "", "  ")
+	os.WriteFile(reportPath, data, 0644)
+
+	// Also write to latest.json
+	latestPath := filepath.Join(baseDir, "evaluation", "reports", "latest.json")
+	os.WriteFile(latestPath, data, 0644)
+
+	return map[string]interface{}{
+		"report":     report,
+		"report_path": reportPath,
+	}
 }
 
 func main() {
-	baseDir := "/app"
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println("Go Graph Implementation Refactor Evaluation")
+	fmt.Println(strings.Repeat("=", 60))
+
+	baseDir := "."
 	if len(os.Args) > 1 {
 		baseDir = os.Args[1]
 	}
 
-	beforeFile := filepath.Join(baseDir, "tests", "test_before_results.json")
-	afterFile := filepath.Join(baseDir, "tests", "test_after_results.json")
+	repoBefore := filepath.Join(baseDir, REPO_BEFORE)
+	repoAfter := filepath.Join(baseDir, REPO_AFTER)
 
-	report, err := generateReport(beforeFile, afterFile)
-	if err != nil {
-		errorMsg := err.Error()
-		report = &EvaluationReport{
-			RunID:      fmt.Sprintf("run_%d", time.Now().Unix()),
-			StartedAt:  time.Now().Format(time.RFC3339),
-			FinishedAt: time.Now().Format(time.RFC3339),
-			DurationSeconds: 0,
-			Success: false,
-			Error: &errorMsg,
+	// Analyze structures
+	fmt.Println("\n[1/5] Analyzing repository_before structure...")
+	beforeMetrics := analyzeStructure(repoBefore)
+	fmt.Printf("  - Graph implementation: %v\n", beforeMetrics.HasGraphImplementation)
+	fmt.Printf("  - Graph lines: %d\n", beforeMetrics.GraphLines)
+	fmt.Printf("  - Total files: %d\n", beforeMetrics.TotalFiles)
+
+	fmt.Println("\n[2/5] Analyzing repository_after structure...")
+	afterMetrics := analyzeStructure(repoAfter)
+	fmt.Printf("  - Graph implementation: %v\n", afterMetrics.HasGraphImplementation)
+	fmt.Printf("  - Graph lines: %d\n", afterMetrics.GraphLines)
+	fmt.Printf("  - Total files: %d\n", afterMetrics.TotalFiles)
+
+	// Run tests on before (should fail)
+	fmt.Println("\n[3/5] Running tests on repository_before (expected to FAIL)...")
+	beforeTestOutput := runTests(repoBefore, "repository_before", baseDir)
+
+	// Load before results from JSON
+	beforeResultsFile := filepath.Join(baseDir, "tests", "test_before_results.json")
+	beforeResults := beforeTestOutput
+	if data, err := os.ReadFile(beforeResultsFile); err == nil {
+		var testSuite TestSuiteResult
+		if err := json.Unmarshal(data, &testSuite); err == nil {
+			beforeResults = TestResults{
+				Success: testSuite.Success,
+				Passed:  testSuite.Passed,
+				Failed:  testSuite.Failed,
+				Total:   testSuite.Total,
+				Output:  beforeTestOutput.Output,
+				Tests:   testSuite.Tests,
+			}
 		}
 	}
 
-	reportsDir := filepath.Join(baseDir, "evaluation", "reports")
-	if err := os.MkdirAll(reportsDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating report directory: %v\n", err)
-		os.Exit(1)
+	fmt.Printf("  ✗ Passed: %d\n", beforeResults.Passed)
+	fmt.Printf("  ✗ Failed: %d\n", beforeResults.Failed)
+	fmt.Printf("  ✗ Total: %d\n", beforeResults.Total)
+	fmt.Printf("  ✗ Success: %v\n", beforeResults.Success)
+
+	// Run tests on after (should pass)
+	fmt.Println("\n[4/5] Running tests on repository_after (expected to PASS)...")
+	afterTestOutput := runTests(repoAfter, "repository_after", baseDir)
+
+	// Load after results from JSON
+	afterResultsFile := filepath.Join(baseDir, "tests", "test_after_results.json")
+	afterResults := afterTestOutput
+	if data, err := os.ReadFile(afterResultsFile); err == nil {
+		var testSuite TestSuiteResult
+		if err := json.Unmarshal(data, &testSuite); err == nil {
+			afterResults = TestResults{
+				Success: testSuite.Success,
+				Passed:  testSuite.Passed,
+				Failed:  testSuite.Failed,
+				Total:   testSuite.Total,
+				Output:  afterTestOutput.Output,
+				Tests:   testSuite.Tests,
+			}
+		}
 	}
 
-	reportFile := filepath.Join(reportsDir, "latest.json")
-	data, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error marshaling report: %v\n", err)
-		os.Exit(1)
-	}
+	fmt.Printf("  ✓ Passed: %d\n", afterResults.Passed)
+	fmt.Printf("  ✓ Failed: %d\n", afterResults.Failed)
+	fmt.Printf("  ✓ Total: %d\n", afterResults.Total)
+	fmt.Printf("  ✓ Success: %v\n", afterResults.Success)
 
-	if err := os.WriteFile(reportFile, data, 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
-		os.Exit(1)
-	}
+	// Generate report
+	fmt.Println("\n[5/5] Generating report...")
+	result := generateReport(beforeResults, afterResults, beforeMetrics, afterMetrics, baseDir)
+	report := result["report"].(map[string]interface{})
+	reportPath := result["report_path"].(string)
 
-	fmt.Printf("Report written to %s\n", reportFile)
-	if report.Success {
-		fmt.Println("Evaluation succeeded")
+	// Print summary
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("Evaluation Complete")
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Printf("\nOverall Success: %v\n", report["success"])
+
+	beforeData := report["before"].(map[string]interface{})
+	beforeTests := beforeData["tests"].(map[string]interface{})
+	fmt.Printf("\nBefore (Buggy Implementation):\n")
+	fmt.Printf("  - Tests Passed: %v/%v\n", beforeTests["passed"], beforeTests["total"])
+	fmt.Printf("  - Tests Failed: %v/%v\n", beforeTests["failed"], beforeTests["total"])
+	beforeMetricsData := beforeMetrics
+	fmt.Printf("  - Has Graph Implementation: %v\n", beforeMetricsData.HasGraphImplementation)
+
+	afterData := report["after"].(map[string]interface{})
+	afterTests := afterData["tests"].(map[string]interface{})
+	fmt.Printf("\nAfter (Fixed Implementation):\n")
+	fmt.Printf("  - Tests Passed: %v/%v\n", afterTests["passed"], afterTests["total"])
+	fmt.Printf("  - Tests Failed: %v/%v\n", afterTests["failed"], afterTests["total"])
+	afterMetricsData := afterMetrics
+	fmt.Printf("  - Has Graph Implementation: %v\n", afterMetricsData.HasGraphImplementation)
+
+	comparisonData := report["comparison"].(map[string]interface{})
+	fmt.Printf("\nImprovements:\n")
+	fmt.Printf("  - Tests fixed: %v\n", comparisonData["tests_fixed"])
+	fmt.Printf("  - Tests improved: %v\n", comparisonData["tests_improved"])
+	fmt.Printf("  - Structure improved: %v\n", comparisonData["structure_improved"])
+	fmt.Printf("  - Graph implementation exists: %v\n", comparisonData["graph_implementation_exists"])
+
+	fmt.Printf("\nReport saved to: %s\n", reportPath)
+
+	success, _ := report["success"].(bool)
+	if success {
+		os.Exit(0)
 	} else {
-		fmt.Println("Evaluation failed")
-	}
-
-	if report.Error != nil {
-		os.Exit(1)
-	}
-	if !report.Success {
 		os.Exit(1)
 	}
 }
