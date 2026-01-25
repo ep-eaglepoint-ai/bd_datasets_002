@@ -8,24 +8,55 @@ function assert(condition, message) {
 }
 
 // Validate test coverage
-const appJsPath = path.join(__dirname, '../repository_after/kanban/app.js');
-if (!fs.existsSync(appJsPath)) {
-  throw new Error(`App file not found: ${appJsPath}`);
+// Check for refactored component structure
+const kanbanDir = path.join(__dirname, '../repository_after/kanban');
+const jsDir = path.join(kanbanDir, 'js');
+
+// Check if refactored structure exists (js/ directory)
+let appContent = '';
+if (fs.existsSync(jsDir)) {
+  // Refactored structure: read all component files
+  const componentFiles = [
+    'state.js',
+    'taskOperations.js',
+    'renderer.js',
+    'modal.js',
+    'taskEditing.js',
+    'dragDrop.js',
+    'app.js'
+  ];
+  
+  for (const file of componentFiles) {
+    const filePath = path.join(jsDir, file);
+    if (fs.existsSync(filePath)) {
+      appContent += fs.readFileSync(filePath, 'utf-8') + '\n';
+    }
+  }
+} else {
+  // Fallback to old structure
+  const appJsPath = path.join(kanbanDir, 'app.js');
+  if (!fs.existsSync(appJsPath)) {
+    throw new Error(`App file not found: ${appJsPath} and js/ directory not found`);
+  }
+  appContent = fs.readFileSync(appJsPath, 'utf-8');
 }
 
-const appContent = fs.readFileSync(appJsPath, 'utf-8');
-
-// Extract function names from app.js
-const functionRegex = /function\s+(\w+)\s*\(/g;
+// Extract function names from all component files
+// Look for both function declarations and export statements
+const functionRegex = /(?:function\s+(\w+)|export\s+function\s+(\w+)|export\s+{\s*(\w+))/g;
 const functions = [];
 let match;
 
 while ((match = functionRegex.exec(appContent)) !== null) {
-  const funcName = match[1];
-  // Skip internal/helper functions
-  if (!['setupEventListeners', 'setupTaskEvents', 'getColumnFromElement', 
-        'getDragAfterElement', 'escapeHtml', 'createTaskHTML'].includes(funcName)) {
-    functions.push(funcName);
+  const funcName = match[1] || match[2] || match[3];
+  if (funcName) {
+    // Skip internal/helper functions
+    if (!['setupEventListeners', 'setupTaskEvents', 'setupTaskEventsHandler', 
+          'getColumnFromElement', 'getDragAfterElement', 'escapeHtml', 
+          'createTaskHTML', 'setSetupTaskEvents', 'setActiveColumnForModal',
+          'getActiveColumnForModal', 'setupModalListeners', 'setupDragDropListeners'].includes(funcName)) {
+      functions.push(funcName);
+    }
   }
 }
 
