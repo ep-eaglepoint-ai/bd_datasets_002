@@ -13,7 +13,7 @@
     "test:comprehensive": "npm run test:all && npm run test:validate && npm run test:meta",
     "test:quick": "node test_attendance_store.js",
     "test:coverage": "echo 'Running comprehensive test coverage...' && npm run test:comprehensive",
-    "evaluate": "npm run test:comprehensive",
+    "evaluate": "node ../evaluation/evaluation.js",
     "start": "node run_all_tests.js"
   },
   "dependencies": {},
