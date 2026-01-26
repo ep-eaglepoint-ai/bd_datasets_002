@@ -1,0 +1,11 @@
+{
+            "instance_id": "CZSP6L",
+            "problem_statement": "In a Python service that processes large newline-delimited JSON event streams to generate per-customer analytics, the current implementation becomes slow and memory-intensive at realistic production scale due to eager parsing, excessive in-memory aggregation, and per-customer sorting. A solution is required that improves runtime efficiency and reduces memory consumption while producing exactly the same output structure, values, and observable behavior. The optimized implementation must correctly handle malformed input, preserve all filtering, aggregation, rounding, and tie-breaking semantics, scale to millions of events and hundreds of thousands of customers, and remain deterministic, thread-safe, and fully compatible with the existing function signature and standard-library-only environment.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/czsp6l-unit-tests-for-payment-processing-service",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
