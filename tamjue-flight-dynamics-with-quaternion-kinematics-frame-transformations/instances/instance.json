@@ -1,0 +1,11 @@
+{
+            "instance_id": "TAMJUE",
+            "problem_statement": "The main engineering challenge is handling different coordinate systems and keeping the physics simulation numerically stable without external math libraries. Thrust is calculated in the aircraft’s local body frame, while gravity acts in the global world frame. If you don’t correctly rotate forces from local space to world space using quaternions, the aircraft will accelerate in physically wrong directions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tamjue-flight-dynamics-with-quaternion-kinematics-frame-transformations",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
