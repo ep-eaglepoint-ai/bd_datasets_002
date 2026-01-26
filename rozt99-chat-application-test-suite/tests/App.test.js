@@ -6,10 +6,7 @@ import {
   act,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import App from "../App";
-
-// Mock scrollIntoView
-Element.prototype.scrollIntoView = jest.fn();
+import App from "./App";
 
 describe("Chat Application Test Suite", () => {
   beforeEach(() => {
