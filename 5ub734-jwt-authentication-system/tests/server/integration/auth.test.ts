@@ -12,26 +12,6 @@ describe("Backend Integration: Auth Controller", () => {
   });
 
   describe("POST /api/auth/login", () => {
-    // it("returns 200 and token on success", async () => {
-    //   const mockUser = {
-    //     id: "uuid-123",
-    //     email: "test@example.com",
-    //     password_hash: await bcrypt.hash("password123", 10),
-    //     role: "user",
-    //   };
-
-    //   (db.query as jest.Mock)
-    //     .mockResolvedValueOnce({ rowCount: 1, rows: [mockUser] }) // Find User
-    //     .mockResolvedValueOnce({ rowCount: 1, rows: [] }); // Save Token
-
-    //   const res = await request(app)
-    //     .post("/api/auth/login")
-    //     .send({ email: "test@example.com", password: "password123" });
-
-    //   expect(res.status).toBe(200);
-    //   expect(res.body).toHaveProperty("accessToken");
-    //   expect(res.headers["set-cookie"]).toBeDefined();
-    // });
 
     it("returns 200 and token on success", async () => {
       const mockUser = {
