@@ -1,5 +1,6 @@
-FROM python:3.11-slim
+FROM node:20-slim
 WORKDIR /app
+COPY repository_after/package.json repository_after/package-lock.json* ./repository_after/
+RUN cd repository_after && npm install
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+CMD ["node", "evaluation/evaluate.js"]
