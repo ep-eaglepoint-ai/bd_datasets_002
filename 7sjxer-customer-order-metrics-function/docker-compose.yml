@@ -1,6 +1,59 @@
 services:
-  app:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test-before:
     build: .
-    command: pytest -q tests
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: testdb
+      PGUSER: postgres
+      PGPASSWORD: postgres
     volumes:
       - .:/app
+    command: python3 tests/test_before.py
+
+  test-after:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: testdb
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    volumes:
+      - .:/app
+    command: python3 tests/test_after.py
+
+  evaluation:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: testdb
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    volumes:
+      - .:/app
+    command: python3 evaluation/evaluation.py
