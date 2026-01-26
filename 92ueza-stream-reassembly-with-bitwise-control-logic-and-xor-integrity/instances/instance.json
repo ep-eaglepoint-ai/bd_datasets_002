@@ -1,0 +1,11 @@
+{
+            "instance_id": "92UEZA",
+            "problem_statement": "In embedded networking, data is a continuous stream, not discrete packets. A major failure mode for mid-tier AI is treating the input of a socket read as a single, complete message. The problem requires a "Holding Buffer" pattern: data is appended to a buffer, and a loop repeatedly checks if enough bytes exist to parse a header, then the length, then the payload. If not, it waits for more data. This requires managing an internal cursor or slicing bytes. Additionally, the protocol involves mixed-type decoding based on a bit-flag (MSB of a byte) and a custom XOR checksum, which tests the model's ability to manipulate binary data beyond simple text parsing",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/92ueza-stream-reassembly-with-bitwise-control-logic-and-xor-integrity",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
