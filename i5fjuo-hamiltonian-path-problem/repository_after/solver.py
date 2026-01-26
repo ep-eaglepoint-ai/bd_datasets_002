@@ -1,4 +1,3 @@
-"""Hamiltonian path/cycle solver: backtracking + degree pruning, Warnsdorff (Req 2–5)."""
 
 from __future__ import annotations
 
@@ -72,6 +71,52 @@ def _warnsdorff_order(g: Graph, v: int, unvisited: set[int]) -> list[int]:
     return [w for w, _ in cand]
 
 
+def _is_remaining_graph_disconnected(g: Graph, current: int, unvisited: set[int]) -> bool:
+    """
+    Connectivity pruning: Check if remaining unvisited vertices form a 
+    disconnected component that cannot be reached from current vertex.
+    Returns True if we should prune (disconnected and unreachable).
+    """
+    if not unvisited:
+        return False
+    
+    # Check if we can reach all unvisited vertices from current
+    reachable = set()
+    queue = [current]
+    
+    while queue:
+        u = queue.pop(0)
+        for v, _ in g.neighbors(u):
+            if v in unvisited and v not in reachable:
+                reachable.add(v)
+                queue.append(v)
+    
+    # If we can't reach all unvisited vertices, prune
+    if reachable != unvisited:
+        return True
+    
+    # Check if unvisited vertices themselves form a connected component
+    if len(unvisited) > 1:
+        start = next(iter(unvisited))
+        component = {start}
+        queue = [start]
+        
+        while queue:
+            u = queue.pop(0)
+            for v, _ in g.neighbors(u):
+                if v in unvisited and v not in component:
+                    component.add(v)
+                    if not g.directed:
+                        queue.append(v)
+                    else:
+                        queue.append(v)
+        
+        if component != unvisited:
+            return True
+    
+    return False
+
+
 def _backtrack_one(
     g: Graph,
     path: list[int],
@@ -84,7 +129,7 @@ def _backtrack_one(
     is_cycle: bool,
 ) -> None:
     """
-    Backtracking core. Uses degree pruning, connectivity (implied), Warnsdorff ordering.
+    Backtracking core. Uses degree pruning, connectivity checks, Warnsdorff ordering.
     """
     n = g.n
     current = path[-1]
@@ -110,7 +155,12 @@ def _backtrack_one(
     if rem == 1:
         final_ok = next(iter(unvisited))
 
-    if not g.directed and _has_zero_connections_to_unvisited(g, unvisited, final_ok):
+    if _has_zero_connections_to_unvisited(g, unvisited, final_ok):
+        unvisited.add(current)
+        return
+
+    # Connectivity pruning: check if remaining graph is disconnected
+    if _is_remaining_graph_disconnected(g, current, unvisited):
         unvisited.add(current)
         return
 
