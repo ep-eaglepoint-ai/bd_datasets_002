@@ -91,8 +91,17 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
             test_result["output"] = f"Failed to prepare test environment: {str(e)}"
             return test_result
         
-        # Run Maven clean test
-        cmd = ["mvn", "clean", "test"]
+        # Run Maven clean test with flags to keep console verbose and ignore failures
+        # We'll determine pass/fail from the Surefire reports instead of return code
+        cmd = [
+            "mvn",
+            "-Dmaven.test.failure.ignore=true",
+            "-Dsurefire.useFile=false",
+            "-DredirectTestOutputToFile=false",
+            "-DtrimStackTrace=false",
+            "clean",
+            "test"
+        ]
         
         try:
             result = subprocess.run(
@@ -100,12 +109,11 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
                 cwd=temp_repo,
                 capture_output=True,
                 text=True,
-                timeout=120
+                timeout=240
             )
             
             output = result.stdout + result.stderr
             test_result["return_code"] = result.returncode
-            test_result["passed"] = result.returncode == 0
             
             # Truncate output if too long
             if len(output) > 20000:
@@ -113,9 +121,19 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
             
             test_result["output"] = output
             
-            # Parse Maven test output
-            stats = parse_maven_output(output)
+            # Prefer parsing Surefire XML reports for robust stats
+            stats = parse_surefire_reports(temp_repo / "target" / "surefire-reports")
+            # Fallback to console parsing if XML not found
+            if stats["tests_run"] == 0:
+                stats = parse_maven_output(output)
             test_result.update(stats)
+
+            # Compute pass/fail from stats (ignore Maven return code)
+            test_result["passed"] = (
+                test_result["tests_run"] > 0 and
+                test_result["failures"] == 0 and
+                test_result["errors"] == 0
+            )
             
         except subprocess.TimeoutExpired:
             test_result["output"] = "Test execution timed out after 120 seconds"
@@ -151,6 +169,53 @@ def parse_maven_output(output: str) -> Dict[str, int]:
             except (ValueError, IndexError):
                 pass
     
+    return stats
+
+
+def parse_surefire_reports(report_dir: Path) -> Dict[str, int]:
+    """Parse Surefire XML reports to extract test statistics."""
+    stats = {
+        "tests_run": 0,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+    }
+    try:
+        import xml.etree.ElementTree as ET
+        if not report_dir.exists():
+            return stats
+        for xml_file in report_dir.glob("TEST-*.xml"):
+            try:
+                tree = ET.parse(xml_file)
+                root = tree.getroot()
+                # JUnit XML: testsuite attributes or aggregated values
+                tests = root.attrib.get("tests")
+                failures = root.attrib.get("failures")
+                errors = root.attrib.get("errors")
+                skipped = root.attrib.get("skipped")
+                if tests is not None:
+                    stats["tests_run"] += int(tests)
+                else:
+                    # Fallback: count testcase elements
+                    stats["tests_run"] += len(root.findall(".//testcase"))
+                if failures is not None:
+                    stats["failures"] += int(failures)
+                else:
+                    stats["failures"] += len(root.findall(".//failure"))
+                if errors is not None:
+                    stats["errors"] += int(errors)
+                else:
+                    stats["errors"] += len(root.findall(".//error"))
+                if skipped is not None:
+                    stats["skipped"] += int(skipped)
+                else:
+                    stats["skipped"] += len(root.findall(".//skipped"))
+            except Exception:
+                # Ignore malformed files, continue
+                pass
+    except Exception:
+        # XML parse issues: return whatever we have
+        return stats
     return stats
 
 
