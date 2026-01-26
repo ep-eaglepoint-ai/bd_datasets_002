@@ -1,0 +1,12 @@
+{
+            "instance_id": "TF8HK5",
+            "problem_statement": "The core difficulty is the "Intercept Problem" in a real-time context. In standard web apps, time is static. In ballistics, time is a variable that affects the destination. Mid-tier models fail to recognize the circular dependency between "Time to Target" and "Target Position at Time T," often defaulting to a static snapshot calculation that results in a "tail-chase" miss. Furthermore, the integration of network latency compensation (synchronizing Date.now() with packet.timestamp) separates senior-level systems engineering from junior scripting. The logic requires extrapolating past data into the future while solving a converging series, a pattern that mid-tier models often mistake for a simple distance-over-time division.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tf8hk5-iterative-ballistic-intercept-with-latency-compensation",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
