@@ -117,4 +117,39 @@ describe("Feature Flag Orchestrator Integration Tests", () => {
       expect(error.response.status).toBe(400);
     }
   });
+  test("Requirement 4: Atomic File Persistence", async () => {
+    // 1. Get initial state
+    const getRes = await axios.get(BASE_URL);
+    const initialConfig = getRes.data;
+    const initialVersion = initialConfig.version_id;
+
+    // 2. Try to save invalid payload (e.g. invalid type)
+    const invalidPayload = {
+      version_id: initialVersion,
+      flags: [
+        ...initialConfig.flags,
+        {
+          id: randomUUID(),
+          key: "atomic_test",
+          enabled: true,
+          type: "BOOLEAN",
+          value: "not_a_boolean",
+        },
+      ],
+    };
+
+    try {
+      await axios.post(BASE_URL, invalidPayload);
+      fail("Should fail validation");
+    } catch (error: any) {
+      expect(error.response.status).toBe(400);
+    }
+
+    // 3. Verify state is unchanged
+    const getResAfter = await axios.get(BASE_URL);
+    const finalConfig = getResAfter.data;
+
+    expect(finalConfig.version_id).toBe(initialVersion);
+    expect(finalConfig.flags).toEqual(initialConfig.flags);
+  });
 });

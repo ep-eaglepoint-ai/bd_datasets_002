@@ -7,7 +7,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "jest tests/test_requirements.test.ts --verbose"
+    "test": "npm test --prefix repository_after && jest tests/test_requirements.test.ts --verbose"
   },
   "keywords": [],
   "author": "",

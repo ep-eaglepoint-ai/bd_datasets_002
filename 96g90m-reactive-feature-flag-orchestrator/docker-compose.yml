@@ -5,7 +5,6 @@ services:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
-    command: npm start
     environment:
       - NODE_ENV=production
     ports:
