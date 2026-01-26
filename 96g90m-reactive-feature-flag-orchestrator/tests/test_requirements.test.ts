@@ -2,7 +2,7 @@ import axios from "axios";
 
 import * as crypto from "crypto";
 
-const BASE_URL = "http://localhost:3000/api/flags";
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000/api/flags";
 
 // Helper to generate UUID if package not available
 const randomUUID = () => crypto.randomUUID();

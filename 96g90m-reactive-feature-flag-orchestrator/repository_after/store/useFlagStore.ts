@@ -18,6 +18,7 @@ interface FlagStoreState {
   // Actions
   fetchFlags: () => Promise<void>;
   updateFlagValue: (flagId: string, newValue: any) => void;
+  updateFlagType: (flagId: string, newType: any) => void;
   sync: () => Promise<void>;
   discard: () => void;
 }

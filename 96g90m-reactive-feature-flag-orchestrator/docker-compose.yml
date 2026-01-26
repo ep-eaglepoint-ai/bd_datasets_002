@@ -1,31 +1,29 @@
 services:
   app:
+    image: feature-flag-orchestrator
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./repository_after:/app
+    working_dir: /app/repository_after
+    command: npm start
     environment:
       - NODE_ENV=production
+    ports:
+      - "3000:3000"
 
   test:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: sh -c "cd /workspace && npm test"
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
+    image: feature-flag-orchestrator
+    depends_on:
+      - app
+    working_dir: /app
+    command: npm test
     environment:
+      - BASE_URL=http://app:3000/api/flags
       - NODE_ENV=test
 
   evaluation:
-    image: node:18-slim
-    command: sh -c "cd /workspace && npm install && node evaluation/evaluation.js"
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
+    image: feature-flag-orchestrator
+    working_dir: /app
+    command: npm run evaluation
     environment:
       - NODE_ENV=test
