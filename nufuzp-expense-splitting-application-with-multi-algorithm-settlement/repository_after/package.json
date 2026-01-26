@@ -17,6 +17,7 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@prisma/client": "^5.22.0",
     "clsx": "^2.1.1",
+    "dotenv": "^16.0.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
     "next-auth": "^5.0.0-beta.30",

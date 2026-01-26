@@ -18,6 +18,8 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
     environment:
       DATABASE_URL: "postgresql://postgres:password@db:5432/expense_splitter?schema=public"
     command: >
@@ -30,6 +32,8 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
     environment:
       DATABASE_URL: "postgresql://postgres:password@db:5432/expense_splitter?schema=public"
     command: npm run evaluate
