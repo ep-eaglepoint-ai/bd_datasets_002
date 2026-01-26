@@ -7,5 +7,22 @@ __pycache__/
 # Node
 node_modules/
 
+# Java/Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.idea/
+*.iml
+
+# Evaluation reports (keep structure, ignore generated files)
+evaluation/**/report.json
+evaluation/latest_report.json
+
+# Source directories (generated during build)
+src/
+
 # OS
 .DS_Store
