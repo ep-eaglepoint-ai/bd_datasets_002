@@ -1,0 +1,13 @@
+{
+            "instance_id": "KQTTRJ",
+            "problem_statement": "During QA testing of a blog analytics dashboard, reviewers noticed incorrect statistics being displayed. The "Top Authors" widget shows authors with 0 published posts, the "Recent Comments" section displays comments from deleted posts, and the "Category Stats" panel shows duplicate entries. 
+
+Users report that filtering by date range returns posts outside the specified period, and the "draft" filter includes published articles. The dashboard worked correctly with small datasets but issues emerged after migrating production data with 50,000+ posts. The analytics_views.py file contains the get_dashboard_stats function that aggregates data from Post, Author, Comment, and Category models.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/kqttrj-django-blog-analytics-dashboard-query-bug",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
