@@ -1,0 +1,442 @@
+diff --git a/repository_before/src/App.jsx b/repository_after/src/App.jsx
+index d98e268..75ff563 100644
+--- a/repository_before/src/App.jsx
++++ b/repository_after/src/App.jsx
+@@ -17,6 +17,10 @@ const mockAPI = (() => {
+   };
+ 
+   return {
++    reset: () => {
++      notes = [];
++      tags = {};
++    },
+     fetchNotes: (tag = null) => {
+       return new Promise(resolve => {
+         setTimeout(() => {
+@@ -79,6 +83,48 @@ const mockAPI = (() => {
+           resolve({ success: true });
+         }, 100);
+       });
++    },
++
++    importNotes: (notesToImport) => {
++      return new Promise((resolve) => {
++        setTimeout(() => {
++          const existingIds = new Set(notes.map(n => n.id));
++          const imported = [];
++          const errors = [];
++
++          const notesArray = Array.isArray(notesToImport) ? notesToImport : [notesToImport];
++
++          notesArray.forEach((note, index) => {
++            // Validate required fields
++            if (!note.title || !note.content || !note.title.trim() || !note.content.trim()) {
++              errors.push(`Note ${index + 1}: Missing required fields (title or content)`);
++              return;
++            }
++
++            // Generate new ID if duplicate
++            let noteId = note.id;
++            if (!noteId || existingIds.has(noteId)) {
++              noteId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
++            }
++
++            const now = new Date().toISOString();
++            const importedNote = {
++              id: noteId,
++              title: note.title,
++              content: note.content,
++              tags: note.tags || [],
++              createdAt: note.createdAt || now,
++              updatedAt: note.updatedAt || now
++            };
++
++            notes.push(importedNote);
++            existingIds.add(noteId);
++            imported.push(importedNote);
++          });
++
++          resolve({ imported, errors });
++        }, 100);
++      });
+     }
+   };
+ })();
+@@ -356,7 +402,36 @@ function NoteForm({ onSubmit, editingNote, onCancel }) {
+   );
+ }
+ 
+-function NoteItem({ note, onEdit, onDelete }) {
++function HighlightedText({ text, searchQuery }) {
++  if (!searchQuery || !searchQuery.trim()) {
++    return <span>{text}</span>;
++  }
++
++  const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
++  const parts = text.split(regex);
++
++  return (
++    <span>
++      {parts.map((part, index) => {
++        const isMatch = part.toLowerCase() === searchQuery.toLowerCase();
++        return (
++          <span
++            key={index}
++            style={isMatch ? {
++              backgroundColor: '#ffd54f',
++              fontWeight: '600',
++              padding: '2px 0'
++            } : {}}
++          >
++            {part}
++          </span>
++        );
++      })}
++    </span>
++  );
++}
++
++function NoteItem({ note, onEdit, onDelete, onExportJSON, onExportText, searchQuery }) {
+   const formatDate = (dateString) => {
+     const date = new Date(dateString);
+     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+@@ -417,6 +492,34 @@ function NoteItem({ note, onEdit, onDelete }) {
+           Updated: {formatDate(note.updatedAt)}
+         </small>
+         <div style={{ display: 'flex', gap: '8px' }}>
++          <button
++            onClick={() => onExportJSON(note)}
++            style={{
++              background: 'none',
++              border: 'none',
++              cursor: 'pointer',
++              padding: '6px 10px',
++              fontSize: '18px',
++              borderRadius: '6px'
++            }}
++            title="Export as JSON"
++          >
++            📥
++          </button>
++          <button
++            onClick={() => onExportText(note)}
++            style={{
++              background: 'none',
++              border: 'none',
++              cursor: 'pointer',
++              padding: '6px 10px',
++              fontSize: '18px',
++              borderRadius: '6px'
++            }}
++            title="Export as Text"
++          >
++            📄
++          </button>
+           <button
+             onClick={() => onEdit(note)}
+             style={{
+@@ -455,12 +558,138 @@ function NoteItem({ note, onEdit, onDelete }) {
+   );
+ }
+ 
++function SearchAndFilters({ searchQuery, onSearchChange, dateRange, onDateRangeChange, onImport, onExportAll, notesCount }) {
++  const handleImportClick = () => {
++    const input = document.createElement('input');
++    input.type = 'file';
++    input.accept = '.json,application/json';
++    input.onchange = (e) => {
++      const file = e.target.files[0];
++      if (file) {
++        const reader = new FileReader();
++        reader.onload = (event) => {
++          try {
++            const json = JSON.parse(event.target.result);
++            onImport(json);
++          } catch (error) {
++            alert('Error: Invalid JSON file. Please select a valid JSON file.');
++          }
++        };
++        reader.onerror = () => {
++          alert('Error: Failed to read file. Please try again.');
++        };
++        reader.readAsText(file);
++      }
++    };
++    input.click();
++  };
++
++  return (
++    <div style={{
++      background: 'white',
++      padding: '20px',
++      borderRadius: '12px',
++      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
++      marginBottom: '20px'
++    }}>
++      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
++        <div style={{ flex: '1', minWidth: '250px' }}>
++          <label style={{ display: 'block', marginBottom: '8px', color: '#555', fontWeight: '600', fontSize: '14px' }}>
++            🔍 Search Notes
++          </label>
++          <input
++            type="text"
++            value={searchQuery}
++            onChange={(e) => onSearchChange(e.target.value)}
++            placeholder="Search by title or content..."
++            style={{
++              width: '100%',
++              padding: '12px',
++              border: '2px solid #e0e0e0',
++              borderRadius: '8px',
++              fontSize: '14px',
++              fontFamily: 'inherit'
++            }}
++          />
++        </div>
++        <div style={{ flex: '0 0 200px' }}>
++          <label htmlFor="date-range-select" style={{ display: 'block', marginBottom: '8px', color: '#555', fontWeight: '600', fontSize: '14px' }}>
++            📅 Date Range
++          </label>
++          <select
++            id="date-range-select"
++            value={dateRange}
++            onChange={(e) => onDateRangeChange(e.target.value)}
++            style={{
++              width: '100%',
++              padding: '12px',
++              border: '2px solid #e0e0e0',
++              borderRadius: '8px',
++              fontSize: '14px',
++              fontFamily: 'inherit',
++              backgroundColor: 'white',
++              cursor: 'pointer'
++            }}
++          >
++            <option value="all">All Time</option>
++            <option value="today">Today</option>
++            <option value="week">This Week</option>
++            <option value="month">This Month</option>
++          </select>
++        </div>
++      </div>
++      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
++        <button
++          onClick={handleImportClick}
++          style={{
++            padding: '10px 20px',
++            border: 'none',
++            borderRadius: '8px',
++            cursor: 'pointer',
++            fontSize: '14px',
++            fontWeight: '600',
++            backgroundColor: '#27ae60',
++            color: 'white'
++          }}
++        >
++          📤 Import Notes
++        </button>
++        <button
++          onClick={onExportAll}
++          disabled={notesCount === 0}
++          style={{
++            padding: '10px 20px',
++            border: 'none',
++            borderRadius: '8px',
++            cursor: notesCount === 0 ? 'not-allowed' : 'pointer',
++            fontSize: '14px',
++            fontWeight: '600',
++            backgroundColor: notesCount === 0 ? '#95a5a6' : '#3498db',
++            color: 'white',
++            opacity: notesCount === 0 ? 0.6 : 1
++          }}
++        >
++          💾 Export All Notes
++        </button>
++      </div>
++    </div>
++  );
++}
++
+ export default function App() {
+   const [notes, setNotes] = useState([]);
+   const [tags, setTags] = useState([]);
+   const [selectedTag, setSelectedTag] = useState(null);
+   const [editingNote, setEditingNote] = useState(null);
+   const [loading, setLoading] = useState(false);
++  const [searchQuery, setSearchQuery] = useState('');
++  const [dateRange, setDateRange] = useState('all');
++
++  useEffect(() => {
++    mockAPI.reset();
++    loadNotes();
++    loadTags();
++  }, []);
+ 
+   useEffect(() => {
+     loadNotes();
+@@ -498,6 +727,104 @@ export default function App() {
+     await loadTags();
+   };
+ 
++  const handleImportNotes = async (jsonData) => {
++    try {
++      const result = await mockAPI.importNotes(jsonData);
++      
++      const message = result.imported.length > 0
++        ? `Successfully imported ${result.imported.length} note(s).${result.errors.length > 0 ? `\n\nSkipped ${result.errors.length} invalid note(s):\n${result.errors.join('\n')}` : ''}`
++        : `No notes imported.${result.errors.length > 0 ? `\n\nErrors:\n${result.errors.join('\n')}` : ''}`;
++      
++      alert(message);
++      
++      if (result.imported.length > 0) {
++        await loadNotes();
++        await loadTags();
++      }
++    } catch (error) {
++      alert('Error: Failed to import notes. Please check the JSON format and try again.');
++    }
++  };
++
++  const exportNoteAsJSON = (note) => {
++    const dataStr = JSON.stringify(note, null, 2);
++    const dataBlob = new Blob([dataStr], { type: 'application/json' });
++    const url = URL.createObjectURL(dataBlob);
++    const link = document.createElement('a');
++    link.href = url;
++    link.download = `note-${note.id}.json`;
++    link.click();
++    URL.revokeObjectURL(url);
++  };
++
++  const exportNoteAsText = (note) => {
++    const formatDate = (dateString) => {
++      const date = new Date(dateString);
++      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
++    };
++
++    const textContent = `${note.title}
++
++${note.content}
++
++Tags: ${note.tags.join(', ') || 'None'}
++
++Created: ${formatDate(note.createdAt)}
++Updated: ${formatDate(note.updatedAt)}`;
++
++    const dataBlob = new Blob([textContent], { type: 'text/plain' });
++    const url = URL.createObjectURL(dataBlob);
++    const link = document.createElement('a');
++    link.href = url;
++    link.download = `note-${note.id}.txt`;
++    link.click();
++    URL.revokeObjectURL(url);
++  };
++
++  const exportAllNotes = () => {
++    const dataStr = JSON.stringify(filteredNotes, null, 2);
++    const dataBlob = new Blob([dataStr], { type: 'application/json' });
++    const url = URL.createObjectURL(dataBlob);
++    const link = document.createElement('a');
++    link.href = url;
++    link.download = `all-notes-${new Date().toISOString().split('T')[0]}.json`;
++    link.click();
++    URL.revokeObjectURL(url);
++  };
++
++  const getDateRangeStart = (range) => {
++    const now = new Date();
++    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
++    
++    switch (range) {
++      case 'today':
++        return today;
++      case 'week':
++        const weekStart = new Date(today);
++        weekStart.setDate(today.getDate() - today.getDay());
++        return weekStart;
++      case 'month':
++        return new Date(now.getFullYear(), now.getMonth(), 1);
++      case 'all':
++      default:
++        return null;
++    }
++  };
++
++  const filteredNotes = notes.filter(note => {
++    // Search filter
++    const searchLower = searchQuery.toLowerCase().trim();
++    const matchesSearch = !searchLower || 
++      note.title.toLowerCase().includes(searchLower) || 
++      note.content.toLowerCase().includes(searchLower);
++
++    // Date range filter
++    const rangeStart = getDateRangeStart(dateRange);
++    const matchesDateRange = !rangeStart || new Date(note.updatedAt) >= rangeStart;
++
++    return matchesSearch && matchesDateRange;
++  });
++
+   return (
+     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+       <header style={{
+@@ -539,6 +866,16 @@ export default function App() {
+             editingNote={editingNote}
+             onCancel={() => setEditingNote(null)}
+           />
++
++          <SearchAndFilters
++            searchQuery={searchQuery}
++            onSearchChange={setSearchQuery}
++            dateRange={dateRange}
++            onDateRangeChange={setDateRange}
++            onImport={handleImportNotes}
++            onExportAll={exportAllNotes}
++            notesCount={filteredNotes.length}
++          />
+           
+           <div style={{
+             background: 'white',
+@@ -547,15 +884,15 @@ export default function App() {
+             boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+           }}>
+             <h2 style={{ marginBottom: '20px', color: '#2c3e50', fontSize: '20px' }}>
+-              All Notes ({notes.length})
++              All Notes ({filteredNotes.length})
+             </h2>
+             {loading ? (
+               <div style={{ textAlign: 'center', padding: '40px', color: '#666', fontSize: '18px' }}>
+                 Loading notes...
+               </div>
+-            ) : notes.length === 0 ? (
++            ) : filteredNotes.length === 0 ? (
+               <div style={{ textAlign: 'center', padding: '60px 24px', color: '#999', fontSize: '18px' }}>
+-                📝 No notes found. Create your first note to get started!
++                📝 No notes found. {notes.length > 0 ? 'Try adjusting your filters.' : 'Create your first note to get started!'}
+               </div>
+             ) : (
+               <div style={{
+@@ -563,12 +900,15 @@ export default function App() {
+                 gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                 gap: '20px'
+               }}>
+-                {notes.map(note => (
++                {filteredNotes.map(note => (
+                   <NoteItem
+                     key={note.id}
+                     note={note}
+                     onEdit={setEditingNote}
+                     onDelete={handleDeleteNote}
++                    onExportJSON={exportNoteAsJSON}
++                    onExportText={exportNoteAsText}
++                    searchQuery={searchQuery}
+                   />
+                 ))}
+               </div>
+@@ -579,7 +919,3 @@ export default function App() {
+     </div>
+   );
+ }
+-
+-
+-
+-
