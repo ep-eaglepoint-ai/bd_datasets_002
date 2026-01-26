@@ -1,11 +1,10 @@
 {
-            "instance_id": "ULLTDD",
-            "problem_statement": "Design and develop a responsive expense tracker application using Next.js that allows users to record, manage, and analyze their daily expenses by category and date, providing clear insights into total and monthly spending through a simple, intuitive interface.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ulltdd-building-a-modern-expense-tracker-using-next-js",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "ULLTDD",
+    "problem_statement": "Design and develop a responsive expense tracker application using Next.js that allows users to record, manage, and analyze their daily expenses by category and date, providing clear insights into total and monthly spending through a simple, intuitive interface.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ulltdd-building-a-modern-expense-tracker-using-next-js",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": []
+}

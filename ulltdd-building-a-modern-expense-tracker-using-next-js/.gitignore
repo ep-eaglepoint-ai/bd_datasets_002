@@ -9,3 +9,10 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Evaluation reports (generated)
+evaluation/????-??-??
+patches/*.patch
+patches/diff.patch
+
+patches/diff.patch
