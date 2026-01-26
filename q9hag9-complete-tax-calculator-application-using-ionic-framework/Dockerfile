@@ -1,5 +1,13 @@
-FROM python:3.11-slim
+FROM node:18-alpine
+
 WORKDIR /app
+
+# Copy everything
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Install dependencies
+RUN npm install
+
+# Run tests
+CMD ["npm", "test"]
+
