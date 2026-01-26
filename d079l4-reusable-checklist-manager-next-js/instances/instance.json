@@ -1,0 +1,11 @@
+{
+            "instance_id": "D079L4",
+            "problem_statement": "Teams and individuals need a way to reuse standardized checklists while tracking completion separately for each use.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/d079l4-reusable-checklist-manager-next-js",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
