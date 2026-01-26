@@ -1,5 +1,5 @@
 {
-            "instance_id": "F5WGV0",
+            "instance_id": "f5wgv0-go-distributed-rate-limiter-service-test-suite-generation",
             "problem_statement": "Noticed insufficient test coverage when reviewing a distributed rate limiter service before production deployment. The service in the ratelimiter package uses Redis for shared state and gRPC for the interface. Current tests only cover single-instance happy paths. During load testing, rate limits appeared bypassed when traffic shifted between instances, and failover behavior was inconsistent during Redis downtime. The implementation in limiter.go and grpc_server.go needs comprehensive tests covering distributed scenarios, failure modes, and race conditions before the ten-instance production deployment can proceed",
             "base_commit": "repository_before/",
             "test_patch": "tests/",

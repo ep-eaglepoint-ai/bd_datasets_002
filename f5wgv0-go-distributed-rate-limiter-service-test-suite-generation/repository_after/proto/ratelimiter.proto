@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package ratelimiter;
+
+option go_package = "github.com/example/ratelimiter/proto";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+service RateLimiterService {
+  rpc CheckRateLimit(RateLimitRequest) returns (RateLimitResponse);
+  rpc ResetRateLimit(ResetRequest) returns (ResetResponse);
+  rpc GetStatus(StatusRequest) returns (RateLimitResponse);
+}
+
+message RateLimitRequest {
+  string key = 1;
+  int64 tokens = 2;
+}
+
+message RateLimitResponse {
+  bool allowed = 1;
+  int64 remaining = 2;
+  google.protobuf.Duration retry_after = 3;
+  google.protobuf.Timestamp reset_at = 4;
+}
+
+message ResetRequest {
+  string key = 1;
+}
+
+message ResetResponse {
+  bool success = 1;
+}
+
+message StatusRequest {
+  string key = 1;
+}
+

@@ -9,3 +9,55 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+vendor/
+*.test
+*.out
+
+# Go coverage files
+coverage.out
+coverage.html
+coverage.xml
+*.coverprofile
+*.cover
+
+# Evaluation reports (JSON files in timestamped directories)
+evaluation/reports/*/
+evaluation/reports/**/*.json
+
+# Log files
+*.log
+logs/
+*.log.*
+
+# Test artifacts
+test-results/
+.testcontainers/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Docker
+.dockerignore.bak
+
+# Generated proto files (if not committed)
+# Uncomment if proto files should be regenerated
+# repository_after/proto/*.pb.go
+# repository_after/proto/*_grpc.pb.go
