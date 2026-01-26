@@ -1,0 +1,11 @@
+{
+            "instance_id": "UTKJHD",
+            "problem_statement": "A rate-limiting component relies on a key–value store to enforce fixed-window request limits and returns structured metadata about allowance, remaining capacity, and reset timing. To ensure correctness and reliability, a comprehensive set of pytest tests is required to validate the rate limiter’s behavior across key scenarios, including initial access, repeated requests within a window, limit exhaustion, and window reset logic. The tests must also verify accurate calculation of remaining tokens and reset intervals, confirm correct interactions with the underlying store (including TTL handling), and validate error handling for invalid configuration and missing keys, all without modifying production code or depending on real time or execution order.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/utkjhd-pytest-tests-for-a-rate-limiter",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
