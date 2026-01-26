@@ -1,5 +1,8 @@
 FROM node:20-slim
 
+# Note: Using standalone build for efficiency as per Requirement 10
+# STANDALONE BUILD
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     postgresql-client \

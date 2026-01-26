@@ -2,10 +2,10 @@
 
 ###Run "After" tests: 
 ```bash
-docker compose up test-after
+docker compose up expense-splitter-app --build
 ```
 
 ###Run evaluation:
 ```bash
-docker compose up evaluation
+docker compose up evaluation --build
 ```

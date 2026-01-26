@@ -11,13 +11,13 @@ services:
       timeout: 5s
       retries: 5
 
-  test-after:
+  expense-splitter-app:
     build: .
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://postgres:password@db:5432/exp ense_splitter?schema=public"
+      DATABASE_URL: "postgresql://postgres:password@db:5432/expense_splitter?schema=public"
     command: >
       bash -c "cd repository_after && npx prisma db push && npm run test"
 
