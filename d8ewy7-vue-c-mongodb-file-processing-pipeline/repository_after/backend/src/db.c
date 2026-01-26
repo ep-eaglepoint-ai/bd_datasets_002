@@ -237,6 +237,12 @@ char* db_query_json(const char* batch_id, int skip, int limit) {
      BSON_APPEND_INT64(opts, "skip", skip);
      BSON_APPEND_INT64(opts, "limit", limit);
      
+     // Add stable sort by row_number
+     bson_t sort_doc;
+     BSON_APPEND_DOCUMENT_BEGIN(opts, "sort", &sort_doc);
+     BSON_APPEND_INT32(&sort_doc, "row_number", 1);
+     bson_append_document_end(opts, &sort_doc);
+     
      mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(collection, query, opts, NULL);
      
      // Iterate and build JSON
@@ -245,25 +251,45 @@ char* db_query_json(const char* batch_id, int skip, int limit) {
      // [ doc, doc, ... ]
      
      // Estimate size?
-     size_t size = 1024 * limit; 
-     char* json = malloc(size); // Risky size
-     // Better: use bson_array_as_json equivalent?
-     // We can just concatenate.
+     size_t size = 2048 * limit; // Increased buffer estimates
+     char* json = malloc(size);
+     if (!json) {
+         bson_destroy(query);
+         bson_destroy(opts);
+         mongoc_cursor_destroy(cursor);
+         mongoc_collection_destroy(collection);
+         mongoc_client_pool_push(pool, client);
+         return NULL;
+     }
      
-     strcpy(json, "[");
+     char* ptr = json;
+     *ptr++ = '[';
+     *ptr = '\0';
+     
      const bson_t *doc;
      bool first = true;
      while (mongoc_cursor_next(cursor, &doc)) {
-         if (!first) strcat(json, ",");
          char *str = bson_as_relaxed_extended_json(doc, NULL);
-         // Check bounds - rudimentary safety
-         if (strlen(json) + strlen(str) < size - 2) {
-             strcat(json, str);
+         size_t len = strlen(str);
+         
+         // Helper: check bounds
+         if ((size_t)(ptr - json) + len + 2 >= size) {
+             // Buffer full - stop or realloc?
+             // For strict limit, we stop.
+             bson_free(str);
+             break;
          }
+         
+         if (!first) *ptr++ = ',';
+         memcpy(ptr, str, len);
+         ptr += len;
+         *ptr = '\0'; // Always null terminate
+         
          bson_free(str);
          first = false;
      }
-     strcat(json, "]");
+     *ptr++ = ']';
+     *ptr = '\0';
      
      bson_destroy(query);
      bson_destroy(opts);
@@ -279,12 +305,14 @@ struct ExportContext {
     mongoc_client_t *client;
     mongoc_collection_t *collection;
     mongoc_cursor_t *cursor;
-    char buffer[4096];
-    int buffer_pos;
-    int buffer_len;
+    char* pending_data; // Buffer for record that didn't fit
+    size_t pending_len;
+    size_t pending_written;
     bool headers_sent;
     bool is_csv;
     bool first_record;
+    bool finished;
+    bool footer_processed;
 };
 
 void* db_open_export_cursor(const char* batch_id, bool is_csv) {
@@ -295,101 +323,155 @@ void* db_open_export_cursor(const char* batch_id, bool is_csv) {
     bson_t *query = bson_new();
     if(batch_id) BSON_APPEND_UTF8(query, "batch_id", batch_id);
     
-    ctx->cursor = mongoc_collection_find_with_opts(ctx->collection, query, NULL, NULL);
+    bson_t *opts = bson_new();
+    bson_t sort_doc;
+    BSON_APPEND_DOCUMENT_BEGIN(opts, "sort", &sort_doc);
+    BSON_APPEND_INT32(&sort_doc, "row_number", 1);
+    bson_append_document_end(opts, &sort_doc);
+
+    ctx->cursor = mongoc_collection_find_with_opts(ctx->collection, query, opts, NULL);
+    bson_destroy(opts);
     bson_destroy(query);
     
     ctx->is_csv = is_csv;
     ctx->first_record = true;
+    ctx->finished = false;
     return ctx;
 }
 
-// Read simple chunk for streaming (simplified)
+// Read simple chunk for streaming 
 int db_read_export_chunk(void* context, char* buf, size_t max) {
     struct ExportContext* ctx = (struct ExportContext*)context;
+    
+    if (ctx->finished) return -1; // End of stream
+    
     size_t written = 0;
     
-    // JSON Start
-    if (!ctx->is_csv && ctx->first_record && written < max) {
-        buf[written++] = '[';
-        ctx->first_record = false; // Mark started
+    // JSON Start - write opening bracket on first call
+    if (!ctx->is_csv && ctx->first_record) {
+        if (written < max) {
+            buf[written++] = '[';
+        }
     }
     
-    // Fill buffer from cursor
+    // Check pending data from previous call
+    if (ctx->pending_data) {
+        size_t remaining = ctx->pending_len - ctx->pending_written;
+        size_t space = max - written;
+        
+        if (remaining <= space) {
+            // Write all pending
+            memcpy(buf + written, ctx->pending_data + ctx->pending_written, remaining);
+            written += remaining;
+            free(ctx->pending_data);
+            ctx->pending_data = NULL;
+            ctx->pending_len = 0;
+            ctx->pending_written = 0;
+        } else {
+            // Write partial
+            memcpy(buf + written, ctx->pending_data + ctx->pending_written, space);
+            written += space;
+            ctx->pending_written += space;
+            return written; // Buffer full
+        }
+    }
+    
     const bson_t *doc;
-    while (written < max - 512) { // Reserve space
+    // Loop while we have space (conservative check, but we handle overflow with pending)
+    while (written < max) { 
         if (mongoc_cursor_next(ctx->cursor, &doc)) {
             char *str = bson_as_relaxed_extended_json(doc, NULL);
             size_t len = strlen(str);
             
-            if (!ctx->is_csv) {
-                // Add comma if not first (actually first_record logic needs refinement for array)
-                // If we already wrote '[', we are at start.
-                // Wait, logic:
-                // If this is NOT the very first doc, we need comma.
-                // Or: pre-pend comma to all except first.
-                // We need a flag 'has_written_doc'.
-                // Reusing 'first_record' but inverted logic might be better.
-                // Let's assume messy JSON [ {}, {} ] is fine with spacing.
-                // Actually: [doc, doc]
+            // Temporary buffer for formatting this record (comma + data + possible newline)
+            // Worst case expansion is minimal (comma/newline).
+            // We'll perform writes directly to avoid Double Copy if possible, 
+            // but for simplicity we construct the "chunk" to write.
+            
+            // Logic for comma
+            bool needs_comma = (!ctx->is_csv && !ctx->first_record);
+            ctx->first_record = false;
+            
+            // Total size needed for this record
+            size_t total_needed = len + (needs_comma ? 1 : 0) + (ctx->is_csv ? 1 : 0);
+            
+            // Check if fits
+            if (written + total_needed <= max) {
+                if (needs_comma) buf[written++] = ',';
+                memcpy(buf + written, str, len);
+                written += len;
+                if (ctx->is_csv) buf[written++] = '\n';
+                bson_free(str);
+            } else {
+                // Doesn't fit - stash in pending
+                // We construct the full string in pending
+                ctx->pending_len = total_needed;
+                ctx->pending_data = malloc(total_needed + 1);
                 
-                if (written > 1 || !ctx->first_record) { 
-                     // We need a comma? 
-                     // This simple loop doesn't track state well between chunks.
-                     // Streaming is hard in C one-shot.
-                     // Let's rely on line-based JSONL for simplicity? 
-                     // Requirement implies standard JSON array.
-                     // Just adding ',' after every record except LAST is hard.
-                     // Adding ',' BEFORE every record except FIRST is easier.
-                }
+                size_t p = 0;
+                if (needs_comma) ctx->pending_data[p++] = ',';
+                memcpy(ctx->pending_data + p, str, len);
+                p += len;
+                if (ctx->is_csv) ctx->pending_data[p++] = '\n';
+                ctx->pending_data[p] = '\0';
+                
+                bson_free(str);
+                
+                // Write as much as possible now
+                size_t space = max - written;
+                memcpy(buf + written, ctx->pending_data, space);
+                written += space;
+                ctx->pending_written = space;
+                return written;
             }
-            
-            // For now, let's implement JSON Lines (simplest valid streaming) or just append.
-            // Client might expect array.
-            // Let's stick to standard behavior:
-            
-            if (!ctx->is_csv) {
-                 if (written > 1) { // If buffer has content or strict state check
-                     // This is risky.
-                 }
-                 // Simple hack: Write doc + comma.
-                 // Client receives [ {...}, {...}, ] which is invalid JSON.
-                 // Ideally we write "doc" then on next iteration write ", doc".
-            }
-            
-            // ...
-            
-            // Simplified: Just write docs separated by newlines (JSONL).
-            // It's valid JSON if interpreted as stream.
-            // Requirement 11: "Export filtered results as JSON or CSV".
-            
-            size_t to_copy = len;
-            if (written + to_copy > max) to_copy = max - written; // truncated? Bad.
-            
-            memcpy(buf + written, str, to_copy);
-            written += to_copy;
-            
-            if (!ctx->is_csv) {
-                if (written < max) buf[written++] = '\n'; // JSONL
-            }
-            
-            bson_free(str);
         } else {
-            break; // No more
+            // No more docs
+            // End of JSON array
+            if (!ctx->is_csv) {
+                if (!ctx->footer_processed) {
+                     if (written < max) {
+                        buf[written++] = ']';
+                        ctx->footer_processed = true;
+                        ctx->finished = true; // We are done
+                     } else {
+                        // Stash ']' in pending
+                        ctx->pending_len = 1;
+                        ctx->pending_data = malloc(2);
+                        ctx->pending_data[0] = ']';
+                        ctx->pending_data[1] = '\0';
+                        ctx->footer_processed = true;
+                        // Do NOT set finished=true here, wait for next call to flush pending
+                        // Actually, next call will flush pending, then check pending again?
+                        // Next call: pending cleared. enters while loop? -> no docs.
+                        // !is_csv -> !footer_processed (false) -> logic skipped.
+                        // finished not set?
+                        // We must set finished=true if footer_processed? 
+                        // If we return written, next call returns.
+                     }
+                } else {
+                     // Footer already processed, we are definitely done
+                     ctx->finished = true;
+                }
+            } else {
+                ctx->finished = true;
+            }
+            break; 
         }
     }
     
-    // JSON End
-    if (!ctx->is_csv && written > 0 && written < max) {
-        // buf[written++] = ']'; // JSONL doesn't need this
-    }
+    // If finished and nothing more to write this turn, and nothing pending?
+    // If we just set finished=true, we might still have 'written' bytes.
+    // Return them. Next call will return -1.
     
     return written;
 }
 
 void db_close_export_cursor(void* context) {
     struct ExportContext* ctx = (struct ExportContext*)context;
+    if (ctx->pending_data) free(ctx->pending_data);
     mongoc_cursor_destroy(ctx->cursor);
     mongoc_collection_destroy(ctx->collection);
     mongoc_client_pool_push(pool, ctx->client);
     free(ctx);
 }
+

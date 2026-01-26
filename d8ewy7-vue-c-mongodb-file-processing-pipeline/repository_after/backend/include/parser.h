@@ -25,7 +25,7 @@ typedef struct {
 
 void parser_init(ParserContext* ctx, const char* batch_id);
 void parser_process_chunk(ParserContext* ctx, const char* chunk, size_t length, RecordCallback on_record, ErrorCallback on_error, void* callback_ctx);
-void parser_finalize(ParserContext* ctx); // Process any remaining buffer
+void parser_finalize(ParserContext* ctx, RecordCallback on_record, ErrorCallback on_error, void* callback_ctx); // Process any remaining buffer
 
 // Utility to parse a single line (assuming we have a full line)
 // Returns 0 on success, -1 on parse error

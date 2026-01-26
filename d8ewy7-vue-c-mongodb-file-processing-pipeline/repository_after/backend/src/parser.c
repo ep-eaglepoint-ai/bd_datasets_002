@@ -94,8 +94,14 @@ int parse_csv_line(char* line, ShipmentRecord* record) {
     strncpy(record->origin, trim_whitespace(fields[1]), 127);
     strncpy(record->destination, trim_whitespace(fields[2]), 127);
     
-    // Map weight
-    record->weight_kg = atof(fields[3]);
+    // Map weight - validate it's actually a number
+    char *endptr;
+    record->weight_kg = strtod(fields[3], &endptr);
+    // Check if conversion failed (endptr points to start or invalid chars remain)
+    if (endptr == fields[3] || (*endptr != '\0' && !isspace((unsigned char)*endptr))) {
+        return -1; // Invalid number format
+    }
+
     
     // Check if we have dimensions (9 fields) or just basic format (6 fields)
     if (field_count >= 9) {
@@ -228,11 +234,28 @@ void parser_process_chunk(ParserContext* ctx, const char* chunk, size_t length, 
     }
 }
 
-void parser_finalize(ParserContext* ctx) {
+void parser_finalize(ParserContext* ctx, RecordCallback on_record, ErrorCallback on_error, void* callback_ctx) {
     // Check if anything left in buffer
+    // Treat as line if not empty (handle EOF without newline)
     if (ctx->buffer_len > 0) {
-        // Technically strict CSV should end with newline, but many files don't.
-        // Treat as line.
-         // ... (Same parsing logic as above without \n check since it's EOF)
+        ctx->buffer[ctx->buffer_len] = '\0';
+        
+        ctx->current_row++;
+        
+         // Skip empty lines and header row (row 1)
+        if (strlen(ctx->buffer) > 0 && ctx->current_row > 1) {
+            ShipmentRecord record;
+            memset(&record, 0, sizeof(record));
+            record.row_number = ctx->current_row;
+            strncpy(record.batch_id, ctx->batch_id, BATCH_ID_LENGTH-1);
+            
+            if (parse_csv_line(ctx->buffer, &record) == 0) {
+                if (on_record) {
+                    on_record(&record, callback_ctx);
+                }
+            } else {
+                if (on_error) on_error(ctx->current_row, "Parse error: Invalid format (EOF)", callback_ctx);
+            }
+        }
     }
 }
