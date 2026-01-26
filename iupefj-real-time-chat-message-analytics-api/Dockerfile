@@ -5,10 +5,6 @@ COPY pom.xml .
 COPY repository_after/src ./src
 COPY tests ./tests
 COPY evaluation ./evaluation
-COPY run.sh .
-COPY run_evaluation.sh .
-RUN chmod +x run.sh
-RUN chmod +x run_evaluation.sh
 RUN mvn dependency:go-offline
-ENTRYPOINT ["/app/run.sh"]
-CMD ["--repo=after"]
+ENTRYPOINT ["bash", "-c", "REPO=after; new_args=(); for arg in \"$@\"; do if [[ $arg == --repo=* ]]; then REPO=$(echo $arg | cut -d'=' -f2); else new_args+=(\"$arg\"); fi; done; mkdir -p /app/src/main/java/com/eaglepoint/chat; if [[ $REPO == 'before' ]]; then cp /app/repository_before/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/; else cp /app/repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/; fi; if [[ $REPO == 'before' ]]; then \"${new_args[@]}\"; exit 0; else exec \"${new_args[@]}\"; fi", "bash"]
+CMD ["mvn", "test"]
