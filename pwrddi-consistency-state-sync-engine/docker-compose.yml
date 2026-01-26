@@ -1,7 +1,7 @@
 services:
   test-before:
     build: .
-    command: npm test
+    command: sh -c "npm test || true"
     environment:
       - TARGET_REPO=repository_before
     volumes:
