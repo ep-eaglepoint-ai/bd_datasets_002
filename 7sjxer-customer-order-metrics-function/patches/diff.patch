@@ -1,6 +1,8 @@
---- repository_before/sql/get_customer_order_metrics.sql	2026-01-26 11:06:36.566472721 +0300
-+++ repository_after/sql/get_customer_order_metrics.sql	2026-01-26 11:06:36.566472721 +0300
-@@ -11,39 +11,16 @@
+diff --git a/repository_before/sql/get_customer_order_metrics.sql b/repository_after/sql/get_customer_order_metrics.sql
+index ea52894..4c7236f 100644
+--- a/repository_before/sql/get_customer_order_metrics.sql
++++ b/repository_after/sql/get_customer_order_metrics.sql
+@@ -11,39 +11,16 @@ RETURNS TABLE(
  )
  LANGUAGE plpgsql
  AS $$
