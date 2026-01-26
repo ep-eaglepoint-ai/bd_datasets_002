@@ -1,0 +1,11 @@
+{
+            "instance_id": "HIVNNF",
+            "problem_statement": "In a high-traffic PostgreSQL system, aggregating recent user activity using row-by-row loops causes significant performance overhead and inefficient resource usage on large tables. A function is needed that computes login counts, action counts, and the last activity timestamp for a user over a specified number of days using set-based aggregation, while avoiding functions on timestamp columns to ensure efficient index usage. The solution must handle hundreds of millions of rows efficiently, produce deterministic and correct results for all edge cases, preserve exact counts and timestamps, and remain fully compatible with the existing function signature and PL/pgSQL implementation without schema changes, temporary tables, or materialized views.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hivnnf-user-activity-aggregation",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
