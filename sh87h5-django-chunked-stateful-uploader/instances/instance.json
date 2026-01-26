@@ -1,0 +1,11 @@
+{
+            "instance_id": "SH87H5",
+            "problem_statement": "Large file uploads are brittle and inefficient over consumer-grade internet connections. The objective is to implement a robust fullstack protocol that breaks files into manageable segments, allows for mid-stream recovery, and validates the integrity of the reassembled file using checksums.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sh87h5-django-chunked-stateful-uploader",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
