@@ -1,0 +1,11 @@
+{
+            "instance_id": "QQMQY4",
+            "problem_statement": "A CSV import component is responsible for reading customer data, validating required fields, detecting duplicates, and persisting new customers through a repository while returning precise import statistics. To ensure correctness and robustness, pytest unit tests are needed to verify that the import logic handles valid and invalid rows, duplicate detection, and edge cases accurately, produces exact import statistics, and interacts with the repository correctly. The tests must exercise the behavior purely through the provided CSV text input, without modifying production code or relying on file system access or internal CSV parsing details.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/qqmqy4-pytest-tests-for-a-csv-importer-with-validation",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
