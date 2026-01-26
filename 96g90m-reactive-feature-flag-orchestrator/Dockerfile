@@ -1,33 +1,21 @@
-FROM node:20-slim
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy root package files
-COPY package*.json ./
-
-# Install root dependencies (including jest, typescript, ts-node)
-RUN npm install
-
-# Create directory for app
-WORKDIR /app/repository_after
-
-# Copy app package files
+# Copy package files
 COPY repository_after/package*.json ./
 
-# Install app dependencies
+# Install dependencies
 RUN npm install
 
-# Copy everything else (respecting .dockerignore)
-# This copies tests, evaluation, and repository_after source code
-WORKDIR /app
-COPY . .
+# Copy application code
+COPY repository_after/ .
 
 # Build the Next.js app
-WORKDIR /app/repository_after
 RUN npm run build
 
-# Reset workdir to root for flexibility
-WORKDIR /app
+# Expose port
+EXPOSE 3000
 
-# Default command (can be overridden)
-CMD ["npm", "start", "--prefix", "repository_after"]
+# Start the production server
+CMD ["npm", "start"]

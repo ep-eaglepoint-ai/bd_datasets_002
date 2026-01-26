@@ -1,14 +1,13 @@
 {
   "name": "96g90m-reactive-feature-flag-orchestrator",
   "version": "1.0.0",
-  "description": "**Category:** sft",
+  "description": "Type-Safe Feature Flag Orchestrator",
   "main": "index.js",
   "directories": {
     "test": "tests"
   },
   "scripts": {
-    "test": "jest tests/test_requirements.test.ts --reporters ./tests/custom_reporter.js --no-cache",
-    "evaluation": "ts-node evaluation/evaluation.ts"
+    "test": "jest tests/test_requirements.test.ts --verbose"
   },
   "keywords": [],
   "author": "",

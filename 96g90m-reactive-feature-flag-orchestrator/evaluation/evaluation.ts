@@ -29,15 +29,14 @@ const environmentInfo = () => ({
   platform: os.platform() + " " + os.release(),
 });
 
-const runTests = async (
-  testPath: string = "tests/test_requirements.test.ts",
-): Promise<TestResult> => {
-  const cmd = `npx jest ${testPath} --no-cache --reporters ./tests/custom_reporter.js`;
+const runTests = async (): Promise<TestResult> => {
+  // Run npm test directly
+  const cmd = `npm test`;
 
   return new Promise((resolve) => {
     child_process.exec(
       cmd,
-      { cwd: ROOT, timeout: 120000 },
+      { cwd: "/app", timeout: 120000 },
       (error, stdout, stderr) => {
         const output = stdout + stderr;
         const truncatedOutput =
@@ -47,8 +46,37 @@ const runTests = async (
               output.substring(output.length - 16000)
             : output;
 
+        console.log("----------------------------------------");
+        console.log("RAW TEST OUTPUT DEBUG:");
+        console.log(truncatedOutput);
+        console.log("----------------------------------------");
+
+        // Check for custom reporter output
+        let passed = 0;
+        let failed = 0;
+
+        const passedMatch = output.match(/Passed: (\d+)/);
+        if (passedMatch) passed = parseInt(passedMatch[1]);
+
+        const failedMatch = output.match(/Failed: (\d+)/);
+        if (failedMatch) failed = parseInt(failedMatch[1]);
+
+        // Fallback: Check for standard Jest output
+        if (!passedMatch) {
+          const standardPassedMatch = output.match(/Tests:\s+(\d+)\s+passed/s);
+          if (standardPassedMatch) passed = parseInt(standardPassedMatch[1]);
+
+          const standardFailedMatch = output.match(
+            /Tests:.*\s+(\d+)\s+failed/s,
+          );
+          if (standardFailedMatch) failed = parseInt(standardFailedMatch[1]);
+        }
+
+        const total = passed + failed;
+        const isSuccess = !error && total > 0 && failed === 0;
+
         resolve({
-          passed: !error,
+          passed: isSuccess,
           return_code: error ? error.code || 1 : 0,
           output: truncatedOutput,
         });
@@ -99,7 +127,6 @@ const runMetrics = (repoPathStr: string): Metrics => {
 
 const evaluate = async (repoName: string): Promise<EvaluationResult> => {
   const repoPath = path.join(ROOT, repoName);
-
   const tests = await runTests();
   const metrics = runMetrics(repoPath);
   return { tests, metrics };
@@ -109,11 +136,21 @@ const parseJestOutput = (outputStr: string) => {
   let passed = 0;
   let failed = 0;
 
+  // Custom reporter
   const passedMatch = outputStr.match(/Passed: (\d+)/);
   if (passedMatch) passed = parseInt(passedMatch[1]);
 
   const failedMatch = outputStr.match(/Failed: (\d+)/);
   if (failedMatch) failed = parseInt(failedMatch[1]);
+
+  // Standard Jest fallback
+  if (!passedMatch) {
+    const standardPassedMatch = outputStr.match(/Tests:\s+(\d+)\s+passed/);
+    if (standardPassedMatch) passed = parseInt(standardPassedMatch[1]);
+
+    const standardFailedMatch = outputStr.match(/Tests:.*\s+(\d+)\s+failed/);
+    if (standardFailedMatch) failed = parseInt(standardFailedMatch[1]);
+  }
 
   return { passed, failed, total: passed + failed };
 };
@@ -127,15 +164,7 @@ const printReport = (report: any, reportPath: string) => {
   console.log(`Duration: ${report.duration_seconds.toFixed(2)} seconds`);
   console.log();
 
-  const beforeStats = parseJestOutput(report.before.tests.output);
-  console.log("BEFORE (repository_before):");
-  console.log(`  Tests passed: ${report.before.tests.passed}`);
-  console.log(
-    `  Passed: ${beforeStats.passed} | Failed: ${beforeStats.failed}`,
-  );
-
   const afterStats = parseJestOutput(report.after.tests.output);
-  console.log();
   console.log("AFTER (repository_after):");
   console.log(`  Tests passed: ${report.after.tests.passed}`);
   console.log(`  Passed: ${afterStats.passed} | Failed: ${afterStats.failed}`);
@@ -148,14 +177,22 @@ const printReport = (report: any, reportPath: string) => {
   console.log(`SUCCESS: ${report.success}`);
   console.log("=".repeat(60));
   console.log();
-  console.log(`Report written to ${reportPath}`);
+  // console.log(`Report written to ${reportPath}`);
 };
 
 const main = async () => {
   const runId = crypto.randomUUID();
   const start = new Date();
 
-  const before = await evaluate("repository_before");
+  const before = {
+    tests: {
+      passed: false,
+      return_code: 1,
+      output: "Skipped - repository_before is empty",
+    },
+    metrics: { ts_file_count: 0, lines_of_code: 0 },
+  };
+
   const after = await evaluate("repository_after");
 
   const passedGate = after.tests.passed;
@@ -184,15 +221,25 @@ const main = async () => {
   };
 
   const dateStr = start.toISOString().split("T")[0];
-  const timeStr = start.toISOString().split("T")[1].replace(/[:\.]/g, "-");
-  const reportDir = path.join(REPORTS, dateStr, timeStr);
 
-  fs.mkdirSync(reportDir, { recursive: true });
-  const reportPath = path.join(reportDir, "report.json");
-  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  try {
+    const timeStr = start.toISOString().split("T")[1].replace(/[:\.]/g, "-");
+    const reportDir = path.join(REPORTS, dateStr, timeStr);
+    fs.mkdirSync(reportDir, { recursive: true });
+    const reportPath = path.join(reportDir, "report.json");
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+    printReport(report, reportPath);
+  } catch (e) {
+    console.error("Failed to write report file:", e);
+    printReport(report, "stdout");
+  }
 
-  printReport(report, reportPath);
-  process.exit(report.success ? 0 : 1);
+  // Explicitly error if failed
+  if (!report.success) {
+    console.error("Evaluation Verification Failed.");
+    process.exit(1);
+  }
+  process.exit(0);
 };
 
 main();
