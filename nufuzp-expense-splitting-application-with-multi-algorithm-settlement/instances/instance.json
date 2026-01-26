@@ -1,11 +1,22 @@
 {
-            "instance_id": "NUFUZP",
-            "problem_statement": "During testing of a collaborative finance feature, users reported confusion when splitting shared expenses among group members. The challenge involves building a complete expense tracking system where users can create groups, add members via email invitation, record expenses with multiple split methods, and see who owes whom. The system must handle monetary calculations without floating-point errors, support different splitting strategies (equal, exact amounts, percentages, shares), and suggest the minimum number of transactions needed to settle all debts. The application should work seamlessly on mobile devices and provide real-time balance updates as expenses are added or modified.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/nufuzp-expense-splitting-application-with-multi-algorithm-settlement",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "nufuzp-expense-splitting-application-with-multi-algorithm-settlement",
+    "problem_statement": "During testing of a collaborative finance feature, users reported confusion when splitting shared expenses among group members. The challenge involves building a complete expense tracking system where users can create groups, add members via email invitation, record expenses with multiple split methods, and see who owes whom. The system must handle monetary calculations without floating-point errors, support different splitting strategies (equal, exact amounts, percentages, shares), and suggest the minimum number of transactions needed to settle all debts. The application should work seamlessly on mobile devices and provide real-time balance updates as expenses are added or modified.",
+    "base_commit": "repository_before/",
+    "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/nufuzp-expense-splitting-application-with-multi-algorithm-settlement",
+    "test_patch": "tests/",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "Requirement 2: Monetary Values & Integer Arithmetic > should split $100.00 among 3 people exactly as 3333 + 3333 + 3334",
+        "Requirement 2: Monetary Values & Integer Arithmetic > should handle dollar/cent conversions without float errors",
+        "Requirement 3: Split Type Support > supports EXACT split",
+        "Requirement 3: Split Type Support > supports PERCENTAGE split with rounding remainder",
+        "Requirement 3: Split Type Support > supports SHARE ratio split (2:1:1)",
+        "Requirement 5: Settlement Algorithm Efficiency > should produce at most 3 transactions for [+5000, +3000, -4000, -4000]",
+        "Requirement 6: Leaving Group Logic > should block leaving if balance is non-zero",
+        "Requirement 6: Leaving Group Logic > should allow leaving if balance is zero",
+        "Requirement 7: Performance Scaling > should recalculate balances for 50 members and 10,000 expenses within 2 seconds",
+        "Requirement 10: Docker & System Configuration > docker-compose.yml should contain health checks for both services",
+        "Requirement 10: Docker & System Configuration > Dockerfile should exist and use standalone build for efficiency"
+    ],
+    "PASS_TO_PASS": []
+}

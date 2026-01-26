@@ -1,6 +1,31 @@
 services:
-  app:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: expense_splitter
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d expense_splitter"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test-after:
     build: .
-    command: pytest -q tests
-    volumes:
-      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@db:5432/exp ense_splitter?schema=public"
+    command: >
+      bash -c "cd repository_after && npx prisma db push && npm run test"
+
+  evaluation:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@db:5432/expense_splitter?schema=public"
+    command: npm run evaluate

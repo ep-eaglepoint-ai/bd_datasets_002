@@ -1,0 +1,15 @@
+{
+  "name": "nufuzp-expense-splitting-application-with-multi-algorithm-settlement",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "evaluate": "tsx evaluation/evaluation.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}
