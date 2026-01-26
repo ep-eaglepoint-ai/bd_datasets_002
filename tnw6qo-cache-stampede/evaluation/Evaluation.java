@@ -8,10 +8,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Evaluation script for Cache Stampede Prevention.
- * Runs tests against repository_after and generates a JSON report.
- */
 public class Evaluation {
 
     private static final String TASK_NAME = "Cache Stampede Prevention";
@@ -447,9 +443,13 @@ public class Evaluation {
         String json = toJson(report, 0);
         Files.writeString(reportPath, json);
 
-        // Also save as latest report
+        // Also save as latest_report.json
         Path latestPath = Paths.get("latest_report.json");
         Files.writeString(latestPath, json);
+
+        // Also save as report.json directly in evaluation folder (for CI systems)
+        Path directPath = Paths.get("report.json");
+        Files.writeString(directPath, json);
 
         return reportPath.toString();
     }
