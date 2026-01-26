@@ -1,0 +1,11 @@
+{
+            "instance_id": "Y67YP7",
+            "problem_statement": "The existing notification logic suffers from 'at-most-once' delivery and lacks the ability to handle retries without causing duplicate side-effects. The objective is to build a Go-based governor that enforces causal ordering of events, implements exponential backoff with jitter, and uses idempotency identifiers to maintain a 'exactly-once' logical guarantee for external systems.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/y67yp7-go-high-throughput-idempotent-dispatcher",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
