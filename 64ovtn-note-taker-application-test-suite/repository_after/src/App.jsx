@@ -157,11 +157,10 @@ function NoteForm({ onSubmit, editingNote, onCancel }) {
   const [tags, setTags] = useState([]);
 
   useEffect(() => {
-    // BUG: Not pre-filling form when editing - should set title, content, tags from editingNote
     if (editingNote) {
-      // Missing: setTitle(editingNote.title);
-      // Missing: setContent(editingNote.content);
-      // Missing: setTags(editingNote.tags || []);
+      setTitle(editingNote.title);
+      setContent(editingNote.content);
+      setTags(editingNote.tags || []);
     } else {
       resetForm();
     }
@@ -176,7 +175,10 @@ function NoteForm({ onSubmit, editingNote, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // BUG: Missing validation - should alert when title or content is empty
+    if (!title.trim() || !content.trim()) {
+      alert('Please fill in both title and content');
+      return;
+    }
     if (editingNote) {
       onSubmit(editingNote.id, { title, content, tags });
     } else {
@@ -187,8 +189,7 @@ function NoteForm({ onSubmit, editingNote, onCancel }) {
 
   const addTag = () => {
     const trimmedTag = tagInput.trim();
-    // BUG: Missing duplicate check - should prevent adding duplicate tags
-    if (trimmedTag) {
+    if (trimmedTag && !tags.includes(trimmedTag)) {
       setTags([...tags, trimmedTag]);
       setTagInput('');
     }
@@ -259,8 +260,7 @@ function NoteForm({ onSubmit, editingNote, onCancel }) {
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => {
-              // BUG: Only handles comma, not Enter key
-              if (e.key === ',') {
+              if (e.key === 'Enter' || e.key === ',') {
                 e.preventDefault();
                 addTag();
               }
@@ -433,8 +433,9 @@ function NoteItem({ note, onEdit, onDelete }) {
           </button>
           <button
             onClick={() => {
-              // BUG: Missing confirmation check - should only delete if confirm returns true
-              onDelete(note.id);
+              if (window.confirm('Are you sure you want to delete this note?')) {
+                onDelete(note.id);
+              }
             }}
             style={{
               background: 'none',
@@ -481,7 +482,7 @@ export default function App() {
   const handleCreateNote = async (noteData) => {
     const newNote = await mockAPI.createNote(noteData);
     setNotes([...notes, newNote]);
-    // BUG: Missing loadTags() call - tag counts won't update after creating note
+    await loadTags();
   };
 
   const handleUpdateNote = async (id, noteData) => {
@@ -494,7 +495,7 @@ export default function App() {
   const handleDeleteNote = async (id) => {
     await mockAPI.deleteNote(id);
     setNotes(notes.filter(note => note.id !== id));
-    // BUG: Missing loadTags() call - tag counts won't update after deleting note
+    await loadTags();
   };
 
   return (

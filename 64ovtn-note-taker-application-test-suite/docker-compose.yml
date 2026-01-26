@@ -1,6 +1,38 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  app-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/repository_before
+    environment:
+      - CI=true
+      - FORCE_COLOR=0
+    command: npm test
     volumes:
-      - .:/app
+      - ./tests:/app/repository_before/tests:ro
+
+  app-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/repository_after
+    environment:
+      - CI=true
+      - FORCE_COLOR=0
+    command: npm test
+    volumes:
+      - ./tests:/app/repository_after/tests:ro
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - CI=true
+      - FORCE_COLOR=0
+    command: node evaluation/evaluation.js
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/repository_before/tests:ro
+      - ./tests:/app/repository_after/tests:ro
