@@ -9,7 +9,8 @@
     "lint": "echo \"lint disabled\"",
     "lint:fix": "echo \"lint disabled\"",
     "test": "export NODE_ENV=test && DEBUG_PRINT_LIMIT=10000 jest --runInBand",
-    "test:watch": "npm run test -- --watchAll"
+    "test:watch": "npm run test -- --watchAll",
+    "evaluate": "node evaluation/evaluation.js"
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.9",

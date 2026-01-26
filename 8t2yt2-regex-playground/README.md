@@ -1,4 +1,4 @@
-# TypeScript Authentication System from Scratch
+# Regex Playground
 
 ### Test repository_after
 
@@ -9,5 +9,5 @@ docker compose run --rm app npm test
 ### Generate evaluation report
 
 ```bash
-docker compose run --rm app npx ts-node evaluation/evaluation.ts
+docker compose run --rm app npm run evaluate
 ```
