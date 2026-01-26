@@ -1,11 +1,9 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.env
+# java
 
-# Node
-node_modules/
+target/
+
+#Task Specific
+reports/
 
 # OS
 .DS_Store

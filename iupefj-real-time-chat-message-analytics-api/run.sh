@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [[ $1 == "java" ]]; then
+  exec "$@"
+fi
+
 REPO="after"
 for arg in "$@"; do
   if [[ $arg == --repo=* ]]; then

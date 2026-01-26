@@ -11,3 +11,8 @@ To run tests for the repository_after
 ```bash
 docker compose run app mvn test --repo=after
 ```
+
+To run evaluation
+```bash
+docker compose run app java evaluation/evaluation.java
+```
