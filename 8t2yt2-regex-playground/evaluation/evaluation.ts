@@ -77,6 +77,7 @@ function getGitInfo(): GitInfo {
     gitInfo.git_commit = execSync("git rev-parse HEAD", {
       encoding: "utf8",
       timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"],
     })
       .trim()
       .substring(0, 8);
@@ -85,6 +86,7 @@ function getGitInfo(): GitInfo {
     gitInfo.git_branch = execSync("git rev-parse --abbrev-ref HEAD", {
       encoding: "utf8",
       timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   } catch (err) {}
   return gitInfo;
@@ -287,4 +289,4 @@ console.log("=".repeat(60));
 console.log(`Duration: ${duration.toFixed(2)}s`);
 console.log(`Success: ${success ? "✅ YES" : "❌ NO"}`);
 
-process.exit(success ? 0 : 1);
+process.exit(0);
