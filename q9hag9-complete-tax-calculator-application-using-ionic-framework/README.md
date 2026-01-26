@@ -9,7 +9,7 @@ docker compose build
 **### Run repository_after test**
 
 ```bash
-ddocker compose run --rm test
+docker compose run --rm test
 ```
 
 ### Run Evaluation
