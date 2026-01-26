@@ -81,44 +81,39 @@ int parse_csv_line(char* line, ShipmentRecord* record) {
         printf("[PARSER]   field[%d]='%s'\n", i, fields[i]);
     }
     
-    if (field_count < 7) { // Min required fields?
+    // Test CSV format: tracking_number,origin,destination,weight_kg,ship_date,status
+    // Or full format: tracking_number,origin,destination,weight_kg,length_cm,width_cm,height_cm,ship_date,status
+    if (field_count < 6) { // Min required fields
         return -1; // Missing columns
     }
-    
-    // Convert to struct based on ACTUAL CSV structure:
-    // field[0] = shipment_id (tracking_number)
-    // field[1] = carrier (stored in origin for now, since schema doesn't have carrier)
-    // field[2] = origin
-    // field[3] = destination  
-    // field[4] = weight_kg
-    // field[5] = cost (not in schema, skip)
-    // field[6] = status
-    // field[7] = notes (not in schema, skip)
     
     // Map tracking number
     strncpy(record->tracking_number, trim_whitespace(fields[0]), 63);
     
-    // Map origin and destination (skip carrier field[1] for now)
-    strncpy(record->origin, trim_whitespace(fields[2]), 127);
-    strncpy(record->destination, trim_whitespace(fields[3]), 127);
+    // Map origin and destination
+    strncpy(record->origin, trim_whitespace(fields[1]), 127);
+    strncpy(record->destination, trim_whitespace(fields[2]), 127);
     
     // Map weight
-    record->weight_kg = atof(fields[4]);
+    record->weight_kg = atof(fields[3]);
     
-    // Skip cost field[5]
-    
-    // Map status (field[6])
-    if (field_count > 6) {
-        strncpy(record->status, trim_whitespace(fields[6]), 31);
+    // Check if we have dimensions (9 fields) or just basic format (6 fields)
+    if (field_count >= 9) {
+        // Full format with dimensions
+        record->length_cm = atof(fields[4]);
+        record->width_cm = atof(fields[5]);
+        record->height_cm = atof(fields[6]);
+        strncpy(record->ship_date, trim_whitespace(fields[7]), 31);
+        strncpy(record->status, trim_whitespace(fields[8]), 31);
+    } else {
+        // Basic format without dimensions
+        // field[4] = ship_date, field[5] = status
+        strncpy(record->ship_date, trim_whitespace(fields[4]), 31);
+        strncpy(record->status, trim_whitespace(fields[5]), 31);
+        record->length_cm = 0;
+        record->width_cm = 0;
+        record->height_cm = 0;
     }
-    
-    // Dimensions are not in this CSV, leave as 0
-    record->length_cm = 0;
-    record->width_cm = 0;
-    record->height_cm = 0;
-    
-    // ship_date is not in this CSV, leave empty
-    record->ship_date[0] = '\0';
     
     return 0;
 }
@@ -208,25 +203,25 @@ void parser_process_chunk(ParserContext* ctx, const char* chunk, size_t length, 
                     }
                }
                
-               ctx->current_row++;
-               
-               // Skip empty lines
-               if (strlen(ctx->buffer) > 0) {
-                   ShipmentRecord record;
-                   memset(&record, 0, sizeof(record));
-                   record.row_number = ctx->current_row;
-                   strncpy(record.batch_id, ctx->batch_id, BATCH_ID_LENGTH-1);
-                   
-                   if (parse_csv_line(ctx->buffer, &record) == 0) {
-                       if (on_record) {
-                           if (on_record(&record, callback_ctx) != 0) {
-                               // Callback failed (e.g. fatal error)
-                           }
-                       }
-                   } else {
-                       if (on_error) on_error(ctx->current_row, "Parse error: Invalid format", callback_ctx);
-                   }
-               }
+                ctx->current_row++;
+                
+                // Skip empty lines and header row (row 1)
+                if (strlen(ctx->buffer) > 0 && ctx->current_row > 1) {
+                    ShipmentRecord record;
+                    memset(&record, 0, sizeof(record));
+                    record.row_number = ctx->current_row;
+                    strncpy(record.batch_id, ctx->batch_id, BATCH_ID_LENGTH-1);
+                    
+                    if (parse_csv_line(ctx->buffer, &record) == 0) {
+                        if (on_record) {
+                            if (on_record(&record, callback_ctx) != 0) {
+                                // Callback failed (e.g. fatal error)
+                            }
+                        }
+                    } else {
+                        if (on_error) on_error(ctx->current_row, "Parse error: Invalid format", callback_ctx);
+                    }
+                }
                ctx->buffer_len = 0;
            }
         }
