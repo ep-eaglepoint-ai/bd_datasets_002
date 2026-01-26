@@ -1,2 +1,0 @@
-# Placeholder file to satisfy Python CI environment
-pytest
