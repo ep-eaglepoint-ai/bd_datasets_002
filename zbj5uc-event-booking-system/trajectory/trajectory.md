@@ -1,4 +1,4 @@
-# Trajectory: Building a Reliable Event Booking Management System for a Community Center
+# Trajectory: Building a Reliable Event Booking Management System
 
 This document records **how I personally designed and built** an event booking management system to replace a fragile, manual process. I applied **first-principles full-stack system design**, focusing on operational reliability and long-term correctness rather than over-engineering.
 
