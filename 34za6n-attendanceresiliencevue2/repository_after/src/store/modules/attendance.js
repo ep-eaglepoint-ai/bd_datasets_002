@@ -37,14 +37,44 @@ const state = {
   notifications: [],
   
   // Retry queue for failed operations
-  retryQueue: []
+  retryQueue: [],
+  
+  // Filters
+  filters: {
+    department: null,
+    dateRange: {
+      start: null,
+      end: null
+    },
+    status: null
+  }
 }
 
 const getters = {
   // Get all records as array
   allRecords: (state) => {
     if (!state.records.data) return []
-    return Object.values(state.records.data)
+    let records = Object.values(state.records.data)
+    
+    // Apply filters
+    if (state.filters.department) {
+      records = records.filter(record => record.department === state.filters.department)
+    }
+    
+    if (state.filters.dateRange.start && state.filters.dateRange.end) {
+      records = records.filter(record => {
+        const recordDate = new Date(record.date)
+        const startDate = new Date(state.filters.dateRange.start)
+        const endDate = new Date(state.filters.dateRange.end)
+        return recordDate >= startDate && recordDate <= endDate
+      })
+    }
+    
+    if (state.filters.status) {
+      records = records.filter(record => record.status === state.filters.status)
+    }
+    
+    return records
   },
   
   // Get record by ID
@@ -75,7 +105,62 @@ const getters = {
   },
   
   // Get retry queue
-  retryQueue: (state) => state.retryQueue
+  retryQueue: (state) => state.retryQueue,
+  
+  // Get unique departments
+  departments: (state) => {
+    if (!state.records.data) return []
+    const departments = new Set()
+    Object.values(state.records.data).forEach(record => {
+      if (record.department) departments.add(record.department)
+    })
+    return Array.from(departments).sort()
+  },
+  
+  // Get total hours worked for a record
+  getTotalHours: (state) => (id) => {
+    const record = state.records.data ? state.records.data[id] : null
+    if (!record || !record.checkInTime || !record.checkOutTime) return 0
+    
+    const checkIn = new Date(`${record.date} ${record.checkInTime}`)
+    const checkOut = new Date(`${record.date} ${record.checkOutTime}`)
+    const diffMs = checkOut - checkIn
+    return Math.max(0, diffMs / (1000 * 60 * 60)) // Convert to hours
+  },
+  
+  // Get overtime hours for a record
+  getOvertimeHours: (state, getters) => (id) => {
+    const totalHours = getters.getTotalHours(id)
+    const standardHours = 8 // Standard work day
+    return Math.max(0, totalHours - standardHours)
+  },
+  
+  // Check for shift conflicts
+  getShiftConflicts: (state) => (employeeId, date, shiftStart, shiftEnd) => {
+    if (!state.records.data) return []
+    
+    const conflicts = []
+    Object.values(state.records.data).forEach(record => {
+      if (record.employeeId === employeeId && record.date === date && record.status === 'active') {
+        if (record.shiftStart && record.shiftEnd) {
+          const existingStart = new Date(`${date} ${record.shiftStart}`)
+          const existingEnd = new Date(`${date} ${record.shiftEnd}`)
+          const newStart = new Date(`${date} ${shiftStart}`)
+          const newEnd = new Date(`${date} ${shiftEnd}`)
+          
+          // Check for overlap
+          if (newStart < existingEnd && newEnd > existingStart) {
+            conflicts.push(record)
+          }
+        }
+      }
+    })
+    
+    return conflicts
+  },
+  
+  // Get current filters
+  currentFilters: (state) => state.filters
 }
 
 const mutations = {
@@ -188,6 +273,28 @@ const mutations = {
   
   CLEAR_RETRY_QUEUE(state) {
     state.retryQueue = []
+  },
+  
+  // Filter mutations
+  SET_DEPARTMENT_FILTER(state, department) {
+    state.filters.department = department
+  },
+  
+  SET_DATE_RANGE_FILTER(state, { start, end }) {
+    state.filters.dateRange.start = start
+    state.filters.dateRange.end = end
+  },
+  
+  SET_STATUS_FILTER(state, status) {
+    state.filters.status = status
+  },
+  
+  CLEAR_FILTERS(state) {
+    state.filters = {
+      department: null,
+      dateRange: { start: null, end: null },
+      status: null
+    }
   }
 }
 
@@ -393,6 +500,102 @@ const actions = {
   // Clear record operation status
   clearRecordOperation({ commit }, id) {
     commit('CLEAR_RECORD_OPERATION', id)
+  },
+  
+  // Filter actions
+  setDepartmentFilter({ commit }, department) {
+    commit('SET_DEPARTMENT_FILTER', department)
+  },
+  
+  setDateRangeFilter({ commit }, { start, end }) {
+    commit('SET_DATE_RANGE_FILTER', { start, end })
+  },
+  
+  setStatusFilter({ commit }, status) {
+    commit('SET_STATUS_FILTER', status)
+  },
+  
+  clearFilters({ commit }) {
+    commit('CLEAR_FILTERS')
+  },
+  
+  // Clock in/out actions
+  async clockIn({ commit, dispatch, getters }, { id, time }) {
+    const record = getters.getRecordById(id)
+    if (!record) return
+    
+    // Set operation status to loading
+    commit('SET_RECORD_OPERATION_STATUS', { id, status: STATUS.LOADING })
+    
+    try {
+      const response = await mockApi.clockIn(id, time)
+      
+      // Update record with server data
+      commit('SET_RECORDS_DATA', [response.data])
+      commit('CLEAR_RECORD_OPERATION', id)
+      
+      dispatch('addNotification', {
+        type: 'success',
+        message: `${record.employeeName} clocked in successfully`,
+        timeout: 3000
+      })
+      
+      return true
+      
+    } catch (error) {
+      commit('SET_RECORD_OPERATION_STATUS', {
+        id,
+        status: STATUS.ERROR,
+        errorMessage: error.message
+      })
+      
+      dispatch('addNotification', {
+        type: 'error',
+        message: `Failed to clock in ${record.employeeName}: ${error.message}`,
+        persistent: true
+      })
+      
+      return false
+    }
+  },
+  
+  async clockOut({ commit, dispatch, getters }, { id, time }) {
+    const record = getters.getRecordById(id)
+    if (!record) return
+    
+    // Set operation status to loading
+    commit('SET_RECORD_OPERATION_STATUS', { id, status: STATUS.LOADING })
+    
+    try {
+      const response = await mockApi.clockOut(id, time)
+      
+      // Update record with server data
+      commit('SET_RECORDS_DATA', [response.data])
+      commit('CLEAR_RECORD_OPERATION', id)
+      
+      dispatch('addNotification', {
+        type: 'success',
+        message: `${record.employeeName} clocked out successfully`,
+        timeout: 3000
+      })
+      
+      return true
+      
+    } catch (error) {
+      commit('SET_RECORD_OPERATION_STATUS', {
+        id,
+        status: STATUS.ERROR,
+        errorMessage: error.message
+      })
+      
+      dispatch('addNotification', {
+        type: 'error',
+        message: `Failed to clock out ${record.employeeName}: ${error.message}`,
+        persistent: true
+      })
+      
+      return false
+    }
   }
 }
 

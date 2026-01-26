@@ -22,6 +22,7 @@
               <div>
                 <div class="font-weight-medium">{{ item.employeeName }}</div>
                 <div class="text-caption text--secondary">{{ item.employeeId }}</div>
+                <div class="text-caption text--secondary">{{ item.department }}</div>
               </div>
             </div>
           </template>
@@ -78,10 +79,56 @@
             </span>
           </template>
           
+          <!-- Check-out time column -->
+          <template v-slot:item.checkOutTime="{ item }">
+            <span v-if="item.checkOutTime" class="font-weight-medium">
+              {{ item.checkOutTime }}
+            </span>
+            <span v-else class="text--disabled">
+              --:--
+            </span>
+          </template>
+          
+          <!-- Hours worked column -->
+          <template v-slot:item.hoursWorked="{ item }">
+            <div v-if="getTotalHours(item.id) > 0">
+              <div class="font-weight-medium">
+                {{ getTotalHours(item.id).toFixed(1) }}h
+              </div>
+              <div v-if="getOvertimeHours(item.id) > 0" class="text-caption text--warning">
+                +{{ getOvertimeHours(item.id).toFixed(1) }}h OT
+              </div>
+            </div>
+            <span v-else class="text--disabled">--</span>
+          </template>
+          
           <!-- Actions column -->
           <template v-slot:item.actions="{ item }">
-            <div class="d-flex gap-2">
-              <!-- Toggle to Present -->
+            <div class="d-flex gap-2 flex-wrap">
+              <!-- Clock In/Out buttons -->
+              <v-btn
+                v-if="item.status !== 'active' && item.status !== 'clocked_out'"
+                small
+                color="primary"
+                :disabled="getRecordOperationStatus(item.id) === 'loading'"
+                @click="clockIn(item.id)"
+              >
+                <v-icon small left>mdi-login</v-icon>
+                Clock In
+              </v-btn>
+              
+              <v-btn
+                v-if="item.status === 'active'"
+                small
+                color="warning"
+                :disabled="getRecordOperationStatus(item.id) === 'loading'"
+                @click="clockOut(item.id)"
+              >
+                <v-icon small left>mdi-logout</v-icon>
+                Clock Out
+              </v-btn>
+              
+              <!-- Status toggle buttons -->
               <v-btn
                 v-if="item.status !== 'present'"
                 small
@@ -93,7 +140,6 @@
                 Present
               </v-btn>
               
-              <!-- Toggle to Absent -->
               <v-btn
                 v-if="item.status !== 'absent'"
                 small
@@ -105,16 +151,15 @@
                 Absent
               </v-btn>
               
-              <!-- Toggle to Late -->
               <v-btn
-                v-if="item.status !== 'late'"
+                v-if="item.status !== 'on_break'"
                 small
-                color="warning"
+                color="info"
                 :disabled="getRecordOperationStatus(item.id) === 'loading'"
-                @click="toggleAttendance(item.id, 'late')"
+                @click="toggleAttendance(item.id, 'on_break')"
               >
-                <v-icon small left>mdi-clock-alert</v-icon>
-                Late
+                <v-icon small left>mdi-coffee</v-icon>
+                Break
               </v-btn>
               
               <!-- Retry button for failed operations -->
@@ -168,13 +213,25 @@ export default {
           text: 'Check-in Time',
           value: 'checkInTime',
           sortable: true,
-          width: '150px'
+          width: '120px'
+        },
+        {
+          text: 'Check-out Time',
+          value: 'checkOutTime',
+          sortable: true,
+          width: '120px'
+        },
+        {
+          text: 'Hours Worked',
+          value: 'hoursWorked',
+          sortable: false,
+          width: '120px'
         },
         {
           text: 'Actions',
           value: 'actions',
           sortable: false,
-          width: '300px'
+          width: '400px'
         }
       ]
     }
@@ -184,7 +241,9 @@ export default {
     ...mapGetters('attendance', [
       'allRecords',
       'isLoadingRecords',
-      'getRecordOperationStatus'
+      'getRecordOperationStatus',
+      'getTotalHours',
+      'getOvertimeHours'
     ]),
     
     currentDate() {
@@ -200,14 +259,19 @@ export default {
   methods: {
     ...mapActions('attendance', [
       'toggleAttendance',
-      'clearRecordOperation'
+      'clearRecordOperation',
+      'clockIn',
+      'clockOut'
     ]),
     
     getStatusColor(status) {
       const colors = {
         present: 'success',
         absent: 'error',
-        late: 'warning'
+        late: 'warning',
+        active: 'primary',
+        on_break: 'info',
+        clocked_out: 'grey'
       }
       return colors[status] || 'grey'
     },
@@ -220,7 +284,10 @@ export default {
       const icons = {
         present: 'mdi-check-circle',
         absent: 'mdi-close-circle',
-        late: 'mdi-clock-alert'
+        late: 'mdi-clock-alert',
+        active: 'mdi-account-clock',
+        on_break: 'mdi-coffee',
+        clocked_out: 'mdi-logout'
       }
       return icons[status] || 'mdi-help-circle'
     },

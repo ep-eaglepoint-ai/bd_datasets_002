@@ -1,7 +1,8 @@
+version: '3.8'
+
 services:
   app:
     build: .
     working_dir: /app/tests
-    command: npm run evaluate
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports

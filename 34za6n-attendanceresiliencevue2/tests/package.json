@@ -1,24 +1,11 @@
 {
   "name": "attendance-resilience-tests",
   "version": "1.0.0",
-  "description": "Comprehensive test suite for Attendance Resilience Vue 2 application",
-  "main": "run_all_tests.js",
+  "description": "Test suite for Attendance Resilience Vue 2 Application",
   "scripts": {
-    "test": "node run_all_tests.js",
-    "test:all": "node run_all_tests.js",
+    "test": "node run_tests.js",
     "test:store": "node test_attendance_store.js",
     "test:ui": "node test_ui_resilience.js",
-    "test:meta": "node meta_test_suite.js",
-    "test:validate": "node test_validation.js",
-    "test:comprehensive": "npm run test:all && npm run test:validate && npm run test:meta",
-    "test:quick": "node test_attendance_store.js",
-    "test:coverage": "echo 'Running comprehensive test coverage...' && npm run test:comprehensive",
-    "evaluate": "node ../evaluation/evaluation.js",
-    "start": "node run_all_tests.js"
-  },
-  "dependencies": {},
-  "devDependencies": {},
-  "keywords": ["testing", "meta-testing", "vue", "vuex", "resilience", "validation"],
-  "author": "Test Suite",
-  "license": "MIT"
+    "evaluate": "node ../evaluation/evaluation.js"
+  }
 }

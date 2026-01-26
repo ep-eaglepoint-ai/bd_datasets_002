@@ -1,11 +1,14 @@
 # Attendance Resilience Vue 2
 
-### Run Tests After
+
+### Run Tests
+
 ```bash
-docker compose run --rm app npm run test
+docker-compose run --rm app npm run test
 ```
 
-### Run Evaluation
+### Run Evaluation (Saves JSON Report)
+
 ```bash
-docker compose run --rm app npm run evaluate
+docker-compose run --rm app npm run evaluate
 ```

@@ -10,11 +10,66 @@ class MockApiService {
     // Mock server state
     this.serverState = {
       attendanceRecords: [
-        { id: 1, employeeId: 'EMP001', employeeName: 'John Doe', date: '2026-01-23', status: 'present', checkInTime: '09:00' },
-        { id: 2, employeeId: 'EMP002', employeeName: 'Jane Smith', date: '2026-01-23', status: 'absent', checkInTime: null },
-        { id: 3, employeeId: 'EMP003', employeeName: 'Bob Johnson', date: '2026-01-23', status: 'present', checkInTime: '09:15' },
-        { id: 4, employeeId: 'EMP004', employeeName: 'Alice Brown', date: '2026-01-23', status: 'late', checkInTime: '09:30' },
-        { id: 5, employeeId: 'EMP005', employeeName: 'Charlie Wilson', date: '2026-01-23', status: 'present', checkInTime: '08:45' }
+        { 
+          id: 1, 
+          employeeId: 'EMP001', 
+          employeeName: 'John Doe', 
+          department: 'Engineering',
+          date: '2026-01-23', 
+          status: 'present', 
+          checkInTime: '09:00',
+          checkOutTime: '17:30',
+          shiftStart: '09:00',
+          shiftEnd: '17:00'
+        },
+        { 
+          id: 2, 
+          employeeId: 'EMP002', 
+          employeeName: 'Jane Smith', 
+          department: 'Marketing',
+          date: '2026-01-23', 
+          status: 'absent', 
+          checkInTime: null,
+          checkOutTime: null,
+          shiftStart: '09:00',
+          shiftEnd: '17:00'
+        },
+        { 
+          id: 3, 
+          employeeId: 'EMP003', 
+          employeeName: 'Bob Johnson', 
+          department: 'Engineering',
+          date: '2026-01-23', 
+          status: 'active', 
+          checkInTime: '09:15',
+          checkOutTime: null,
+          shiftStart: '09:00',
+          shiftEnd: '17:00'
+        },
+        { 
+          id: 4, 
+          employeeId: 'EMP004', 
+          employeeName: 'Alice Brown', 
+          department: 'HR',
+          date: '2026-01-23', 
+          status: 'late', 
+          checkInTime: '09:30',
+          checkOutTime: '17:45',
+          shiftStart: '09:00',
+          shiftEnd: '17:00'
+        },
+        { 
+          id: 5, 
+          employeeId: 'EMP005', 
+          employeeName: 'Charlie Wilson', 
+          department: 'Sales',
+          date: '2026-01-23', 
+          status: 'on_break', 
+          checkInTime: '08:45',
+          checkOutTime: null,
+          shiftStart: '09:00',
+          shiftEnd: '17:00'
+        }
       ]
     }
   }
@@ -119,6 +174,93 @@ class MockApiService {
       },
       'Failed to bulk update attendance records'
     )
+  }
+
+  /**
+   * Clock in an employee
+   */
+  clockIn(recordId, time) {
+    return this._createNetworkPromise(
+      () => {
+        const record = this.serverState.attendanceRecords.find(r => r.id === recordId)
+        if (!record) {
+          throw new Error('Record not found')
+        }
+        
+        if (record.status === 'active') {
+          throw new Error('Employee is already clocked in')
+        }
+        
+        // Check for shift conflicts
+        const conflicts = this._checkShiftConflicts(record.employeeId, record.date, time, record.shiftEnd)
+        if (conflicts.length > 0) {
+          throw new Error('Shift conflict detected')
+        }
+        
+        record.status = 'active'
+        record.checkInTime = time || new Date().toLocaleTimeString('en-US', { 
+          hour12: false, 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+        
+        return { data: { ...record } }
+      },
+      'Failed to clock in'
+    )
+  }
+
+  /**
+   * Clock out an employee
+   */
+  clockOut(recordId, time) {
+    return this._createNetworkPromise(
+      () => {
+        const record = this.serverState.attendanceRecords.find(r => r.id === recordId)
+        if (!record) {
+          throw new Error('Record not found')
+        }
+        
+        if (record.status !== 'active') {
+          throw new Error('Employee is not currently clocked in')
+        }
+        
+        record.status = 'clocked_out'
+        record.checkOutTime = time || new Date().toLocaleTimeString('en-US', { 
+          hour12: false, 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+        
+        return { data: { ...record } }
+      },
+      'Failed to clock out'
+    )
+  }
+
+  /**
+   * Check for shift conflicts
+   */
+  _checkShiftConflicts(employeeId, date, shiftStart, shiftEnd) {
+    const conflicts = []
+    
+    this.serverState.attendanceRecords.forEach(record => {
+      if (record.employeeId === employeeId && record.date === date && record.status === 'active') {
+        if (record.shiftStart && record.shiftEnd) {
+          const existingStart = new Date(`${date} ${record.shiftStart}`)
+          const existingEnd = new Date(`${date} ${record.shiftEnd}`)
+          const newStart = new Date(`${date} ${shiftStart}`)
+          const newEnd = new Date(`${date} ${shiftEnd}`)
+          
+          // Check for overlap
+          if (newStart < existingEnd && newEnd > existingStart) {
+            conflicts.push(record)
+          }
+        }
+      }
+    })
+    
+    return conflicts
   }
 
   /**

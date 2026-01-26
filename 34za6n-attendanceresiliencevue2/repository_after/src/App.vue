@@ -57,6 +57,9 @@
         
         <!-- Main content -->
         <template v-else>
+          <!-- Filter Panel -->
+          <FilterPanel />
+          
           <!-- Header with actions -->
           <v-row>
             <v-col cols="12">
@@ -105,6 +108,7 @@ import AttendanceList from '@/components/AttendanceList.vue'
 import BulkOperations from '@/components/BulkOperations.vue'
 import NotificationSystem from '@/components/NotificationSystem.vue'
 import RetryDialog from '@/components/RetryDialog.vue'
+import FilterPanel from '@/components/FilterPanel.vue'
 
 export default {
   name: 'App',
@@ -113,7 +117,8 @@ export default {
     AttendanceList,
     BulkOperations,
     NotificationSystem,
-    RetryDialog
+    RetryDialog,
+    FilterPanel
   },
   
   data() {
