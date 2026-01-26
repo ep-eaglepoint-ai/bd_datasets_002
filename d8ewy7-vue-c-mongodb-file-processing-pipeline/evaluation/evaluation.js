@@ -24,6 +24,8 @@ const runCommand = (cmd, cwd) => {
   });
 };
 
+
+
 const runTests = async () => {
   // Tests dir
   const testsDir = path.join(ROOT, "tests");
@@ -33,6 +35,27 @@ const runTests = async () => {
 
   // Run tests
   return runCommand("npm test", testsDir);
+};
+
+const printReport = (report, reportPath) => {
+  console.log("=".repeat(60));
+  console.log("EVALUATION RESULTS");
+  console.log("=".repeat(60));
+  console.log();
+  console.log(`Run ID: ${report.run_id}`);
+  console.log(`Duration: ${report.duration_seconds.toFixed(2)} seconds`);
+  console.log();
+  
+  console.log("TEST EXECUTION:");
+  console.log(`  Passed: ${report.tests.passed}`);
+  console.log(`  Return Code: ${report.tests.return_code}`);
+  
+  console.log();
+  console.log("=".repeat(60));
+  console.log(`SUCCESS: ${report.success}`);
+  console.log("=".repeat(60));
+  console.log();
+  console.log(`Report written to ${reportPath}`);
 };
 
 const main = async () => {
@@ -57,14 +80,18 @@ const main = async () => {
   const timeStr = start.toISOString().split("T")[1].replace(/[:\.]/g, "-");
   const reportDir = path.join(REPORTS, dateStr, timeStr);
 
+
+  // Define the full path explicitly
+  const reportPath = path.join(reportDir, "report.json");
+
   fs.mkdirSync(reportDir, { recursive: true });
   fs.writeFileSync(
-    path.join(reportDir, "report.json"),
+    reportPath,
     JSON.stringify(report, null, 2),
   );
 
-  console.log("Evaluation Report:");
-  console.log(JSON.stringify(report, null, 2));
+    // Call the new printer instead of console.log(JSON...)
+  printReport(report, reportPath);
 
   if (tests.passed) process.exit(0);
   else process.exit(1);
