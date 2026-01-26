@@ -25,7 +25,7 @@ export async function safaricomCoreCall(
   const endpoint = destination === "token" ? "Token" : "TopUp";
 
   // Validate request body
-  if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
+  if (body == null || (typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === 0)) {
     const apiLogEntry: APILogData = {
       APIEndpoint: endpoint,
       method: "POST",

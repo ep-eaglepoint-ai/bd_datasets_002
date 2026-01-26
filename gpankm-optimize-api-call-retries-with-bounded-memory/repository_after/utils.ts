@@ -5,6 +5,19 @@ export function truncate(val: any, maxLen: number = TRUNCATE_MAX_LEN): any {
   if (typeof val === 'string') {
     return val.length > maxLen ? val.substring(0, maxLen) + "..." : val;
   }
+  // Handle objects and arrays
+  if (typeof val === 'object') {
+    try {
+      const str = JSON.stringify(val);
+      if (str.length > maxLen) {
+        return JSON.parse(str.substring(0, maxLen) + "...");
+      }
+      return val;
+    } catch {
+      // If stringify fails, return a placeholder
+      return "[Object]";
+    }
+  }
   return val;
 }
 
