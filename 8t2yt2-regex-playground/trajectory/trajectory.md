@@ -33,7 +33,7 @@ Containerization revealed hidden issues. While the app ran locally, the Docker b
 
 ## Phase 7: Overcoming Build Blockers
 
-Instead of burning time configuring ESLint for a containerized build environment, I made the pragmatic decision to strip ESLint from the project. This unblocked the build pipeline. I also had to explicitly handle TypeScript `node_modules` resolution in the evaluation script by adding a dedicated `tsconfig.json` for the evaluation folder, ensuring `ts-node` could execute the verification script without module errors.
+Instead of burning time configuring ESLint for a containerized build environment, I made the pragmatic decision to strip ESLint from the project. This unblocked the build pipeline. Initially, I attempted to use `ts-node` with a custom `tsconfig.json` for the evaluation script, but encountered persistent module resolution errors in the Docker environment. I resolved this by compiling the evaluation script to standard JavaScript before execution, eliminating the runtime dependency on `ts-node` and ensuring reliable performance.
 
 ## Phase 8: Final Polish
 
