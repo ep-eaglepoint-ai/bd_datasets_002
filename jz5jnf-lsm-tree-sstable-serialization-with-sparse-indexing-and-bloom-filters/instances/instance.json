@@ -1,0 +1,11 @@
+{
+            "instance_id": "JZ5JNF",
+            "problem_statement": "The architecture of a Log-Structured Merge-tree (LSM) relies on immutable on-disk structures (SSTables) that must be queryable without loading the entire file into memory. This requires a specific binary layout involving length-prefixed records, a Sparse Index for seeking, and a Bloom Filter for membership testing. The primary failure mode for mid-tier models is the mismanagement of file offsets; they often write data without tracking the exact byte cursor, resulting in an index that points to the middle of a record rather than its header. Additionally, the construction of the file Footer which must contain pointers to the variable-length Index and Filter sections creates a sequencing paradox that requires careful byte counting. Finally, implementing a Bloom Filter from scratch tests the model's grasp of bitwise operations versus standard collection types; utilizing a simple map or boolean array negates the space-efficiency purpose of the structure.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/jz5jnf-lsm-tree-sstable-serialization-with-sparse-indexing-and-bloom-filters",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
