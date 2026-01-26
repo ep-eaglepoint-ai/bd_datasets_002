@@ -1,0 +1,19 @@
+{
+    "name": "event-booking-system",
+    "version": "1.0.0",
+    "description": "Event Booking System Root",
+    "workspaces": [
+        "repository_after/backend",
+        "repository_after/frontend"
+    ],
+    "scripts": {
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    },
+    "dependencies": {
+        "axios": "^1.6.2",
+        "jest": "^29.7.0"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}
