@@ -255,9 +255,11 @@ char* db_query_json(const char* batch_id, int skip, int limit) {
      bool first = true;
      while (mongoc_cursor_next(cursor, &doc)) {
          if (!first) strcat(json, ",");
-         char *str = bson_as_canonical_extended_json(doc, NULL);
-         // Check bounds
-         strcat(json, str);
+         char *str = bson_as_relaxed_extended_json(doc, NULL);
+         // Check bounds - rudimentary safety
+         if (strlen(json) + strlen(str) < size - 2) {
+             strcat(json, str);
+         }
          bson_free(str);
          first = false;
      }
@@ -316,7 +318,7 @@ int db_read_export_chunk(void* context, char* buf, size_t max) {
     const bson_t *doc;
     while (written < max - 512) { // Reserve space
         if (mongoc_cursor_next(ctx->cursor, &doc)) {
-            char *str = bson_as_canonical_extended_json(doc, NULL);
+            char *str = bson_as_relaxed_extended_json(doc, NULL);
             size_t len = strlen(str);
             
             if (!ctx->is_csv) {
