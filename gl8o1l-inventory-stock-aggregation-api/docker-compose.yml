@@ -2,7 +2,7 @@ services:
   test-before:
     build: .
     image: inventory-test:latest
-    command: bash -c "cp -r /workspace/repository_before/* /app/ && cp -r /workspace/repository_after/pom.xml /app/ && mkdir -p /app/src/main/java/com/example/inventory && cp /workspace/repository_after/src/main/java/com/example/inventory/InventoryApplication.java /app/src/main/java/com/example/inventory/ && cp /workspace/repository_after/src/main/java/com/example/inventory/Item.java /app/src/main/java/com/example/inventory/ && mv /app/InventoryController.java /app/src/main/java/com/example/inventory/InventoryController.java && mkdir -p /app/src/test/java && cp -r /workspace/tests/* /app/src/test/java/ && mvn -e test -q -Dmaven.test.failure.ignore=true"
+    command: bash -c "cp -r /workspace/repository_before/* /app/ && cp -r /workspace/repository_after/pom.xml /app/ && mkdir -p /app/src/main/java/com/example/inventory && cp /workspace/repository_after/src/main/java/com/example/inventory/InventoryApplication.java /app/src/main/java/com/example/inventory/ && cp /workspace/repository_after/src/main/java/com/example/inventory/Item.java /app/src/main/java/com/example/inventory/ && mv /app/InventoryController.java /app/src/main/java/com/example/inventory/InventoryController.java && mkdir -p /app/src/test/java && cp -r /workspace/tests/* /app/src/test/java/ && (mvn -e test -q -Dmaven.test.failure.ignore=true || true)"
     volumes:
       - .:/workspace:ro
     working_dir: /app
