@@ -117,8 +117,7 @@ async function main() {
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0];
   const timeStr = now.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0];
-  const reportDir = path.join('evaluation', dateStr, timeStr);
-  
+  const reportDir = path.join('evaluation', 'reports', dateStr, timeStr);  
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
   }
