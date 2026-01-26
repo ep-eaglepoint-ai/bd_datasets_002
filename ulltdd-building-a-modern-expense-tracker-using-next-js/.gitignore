@@ -13,6 +13,4 @@ node_modules/
 # Evaluation reports (generated)
 evaluation/????-??-??
 patches/*.patch
-patches/diff.patch
 
-patches/diff.patch
