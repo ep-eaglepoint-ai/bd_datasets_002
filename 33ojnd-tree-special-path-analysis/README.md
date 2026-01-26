@@ -44,6 +44,10 @@
 ## Quick start
 - Run tests locally: `python -m pytest -q tests`
 - With Docker: `docker compose up --build --abort-on-container-exit`
+- Run tests (repository_after):
+ `docker compose run --rm app pytest tests`
+- Run evaluation:
+ `docker compose run --rm app python evaluation/evaluation.py`
 - Add dependencies to `requirements.txt`
 
 ## Notes
