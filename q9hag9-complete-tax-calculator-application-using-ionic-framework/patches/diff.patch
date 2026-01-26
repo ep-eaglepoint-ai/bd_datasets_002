@@ -1,0 +1,576 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/capacitor.config.ts b/repository_after/capacitor.config.ts
+new file mode 100644
+index 0000000..b7264c1
+--- /dev/null
++++ b/repository_after/capacitor.config.ts
+@@ -0,0 +1,12 @@
++import { CapacitorConfig } from '@capacitor/cli';
++
++const config: CapacitorConfig = {
++    appId: 'io.ionic.taxcalculator',
++    appName: 'tax-calculator-ionic',
++    webDir: 'dist',
++    server: {
++        androidScheme: 'https'
++    }
++};
++
++export default config;
+diff --git a/repository_after/index.html b/repository_after/index.html
+new file mode 100644
+index 0000000..b446a50
+--- /dev/null
++++ b/repository_after/index.html
+@@ -0,0 +1,21 @@
++<!DOCTYPE html>
++<html lang="en">
++  <head>
++    <meta charset="utf-8" />
++    <title>Tax Calculator</title>
++    <base href="/" />
++    <meta name="color-scheme" content="light dark" />
++    <meta
++      name="viewport"
++      content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
++    />
++    <meta name="format-detection" content="telephone=no" />
++    <meta name="msapplication-tap-highlight" content="no" />
++    <link rel="manifest" href="/manifest.json" />
++    <link rel="shortcut icon" type="image/png" href="/favicon.png" />
++  </head>
++  <body>
++    <div id="root"></div>
++    <script type="module" src="/src/main.tsx"></script>
++  </body>
++</html>
+diff --git a/repository_after/ionic.config.json b/repository_after/ionic.config.json
+new file mode 100644
+index 0000000..f442fca
+--- /dev/null
++++ b/repository_after/ionic.config.json
+@@ -0,0 +1,5 @@
++{
++    "name": "tax-calculator-ionic",
++    "integrations": {},
++    "type": "react"
++}
+\ No newline at end of file
+diff --git a/repository_after/src/App.tsx b/repository_after/src/App.tsx
+new file mode 100644
+index 0000000..bbc84d5
+--- /dev/null
++++ b/repository_after/src/App.tsx
+@@ -0,0 +1,33 @@
++import { IonApp, setupIonicReact } from '@ionic/react';
++import TaxCalculator from './components/TaxCalculator';
++
++/* Core CSS required for Ionic components to work properly */
++import '@ionic/react/css/core.css';
++
++/* Basic CSS for apps built with Ionic */
++import '@ionic/react/css/normalize.css';
++import '@ionic/react/css/structure.css';
++import '@ionic/react/css/typography.css';
++
++/* Optional CSS utils that can be commented out */
++import '@ionic/react/css/padding.css';
++import '@ionic/react/css/float-elements.css';
++import '@ionic/react/css/text-alignment.css';
++import '@ionic/react/css/text-transformation.css';
++import '@ionic/react/css/flex-utils.css';
++import '@ionic/react/css/display.css';
++
++/* Theme variables */
++import './theme/variables.css';
++
++setupIonicReact();
++
++const App: React.FC = () => {
++    return (
++        <IonApp>
++            <TaxCalculator />
++        </IonApp>
++    );
++};
++
++export default App;
+diff --git a/repository_after/src/components/TaxCalculator.tsx b/repository_after/src/components/TaxCalculator.tsx
+new file mode 100644
+index 0000000..7fc36d0
+--- /dev/null
++++ b/repository_after/src/components/TaxCalculator.tsx
+@@ -0,0 +1,61 @@
++import React, { useState, useEffect } from 'react';
++import {
++    IonPage,
++    IonHeader,
++    IonToolbar,
++    IonTitle,
++    IonContent
++} from '@ionic/react';
++import TaxInputs from './TaxInputs';
++import TaxResults from './TaxResults';
++import { calculateTaxResults } from '../utils/taxCalculations';
++import { TaxMode, TaxCalculationResult } from '../types/tax.types';
++
++const TaxCalculator: React.FC = () => {
++    const [annualIncome, setAnnualIncome] = useState<number>(50000);
++    const [totalDeductions, setTotalDeductions] = useState<number>(12000);
++    const [taxMode, setTaxMode] = useState<TaxMode>('progressive');
++    const [flatTaxRate, setFlatTaxRate] = useState<number>(15);
++    const [results, setResults] = useState<TaxCalculationResult>({
++        taxableIncome: 0,
++        totalTax: 0,
++        netIncome: 0,
++        effectiveRate: 0
++    });
++
++    // Calculate tax results whenever inputs change (instant updates)
++    useEffect(() => {
++        const calculatedResults = calculateTaxResults(
++            annualIncome,
++            totalDeductions,
++            taxMode,
++            flatTaxRate
++        );
++        setResults(calculatedResults);
++    }, [annualIncome, totalDeductions, taxMode, flatTaxRate]);
++
++    return (
++        <IonPage>
++            <IonHeader>
++                <IonToolbar>
++                    <IonTitle>Tax Calculator</IonTitle>
++                </IonToolbar>
++            </IonHeader>
++            <IonContent className="ion-padding">
++                <TaxInputs
++                    annualIncome={annualIncome}
++                    totalDeductions={totalDeductions}
++                    taxMode={taxMode}
++                    flatTaxRate={flatTaxRate}
++                    onIncomeChange={setAnnualIncome}
++                    onDeductionsChange={setTotalDeductions}
++                    onTaxModeChange={setTaxMode}
++                    onFlatTaxRateChange={setFlatTaxRate}
++                />
++                <TaxResults results={results} />
++            </IonContent>
++        </IonPage>
++    );
++};
++
++export default TaxCalculator;
+diff --git a/repository_after/src/components/TaxInputs.tsx b/repository_after/src/components/TaxInputs.tsx
+new file mode 100644
+index 0000000..0bc8c30
+--- /dev/null
++++ b/repository_after/src/components/TaxInputs.tsx
+@@ -0,0 +1,96 @@
++import React from 'react';
++import {
++    IonCard,
++    IonCardHeader,
++    IonCardTitle,
++    IonCardContent,
++    IonList,
++    IonItem,
++    IonLabel,
++    IonInput,
++    IonSelect,
++    IonSelectOption
++} from '@ionic/react';
++import { TaxMode } from '../types/tax.types';
++
++interface TaxInputsProps {
++    annualIncome: number;
++    totalDeductions: number;
++    taxMode: TaxMode;
++    flatTaxRate: number;
++    onIncomeChange: (value: number) => void;
++    onDeductionsChange: (value: number) => void;
++    onTaxModeChange: (value: TaxMode) => void;
++    onFlatTaxRateChange: (value: number) => void;
++}
++
++const TaxInputs: React.FC<TaxInputsProps> = ({
++    annualIncome,
++    totalDeductions,
++    taxMode,
++    flatTaxRate,
++    onIncomeChange,
++    onDeductionsChange,
++    onTaxModeChange,
++    onFlatTaxRateChange
++}) => {
++    return (
++        <IonCard>
++            <IonCardHeader>
++                <IonCardTitle>Tax Calculator Inputs</IonCardTitle>
++            </IonCardHeader>
++            <IonCardContent>
++                <IonList>
++                    <IonItem>
++                        <IonLabel position="stacked">Annual Income ($)</IonLabel>
++                        <IonInput
++                            type="number"
++                            value={annualIncome}
++                            onIonInput={(e) => onIncomeChange(parseFloat(e.detail.value!) || 0)}
++                            placeholder="Enter your annual income"
++                            data-testid="annual-income-input"
++                        />
++                    </IonItem>
++
++                    <IonItem>
++                        <IonLabel position="stacked">Total Deductions ($)</IonLabel>
++                        <IonInput
++                            type="number"
++                            value={totalDeductions}
++                            onIonInput={(e) => onDeductionsChange(parseFloat(e.detail.value!) || 0)}
++                            placeholder="Enter your total deductions"
++                            data-testid="deductions-input"
++                        />
++                    </IonItem>
++
++                    <IonItem>
++                        <IonLabel position="stacked">Tax Mode</IonLabel>
++                        <IonSelect
++                            value={taxMode}
++                            onIonChange={(e) => onTaxModeChange(e.detail.value)}
++                            data-testid="tax-mode-select"
++                        >
++                            <IonSelectOption value="flat">Flat Tax</IonSelectOption>
++                            <IonSelectOption value="progressive">Progressive Tax</IonSelectOption>
++                        </IonSelect>
++                    </IonItem>
++
++                    {taxMode === 'flat' && (
++                        <IonItem>
++                            <IonLabel position="stacked">Flat Tax Rate (%)</IonLabel>
++                            <IonInput
++                                type="number"
++                                value={flatTaxRate}
++                                onIonInput={(e) => onFlatTaxRateChange(parseFloat(e.detail.value!) || 0)}
++                                placeholder="Enter flat tax rate"
++                                data-testid="flat-tax-rate-input"
++                            />
++                        </IonItem>
++                    )}
++                </IonList>
++            </IonCardContent>
++        </IonCard>
++    );
++};
++
++export default TaxInputs;
+diff --git a/repository_after/src/components/TaxResults.tsx b/repository_after/src/components/TaxResults.tsx
+new file mode 100644
+index 0000000..41a073c
+--- /dev/null
++++ b/repository_after/src/components/TaxResults.tsx
+@@ -0,0 +1,66 @@
++import React from 'react';
++import {
++    IonCard,
++    IonCardHeader,
++    IonCardTitle,
++    IonCardContent,
++    IonList,
++    IonItem,
++    IonLabel
++} from '@ionic/react';
++import { TaxCalculationResult } from '../types/tax.types';
++
++interface TaxResultsProps {
++    results: TaxCalculationResult;
++}
++
++const TaxResults: React.FC<TaxResultsProps> = ({ results }) => {
++    const formatCurrency = (value: number): string => {
++        return new Intl.NumberFormat('en-US', {
++            style: 'currency',
++            currency: 'USD'
++        }).format(value);
++    };
++
++    const formatPercentage = (value: number): string => {
++        return `${value.toFixed(2)}%`;
++    };
++
++    return (
++        <IonCard>
++            <IonCardHeader>
++                <IonCardTitle>Tax Calculation Results</IonCardTitle>
++            </IonCardHeader>
++            <IonCardContent>
++                <IonList>
++                    <IonItem>
++                        <IonLabel>
++                            <h3>Taxable Income</h3>
++                            <p data-testid="taxable-income">{formatCurrency(results.taxableIncome)}</p>
++                        </IonLabel>
++                    </IonItem>
++                    <IonItem>
++                        <IonLabel>
++                            <h3>Total Tax Owed</h3>
++                            <p data-testid="total-tax">{formatCurrency(results.totalTax)}</p>
++                        </IonLabel>
++                    </IonItem>
++                    <IonItem>
++                        <IonLabel>
++                            <h3>Net Income After Tax</h3>
++                            <p data-testid="net-income">{formatCurrency(results.netIncome)}</p>
++                        </IonLabel>
++                    </IonItem>
++                    <IonItem>
++                        <IonLabel>
++                            <h3>Effective Tax Rate</h3>
++                            <p data-testid="effective-rate">{formatPercentage(results.effectiveRate)}</p>
++                        </IonLabel>
++                    </IonItem>
++                </IonList>
++            </IonCardContent>
++        </IonCard>
++    );
++};
++
++export default TaxResults;
+diff --git a/repository_after/src/main.tsx b/repository_after/src/main.tsx
+new file mode 100644
+index 0000000..38b0045
+--- /dev/null
++++ b/repository_after/src/main.tsx
+@@ -0,0 +1,9 @@
++import React from 'react';
++import ReactDOM from 'react-dom/client';
++import App from './App';
++
++ReactDOM.createRoot(document.getElementById('root')!).render(
++    <React.StrictMode>
++        <App />
++    </React.StrictMode>
++);
+diff --git a/repository_after/src/theme/variables.css b/repository_after/src/theme/variables.css
+new file mode 100644
+index 0000000..5f9a4ff
+--- /dev/null
++++ b/repository_after/src/theme/variables.css
+@@ -0,0 +1,58 @@
++/* Ionic Variables and Theming. */
++:root {
++  /** primary **/
++  --ion-color-primary: #3880ff;
++  --ion-color-primary-rgb: 56, 128, 255;
++  --ion-color-primary-contrast: #ffffff;
++  --ion-color-primary-contrast-rgb: 255, 255, 255;
++  --ion-color-primary-shade: #3171e0;
++  --ion-color-primary-tint: #4c8dff;
++
++  /** secondary **/
++  --ion-color-secondary: #3dc2ff;
++  --ion-color-secondary-rgb: 61, 194, 255;
++  --ion-color-secondary-contrast: #ffffff;
++  --ion-color-secondary-contrast-rgb: 255, 255, 255;
++  --ion-color-secondary-shade: #36abe0;
++  --ion-color-secondary-tint: #50c8ff;
++
++  /** success **/
++  --ion-color-success: #2dd36f;
++  --ion-color-success-rgb: 45, 211, 111;
++  --ion-color-success-contrast: #ffffff;
++  --ion-color-success-contrast-rgb: 255, 255, 255;
++  --ion-color-success-shade: #28ba62;
++  --ion-color-success-tint: #42d77d;
++
++  /** warning **/
++  --ion-color-warning: #ffc409;
++  --ion-color-warning-rgb: 255, 196, 9;
++  --ion-color-warning-contrast: #000000;
++  --ion-color-warning-contrast-rgb: 0, 0, 0;
++  --ion-color-warning-shade: #e0ac08;
++  --ion-color-warning-tint: #ffca22;
++
++  /** danger **/
++  --ion-color-danger: #eb445a;
++  --ion-color-danger-rgb: 235, 68, 90;
++  --ion-color-danger-contrast: #ffffff;
++  --ion-color-danger-contrast-rgb: 255, 255, 255;
++  --ion-color-danger-shade: #cf3c4f;
++  --ion-color-danger-tint: #ed576b;
++
++  /** medium **/
++  --ion-color-medium: #92949c;
++  --ion-color-medium-rgb: 146, 148, 156;
++  --ion-color-medium-contrast: #ffffff;
++  --ion-color-medium-contrast-rgb: 255, 255, 255;
++  --ion-color-medium-shade: #808289;
++  --ion-color-medium-tint: #9d9fa6;
++
++  /** light **/
++  --ion-color-light: #f4f5f8;
++  --ion-color-light-rgb: 244, 245, 248;
++  --ion-color-light-contrast: #000000;
++  --ion-color-light-contrast-rgb: 0, 0, 0;
++  --ion-color-light-shade: #d7d8da;
++  --ion-color-light-tint: #f5f6f9;
++}
+diff --git a/repository_after/src/types/tax.types.ts b/repository_after/src/types/tax.types.ts
+new file mode 100644
+index 0000000..a1a8858
+--- /dev/null
++++ b/repository_after/src/types/tax.types.ts
+@@ -0,0 +1,21 @@
++export type TaxMode = 'flat' | 'progressive';
++
++export interface TaxBracket {
++    min: number;
++    max: number | null;
++    rate: number;
++}
++
++export interface TaxCalculationResult {
++    taxableIncome: number;
++    totalTax: number;
++    netIncome: number;
++    effectiveRate: number;
++}
++
++export interface TaxInputs {
++    annualIncome: number;
++    totalDeductions: number;
++    taxMode: TaxMode;
++    flatTaxRate?: number;
++}
+diff --git a/repository_after/src/utils/taxCalculations.ts b/repository_after/src/utils/taxCalculations.ts
+new file mode 100644
+index 0000000..4643125
+--- /dev/null
++++ b/repository_after/src/utils/taxCalculations.ts
+@@ -0,0 +1,107 @@
++import { TaxBracket, TaxCalculationResult } from '../types/tax.types';
++
++// Default progressive tax brackets (similar to US federal tax structure)
++export const DEFAULT_TAX_BRACKETS: TaxBracket[] = [
++    { min: 0, max: 10000, rate: 0.10 },
++    { min: 10001, max: 40000, rate: 0.12 },
++    { min: 40001, max: 85000, rate: 0.22 },
++    { min: 85001, max: 160000, rate: 0.24 },
++    { min: 160001, max: 200000, rate: 0.32 },
++    { min: 200001, max: 500000, rate: 0.35 },
++    { min: 500001, max: null, rate: 0.37 }
++];
++
++/**
++ * Calculate taxable income by subtracting deductions from annual income
++ */
++export function calculateTaxableIncome(
++    annualIncome: number,
++    deductions: number
++): number {
++    const taxableIncome = annualIncome - deductions;
++    return Math.max(0, taxableIncome); // Cannot be negative
++}
++
++/**
++ * Calculate tax using a flat tax rate
++ */
++export function calculateFlatTax(
++    taxableIncome: number,
++    rate: number
++): number {
++    return taxableIncome * (rate / 100);
++}
++
++/**
++ * Calculate tax using progressive tax brackets
++ */
++export function calculateProgressiveTax(
++    taxableIncome: number,
++    brackets: TaxBracket[] = DEFAULT_TAX_BRACKETS
++): number {
++    let totalTax = 0;
++
++    for (const bracket of brackets) {
++        if (taxableIncome <= bracket.min) break;
++
++        const bracketMax = bracket.max ?? Infinity;
++        const incomeInBracket = Math.min(
++            taxableIncome - bracket.min,
++            bracketMax - bracket.min
++        );
++
++        if (incomeInBracket > 0) {
++            totalTax += incomeInBracket * bracket.rate;
++        }
++    }
++
++    return totalTax;
++}
++
++/**
++ * Calculate net income after tax
++ */
++export function calculateNetIncome(
++    annualIncome: number,
++    totalTax: number
++): number {
++    return annualIncome - totalTax;
++}
++
++/**
++ * Calculate effective tax rate as a percentage
++ */
++export function calculateEffectiveRate(
++    totalTax: number,
++    annualIncome: number
++): number {
++    if (annualIncome === 0) return 0;
++    return (totalTax / annualIncome) * 100;
++}
++
++/**
++ * Main calculation function that returns all tax calculation results
++ */
++export function calculateTaxResults(
++    annualIncome: number,
++    deductions: number,
++    taxMode: 'flat' | 'progressive',
++    flatTaxRate?: number,
++    brackets?: TaxBracket[]
++): TaxCalculationResult {
++    const taxableIncome = calculateTaxableIncome(annualIncome, deductions);
++
++    const totalTax = taxMode === 'flat'
++        ? calculateFlatTax(taxableIncome, flatTaxRate || 0)
++        : calculateProgressiveTax(taxableIncome, brackets);
++
++    const netIncome = calculateNetIncome(annualIncome, totalTax);
++    const effectiveRate = calculateEffectiveRate(totalTax, annualIncome);
++
++    return {
++        taxableIncome,
++        totalTax,
++        netIncome,
++        effectiveRate
++    };
++}
+diff --git a/repository_after/vite.config.ts b/repository_after/vite.config.ts
+new file mode 100644
+index 0000000..cf7731a
+--- /dev/null
++++ b/repository_after/vite.config.ts
+@@ -0,0 +1,11 @@
++import { defineConfig } from 'vite';
++import react from '@vitejs/plugin-react';
++
++// https://vitejs.dev/config/
++export default defineConfig({
++    plugins: [react()],
++    server: {
++        port: 8100,
++        host: '0.0.0.0'
++    }
++});

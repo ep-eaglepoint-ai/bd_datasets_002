@@ -153,7 +153,7 @@ async function main() {
         // Run tests with Jest JSON reporter
         console.log('\n📊 Running tests in repository_after...\n');
 
-        const testsDir = join(__dirname, '../tests');
+        const testsDir = join(process.cwd(), 'tests');
         const result = await runCommand(
             'npx',
             ['jest', 'tax.test.ts', '--json', '--verbose'],
