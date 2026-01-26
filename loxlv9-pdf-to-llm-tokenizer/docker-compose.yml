@@ -1,6 +1,16 @@
+version: '3.8'
+
 services:
-  app:
+  # 1. Run Tests for Repository After (Immediate console feedback)
+  repository-after:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
+    command: pytest tests/test_tokenizer.py -v
+
+  # 2. Run Full Evaluation (Generates report.json)
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: python evaluation/evaluation.py

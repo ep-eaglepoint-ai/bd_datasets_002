@@ -1,11 +1,16 @@
-# Python
-__pycache__/
+__pycache__
 *.pyc
-.venv/
-.env
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+test_report.json
 
-# Node
-node_modules/
-
-# OS
-.DS_Store
+# Ignore all reports
+evaluation/reports/
+# But allow report.json if someone manually tries to add it (though usually reports are artifacts)
+!evaluation/reports/**/report.json
