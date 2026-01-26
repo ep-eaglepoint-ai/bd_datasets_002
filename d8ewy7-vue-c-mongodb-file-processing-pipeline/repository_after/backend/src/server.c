@@ -43,7 +43,9 @@ void request_completed(void *cls, struct MHD_Connection *connection,
 
 // Helper to flush batches
 void flush_batches(struct RequestContext* ctx) {
+    printf("[SERVER] flush_batches called: record_batch_count=%d, error_batch_count=%d\n", ctx->record_batch_count, ctx->error_batch_count);
     if (ctx->record_batch_count > 0) {
+        printf("[SERVER] Inserting %d records to MongoDB\n", ctx->record_batch_count);
         db_insert_records(ctx->batch_id, ctx->record_batch, ctx->record_batch_count);
         for(int i=0; i<ctx->record_batch_count; i++) free(ctx->record_batch[i]);
         ctx->record_batch_count = 0;
@@ -61,8 +63,10 @@ void flush_batches(struct RequestContext* ctx) {
 // Callback from parser
 int on_record_parsed(ShipmentRecord* record, void* context) {
     struct RequestContext* ctx = (struct RequestContext*)context;
+    printf("[SERVER] on_record_parsed called for row %d\n", record->row_number);
     ctx->progress.total_rows++; // Assuming total = processed? No, total lines.
     ctx->progress.processed_rows++;
+    printf("[SERVER] Progress: total=%d, processed=%d\n", ctx->progress.total_rows, ctx->progress.processed_rows);
     
     // Validate
     ValidationError error;
@@ -99,9 +103,11 @@ int post_iterator(void *con_cls, enum MHD_ValueKind kind, const char *key,
                   const char *filename, const char *content_type,
                   const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
     struct RequestContext *ctx = con_cls;
+    printf("[SERVER] post_iterator: key=%s, size=%zu, offset=%llu\n", key ? key : "NULL", size, (unsigned long long)off);
     
     if (key && strcmp(key, "file") == 0) {
         if (size > 0) {
+            printf("[SERVER] Processing file chunk: %zu bytes\n", size);
             parser_process_chunk(&ctx->parser, data, size, on_record_parsed, on_parser_error, ctx);
         }
         return MHD_YES;
@@ -121,6 +127,7 @@ int answer_to_connection(void *cls, struct MHD_Connection *connection,
         struct RequestContext *ctx = calloc(1, sizeof(struct RequestContext));
         // Simple routing for initialization
         if (strcmp(url, "/api/upload") == 0 && strcmp(method, "POST") == 0) {
+             printf("[SERVER] New upload request\n");
              // Generate Batch ID
              // Simple random UUID-like for C
              sprintf(ctx->batch_id, "%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
@@ -159,8 +166,10 @@ int answer_to_connection(void *cls, struct MHD_Connection *connection,
             return MHD_YES;
         } else {
             // Upload finished
+            printf("[SERVER] Upload finished, finalizing parser\n");
             parser_finalize(&ctx->parser);
             ctx->progress.status = STATUS_COMPLETE;
+            printf("[SERVER] Calling final flush_batches\n");
             flush_batches(ctx); // Final flush
             
             // Return Batch ID

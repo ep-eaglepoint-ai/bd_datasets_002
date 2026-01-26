@@ -108,6 +108,7 @@ int parse_csv_line(char* line, ShipmentRecord* record) {
 }
 
 void parser_process_chunk(ParserContext* ctx, const char* chunk, size_t length, RecordCallback on_record, ErrorCallback on_error, void* callback_ctx) {
+    printf("[PARSER] Processing chunk of %zu bytes\n", length);
     for (size_t i = 0; i < length; i++) {
         char c = chunk[i];
         
