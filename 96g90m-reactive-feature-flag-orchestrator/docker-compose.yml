@@ -1,6 +1,31 @@
 services:
   app:
-    build: .
-    command: pytest -q tests
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
     volumes:
-      - .:/app
+      - ./repository_after:/app
+    environment:
+      - NODE_ENV=production
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "cd /workspace && npm test"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=test
+
+  evaluation:
+    image: node:18-slim
+    command: sh -c "cd /workspace && npm install && node evaluation/evaluation.js"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=test
