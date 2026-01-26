@@ -9,3 +9,13 @@ node_modules/
 
 # OS
 .DS_Store
+
+dist
+build
+.env
+.DS_Store
+*.key
+*.pem
+coverage
+
+reports

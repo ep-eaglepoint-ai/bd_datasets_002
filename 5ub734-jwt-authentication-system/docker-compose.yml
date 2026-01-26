@@ -1,6 +1,23 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/tests
     volumes:
-      - .:/app
+      # ✅ FIX: Map local 'repository_after/server' to container '/app/server'
+      - ./repository_after/server:/app/server
+      - ./repository_after/client:/app/client
+      - ./tests:/app/tests
+
+      # Hide node_modules so they don't conflict
+      - /app/server/node_modules
+      - /app/client/node_modules
+      - /app/tests/node_modules
+      - ./evaluation:/app/tests/evaluation
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - NODE_PATH=/app/tests/node_modules
+      - INSIDE_DOCKER=true
+    command: npm test
