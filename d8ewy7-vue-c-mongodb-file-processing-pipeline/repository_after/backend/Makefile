@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -pthread -I./include $(shell pkg-config --cflags libmongoc-1.0 libmicrohttpd)
-LDFLAGS = $(shell pkg-config --libs libmongoc-1.0 libmicrohttpd) -pthread
+CFLAGS = -Wall -Wextra -pthread -I./include $(shell pkg-config --cflags libmongoc-1.0 libmicrohttpd jansson)
+LDFLAGS = $(shell pkg-config --libs libmongoc-1.0 libmicrohttpd jansson) -pthread
 
 SRC = src/main.c src/server.c src/parser.c src/db.c src/validator.c src/utils.c
 OBJ = $(SRC:.c=.o)

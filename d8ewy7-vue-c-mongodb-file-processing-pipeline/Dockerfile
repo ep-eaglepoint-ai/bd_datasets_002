@@ -4,23 +4,23 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libmicrohttpd-dev \
-    libmongoc-1.0-0 \
-    libbson-1.0-0 \
+    libmongoc-dev \
+    libbson-dev \
     libssl-dev \
     libsasl2-dev \
+    libjansson-dev \
     wget \
     pkg-config \
     git \
     && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y libmongoc-dev
 
 WORKDIR /app
 
 COPY . .
 
 # Build the application
-RUN make
+RUN make    
+
 
 EXPOSE 8080
 
