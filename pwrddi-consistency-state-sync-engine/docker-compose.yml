@@ -1,6 +1,25 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    command: npm test
+    environment:
+      - TARGET_REPO=repository_before
     volumes:
       - .:/app
+      - /app/node_modules
+
+  test-after:
+    build: .
+    command: npm test
+    environment:
+      - TARGET_REPO=repository_after
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  evaluation:
+    build: .
+    command: node -r ts-node/register evaluation/evaluation.ts
+    volumes:
+      - .:/app
+      - /app/node_modules
