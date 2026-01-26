@@ -5,12 +5,10 @@ services:
       dockerfile: Dockerfile
     working_dir: /app/tests
     volumes:
-      # ✅ FIX: Map local 'repository_after/server' to container '/app/server'
       - ./repository_after/server:/app/server
       - ./repository_after/client:/app/client
       - ./tests:/app/tests
 
-      # Hide node_modules so they don't conflict
       - /app/server/node_modules
       - /app/client/node_modules
       - /app/tests/node_modules
