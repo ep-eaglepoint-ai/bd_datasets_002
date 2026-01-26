@@ -1,25 +1,15 @@
-FROM node:18-alpine
+# Dockerfile
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy test package.json first for better caching
-COPY tests/package*.json ./tests/
-
-RUN echo "Invalidate cache v3"
-
-# Install test dependencies
-ENV NODE_ENV=development
-WORKDIR /app/tests
-RUN npm install --no-cache --no-optional
-
-# Copy all project files
-WORKDIR /app
+# Copy all files
 COPY . .
 
-# Create evaluation reports directory
-RUN mkdir -p evaluation/reports
+# Install dependencies: assume a root package.json that includes jest & ts-jest, or
+# you can run npm install in repository_before if that holds the dependencies.
+# For simplicity, install jest globally (not ideal for production, but fine for this harness).
+RUN npm install --global jest @types/jest ts-node typescript
 
-# Default working directory
-WORKDIR /app
-
-CMD ["npm", "test"]
+# Default command: run evaluation (which in turn runs Jest)
+CMD ["node", "evaluation/evaluation.js"]

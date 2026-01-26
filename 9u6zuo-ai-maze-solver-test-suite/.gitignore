@@ -9,6 +9,4 @@ node_modules/
 
 # OS
 .DS_Store
-
-# Evaluation reports
-evaluation/reports/
+evaluation/reports

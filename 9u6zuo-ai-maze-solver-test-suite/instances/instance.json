@@ -1,68 +1,23 @@
 {
-  "instance_id": "9U6ZUO",
-  "problem_statement": "The AI Maze Solver is designed to find a valid path from a start point to a goal within a maze. The maze may include obstacles, dead ends, and multiple possible paths. A test suite is required to verify correct maze interpretation and path generation. The tests ensure the solver avoids obstacles and handles edge cases correctly.",
-  "base_commit": "repository_before/",
-  "test_patch": "tests/",
-  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9u6zuo-ai-maze-solver-test-suite",
-  "environment_setup": "Dockerfile",
-  "evaluation_metadata": {
-    "evaluation_id": "h9155bxo00k",
-    "timestamp": "2026-01-24T19:35:33.728Z",
-    "evaluator": "automated_test_suite",
-    "project": "ai_maze_solver_test_suite",
-    "version": "1.0.0"
-  },
-  "test_results": {
-    "before_repository": {
-      "total_tests": 16,
-      "passed_tests": 0,
-      "failed_tests": 16,
-      "success_rate": "0.0%"
-    },
-    "after_repository": {
-      "total_tests": 16,
-      "passed_tests": 16,
-      "failed_tests": 0,
-      "success_rate": "100.0%"
-    },
-    "optimization_success": true,
-    "tests_fixed": 16
-  },
-  "FAIL_TO_PASS": [
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL BFS Algorithm Bugs 1. BFS should find shortest path but fails due to queue behavior bug",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL BFS Algorithm Bugs 2. BFS should explore in breadth-first order but fails",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL BFS Algorithm Bugs 3. BFS queue behavior is inconsistent",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL BFS Algorithm Bugs 4. BFS path validation fails",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL A* Algorithm Bugs 5. A* heuristic is inadmissible and causes suboptimal paths",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL A* Algorithm Bugs 6. A* partial sorting breaks optimality guarantees",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL A* Algorithm Bugs 7. A* priority queue management is broken",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL A* Algorithm Bugs 8. A* heuristic overestimates distances",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Maze Generation Bugs 9. Maze generation has conflicting blocking strategies",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Maze Generation Bugs 10. Maze boundaries may not be properly set",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Maze Generation Bugs 11. Maze seed handling is inconsistent",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Maze Generation Bugs 12. Maze blocking logic creates unsolvable mazes incorrectly",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Algorithm Consistency Issues 13. Algorithms produce inconsistent results",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Algorithm Consistency Issues 14. Path validation fails for buggy algorithms",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Algorithm Consistency Issues 15. Visited cells tracking is incorrect",
-    "tests/before-version.test.js::Before Version (Buggy Implementation) - These tests should FAIL Algorithm Consistency Issues 16. Algorithm termination conditions are wrong"
-  ],
-  "PASS_TO_PASS": [
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS BFS Algorithm Fixes BFS finds shortest path consistently",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS BFS Algorithm Fixes BFS explores nodes in proper breadth-first order",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS BFS Algorithm Fixes BFS path is valid and optimal",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS A* Algorithm Fixes A* finds optimal path with admissible heuristic",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS A* Algorithm Fixes A* heuristic is admissible (never overestimates)",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS A* Algorithm Fixes A* expands nodes in proper f-cost order",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS DFS Algorithm (Already Correct) DFS finds valid path",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Maze Generation Fixes Maze generation is consistent and predictable",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Maze Generation Fixes Maze always has passable start and goal",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Maze Generation Fixes Maze boundaries are always walls",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Maze Generation Fixes Unsolvable maze generation works correctly",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Algorithm Behavior on Unsolvable Mazes All algorithms handle unsolvable mazes correctly",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Performance Improvements Algorithms complete quickly and efficiently",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Performance Improvements Memory usage is reasonable",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Edge Cases Algorithms handle single-cell paths",
-    "tests/after-version.test.js::After Version (Optimized Implementation) - These tests should PASS Edge Cases Algorithms handle adjacent start and end positions"
-  ]
+    "instance_id": "9U6ZUO",
+    "problem_statement": "The AI Maze Solver is designed to find a valid path from a start point to a goal within a maze. The maze may include obstacles, dead ends, and multiple possible paths. A test suite is required to verify correct maze interpretation and path generation. The tests ensure the solver avoids obstacles and handles edge cases correctly.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9u6zuo-ai-maze-solver-test-suite",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "Req 1: maze generation creates valid start position",
+        "Req 2: maze generation creates valid goal and boundaries",
+        "Req 3: BFS finds valid path in solvable maze",
+        "Req 4: DFS finds valid path in solvable maze",
+        "Req 5: A* finds valid path in solvable maze",
+        "Req 6: algorithms return empty path for unsolvable maze",
+        "Req 7,8,9: path has correct adjacency, passability, and endpoints",
+        "Req 10,11,12: player moves correctly and respects walls/bounds",
+        "Req 13,14,15,16: game state, winning, and position bounds",
+        "Req 17: complete game flow from generation to winning",
+        "Req 18: all AI algorithms work correctly",
+        "Req 19: Jest framework and position validation work"
+    ],
+    "PASS_TO_PASS": []
 }
-        

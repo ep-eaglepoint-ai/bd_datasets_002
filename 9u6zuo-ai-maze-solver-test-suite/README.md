@@ -1,23 +1,11 @@
-# 9U6ZUO - AI Maze Solver Test Suite
-
-### Build all services:
-```bash
+### Build all services
 docker-compose build
-```
 
-### Run individual services:
+### Run tests for BEFORE version (expected to fail logically)
+docker-compose run --rm repository-before
 
-**Before version tests (should fail - demonstrates bugs):**
-```bash
-docker-compose run --rm test-before
-```
+### Run tests for AFTER version (expected to pass)
+docker-compose run --rm repository-after
 
-**After version tests (should pass - demonstrates fixes):**
-```bash
-docker-compose run --rm test-after
-```
-
-**Complete evaluation:**
-```bash
+### Run evaluation (which should internally run Jest and generate a report)
 docker-compose run --rm evaluation
-```
