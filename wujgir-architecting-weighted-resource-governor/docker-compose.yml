@@ -1,14 +1,4 @@
 services:
-  test-before:
-    build: .
-    volumes:
-      # Mount repository_before OVER repository_after to simulate "Before" state
-      # Since imports point to 'repository_after', this forces tests to run against 'before' code.
-      - ./repository_before:/app/repository_after
-      - .:/app
-    working_dir: /app
-    command: go test -v ./tests/...
-
   test-after:
     build: .
     volumes:
