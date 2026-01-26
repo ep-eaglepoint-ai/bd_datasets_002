@@ -1,0 +1,11 @@
+{
+            "instance_id": "QI6FIP",
+            "problem_statement": "The objective is to refactor an imperative, failure-prone authorization script into a resilient and extensible evaluation engine. The task requires decomposing a function that mixes IO, business rules, and caching into a system where rules are isolated, testable in-memory, and failure-tolerant. The refactor must specifically address the 'fail-closed' requirement and the handling of temporal (expiring) permissions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/qi6fip-dynamic-entitlement-kernel-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
