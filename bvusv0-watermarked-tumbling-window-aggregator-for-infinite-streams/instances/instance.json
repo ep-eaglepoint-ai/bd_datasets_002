@@ -1,0 +1,12 @@
+{
+            "instance_id": "BVUSV0",
+            "problem_statement": "The core algorithmic challenge is managing time in a streaming context where data arrives out of order. Naive implementations (common in mid-tier models) often aggregate based on "wall-clock time" (processing time) or accumulate all data in a list to sort it later, which causes memory leaks in infinite streams. The specific requirement to implement a "Watermark" means the model must dynamically track the latest timestamp seen and use that moving target to decide when to "close" a past window and emit the result. The failure mode for Seed 1.6 is typically either keeping old windows in memory forever (Memory Leak) or emitting results immediately upon receiving data (incorrect aggregation) rather than waiting for the watermark to pass the window boundary.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/bvusv0-watermarked-tumbling-window-aggregator-for-infinite-streams",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
