@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Install modern mongo-c-driver if needed, or rely on apt if sufficient.
+# Ubuntu 22.04 has libmongoc-dev 1.21 which should be sufficient.
 RUN apt-get update && apt-get install -y libmongoc-dev
 
 WORKDIR /app

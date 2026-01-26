@@ -1,6 +1,69 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  c-backend:
+    build:
+      context: ./repository_after/backend
+      dockerfile: ../../Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_DB=logistics
+    networks:
+      - app-network
+    restart: always
+
+  vue-frontend:
+    build: ./repository_after/frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - c-backend
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
     volumes:
-      - .:/app
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+    restart: always
+
+  test:
+    image: node:20
+    working_dir: /app/tests
+    volumes:
+      - ./tests:/app/tests
+    command: sh -c "npm install && npm test"
+    depends_on:
+      - c-backend
+    environment:
+      - API_URL=http://c-backend:8080/api
+    networks:
+      - app-network
+
+  evaluation:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./tests:/app/tests
+      - ./evaluation:/app/evaluation
+    command: node evaluation/evaluation.js
+    depends_on:
+      - c-backend
+    environment:
+      - API_URL=http://c-backend:8080/api
+      - TARGET_FILE=repository_after/backend/src/main.c
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
