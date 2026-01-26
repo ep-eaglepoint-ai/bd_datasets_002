@@ -13,6 +13,7 @@ void request_completed(void *cls, struct MHD_Connection *connection,
 #define PORT 8080
 
 int main() {
+    setbuf(stdout, NULL); // Disable buffering
     printf("Starting C Backend Server on port %d...\n", PORT);
     
     // Seed random
@@ -32,8 +33,16 @@ int main() {
         return 1;
     }
     
-    printf("Server running. Press Enter to stop.\n");
-    getchar();
+    printf("Server running. waiting for requests...\n");
+    
+    // Keep the main thread alive indefinitely
+    while (1) {
+        #ifdef _WIN32
+            Sleep(1000);
+        #else
+            sleep(1);
+        #endif
+    }
     
     MHD_stop_daemon(daemon);
     db_cleanup();

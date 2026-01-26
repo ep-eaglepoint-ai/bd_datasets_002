@@ -236,4 +236,11 @@ int answer_to_connection(void *cls, struct MHD_Connection *connection,
         }
         return MHD_NO;
     }
+    // Default 404
+    const char* error = "{\"error\": \"Not Found\"}";
+    struct MHD_Response *response = MHD_create_response_from_buffer(strlen(error), (void*)error, MHD_RESPMEM_PERSISTENT);
+    MHD_add_response_header(response, "Content-Type", "application/json");
+    int ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
+    MHD_destroy_response(response);
+    return ret;
 }
