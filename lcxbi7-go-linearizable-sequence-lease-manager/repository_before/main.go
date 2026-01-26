@@ -1,4 +1,4 @@
-package main
+package before
 
 import (
 	"context"
