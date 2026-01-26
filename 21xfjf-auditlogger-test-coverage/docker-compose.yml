@@ -1,6 +1,27 @@
+version: '3.8'
+
 services:
-  app:
+  repository-before:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd /app/tests && go test -v -run 'TestBeforeVersion' ./..."
+
+  repository-after:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd /app/tests && go test -v -run 'TestAfterVersion' ./..."
+
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    working_dir: /app/evaluation
+    command: sh -c "go run evaluation.go"
+
+  all-tests:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd /app/tests && go test -v ./... && cd /app/evaluation && go run evaluation.go"

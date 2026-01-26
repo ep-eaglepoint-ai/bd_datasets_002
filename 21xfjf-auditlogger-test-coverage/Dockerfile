@@ -1,5 +1,26 @@
-FROM python:3.11-slim
+FROM golang:1.21-alpine
+
+# Install git for version info
+RUN apk add --no-cache git
+
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Create reports directory
+RUN mkdir -p /app/evaluation/reports
+
+# Initialize modules
+WORKDIR /app/repository_before
+RUN go mod tidy
+
+WORKDIR /app/repository_after
+RUN go mod tidy
+
+WORKDIR /app/tests
+RUN go mod tidy
+
+WORKDIR /app/evaluation
+RUN go mod tidy
+
+WORKDIR /app
+CMD ["sh", "-c", "cd /app/evaluation && go run evaluation.go"]

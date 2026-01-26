@@ -1,0 +1,72 @@
+--- repository_before/auditlogger/auditlogger.go	2026-01-26 10:32:51.030594130 +0300
++++ repository_after/auditlogger/auditlogger.go	2026-01-26 11:44:13.286047181 +0300
+@@ -93,10 +93,14 @@
+ 	if maxEntries <= 0 {
+ 		maxEntries = 500
+ 	}
++
++	// FIXED: Allow small MaxApproxBytes values for truncation to work
++	// Only use default if not specified (0 or negative)
+ 	maxApprox := options.MaxApproxBytes
+-	if maxApprox < 128 {
++	if maxApprox <= 0 {
+ 		maxApprox = 250_000
+ 	}
++
+ 	sampleRate := clamp01(options.SampleRate)
+ 	if options.Clock == nil {
+ 		options.Clock = systemClock{}
+@@ -282,7 +286,6 @@
+ 
+ func (systemClock) NowISO() string { return time.Now().UTC().Format(time.RFC3339Nano) }
+ 
+-// Default non-deterministic random; tests should inject their own.
+ type mathRandom struct{}
+ 
+ func (mathRandom) Next() float64 { return float64(time.Now().UnixNano()%1_000_000) / 1_000_000.0 }
+@@ -307,8 +310,6 @@
+ 	return hex.EncodeToString(h.Sum(nil))
+ }
+ 
+-// safeClone deep-clones common JSON-like structures and tags special types.
+-// It attempts to avoid infinite loops using reflect-based identity when possible.
+ func safeClone(input any) any {
+ 	visited := map[uintptr]any{}
+ 
+@@ -410,8 +411,6 @@
+ 	return clone(input)
+ }
+ 
+-// stableStringify returns deterministic output for maps/slices (sorted keys).
+-// It is used for hashing/dedupe, not as a public JSON format.
+ func stableStringify(v any) string {
+ 	var sb strings.Builder
+ 	seen := map[uintptr]bool{}
+@@ -468,7 +467,9 @@
+ 			for i, ks := range keyStrs {
+ 				if i > 0 {
+ 					sb.WriteString(",")
+ 				}
++				sb.WriteString(`"`)
+ 				sb.WriteString(ks)
++				sb.WriteString(`"`)
+ 				sb.WriteString(":")
+ 				write(kv[ks].Interface())
+ 			}
+@@ -498,7 +499,9 @@
+ 			}
+ 			sb.WriteString("]")
+ 		default:
++			sb.WriteString(`"`)
+ 			sb.WriteString(fmt.Sprint(x))
++			sb.WriteString(`"`)
+ 		}
+ 	}
+ 
+@@ -701,4 +704,4 @@
+ 		}
+ 	}
+ 	return map[string]any{"__truncated": true, "kind": fmt.Sprintf("%T", value)}
+-}
++}
+\ No newline at end of file
