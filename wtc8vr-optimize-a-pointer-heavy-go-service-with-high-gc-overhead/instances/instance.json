@@ -1,0 +1,11 @@
+{
+            "instance_id": "WTC8VR",
+            "problem_statement": "The current Go service is  unoptimized and exhibits excessive heap allocations, pointer-heavy data structures, frequent garbage collection, and poor memory locality under load. When ingesting large volumes of records, the application suffers from high GC pause time and unnecessary memory churn, reducing throughput and scalability. The goal is to refactor the system to significantly improve performance and memory efficiency while preserving functional behavior.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wtc8vr-optimize-a-pointer-heavy-go-service-with-high-gc-overhead",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
