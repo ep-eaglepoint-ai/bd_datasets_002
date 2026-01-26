@@ -1,5 +1,14 @@
-FROM python:3.11-slim
+FROM node:20-slim AS node-tests
+WORKDIR /app/repository_after
+
+COPY repository_after/package.json ./package.json
+RUN npm install --no-audit --no-fund
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+COPY repository_before ./repository_before
+COPY repository_after ./repository_after
+COPY tests ./tests
+COPY evaluation ./evaluation
+
+WORKDIR /app/repository_after
+CMD ["npm", "test"]
