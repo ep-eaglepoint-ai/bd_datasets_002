@@ -1,0 +1,11 @@
+{
+            "instance_id": "LNAFQW",
+            "problem_statement": "You are given a Java utility called DeepMerge that performs deep merging of complex object graphs with support for maps, collections, arrays, cycle detection, configurable merge policies, security-related key filtering, and path-based rules. Your task is to create a comprehensive and reliable test suite that validates the correctness, safety, and robustness of the merge behavior across all supported features and edge cases.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/lnafqw-test-and-validate-a-secure-rule-driven-deep-merge-utility-in-java",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
