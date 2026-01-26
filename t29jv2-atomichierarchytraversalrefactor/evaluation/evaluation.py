@@ -234,9 +234,9 @@ def main():
     # Generate report
     report = generate_report()
     
-    # Create output directory with date
-    today = datetime.now().strftime("%Y-%m-%d")
-    output_dir = Path("evaluation") / today
+    # Create output directory with date and time
+    now = datetime.now()
+    output_dir = Path("evaluation") / now.strftime("%Y-%m-%d") / now.strftime("%H-%M-%S")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Write report

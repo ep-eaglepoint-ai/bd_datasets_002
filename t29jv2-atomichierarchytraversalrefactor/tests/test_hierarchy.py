@@ -82,6 +82,7 @@ class TestCycleDetection:
     Must detect cycle and raise CircularDependencyError.
     """
     
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not detect cycles (RecursionError/Timeout)", strict=True)
     def test_simple_self_loop(self):
         """Node pointing to itself."""
         nodes = {
@@ -90,15 +91,11 @@ class TestCycleDetection:
         
         service = HierarchyService(nodes)
         
-        if USE_LEGACY:
-            # Legacy will recurse infinitely - use pytest timeout
-            with pytest.raises((RecursionError, TimeoutError)):
-                service.calculate_total_weight('A')
-        else:
-            with pytest.raises(CircularDependencyError) as exc_info:
-                service.calculate_total_weight('A')
-            assert exc_info.value.node_id == 'A'
+        with pytest.raises(CircularDependencyError) as exc_info:
+            service.calculate_total_weight('A')
+        assert exc_info.value.node_id == 'A'
     
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not detect cycles (RecursionError/Timeout)", strict=True)
     def test_two_node_cycle(self):
         """Simple A->B->A cycle."""
         nodes = {
@@ -108,16 +105,13 @@ class TestCycleDetection:
         
         service = HierarchyService(nodes)
         
-        if USE_LEGACY:
-            with pytest.raises((RecursionError, TimeoutError)):
-                service.calculate_total_weight('A')
-        else:
-            with pytest.raises(CircularDependencyError) as exc_info:
-                service.calculate_total_weight('A')
-            # Should detect cycle at node A when revisited
-            assert exc_info.value.node_id == 'A'
+        with pytest.raises(CircularDependencyError) as exc_info:
+            service.calculate_total_weight('A')
+        # Should detect cycle at node A when revisited
+        assert exc_info.value.node_id == 'A'
     
     @pytest.mark.timeout(30)
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not detect deep cycles (RecursionError/Timeout)", strict=True)
     def test_large_hierarchy_with_deep_cycle(self):
         """
         Requirement #8: 10,000+ nodes with a leaf-to-root cycle.
@@ -137,15 +131,10 @@ class TestCycleDetection:
         
         service = HierarchyService(nodes)
         
-        if USE_LEGACY:
-            # Legacy will hit recursion limit or timeout
-            with pytest.raises((RecursionError, TimeoutError)):
-                service.calculate_total_weight('0')
-        else:
-            # Refactored should detect cycle and report node 5000
-            with pytest.raises(CircularDependencyError) as exc_info:
-                service.calculate_total_weight('0')
-            assert exc_info.value.node_id == '5000'
+        # Refactored should detect cycle and report node 5000
+        with pytest.raises(CircularDependencyError) as exc_info:
+            service.calculate_total_weight('0')
+        assert exc_info.value.node_id == '5000'
 
 
 class TestThreadSafety:
@@ -194,6 +183,7 @@ class TestThreadSafety:
             f"Expected all results to be {expected}, got: {set(results)}"
     
     @pytest.mark.timeout(60)
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service missing atomic updates and thread safety", strict=True)
     def test_concurrent_reads_and_updates(self):
         """
         Requirement #9: 50+ threads with interleaved reads and updates.
@@ -207,12 +197,6 @@ class TestThreadSafety:
         }
         
         service = HierarchyService(nodes)
-        
-        if USE_LEGACY:
-            # Legacy has no update_node_value method - will fail with AttributeError
-            with pytest.raises(AttributeError):
-                service.update_node_value('A', 999)
-            return
         
         results = []
         errors = []
@@ -270,6 +254,7 @@ class TestThreadSafety:
         expected = nodes['root'].value + nodes['A'].value + nodes['B'].value + nodes['C'].value
         assert final_result == expected, f"Final result {final_result} != expected {expected}"
     
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not implement caching or atomic invalidation", strict=True)
     def test_concurrent_cache_invalidation(self):
         """Verify atomic cache invalidation works correctly."""
         nodes = {
@@ -280,12 +265,6 @@ class TestThreadSafety:
         }
         
         service = HierarchyService(nodes)
-        
-        if USE_LEGACY:
-            # Legacy has no caching - will fail
-            with pytest.raises(AttributeError):
-                service.get_cache_memory_usage()
-            return
         
         # Pre-warm cache
         service.calculate_total_weight('A')  # Should cache A, B, C, D
@@ -315,6 +294,7 @@ class TestThreadSafety:
 class TestMemoryManagement:
     """Test that cache stays within 128MB limit."""
     
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not implement generational caching", strict=True)
     def test_cache_memory_limit(self):
         """Verify cache eviction keeps memory under 128MB."""
         # Create a large datastore
@@ -324,12 +304,6 @@ class TestMemoryManagement:
             nodes[str(i)] = Node(str(i), i, [str(i+1)] if i < num_nodes - 1 else [])
         
         service = HierarchyService(nodes)
-        
-        if USE_LEGACY:
-            # Legacy has no cache - will fail with AttributeError
-            with pytest.raises(AttributeError):
-                service.get_cache_memory_usage()
-            return
         
         # Calculate weights for many nodes
         for i in range(0, num_nodes, 100):
@@ -349,19 +323,12 @@ class TestAtomicInvalidation:
     Updating a node should only invalidate that node and its ancestors.
     """
     
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not implement atomic invalidation", strict=True)
     def test_atomic_invalidation_ancestors_only(self):
         """
         Hierarchy: A -> B -> C -> D
         Update C, verify: C, B, A invalidated; D remains cached.
         """
-        if USE_LEGACY:
-            # Legacy has no update_node_value - will fail with AttributeError
-            nodes = {'A': Node('A', 10, [])}
-            service = HierarchyService(nodes)
-            with pytest.raises(AttributeError):
-                service.update_node_value('A', 999)
-            return
-        
         nodes = {
             'A': Node('A', 10, ['B']),
             'B': Node('B', 20, ['C']),
@@ -392,6 +359,7 @@ class TestIterativeTraversal:
     """Test that refactored service handles deep hierarchies without stack overflow."""
     
     @pytest.mark.timeout(30)
+    @pytest.mark.xfail(USE_LEGACY, reason="Legacy service is recursive and hits RecursionError", strict=True)
     def test_deep_hierarchy_no_stack_overflow(self):
         """Create very deep hierarchy (10,000 levels) - should not stack overflow."""
         depth = 10000
@@ -405,14 +373,9 @@ class TestIterativeTraversal:
         
         service = HierarchyService(nodes)
         
-        if USE_LEGACY:
-            # Legacy will hit recursion limit
-            with pytest.raises(RecursionError):
-                service.calculate_total_weight('0')
-        else:
-            # Refactored should handle it
-            result = service.calculate_total_weight('0')
-            assert result == depth  # Each node has value 1
+        # Refactored should handle it
+        result = service.calculate_total_weight('0')
+        assert result == depth  # Each node has value 1
 
 
 class TestEdgeCases:
