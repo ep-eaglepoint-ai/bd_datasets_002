@@ -1,0 +1,107 @@
+export interface Operation {
+  id: string;
+  userId: string;
+  path: string[];
+  value: any;
+  timestamp: number;
+}
+
+interface StateNode {
+  value: any;
+  timestamp: number;
+  children: Map<string, StateNode>;
+}
+
+export class SyncCoordinator {
+  private root: StateNode = {
+    value: {},
+    timestamp: 0,
+    children: new Map(),
+  };
+
+  public applyOperation(op: Operation): void {
+    const { path, value, timestamp } = op;
+    
+    // 1. Traverse to check if any ancestor shadows this operation
+    // An ancestor shadows if it has a value (overwrite) and is strictly NEWER.
+    let current = this.root;
+    for (const key of path) {
+      if (current.timestamp > timestamp && current.value !== undefined) {
+        // Ancestor overwrite is newer. This operation is obsolete.
+        return;
+      }
+      if (!current.children.has(key)) {
+        // Optimistically create path, but don't set values yet
+        current.children.set(key, { value: undefined, timestamp: 0, children: new Map() });
+      }
+      current = current.children.get(key)!;
+    }
+
+    // 2. Apply the operation at the target node
+    this.updateNode(current, value, timestamp);
+  }
+
+  private updateNode(node: StateNode, value: any, timestamp: number): void {
+    if (timestamp > node.timestamp) {
+      node.value = value;
+      node.timestamp = timestamp;
+      
+      // 3. Prune children that are now older than this update
+      // (Because this update overwrites the subtree at this node)
+      for (const [key, child] of node.children) {
+        if (child.timestamp <= timestamp) {
+          node.children.delete(key);
+        } else {
+          // If child is newer, it survives. 
+          // We don't need to do anything, it will be merged during getState
+        }
+      }
+    } else {
+        // timestamp <= node.timestamp
+        // This is a stale or concurrent-but-older update to this exact path.
+        // We ignore the value update.
+        // However, if the operation value was a complex object, we might have needed to merge?
+        // No, LWW on the node means the newer node value wins.
+        // The only case is if we wanted to support partial merges of a 'stale' object?
+        // But in CRDTs, usually the whole register wins.
+        // So we do nothing.
+    }
+  }
+
+  public getState(): any {
+    return this.reconstructState(this.root);
+  }
+
+  private reconstructState(node: StateNode): any {
+    let result = node.value;
+    
+    // If we have children, they represent more granular updates or newer updates
+    if (node.children.size > 0) {
+      // If result is primitive but we have children, the children imply a type change to object
+      // (because children are newer or concurrent-and-survived).
+      if (typeof result !== 'object' || result === null) {
+        result = {}; 
+      } else {
+        // Shallow clone to avoid mutating internal state if it acts as reference
+        // (Though simple assignment of primitives is fine, objects should be cloned)
+        if (Array.isArray(result)) {
+             result = [...result];
+        } else {
+             result = { ...result };
+        }
+      }
+
+      for (const [key, child] of node.children) {
+        const childVal = this.reconstructState(child);
+        // Only set if childVal is defined (or maybe we allow undefined/null as values?)
+        // If childVal is explicitly null from operation, we set it.
+        // If reconstruction returned undefined (e.g. empty node?), maybe skip.
+        if (childVal !== undefined) {
+            result[key] = childVal;
+        }
+      }
+    }
+    
+    return result;
+  }
+}
