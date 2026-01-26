@@ -1,0 +1,8 @@
+node_modules
+repository_after/node_modules
+repository_after/.next
+.git
+.gitignore
+.vscode
+coverage
+*.log

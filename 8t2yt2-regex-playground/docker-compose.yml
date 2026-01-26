@@ -1,6 +1,9 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    ports:
+      - "3000:3000"
     volumes:
-      - .:/app
+      - ./evaluation:/app/evaluation
+    environment:
+      - NODE_ENV=production
