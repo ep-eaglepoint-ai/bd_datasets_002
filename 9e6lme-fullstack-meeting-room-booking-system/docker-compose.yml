@@ -38,9 +38,8 @@ services:
       - app-network
 
   server:
-    build:
-      context: ./repository_after/server
-      dockerfile: Dockerfile
+    build: .
+    working_dir: /app/repository_after/server
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -59,9 +58,8 @@ services:
       - app-network
 
   client:
-    build:
-      context: ./repository_after/client
-      dockerfile: Dockerfile
+    build: .
+    working_dir: /app/repository_after/client
     ports:
       - "5173:5173"
     depends_on:
@@ -70,9 +68,8 @@ services:
       - app-network
 
   test:
-    build:
-      context: ./repository_after/server
-      dockerfile: Dockerfile
+    build: .
+    working_dir: /app
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -83,7 +80,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: ["sh", "-c", "sleep 3 && npm test"]
+    command: ["sh", "-c", "sleep 3 && node --experimental-vm-modules node_modules/jest/bin/jest.js"]
     networks:
       - app-network
     profiles:

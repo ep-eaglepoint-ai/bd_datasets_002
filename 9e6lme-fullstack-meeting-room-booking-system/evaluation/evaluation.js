@@ -1,7 +1,11 @@
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const { execSync, spawnSync } = require("child_process");
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { execSync, spawnSync } from "child_process";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function generateRunId() {
   return Math.random().toString(36).substring(2, 10);
@@ -244,9 +248,9 @@ console.log("  11. Authentication must be required");
 console.log("  12. Database seeding (3 rooms, test users)");
 console.log("  13. Concurrent booking stress test");
 
-// Run tests from repository_after/server
+// Run tests from root directory (where jest.config.js and tests/ are located)
 const afterResults = runJestTests(
-  "repository_after/server",
+  ".",
   "repository_after",
   true,
 );

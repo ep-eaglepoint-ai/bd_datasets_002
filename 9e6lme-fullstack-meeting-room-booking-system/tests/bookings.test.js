@@ -3,10 +3,10 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import fs from "fs";
-import pool, { initDb } from "../db.js";
-import authRoutes from "../routes/auth.js";
-import roomRoutes from "../routes/rooms.js";
-import bookingRoutes from "../routes/bookings.js";
+import pool, { initDb } from "../repository_after/server/db.js";
+import authRoutes from "../repository_after/server/routes/auth.js";
+import roomRoutes from "../repository_after/server/routes/rooms.js";
+import bookingRoutes from "../repository_after/server/routes/bookings.js";
 
 let app;
 let testUsers = {};
