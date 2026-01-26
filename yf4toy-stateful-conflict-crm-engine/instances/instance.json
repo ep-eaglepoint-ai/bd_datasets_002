@@ -1,0 +1,11 @@
+{
+            "instance_id": "YF4TOY",
+            "problem_statement": "The existing lead management workflow is vulnerable to data corruption due to concurrent edits and illegal state transitions. The objective is to build a Go-based backend that enforces version-based locking and conditional state logic, paired with an HTMX-driven UI that handles 409 Conflict responses by surgically updating the user interface with diagnostic information.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/yf4toy-stateful-conflict-crm-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
