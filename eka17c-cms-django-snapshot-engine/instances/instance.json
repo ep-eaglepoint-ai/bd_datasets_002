@@ -1,0 +1,11 @@
+{
+            "instance_id": "EKA17C",
+            "problem_statement": "The project aims to replace mutable content management with an immutable snapshot architecture. The primary engineering hurdle is designing a relational schema in Django that separates the 'Document' container from its 'Versions' and implementing a reliable mechanism to manage the active pointer. You must ensure that once a content version is saved, it is logically and physically immutable, and that the public API always serves the 'Live' version without exposing in-progress drafts.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/eka17c-cms-django-snapshot-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
