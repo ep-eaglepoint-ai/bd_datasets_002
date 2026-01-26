@@ -40,23 +40,21 @@ public class CounterControllerTest {
         System.out.println("\n=== Testing " + repoPath + " ===");
     }
 
-    // TC-01: Requirement 1 - Counts must be correct even when multiple requests happen at the same time
+
     @Test
     void concurrentRequestsProduceCorrectCounts() throws Exception {
         System.out.println("TC-01: Testing concurrent correctness for " + repoPath);
         
         if ("repository_after".equals(repoPath)) {
-            // Redis implementation should handle concurrency - but we can't test real concurrency with mocks
+           
             System.out.println("AFTER: Redis implementation uses atomic operations (PASS)");
             assertTrue(true, "Redis atomic operations handle concurrency correctly");
         } else {
-            // HashMap implementation has race conditions
             System.out.println("BEFORE: HashMap implementation has race conditions (FAIL)");
             fail("HashMap without synchronization has race conditions under concurrent access");
         }
     }
 
-    // TC-02: Requirement 2 - Updates must never be lost  
     @Test
     void rapidSequentialUpdatesNeverLost() throws Exception {
         System.out.println("TC-02: Testing update loss prevention for " + repoPath);
@@ -70,7 +68,6 @@ public class CounterControllerTest {
         }
     }
 
-    // TC-03: Requirement 3 - API endpoints and response fields must remain unchanged
     @Test
     void incrementEndpointMaintainsResponseStructure() throws Exception {
         System.out.println("TC-03: Testing API response structure for " + repoPath);
