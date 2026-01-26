@@ -69,28 +69,34 @@ func runEvaluation() int {
 	}
 
 	// Get the current working directory
-	// When running from docker-compose, we're in /app/evaluation
-	// When running locally, we might be in the project root or evaluation directory
-	rootDir, err := os.Getwd()
+	// When running from docker-compose, we're in /app/tests
+	// When running locally, we might be in the project root, evaluation, or tests directory
+	currentDir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get working directory: %v\n", err)
 		return 1
 	}
 
-	// Determine the evaluation directory
-	// Check if we're already in the evaluation directory
-	var evaluationDir string
-	if filepath.Base(rootDir) == "evaluation" {
-		// We're in the evaluation directory, use it directly
-		evaluationDir = rootDir
+	// Determine the project root directory
+	var rootDir string
+	baseDir := filepath.Base(currentDir)
+	if baseDir == "evaluation" {
+		// We're in the evaluation directory, go up one level
+		rootDir = filepath.Dir(currentDir)
+	} else if baseDir == "tests" {
+		// We're in the tests directory, go up one level
+		rootDir = filepath.Dir(currentDir)
 	} else {
-		// We're in the project root, evaluation is a subdirectory
-		evaluationDir = filepath.Join(rootDir, "evaluation")
-		// Verify it exists
-		if _, err := os.Stat(evaluationDir); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Evaluation directory not found at %s\n", evaluationDir)
-			return 1
-		}
+		// We're in the project root
+		rootDir = currentDir
+	}
+
+	// Determine the evaluation directory (always relative to project root)
+	evaluationDir := filepath.Join(rootDir, "evaluation")
+	// Verify it exists
+	if _, err := os.Stat(evaluationDir); os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Evaluation directory not found at %s\n", evaluationDir)
+		return 1
 	}
 
 	// Create timestamp directory for report: evaluation/reports/<timestamp>/
@@ -183,9 +189,10 @@ func evaluate(repoName string) RepoResult {
 	}
 
 	// Determine project root directory
-	// If we're in the evaluation directory, go up one level
+	// If we're in the evaluation or tests directory, go up one level
 	var rootDir string
-	if filepath.Base(currentDir) == "evaluation" {
+	baseDir := filepath.Base(currentDir)
+	if baseDir == "evaluation" || baseDir == "tests" {
 		rootDir = filepath.Dir(currentDir)
 	} else {
 		rootDir = currentDir
@@ -235,6 +242,7 @@ func generateProto(repoPath string) error {
 
 	// Generate Go code from proto
 	cmd := exec.Command("protoc",
+		"-I/usr/include", "-I/usr/local/include", "-I.",
 		"--go_out=.", "--go_opt=paths=source_relative",
 		"--go-grpc_out=.", "--go-grpc_opt=paths=source_relative",
 		"proto/ratelimiter.proto")
