@@ -1,5 +1,11 @@
-FROM python:3.11-slim
+FROM eclipse-temurin:17
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
+COPY pom.xml .
+COPY repository_after/src ./src
+COPY tests ./tests
+COPY run.sh .
+RUN chmod +x run.sh
+RUN mvn dependency:go-offline
+ENTRYPOINT ["/app/run.sh"]
+CMD ["mvn", "test"]
