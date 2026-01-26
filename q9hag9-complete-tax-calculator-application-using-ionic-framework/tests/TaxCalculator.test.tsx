@@ -1,9 +1,3 @@
-/**
- * Component integration tests for Tax Calculator
- * Tests requirements: 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12
- */
-
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TaxCalculator from '../repository_after/src/components/TaxCalculator';
