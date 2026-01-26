@@ -1,6 +1,19 @@
 services:
-  app:
+  test:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - ./tests:/app/tests
+      - ./repository_after:/app/repository_after
+    command: >
+      sh -c "mkdir -p /app/tests/src/main/java/cache &&
+             cp /app/repository_after/src/main/java/cache/*.java /app/tests/src/main/java/cache/ &&
+             cd /app/tests && mvn test"
+
+  evaluate:
+    build: .
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./repository_after:/app/repository_after
+    command: >
+      sh -c "cd /app/evaluation && mvn compile exec:java -e"
