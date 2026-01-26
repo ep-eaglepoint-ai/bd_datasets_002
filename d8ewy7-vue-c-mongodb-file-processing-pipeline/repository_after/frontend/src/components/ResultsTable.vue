@@ -143,7 +143,7 @@ th {
 
 td {
   padding: 1rem 1.5rem;
-  color: #374151;
+  color: #111827;
   font-size: 0.875rem;
   border-bottom: 1px solid #e5e7eb;
 }
