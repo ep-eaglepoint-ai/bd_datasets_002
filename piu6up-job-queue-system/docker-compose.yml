@@ -1,6 +1,22 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  app-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - CI=true
+      - PYTHONPATH=/app/repository_after
+    command: python -m pytest tests/ -q --tb=no --no-header
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - CI=true
+      - PYTHONPATH=/app/repository_after
+    command: python evaluation/evaluation.py
     volumes:
-      - .:/app
+      - ./evaluation:/app/evaluation
