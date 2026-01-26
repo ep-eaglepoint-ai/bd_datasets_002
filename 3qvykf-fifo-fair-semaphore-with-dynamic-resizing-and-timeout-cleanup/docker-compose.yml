@@ -1,6 +1,14 @@
 services:
-  app:
+  evaluation:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    command: python evaluation/evaluation.py
+
+  tests:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=repository_after
+    command: pytest tests/test_fair_semaphore.py
