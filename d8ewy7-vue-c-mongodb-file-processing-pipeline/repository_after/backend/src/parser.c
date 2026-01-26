@@ -75,34 +75,50 @@ int parse_csv_line(char* line, ShipmentRecord* record) {
     }
     *write_ptr = '\0';
     
+    // Debug: Log all fields
+    printf("[PARSER] parse_csv_line: field_count=%d\n", field_count);
+    for(int i=0; i<field_count && i<10; i++) {
+        printf("[PARSER]   field[%d]='%s'\n", i, fields[i]);
+    }
+    
     if (field_count < 7) { // Min required fields?
         return -1; // Missing columns
     }
     
-    // Convert to struct (Simplified mapping based on schema order:
-    // tracking, origin, dest, weight, len, wid, hei, date, status)
+    // Convert to struct based on ACTUAL CSV structure:
+    // field[0] = shipment_id (tracking_number)
+    // field[1] = carrier (stored in origin for now, since schema doesn't have carrier)
+    // field[2] = origin
+    // field[3] = destination  
+    // field[4] = weight_kg
+    // field[5] = cost (not in schema, skip)
+    // field[6] = status
+    // field[7] = notes (not in schema, skip)
     
-    // Note: Use strncpy for safety
+    // Map tracking number
     strncpy(record->tracking_number, trim_whitespace(fields[0]), 63);
-    strncpy(record->origin, trim_whitespace(fields[1]), 127);
-    strncpy(record->destination, trim_whitespace(fields[2]), 127);
-    record->weight_kg = atof(fields[3]);
     
-    // Optional dimensions
-    if (field_count > 4) record->length_cm = atof(fields[4]);
-    if (field_count > 5) record->width_cm = atof(fields[5]);
-    if (field_count > 6) record->height_cm = atof(fields[6]);
+    // Map origin and destination (skip carrier field[1] for now)
+    strncpy(record->origin, trim_whitespace(fields[2]), 127);
+    strncpy(record->destination, trim_whitespace(fields[3]), 127);
     
-    // Date & Status location depends on col count.
-    // If dimensions are missing, these might be earlier?
-    // Assumption: Always 9 columns for simplicity? Or flexible?
-    // For this task, robustness suggests checking headers, but scratch parser for header mapping is complex.
-    // Let's assume strict 9 columns: track, org, dest, w, l, w, h, date, status.
+    // Map weight
+    record->weight_kg = atof(fields[4]);
     
-    if (field_count >= 8) strncpy(record->ship_date, trim_whitespace(fields[7]), 31);
-    else strncpy(record->ship_date, trim_whitespace(fields[4]), 31); // Fallback? No, unsafe.
+    // Skip cost field[5]
     
-    if (field_count >= 9) strncpy(record->status, trim_whitespace(fields[8]), 31);
+    // Map status (field[6])
+    if (field_count > 6) {
+        strncpy(record->status, trim_whitespace(fields[6]), 31);
+    }
+    
+    // Dimensions are not in this CSV, leave as 0
+    record->length_cm = 0;
+    record->width_cm = 0;
+    record->height_cm = 0;
+    
+    // ship_date is not in this CSV, leave empty
+    record->ship_date[0] = '\0';
     
     return 0;
 }

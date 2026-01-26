@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <strings.h>  // For strcasecmp
 
 bool is_alphanumeric(const char* str) {
     while(*str) {
@@ -57,12 +58,16 @@ bool validate_record(const ShipmentRecord* record, ValidationError* error) {
         return false;
     }
 
-    // 4. Status (optional - allow empty)
+    // 4. Status (optional - allow empty, case-insensitive)
     if (strlen(record->status) > 0) {
         const char* valid_statuses[] = {"pending", "in_transit", "delivered", "returned", "lost"};
         bool status_valid = false;
         for (int i=0; i<5; i++) {
-            if (strcmp(record->status, valid_statuses[i]) == 0) {
+            #ifdef _WIN32
+                if (_stricmp(record->status, valid_statuses[i]) == 0) {
+            #else
+                if (strcasecmp(record->status, valid_statuses[i]) == 0) {
+            #endif
                 status_valid = true;
                 break;
             }

@@ -46,18 +46,26 @@ void flush_batches(struct RequestContext* ctx) {
     printf("[SERVER] flush_batches called: record_batch_count=%d, error_batch_count=%d\n", ctx->record_batch_count, ctx->error_batch_count);
     if (ctx->record_batch_count > 0) {
         printf("[SERVER] Inserting %d records to MongoDB\n", ctx->record_batch_count);
-        db_insert_records(ctx->batch_id, ctx->record_batch, ctx->record_batch_count);
+        int ret = db_insert_records(ctx->batch_id, ctx->record_batch, ctx->record_batch_count);
+        printf("[SERVER] Insert returned: %d\n", ret);
         for(int i=0; i<ctx->record_batch_count; i++) free(ctx->record_batch[i]);
         ctx->record_batch_count = 0;
     }
     if (ctx->error_batch_count > 0) {
+        printf("[SERVER] Inserting %d errors to MongoDB\n", ctx->error_batch_count);
         db_insert_errors(ctx->batch_id, ctx->error_batch, ctx->error_batch_count);
         for(int i=0; i<ctx->error_batch_count; i++) free(ctx->error_batch[i]);
         ctx->error_batch_count = 0;
     }
     
     // Update progress
-    db_update_progress(ctx->batch_id, &ctx->progress);
+    printf("[SERVER] Updating progress for batch: '%s' (len=%lu)\n", ctx->batch_id, strlen(ctx->batch_id));
+    printf("[SERVER] Stats: total=%d, processed=%d, valid=%d, invalid=%d, status=%d\n", 
+           ctx->progress.total_rows, ctx->progress.processed_rows, 
+           ctx->progress.valid_rows, ctx->progress.invalid_rows, ctx->progress.status);
+    
+    int p_ret = db_update_progress(ctx->batch_id, &ctx->progress);
+    printf("[SERVER] Progress update function returned: %d\n", p_ret);
 }
 
 // Callback from parser
@@ -113,6 +121,20 @@ int post_iterator(void *con_cls, enum MHD_ValueKind kind, const char *key,
         return MHD_YES;
     }
     return MHD_YES;
+}
+
+// Export callbacks (must be global/static, not nested)
+extern int db_read_export_chunk(void* context, char* buf, size_t max);
+extern void* db_open_export_cursor(const char* batch_id, bool is_csv);
+extern void db_close_export_cursor(void* context);
+
+ssize_t export_callback(void *cls, uint64_t pos, char *buf, size_t max) {
+    (void)pos; // Unused
+    return db_read_export_chunk(cls, buf, max);
+}
+
+void export_done(void *cls) {
+    db_close_export_cursor(cls);
 }
 
 // Connection handler
@@ -243,7 +265,62 @@ int answer_to_connection(void *cls, struct MHD_Connection *connection,
                 return ret;
             }
         }
-        return MHD_NO;
+    }
+    
+    // GET /api/export?batch_id=...&format=json|csv
+    if (strncmp(url, "/api/export", 11) == 0) {
+        const char* batch_id = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "batch_id");
+        const char* format = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "format");
+        bool is_csv = (format && strcmp(format, "csv") == 0);
+        
+        if (batch_id) {
+            void* export_ctx = db_open_export_cursor(batch_id, is_csv);
+            if (export_ctx) {
+                // Forward declarations for callbacks (defined at file scope)
+                extern ssize_t export_callback(void *cls, uint64_t pos, char *buf, size_t max);
+                extern void export_done(void *cls);
+                
+                struct MHD_Response *response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4096, export_callback, export_ctx, export_done);
+                
+                if (is_csv) {
+                    MHD_add_response_header(response, "Content-Type", "text/csv");
+                    MHD_add_response_header(response, "Content-Disposition", "attachment; filename=\"export.csv\"");
+                } else {
+                    MHD_add_response_header(response, "Content-Type", "application/json"); 
+                    MHD_add_response_header(response, "Content-Disposition", "attachment; filename=\"export.json\"");
+                }
+                
+                int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+                MHD_destroy_response(response);
+                return ret;
+            }
+        }
+        // Fallthrough
+    }
+    if (strncmp(url, "/api/export", 11) == 0) {
+        const char* batch_id = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "batch_id");
+        const char* format = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "format");
+        bool is_csv = (format && strcmp(format, "csv") == 0);
+        
+        if (batch_id) {
+            void* export_ctx = db_open_export_cursor(batch_id, is_csv);
+            if (export_ctx) {
+                struct MHD_Response *response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4096, export_callback, export_ctx, export_done);
+                
+                if (is_csv) {
+                    MHD_add_response_header(response, "Content-Type", "text/csv");
+                    MHD_add_response_header(response, "Content-Disposition", "attachment; filename=\"export.csv\"");
+                } else {
+                    MHD_add_response_header(response, "Content-Type", "application/json"); // JSONL or JSON stream
+                    MHD_add_response_header(response, "Content-Disposition", "attachment; filename=\"export.json\"");
+                }
+                
+                int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+                MHD_destroy_response(response);
+                return ret;
+            }
+        }
+        // Fallthrough to 404 or maybe 400?
     }
     // Default 404
     const char* error = "{\"error\": \"Not Found\"}";
