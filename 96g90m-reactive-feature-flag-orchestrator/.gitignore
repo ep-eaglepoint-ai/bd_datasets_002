@@ -10,5 +10,6 @@ node_modules/
 # OS
 .DS_Store
 
+repository_after/node_modules
 repository_after/.next
 evaluation/reports
