@@ -1,0 +1,11 @@
+{
+            "instance_id": "EWHTNH",
+            "problem_statement": "Build a Database Storage Explorer using Next.js and TailwindCSS that locally analyzes physical storage internals—like page layouts, fragmentation, and index structures—from provided database dumps without external APIs. Use IndexedDB for metadata persistence, Zustand for state, and D3.js for visualizing page maps and fragmentation heatmaps, with Web Workers and virtualization for performance on large dumps. The tool must offer deterministic parsing, row-level inspection, storage efficiency metrics, and robust handling of corrupted data for deep storage introspection.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ewhtnh-db-storage-explorer",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
