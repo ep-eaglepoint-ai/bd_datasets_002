@@ -5,10 +5,13 @@
 ## Docker commands
 - Tests:
 	- docker compose run --rm tests dotnet test tests/tests.csproj --filter RepositoryAfterChunkedUploaderTests -c Release --no-build -v minimal
+
 - Pytest (repository_before):
 	- docker compose run --rm -e PYTHONPATH=/app/repository_before app pytest -q
+
 - Pytest (repository_after):
 	- docker compose run --rm -e PYTHONPATH=/app/repository_after app pytest -q
+
 - Evaluation:
 	- docker compose run --rm tests dotnet run --project evaluation/evaluation.csproj -- --iterations 5 --skills 160,320,640 --slots 20,40,80 --threshold 15 --output-dir evaluation
 	- docker compose run --rm app python evaluation/evaluation.py
