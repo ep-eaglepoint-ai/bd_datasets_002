@@ -53,6 +53,23 @@ class TestTransactionService(unittest.TestCase):
             # Old code doesn't support idempotency_key
             self.service.transfer_funds('A', 'B', 50, 'key1')  # This will raise TypeError, failing the test
 
+    def test_basic_insufficient_balance(self):
+        # Test basic insufficient balance check
+        if HAS_IDEMPOTENCY:
+            self.db.get_idempotency.return_value = None
+            self.db.set_idempotency = Mock()
+            self.db.update_balance_atomic.return_value = False  # Atomic check fails
+            self.db.transaction.return_value.__enter__ = Mock()
+            self.db.transaction.return_value.__exit__ = Mock()
+            result = self.service.transfer_funds('A', 'B', 50, 'key1')
+        else:
+            self.db.get_balance.return_value = 30  # Less than 50
+            result = self.service.transfer_funds('A', 'B', 50)
+        self.assertFalse(result)
+        # Should not update balances
+        if not HAS_IDEMPOTENCY:
+            self.db.update_balance.assert_not_called()
+
     def test_concurrency_50_threads(self):
         # Simulate 50 concurrent transfers of 10 from account with 100
         results = []
@@ -124,12 +141,16 @@ class TestTransactionService(unittest.TestCase):
             result = self.service.transfer_funds('A', 'B', 50, 'key1')
             self.assertTrue(result)
             # Should not call update
+        else:
+            self.fail("Idempotency not implemented in before version")
 
     def test_idempotency_in_progress(self):
         if HAS_IDEMPOTENCY:
             self.db.get_idempotency.return_value = ('IN_PROGRESS', None, time.time())
             with self.assertRaises(ProcessingException):
                 self.service.transfer_funds('A', 'B', 50, 'key1')
+        else:
+            self.fail("Idempotency not implemented in before version")
 
     def test_idempotency_retry_after_failure(self):
         if HAS_IDEMPOTENCY:
@@ -152,6 +173,8 @@ class TestTransactionService(unittest.TestCase):
             # Should not call update methods
             self.db.update_balance_atomic.assert_not_called()
             self.db.update_balance.assert_not_called()
+        else:
+            self.fail("Idempotency not implemented in before version")
 
     def test_idempotency_network_failure_simulation(self):
         if HAS_IDEMPOTENCY:
@@ -192,6 +215,8 @@ class TestTransactionService(unittest.TestCase):
             # Should not call update methods
             self.db.update_balance_atomic.assert_not_called()
             self.db.update_balance.assert_not_called()
+        else:
+            self.fail("Idempotency not implemented in before version")
 
 if __name__ == '__main__':
     unittest.main()

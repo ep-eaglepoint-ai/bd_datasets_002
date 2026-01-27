@@ -5,7 +5,7 @@
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/efgc48-idempotent-financial-transaction-ledger",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
+            "FAIL_TO_PASS": ["test_successful_transfer", "test_insufficient_balance", "test_concurrency_50_threads", "test_idempotency_completed", "test_idempotency_in_progress", "test_idempotency_retry_after_failure", "test_idempotency_network_failure_simulation"],
+            "PASS_TO_PASS": ["test_basic_insufficient_balance"]
         }
         
