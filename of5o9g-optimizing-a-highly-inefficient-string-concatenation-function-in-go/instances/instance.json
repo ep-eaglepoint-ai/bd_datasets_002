@@ -1,0 +1,11 @@
+{
+            "instance_id": "OF5O9G",
+            "problem_statement": "You are given a Go function that concatenates a slice of strings into a single string. The function containing redundant data structures, unnecessary allocations, excessive looping, and inefficient string operations. While the function produces the correct output, its performance and readability are extremely poor. Your task is to analyze the code, identify inefficiencies, and refactor it into a clean, idiomatic, and efficient implementation without changing its observable behavior.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/of5o9g-optimizing-a-highly-inefficient-string-concatenation-function-in-go",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
