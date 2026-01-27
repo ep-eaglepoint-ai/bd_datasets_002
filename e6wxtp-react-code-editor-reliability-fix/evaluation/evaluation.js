@@ -9,7 +9,7 @@ const net = require('net');
 let killPortLib;
 try {
     // Try to load kill-port from tests dependencies
-    killPortLib = require('./tests/node_modules/kill-port');
+    killPortLib = require('../tests/node_modules/kill-port');
 } catch (e) {
     console.warn("Warning: kill-port library not found in ./tests/node_modules. Port cleanup might fail.");
 }
