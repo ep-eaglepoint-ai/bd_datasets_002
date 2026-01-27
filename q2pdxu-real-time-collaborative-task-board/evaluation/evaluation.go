@@ -148,10 +148,33 @@ func main() {
 		fmt.Println("Errors during execution:\n", errOutput)
 	}
 
-	// Save report
+	// Save report locally
 	data, _ := json.MarshalIndent(report, "", "  ")
-	_ = os.WriteFile("report.json", data, 0644)
-	fmt.Println("Report saved to report.json")
+	err := os.WriteFile("report.json", data, 0644)
+	if err != nil {
+		fmt.Printf("Error writing report.json: %v\n", err)
+	} else {
+		fmt.Println("Report saved to report.json")
+	}
+
+	// Important: In containerized environments like AWS, we need to write to the host volume
+	// The root is mounted at /host in docker-compose.yml
+	hostPath := "/host/evaluation/report.json"
+	if _, err := os.Stat("/host/evaluation"); err == nil {
+		err = os.WriteFile(hostPath, data, 0644)
+		if err != nil {
+			fmt.Printf("Error writing report to %s: %v\n", hostPath, err)
+		} else {
+			fmt.Printf("Report successfully saved to host at: %s\n", hostPath)
+		}
+	} else {
+		// Fallback for different volume structures
+		fallbackPath := "/host/report.json"
+		if _, err := os.Stat("/host"); err == nil {
+			_ = os.WriteFile(fallbackPath, data, 0644)
+			fmt.Printf("Report saved to host fallback at: %s\n", fallbackPath)
+		}
+	}
 
 	if !overallSuccess {
 		os.Exit(1)
