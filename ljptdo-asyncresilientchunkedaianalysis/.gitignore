@@ -1,11 +1,37 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 .venv/
+venv/
 .env
 
-# Node
-node_modules/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Evaluation reports (timestamped)
+evaluation/*/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# But keep important files
+!instances/*.json
