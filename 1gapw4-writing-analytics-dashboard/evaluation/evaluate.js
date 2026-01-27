@@ -89,7 +89,8 @@ async function main() {
   console.log('Tests directory: /app/tests');
   console.log();
 
-  const testResult = await runCommand('npm', ['test', '--', 'tests/analytics.test.ts'], path.join(__dirname, '..', 'repository_after'));
+  // Run ALL tests in the tests directory
+  const testResult = await runCommand('npm', ['test'], path.join(__dirname, '..', 'repository_after'));
   const testResults = parseJestOutput(testResult.output);
 
   const totalTests = testResults.passed + testResults.failed + testResults.errors + testResults.skipped;
