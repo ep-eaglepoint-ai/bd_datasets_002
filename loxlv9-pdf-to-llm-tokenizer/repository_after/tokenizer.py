@@ -73,10 +73,11 @@ def chunk_text_by_tokens(
     max_tokens: int, 
     overlap: int, 
     encoding_name: str = "o200k_base"
-) -> List[str]:
+) -> List[Dict[str, Any]]:
     """
     Chunks text strictly by token count.
     Ensures sequential chunks with specified overlap.
+    Returns list of chunk objects with metadata.
     """
     if not text:
         return []
@@ -89,11 +90,18 @@ def chunk_text_by_tokens(
         return []
     
     chunks = []
+    chunk_index = 0
     start = 0
     
     # If the text is shorter than max_tokens, just return it as one chunk
     if total_tokens <= max_tokens:
-        return [text]
+        return [{
+            "index": 0,
+            "start_token": 0,
+            "end_token": total_tokens,
+            "token_count": total_tokens,
+            "text": text
+        }]
 
     while start < total_tokens:
         end = min(start + max_tokens, total_tokens)
@@ -101,18 +109,27 @@ def chunk_text_by_tokens(
         
         # Decode back to text (Req 10: No semantic alteration/rewriting)
         chunk_text = encoding.decode(chunk_tokens)
-        chunks.append(chunk_text)
+        
+        chunk_obj = {
+            "index": chunk_index,
+            "start_token": start,
+            "end_token": end,
+            "token_count": len(chunk_tokens),
+            "text": chunk_text
+        }
+        chunks.append(chunk_obj)
+        chunk_index += 1
         
         if end == total_tokens:
             break
             
         # Calculate next start position based on overlap
-        # Ensure we move forward at least 1 token to prevent infinite loops if overlap >= max_tokens
+        # Ensure we move forward at least 1 token to prevent infinite loops
         step = max(1, max_tokens - overlap)
         start += step
         
-        # Safety check: if overlap calculation pushes us backwards or stays same (unlikely with logic above), fix it
-        if start >= end:
+        # Safety check
+        if start >= end and end < total_tokens:
             start = end
 
     return chunks
@@ -140,6 +157,8 @@ def process_pdf(
         "file": pdf_path,
         "encoding": encoding_name,
         "document_token_count": total_token_count,
+        "chunk_size": max_tokens,
+        "overlap_size": overlap,
         "chunk_count": len(chunks),
         "chunks": chunks
     }

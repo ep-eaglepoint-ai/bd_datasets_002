@@ -3,15 +3,14 @@ import subprocess
 import os
 import sys
 import datetime
-import re
 
 def run_tests():
     """Runs pytest and captures JSON output."""
     print("📊 Running Python tests...")
     
-    # Clean previous pycache to ensure fresh run
-    subprocess.run(["find", ".", "-name", "*.pyc", "-delete"])
-    subprocess.run(["find", ".", "-name", "__pycache__", "-delete"])
+    # Clean previous pycache
+    subprocess.run(["find", ".", "-name", "*.pyc", "-delete"], capture_output=True)
+    subprocess.run(["find", ".", "-name", "__pycache__", "-type", "d", "-exec", "rm", "-rf", "{}", "+"], capture_output=True)
 
     result = subprocess.run(
         ["pytest", "tests/test_tokenizer.py", "--json-report", "--json-report-file=test_report.json", "-v"],
@@ -19,7 +18,6 @@ def run_tests():
         text=True
     )
     
-    # Clean up temp report file after reading
     return result
 
 def parse_test_results():
@@ -32,11 +30,10 @@ def parse_test_results():
         passed = 0
         failed = 0
         
-        for test in data["tests"]:
-            # Extract cleaner name "test_req1..."
+        for test in data.get("tests", []):
             name = test["nodeid"].split("::")[-1]
             outcome = test["outcome"].upper()
-            duration = f"{test['call']['duration']:.2f}s"
+            duration = f"{test.get('call', {}).get('duration', 0):.3f}s"
             
             test_res = {
                 "name": name,
@@ -48,10 +45,8 @@ def parse_test_results():
                 passed += 1
             else:
                 failed += 1
-                if "crash" in test:
-                    test_res["failure_messages"] = [test["crash"]["message"]]
-                elif "call" in test and "longrepr" in test["call"]:
-                    test_res["failure_messages"] = [str(test["call"]["longrepr"])]
+                if "call" in test and "longrepr" in test["call"]:
+                    test_res["failure_messages"] = [str(test["call"]["longrepr"])[:500]]
             
             tests.append(test_res)
             
@@ -67,29 +62,29 @@ def check_requirements(tests):
     """Maps tests to the 20 requirements checklist."""
     def passed(name_fragment):
         for t in tests:
-            if name_fragment in t["name"] and t["status"] == "PASSED":
+            if name_fragment.lower() in t["name"].lower() and t["status"] == "PASSED":
                 return True
         return False
 
     return {
         "req1_pure_python": passed("req1"),
         "req2_modular_code": passed("req2"),
-        "req3_importable": passed("req1") and passed("req2"), # Implied by tests running
-        "req4_cli_tool": True, # Validated by structural check (main block exists)
+        "req3_importable": passed("req3"),
+        "req4_cli_tool": passed("req4"),
         "req5_multi_page": passed("req5"),
         "req6_empty_pages": passed("req6"),
         "req7_corrupt_pdf": passed("req7"),
-        "req8_page_order": passed("req5"), # Covered by multi-page order check
+        "req8_page_order": passed("req5") or passed("req8"),
         "req9_normalize_whitespace": passed("req9"),
-        "req10_no_semantic_change": passed("req20"), # Implied by reconstruction test
-        "req11_deterministic_output": passed("req9"), # Deterministic normalization implies this
+        "req10_no_semantic_change": passed("req10"),
+        "req11_deterministic_output": passed("req11"),
         "req12_true_tokenization": passed("req12"),
-        "req13_supported_encoding": passed("req12"),
+        "req13_supported_encoding": passed("req12") or passed("req13"),
         "req14_derived_token_count": passed("req14"),
-        "req15_no_heuristics": passed("req14"), # Implied
-        "req16_authoritative_count": passed("req14"),
+        "req15_no_heuristics": passed("req15"),
+        "req16_authoritative_count": passed("req14") or passed("req16"),
         "req17_token_chunking": passed("req17"),
-        "req18_configurable_max": passed("req17"),
+        "req18_configurable_max": passed("req17") or passed("req18"),
         "req19_configurable_overlap": passed("req19"),
         "req20_sequential_chunks": passed("req20")
     }
@@ -98,7 +93,6 @@ def main():
     print("🔬 Starting PDF Tokenizer Evaluation...")
     start_time = datetime.datetime.now(datetime.timezone.utc)
     
-    # Run tests
     proc_res = run_tests()
     tests, passed, failed = parse_test_results()
     
@@ -106,7 +100,6 @@ def main():
     
     checklist = check_requirements(tests)
     
-    # Generate timestamped directory structure
     date_str = start_time.strftime("%Y-%m-%d")
     time_str = start_time.strftime("%H-%M-%S")
     report_dir = os.path.join("evaluation", "reports", date_str, time_str)
@@ -127,7 +120,7 @@ def main():
         },
         "test_execution": {
             "success": success,
-            "exit_code": 0, # Force 0 so pipeline continues
+            "exit_code": 0,
             "summary": {
                 "total": len(tests),
                 "passed": passed,
@@ -152,6 +145,9 @@ def main():
         "requirements_checklist": checklist,
         "final_verdict": {
             "success": success,
+            "total_tests": len(tests),
+            "passed_tests": passed,
+            "failed_tests": failed,
             "success_rate": f"{(passed/len(tests))*100:.1f}" if tests else "0.0",
             "meets_requirements": all(checklist.values())
         }
@@ -164,7 +160,6 @@ def main():
     print(f"\n✅ Evaluation complete. Report saved to {report_path}")
     print(f"Passed: {passed}, Failed: {failed}")
     
-    # Print Requirements Summary
     print("\nRequirements Checklist:")
     for req, status in checklist.items():
         icon = "✅" if status else "❌"
