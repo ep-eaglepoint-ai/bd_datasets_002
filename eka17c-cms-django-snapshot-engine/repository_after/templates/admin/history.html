@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version History - {{ document.slug }}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 { color: #333; margin: 0; }
+        .back-link {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .version-list {
+            list-style: none;
+            padding: 0;
+        }
+        .version-item {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .version-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .version-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-live {
+            background: #28a745;
+            color: white;
+        }
+        .badge-draft {
+            background: #6c757d;
+            color: white;
+        }
+        .version-meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .content-preview {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .actions {
+            margin-top: 15px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-block;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn-publish {
+            background: #28a745;
+        }
+        .btn-publish:hover { background: #1e7e34; }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .create-version-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .create-version-form h3 { margin-top: 0; }
+        .create-version-form textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+        .create-version-form button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .compare-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .compare-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .compare-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .compare-column {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .compare-column h4 {
+            margin-top: 0;
+            color: #333;
+        }
+        .compare-column.live {
+            border: 2px solid #28a745;
+        }
+        .compare-column.draft {
+            border: 2px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <a href="/admin/" class="back-link">← Back to Dashboard</a>
+            <h1 style="margin-top: 10px;">📜 Version History: {{ document.slug }}</h1>
+        </div>
+    </div>
+    
+    <div class="create-version-form">
+        <h3>Create New Version</h3>
+        <form hx-post="/api/documents/{{ document.id }}/versions/" hx-target="#version-list" hx-swap="innerHTML">
+            <textarea name="content" placeholder='{"title": "New Title", "body": "New content here..."}' required></textarea>
+            <button type="submit">Save New Version</button>
+        </form>
+    </div>
+    
+    <h2>All Versions (Newest First)</h2>
+    <ul class="version-list" id="version-list">
+        {% for version in versions %}
+        <li class="version-item">
+            <div class="version-header">
+                <span class="version-number">Version {{ version.version_number }}</span>
+                {% if version.is_live %}
+                    <span class="version-badge badge-live">LIVE</span>
+                {% else %}
+                    <span class="version-badge badge-draft">DRAFT</span>
+                {% endif %}
+            </div>
+            <div class="version-meta">
+                Created: {{ version.created_at|date:"Y-m-d H:i:s" }} • 
+                Hash: {{ version.content_hash|truncatechars:16 }}
+            </div>
+            <div class="content-preview">{{ version.content|pretty_json }}</div>
+            
+            <div class="actions">
+                {% if not version.is_live %}
+                <form hx-post="/api/documents/{{ document.id }}/versions/{{ version.id }}/publish/" 
+                      hx-target="#version-list" 
+                      hx-swap="innerHTML"
+                      style="display: inline;">
+                    <button type="submit" class="btn btn-publish">🚀 Publish This Version</button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="version-item">
+            <p>No versions yet. Create one above!</p>
+        </li>
+        {% endfor %}
+    </ul>
+    
+    {% if document.live_version %}
+    <div class="compare-section">
+        <h3>Compare Current Draft with Live Version</h3>
+        <div class="compare-content">
+            <div class="compare-column live">
+                <h4>📢 Live Version (v{{ document.live_version.version_number }})</h4>
+                <div class="content-preview">{{ document.live_version.content|pretty_json }}</div>
+            </div>
+            <div class="compare-column draft">
+                <h4>📝 Working Draft</h4>
+                {% with versions|first as first_version %}
+                    {% if first_version %}
+                        <div class="content-preview">{{ first_version.content|pretty_json }}</div>
+                    {% else %}
+                        <p>No draft version available.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>
