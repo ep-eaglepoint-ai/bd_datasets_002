@@ -37,6 +37,14 @@ export const initDB = () => {
   return dbPromise;
 };
 
+export const closeDB = async () => {
+    if (dbPromise) {
+        const db = await dbPromise;
+        db.close();
+        dbPromise = null as any;
+    }
+};
+
 export const getContacts = async (): Promise<Contact[]> => {
   const db = await initDB();
   return db.getAll('contacts');

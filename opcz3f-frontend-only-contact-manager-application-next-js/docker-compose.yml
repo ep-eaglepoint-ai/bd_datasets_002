@@ -1,7 +1,7 @@
 services:
   test-after:
     build: .
-    command: npm test
+    command: npm test -- --forceExit
     volumes:
       - .:/app
       - /app/node_modules
