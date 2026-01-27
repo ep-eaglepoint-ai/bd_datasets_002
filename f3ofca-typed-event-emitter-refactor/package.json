@@ -1,0 +1,18 @@
+{
+  "name": "f3ofca-typed-event-emitter-refactor",
+  "version": "1.0.0",
+  "description": "**Category:** sft",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "events": "3.3.0"
+  }
+}
