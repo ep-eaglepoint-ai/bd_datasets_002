@@ -482,23 +482,24 @@ public class SingleFlightCacheTest {
         } catch (ComputationException e) {
             // Expected
         }
-        
-      
+
+        // REQ-07: In-flight entry must be removed after failure (cleanup on success OR failure)
+        assertEquals(0, cache.getInflightCount(),
+            "Internal state must be cleaned up after failure");
+        assertFalse(cache.isInflight("key"));
+
+        // Failure is cached; no automatic retry. Explicit invalidate allows recomputation.
+        cache.invalidate("key");
         String result = cache.get("key", k -> "success");
         assertEquals("success", result);
-        
-        // REQ-07: After the subsequent request, the in-flight entry should be removed
-        assertEquals(0, cache.getInflightCount(), 
-            "Internal state must be cleaned up after completion");
-        assertFalse(cache.isInflight("key"));
     }
     
     @Test
-    @DisplayName("REQ-07: Cleanup allows subsequent computations")
+    @DisplayName("REQ-07: Invalidate allows subsequent computations")
     @Timeout(value = 10, unit = TimeUnit.SECONDS)
     void testCleanupAllowsRetry() throws Exception {
         AtomicInteger computationCount = new AtomicInteger(0);
-        
+
         try {
             cache.get("key", k -> {
                 computationCount.incrementAndGet();
@@ -506,17 +507,19 @@ public class SingleFlightCacheTest {
             });
         } catch (ComputationException e) {
         }
-        
+
         assertEquals(1, computationCount.get());
-      
+        // Failure is cached; no automatic retry. Explicit invalidate allows new computation.
+        cache.invalidate("key");
+
         String result = cache.get("key", k -> {
             computationCount.incrementAndGet();
             return "success";
         });
-        
+
         assertEquals("success", result);
-        assertEquals(2, computationCount.get(), 
-            "After cleanup, a new computation should be allowed");
+        assertEquals(2, computationCount.get(),
+            "After invalidate, a new computation should be allowed");
         assertEquals(0, cache.getInflightCount());
     }
     
@@ -613,23 +616,33 @@ public class SingleFlightCacheTest {
     }
     
     @Test
-    @DisplayName("Sequential requests trigger separate computations")
+    @DisplayName("Sequential requests with invalidate trigger separate computations")
     void testSequentialRequestsAreSeparate() throws InterruptedException {
         AtomicInteger computationCount = new AtomicInteger(0);
-        
+
         String result1 = cache.get("key", k -> {
             computationCount.incrementAndGet();
             return "value1";
         });
-        
+        assertEquals("value1", result1);
+        assertEquals(1, computationCount.get());
+
+        // Cached outcome: second get() returns same result without recomputing
+        String cached = cache.get("key", k -> {
+            computationCount.incrementAndGet();
+            return "value2";
+        });
+        assertEquals("value1", cached);
+        assertEquals(1, computationCount.get(), "No recomputation without invalidate");
+
+        // Explicit invalidate allows a new computation
+        cache.invalidate("key");
         String result2 = cache.get("key", k -> {
             computationCount.incrementAndGet();
             return "value2";
         });
-        
-        assertEquals("value1", result1);
         assertEquals("value2", result2);
-        assertEquals(2, computationCount.get(), 
-            "Sequential requests should trigger separate computations");
+        assertEquals(2, computationCount.get(),
+            "After invalidate, a new computation runs");
     }
 }
