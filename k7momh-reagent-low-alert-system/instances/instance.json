@@ -1,0 +1,11 @@
+{
+            "instance_id": "K7MOMH",
+            "problem_statement": "Creation of an alerting logic system in JavaScript. The challenge involves threshold-based triggers combined with a time-based 'debouncing' strategy to manage internal state and notification frequency for lab personnel.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/k7momh-reagent-low-alert-system",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
