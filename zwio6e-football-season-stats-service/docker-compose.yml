@@ -1,6 +1,24 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    command: sh -c "mkdir -p src/main/java/com/example/gamestats && cp repository_before/*.java src/main/java/com/example/gamestats/ && cp tests/JavaTestRunner.java src/test/java/com/example/gamestats/ && mvn test-compile exec:java -Dexec.mainClass=com.example.gamestats.JavaTestRunner -Dexec.classpathScope=test -q"
     volumes:
       - .:/app
+      - /app/src
+      - /app/target
+
+  test-after:
+    build: .
+    command: sh -c "mkdir -p src/main/java/com/example/gamestats && cp repository_after/*.java src/main/java/com/example/gamestats/ && cp tests/JavaTestRunner.java src/test/java/com/example/gamestats/ && mvn test-compile exec:java -Dexec.mainClass=com.example.gamestats.JavaTestRunner -Dexec.classpathScope=test -q"
+    volumes:
+      - .:/app
+      - /app/src
+      - /app/target
+
+  evaluation:
+    build: .
+    command: python3 evaluation/evaluation.py
+    volumes:
+      - .:/app
+      - /app/src
+      - /app/target
