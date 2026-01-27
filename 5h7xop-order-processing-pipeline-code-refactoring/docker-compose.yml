@@ -1,19 +1,34 @@
 services:
-  test:
-    image: maven:3.9-eclipse-temurin-17
-    working_dir: /workspace/repository_after
+  test-before:
+    build:
+      context: .
+    image: order-refactoring-env
+    working_dir: /tmp/test_repo_before
     volumes:
       - .:/workspace
-    command: mvn clean test
+    entrypoint: >
+      sh -c "cp -r /workspace/repository_before/. /tmp/test_repo_before/ &&
+             mkdir -p src/test/java/com/ecommerce/order &&
+             cp /workspace/tests/*.java src/test/java/com/ecommerce/order/ &&
+             mvn clean test -q -Dtest=OrderProcessorTest || exit 0"
+
+  test-after:
+    image: order-refactoring-env
+    working_dir: /tmp/test_repo_after
+    volumes:
+      - .:/workspace
+    entrypoint: >
+      sh -c "cp -r /workspace/repository_after/. /tmp/test_repo_after/ &&
+             mkdir -p src/test/java/com/ecommerce/order &&
+             cp /workspace/tests/*.java src/test/java/com/ecommerce/order/ &&
+             mvn clean test -q"
 
   evaluation:
-    image: maven:3.9-eclipse-temurin-17
+    image: order-refactoring-env
     working_dir: /workspace
     volumes:
       - .:/workspace
     environment:
       - PYTHONUNBUFFERED=1
     entrypoint: >
-      sh -c "apt-get update -qq && 
-             apt-get install -y -qq python3 python3-pip &&
-             python3 evaluation/evaluation.py"
+      sh -c "python3 evaluation/evaluation.py"

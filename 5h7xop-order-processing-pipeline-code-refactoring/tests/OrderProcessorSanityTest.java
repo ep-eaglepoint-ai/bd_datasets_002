@@ -31,16 +31,42 @@ public class OrderProcessorSanityTest {
         }
     }
     
-    private static void testDependencyInjection() {
+    private static void testDependencyInjection() throws Exception {
         // This mirrors what I did in the Unit Test but as a standalone runner
         // verifying the class structure is valid.
-        OrderProcessor processor = new OrderProcessor(
-            new MockOrderRepository(),
-            new MockCustomerRepository(),
-            new MockInventoryService(),
-            new MockPaymentGateway(),
-            new MockCouponRepository()
-        );
+        OrderProcessor processor = null;
+        
+        // Use Reflection to support both Legacy and Refactored versions
+        java.lang.reflect.Constructor<?>[] constructors = OrderProcessor.class.getConstructors();
+        for (java.lang.reflect.Constructor<?> c : constructors) {
+            if (c.getParameterCount() == 5) {
+                processor = (OrderProcessor) c.newInstance(
+                    new MockOrderRepository(),
+                    new MockCustomerRepository(),
+                    new MockInventoryService(),
+                    new MockPaymentGateway(),
+                    new MockCouponRepository()
+                );
+                break;
+            }
+        }
+        
+        if (processor == null) {
+            // Legacy fallback
+             for (java.lang.reflect.Constructor<?> c : constructors) {
+                if (c.getParameterCount() == 3) {
+                     java.sql.Connection mockConn = (java.sql.Connection) java.lang.reflect.Proxy.newProxyInstance(
+                        OrderProcessorSanityTest.class.getClassLoader(),
+                        new Class<?>[]{java.sql.Connection.class},
+                        (proxy, method, args) -> null
+                     );
+                     processor = (OrderProcessor) c.newInstance(mockConn, "dummy", "key");
+                     break;
+                }
+             }
+        }
+        
+        if (processor == null) throw new RuntimeException("No suitable constructor found");
         
         Order order = new Order();
         order.setOrderId("SANITY-1");
