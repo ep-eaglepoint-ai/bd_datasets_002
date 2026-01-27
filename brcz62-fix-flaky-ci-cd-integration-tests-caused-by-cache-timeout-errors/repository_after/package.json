@@ -4,7 +4,7 @@
   "description": "Flaky async tests using sleep",
   "main": "index.js",
   "scripts": {
-    "test": "npx jest"
+    "test": "jest"
   },
   "dependencies": {
     "jest": "^29.7.0"

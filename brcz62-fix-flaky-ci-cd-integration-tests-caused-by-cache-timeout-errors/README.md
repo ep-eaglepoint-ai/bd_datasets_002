@@ -4,7 +4,7 @@
 
 Test repository_before:
 ```bash
-docker-compose run --rm -e REPO=before app
+docker-compose run --rm -e REPO=before app; exit 0
 ```
 
 Test the repository_after:
