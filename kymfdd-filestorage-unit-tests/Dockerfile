@@ -5,4 +5,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 ENV REPO_PATH=repository_after
 
-CMD ["python", "run_tests.py"]
+CMD ["python", "tests/run_tests.py"]
