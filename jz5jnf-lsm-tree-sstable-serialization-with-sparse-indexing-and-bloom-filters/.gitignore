@@ -28,5 +28,6 @@ dist/
 build/
 coverage.*
 
-# Keep evaluation reports tracked
-!evaluation/reports/**
+# Ignore evaluation reports contents, but keep the placeholder
+evaluation/reports/**
+!evaluation/reports/.gitkeep
