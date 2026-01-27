@@ -57,43 +57,17 @@
 
 ## Run with Docker
 
-### Build Image
+### Docker Execution
 ```bash
+# Build the environment
 docker compose build
-```
 
-### Repository Before (Expected to FAIL in isolation)
-```bash
-docker compose run --rm app python repository_before/test_csv_to_json.py
-```
+# Run refactored tests
+docker compose run --rm app python -m pytest repository_after/test_csv_to_json.py
 
-### Repository After (Expected to PASS)
-```bash
-docker compose run --rm app python repository_after/test_csv_to_json.py
-```
+# Run original tests
+docker compose run --rm app python -m pytest repository_before/test_csv_to_json.py
 
-### Run Evaluation
-```bash
+# Run evaluation report
 docker compose run --rm app python evaluation/evaluation.py
-```
-
-## Run Locally
-
-### Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### Run Tests
-```bash
-# Before
-python repository_before/test_csv_to_json.py
-
-# After
-python repository_after/test_csv_to_json.py
-```
-
-### Run Evaluation
-```bash
-python evaluation/evaluation.py
 ```
