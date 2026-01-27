@@ -1,0 +1,11 @@
+{
+            "instance_id": "K90YL8",
+            "problem_statement": "The objective is to verify the state-machine integrity of a Dynamic Weighted Round Robin balancer. The task is 'hard' because the tester must validate that the interleaved selection sequence remains fair and predictable even when the underlying weights and GCD change mid-iteration. This requires careful tracking of expected vs. actual sequences across reconfiguration boundaries.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/k90yl8-consistent-weighted-round-robin-testing",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
