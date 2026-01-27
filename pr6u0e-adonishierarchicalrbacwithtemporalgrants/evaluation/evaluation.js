@@ -1,7 +1,11 @@
-const fs = require('fs')
-const path = require('path')
-const { execSync } = require('child_process')
-const os = require('os')
+import fs from 'fs'
+import path from 'path'
+import { execSync } from 'child_process'
+import os from 'os'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 class RBACEvaluator {
   constructor() {
@@ -27,11 +31,9 @@ class RBACEvaluator {
     console.log('')
 
     try {
-      // Test repository_after only (no repository_before for this task)
       console.log('Testing repository_after...')
       this.results.after = await this.runTests('repository_after')
       
-      // Generate comparison
       this.results.comparison = {
         before_tests_passed: null,
         after_tests_passed: this.results.after.success,
@@ -60,10 +62,7 @@ class RBACEvaluator {
 
   async runTests(repoPath) {
     try {
-      // Set environment variable for repository path
       const env = { ...process.env, REPO_PATH: repoPath }
-      
-      // Run Jest tests with JSON output to a file, then read it
       const jsonOutputFile = '/tmp/jest-output.json'
       
       try {
@@ -77,7 +76,6 @@ class RBACEvaluator {
         // Jest exits with non-zero on test failure, but JSON file should still be written
       }
 
-      // Read the JSON output file
       if (fs.existsSync(jsonOutputFile)) {
         const jsonContent = fs.readFileSync(jsonOutputFile, 'utf8')
         const testOutput = JSON.parse(jsonContent)
@@ -104,7 +102,6 @@ class RBACEvaluator {
         }
       }
       
-      // Fallback if JSON file doesn't exist
       return {
         success: false,
         exit_code: 1,
@@ -150,9 +147,8 @@ class RBACEvaluator {
   }
 
   getDateTimePath() {
-    // Format: YYYY-MM-DD/HH-MM-SS
-    const date = this.startTime.toISOString().split('T')[0] // YYYY-MM-DD
-    const time = this.startTime.toISOString().split('T')[1].substring(0, 8).replace(/:/g, '-') // HH-MM-SS
+    const date = this.startTime.toISOString().split('T')[0]
+    const time = this.startTime.toISOString().split('T')[1].substring(0, 8).replace(/:/g, '-')
     return { date, time }
   }
 
@@ -182,7 +178,6 @@ class RBACEvaluator {
       }
     }
 
-    // Create date/time folder structure: evaluation/YYYY-MM-DD/HH-MM-SS/
     const { date, time } = this.getDateTimePath()
     const reportDir = path.join(__dirname, date, time)
     
@@ -190,7 +185,6 @@ class RBACEvaluator {
       fs.mkdirSync(reportDir, { recursive: true })
     }
 
-    // Write JSON report
     const reportPath = path.join(reportDir, 'report.json')
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
 
@@ -198,18 +192,15 @@ class RBACEvaluator {
   }
 }
 
-// Main execution
 async function main() {
   const evaluator = new RBACEvaluator()
   const exitCode = await evaluator.evaluate()
   process.exit(exitCode)
 }
 
-if (require.main === module) {
-  main().catch(error => {
-    console.error(`❌ Evaluation failed: ${error.message}`)
-    process.exit(2)
-  })
-}
+main().catch(error => {
+  console.error(`❌ Evaluation failed: ${error.message}`)
+  process.exit(2)
+})
 
-module.exports = { RBACEvaluator }
+export { RBACEvaluator }
