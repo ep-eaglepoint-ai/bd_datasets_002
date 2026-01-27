@@ -1,6 +1,5 @@
 package com.ecommerce.order.repository;
 
-import com.ecommerce.order.model.Coupon; // I might need to create a Coupon model or just return details
 import java.util.Optional;
 
 public interface CouponRepository {

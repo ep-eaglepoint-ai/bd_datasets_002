@@ -1,6 +1,19 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  test:
+    image: maven:3.9-eclipse-temurin-17
+    working_dir: /workspace/repository_after
     volumes:
-      - .:/app
+      - .:/workspace
+    command: mvn clean test
+
+  evaluation:
+    image: maven:3.9-eclipse-temurin-17
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    environment:
+      - PYTHONUNBUFFERED=1
+    entrypoint: >
+      sh -c "apt-get update -qq && 
+             apt-get install -y -qq python3 python3-pip &&
+             python3 evaluation/evaluation.py"

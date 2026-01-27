@@ -1,6 +1,5 @@
 package com.ecommerce.order;
 
-import com.ecommerce.order.model.Coupon;
 import com.ecommerce.order.repository.*;
 import com.ecommerce.order.service.*;
 import org.junit.jupiter.api.BeforeEach;

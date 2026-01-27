@@ -3,14 +3,18 @@ package com.ecommerce.order.logic;
 import com.ecommerce.order.Order;
 import com.ecommerce.order.OrderItem;
 import com.ecommerce.order.repository.CustomerRepository;
+import com.ecommerce.order.repository.CouponRepository;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public class DiscountCalculator {
     
     private final CustomerRepository customerRepo;
+    private final CouponRepository couponRepo;
 
-    public DiscountCalculator(CustomerRepository customerRepo) {
+    public DiscountCalculator(CustomerRepository customerRepo, CouponRepository couponRepo) {
         this.customerRepo = customerRepo;
+        this.couponRepo = couponRepo;
     }
 
     public double calculateTotalDiscount(Order order) {
@@ -45,19 +49,45 @@ public class DiscountCalculator {
     }
 
     private double calculateCouponDiscount(Order order, double subtotal) {
-        // In a real refactor, checking the DB for coupons here might be needed,
-        // but for now we assume the order or a CouponService provides the details.
-        // Since the original code did a DB lookup inside the method, we might need a CouponRepository.
-        // For simplicity in this logic class, we'll assume the coupon value/type is resolved or we inject a repo.
-        // The original code had complex coupon logic (min amount, expiry). 
-        // We will delegate that to a CouponService/Repository in the full implementation.
-        // For this step, I'll add a placeholder or simple logic if coupon fields are on Order (they are not fully).
-        return 0.0; // Todo: Integrate CouponRepository
+        if (order.getCouponCode() == null || order.getCouponCode().trim().isEmpty()) {
+            return 0.0;
+        }
+        
+        Optional<CouponRepository.CouponDetails> couponOpt = couponRepo.findByCode(order.getCouponCode());
+        if (couponOpt.isEmpty()) return 0.0;
+        
+        CouponRepository.CouponDetails coupon = couponOpt.get();
+        
+        // Validate coupon
+        if (coupon.expiryDate() != null && coupon.expiryDate().isBefore(LocalDateTime.now())) {
+            return 0.0; // Expired
+        }
+        if (coupon.usageLimit() > 0 && coupon.usageCount() >= coupon.usageLimit()) {
+            return 0.0; // Usage limit reached
+        }
+        if (subtotal < coupon.minOrderAmount()) {
+            return 0.0; // Minimum order not met
+        }
+        
+        // Calculate discount
+        double discount = 0.0;
+        if ("PERCENTAGE".equals(coupon.type())) {
+            discount = subtotal * (coupon.value() / 100.0);
+            if (coupon.maxDiscount() > 0 && discount > coupon.maxDiscount()) {
+                discount = coupon.maxDiscount();
+            }
+        } else if ("FIXED".equals(coupon.type())) {
+            discount = coupon.value();
+            if (discount > subtotal) {
+                discount = subtotal;
+            }
+        }
+        
+        return discount;
     }
     
     private double calculateLoyaltyDiscount(Order order, double subtotal) {
          if (order.getCustomerId() == null) return 0.0;
-         // logic using customerRepo to get tier
          String tier = customerRepo.getCustomerTier(order.getCustomerId());
          if (tier == null) return 0.0;
          

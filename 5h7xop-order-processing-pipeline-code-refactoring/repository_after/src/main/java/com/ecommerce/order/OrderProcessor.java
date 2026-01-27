@@ -42,7 +42,7 @@ public class OrderProcessor {
         // Initialize logic components
         this.stateMachine = new OrderStateMachine();
         this.validator = new OrderValidator();
-        this.discountCalculator = new DiscountCalculator(this.customerRepository);
+        this.discountCalculator = new DiscountCalculator(this.customerRepository, this.couponRepository);
     }
 
     /**
@@ -60,7 +60,7 @@ public class OrderProcessor {
         
         this.stateMachine = new OrderStateMachine();
         this.validator = new OrderValidator();
-        this.discountCalculator = new DiscountCalculator(customerRepo);
+        this.discountCalculator = new DiscountCalculator(customerRepo, couponRepo);
     }
     
     public OrderResult processOrder(Order order) {
