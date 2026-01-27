@@ -1,24 +1,31 @@
+volumes:
+  maven_data:
+
 services:
   test-before:
     build: .
-    command: sh -c "mkdir -p src/main/java/com/example/gamestats && cp repository_before/*.java src/main/java/com/example/gamestats/ && cp tests/JavaTestRunner.java src/test/java/com/example/gamestats/ && mvn test-compile exec:java -Dexec.mainClass=com.example.gamestats.JavaTestRunner -Dexec.classpathScope=test -q"
     volumes:
-      - .:/app
-      - /app/src
+      - maven_data:/root/.m2
+      - ./repository_before:/app/src/main/java/com/example/gamestats
+      - ./tests/FootballSeasonStatsTest.java:/app/src/test/java/com/example/gamestats/FootballSeasonStatsTest.java
       - /app/target
+    command: mvn test -Dmaven.test.failure.ignore=true
 
   test-after:
     build: .
-    command: sh -c "mkdir -p src/main/java/com/example/gamestats && cp repository_after/*.java src/main/java/com/example/gamestats/ && cp tests/JavaTestRunner.java src/test/java/com/example/gamestats/ && mvn test-compile exec:java -Dexec.mainClass=com.example.gamestats.JavaTestRunner -Dexec.classpathScope=test -q"
     volumes:
-      - .:/app
-      - /app/src
+      - maven_data:/root/.m2
+      - ./repository_after:/app/src/main/java/com/example/gamestats
+      - ./tests/FootballSeasonStatsTest.java:/app/src/test/java/com/example/gamestats/FootballSeasonStatsTest.java
       - /app/target
+    command: mvn test
 
   evaluation:
     build: .
-    command: python3 evaluation/evaluation.py
     volumes:
+      - maven_data:/root/.m2
+      - ./.git:/app/.git
       - .:/app
       - /app/src
       - /app/target
+    command: python3 evaluation/evaluation.py

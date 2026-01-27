@@ -62,14 +62,14 @@ def get_environment_info():
 
 def run_java_test(target_dir, label):
     """
-    Run Java tests for the specified target directory using Maven.
+    Run Java tests for the specified target directory using Maven and parse JUnit reports.
 
     Args:
         target_dir: The target repository directory (e.g., "repository_before")
         label: Label for this test run (e.g., "before")
 
     Returns:
-        dict with test results
+        dict with test results matches pytest-like structure
     """
     print(f"\n{'=' * 60}")
     print(f"RUNNING TESTS: {label.upper()}")
@@ -79,12 +79,8 @@ def run_java_test(target_dir, label):
     # Build Maven commands
     # 1. Clean src/main/java
     # 2. Copy target_repo contents to src/main/java/com/example/gamestats/
-    # 3. Add package declaration if missing (since repo files might not have it or have it matching)
-    #    Checked: repo files have `package com.example.gamestats;`
-    # 4. Compile and Run
-    
-    # Python script logic to move files
-    # Note: We are inside the container at /app
+    # 3. Copy JUnit test to src/test/java/com/example/gamestats/
+    # 4. Run mvn test (ignore failure to ensure report generation)
     
     src_path = Path("src/main/java/com/example/gamestats")
     target_path = Path(target_dir)
@@ -102,28 +98,24 @@ def run_java_test(target_dir, label):
     else:
         print(f"Warning: {target_dir} does not exist!")
 
-    # Copy the latest JavaTestRunner from tests/ folder to ensure we use the updated version
+    # Copy the latest FootballSeasonStatsTest from tests/ folder
     test_src_path = Path("src/test/java/com/example/gamestats")
     test_src_path.mkdir(parents=True, exist_ok=True)
-    runner_source = Path("tests/JavaTestRunner.java")
+    runner_source = Path("tests/FootballSeasonStatsTest.java")
     if runner_source.exists():
         import shutil
-        shutil.copy(runner_source, test_src_path / "JavaTestRunner.java")
+        shutil.copy(runner_source, test_src_path / "FootballSeasonStatsTest.java")
     else:
-         print("Warning: tests/JavaTestRunner.java not found in /app!")
+         print("Warning: tests/FootballSeasonStatsTest.java not found in /app!")
 
-    # Maven command to compile and run the JavaTestRunner
-    # We use exec:java. JavaTestRunner has main method.
-    # Classpath scope test includes src/test/java and dependencies.
-    mvn_cmd = "mvn test-compile exec:java -Dexec.mainClass=com.example.gamestats.JavaTestRunner -Dexec.classpathScope=test -q"
+    # Maven command to run tests. We ignore failures so we can parse the report.
+    mvn_cmd = "mvn test -Dmaven.test.failure.ignore=true -q"
     
     print(f"Executing: {mvn_cmd}")
 
     try:
-        # Measure time
         start_time = datetime.now()
         
-        # Capture both stdout/stderr. -q creates less noise, but we want the output of Runner.
         result = subprocess.run(
             ["sh", "-c", mvn_cmd],
             capture_output=True,
@@ -132,46 +124,74 @@ def run_java_test(target_dir, label):
         )
         
         duration_ms = (datetime.now() - start_time).total_seconds() * 1000
-
         stdout = result.stdout
         stderr = result.stderr
         
-        # Maven might fail (compilation error) or JavaTestRunner might exit 1
-        success = result.returncode == 0
-        
-        # Parse output to mimic individual tests
+        # Parse XML Reports
+        import xml.etree.ElementTree as ET
+        report_dir = Path("target/surefire-reports")
         tests = []
         
-        # Treat execution as the main test
-        main_test_outcome = "passed" if success else "failed"
-        
-        # Try to parse execution time from stdout if available
-        exec_time_str = "unknown"
-        for line in stdout.splitlines():
-            if "Execution Time:" in line:
-                exec_time_str = line.strip()
-        
-        tests.append({
-            "nodeid": f"{target_dir}::JavaTestRunner",
-            "name": "JavaTestRunner",
-            "outcome": main_test_outcome,
-            "call": {
-                "duration": duration_ms,
-                "msg": exec_time_str
-            }
-        })
-
-        # Count results
-        passed = 1 if success else 0
-        failed = 0 if success else 1
+        total = 0
+        passed = 0
+        failed = 0
         errors = 0
         skipped = 0
-        total = 1
+        
+        if report_dir.exists():
+            for xml_file in report_dir.glob("TEST-*.xml"):
+                try:
+                    tree = ET.parse(xml_file)
+                    root = tree.getroot()
+                    
+                    for testcase in root.findall("testcase"):
+                        total += 1
+                        name = testcase.get("name")
+                        classname = testcase.get("classname")
+                        time_secs = float(testcase.get("time", "0"))
+                        
+                        outcome = "passed"
+                        message = ""
+                        
+                        failure = testcase.find("failure")
+                        error_node = testcase.find("error")
+                        skipped_node = testcase.find("skipped")
+                        
+                        if failure is not None:
+                            outcome = "failed"
+                            failed += 1
+                            message = failure.get("message", "Test failed")
+                        elif error_node is not None:
+                            outcome = "error"
+                            errors += 1
+                            message = error_node.get("message", "Test error")
+                        elif skipped_node is not None:
+                            outcome = "skipped"
+                            skipped += 1
+                            message = "Test skipped"
+                        else:
+                            passed += 1
+                        
+                        tests.append({
+                            "nodeid": f"{target_dir}::{classname}::{name}",
+                            "name": name,
+                            "outcome": outcome,
+                            "call": {
+                                "duration": time_secs * 1000,
+                                "msg": message
+                            }
+                        })
+                except Exception as e:
+                    print(f"Error parsing {xml_file}: {e}")
+        else:
+             print("Warning: No Surefire reports found!")
+
+        # Success if NO failures or errors
+        success = (failed == 0 and errors == 0 and total > 0)
 
         print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, {skipped} skipped (total: {total})")
-        print(f"Output:\n{stdout}")
-        if stderr and not success:
-            print(f"Errors:\n{stderr}")
+        if not success:
+             print("Some tests failed.")
         
         return {
             "success": success,
@@ -193,7 +213,7 @@ def run_java_test(target_dir, label):
         return {
             "success": False,
             "exit_code": -1,
-            "tests": [{"nodeid": f"{target_dir}::JavaTestRunner", "name": "JavaTestRunner", "outcome": "error", "message": "Result timed out"}],
+            "tests": [{"nodeid": f"{target_dir}::Maven", "name": "MavenTest", "outcome": "error", "message": "Result timed out"}],
             "summary": {"total": 1, "passed": 0, "failed": 0, "errors": 1, "skipped": 0, "error": "Test execution timed out"},
             "stdout": "",
             "stderr": "",
@@ -203,7 +223,7 @@ def run_java_test(target_dir, label):
         return {
             "success": False,
             "exit_code": -1,
-            "tests": [{"nodeid": f"{target_dir}::JavaTestRunner", "name": "JavaTestRunner", "outcome": "error", "message": str(e)}],
+            "tests": [{"nodeid": f"{target_dir}::Maven", "name": "MavenTest", "outcome": "error", "message": str(e)}],
             "summary": {"total": 1, "passed": 0, "failed": 0, "errors": 1, "skipped": 0, "error": str(e)},
             "stdout": "",
             "stderr": "",
