@@ -38,9 +38,24 @@
 - trajectory/: notes or write-up (Markdown)
 
 ## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+
+### 🐳 Docker Testing
+Use these commands to verify implementation and responsiveness:
+
+1. **Repository After**: 
+   `docker compose run --rm test-after`
+  
+
+2. **Repository Before**: 
+   `docker compose run --rm test-before`
+   
+
+3. **Run Full Evaluation**: 
+   `docker compose run --rm evaluation`
+   
+
+### Local Management
+- Update dependencies: Edit `requirements.txt`
 
 ## Notes
 - Keep commits focused and small.

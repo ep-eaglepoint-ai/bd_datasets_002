@@ -1,6 +1,27 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    volumes:
+      - .:/app
+
+  test-before:
+    build: .
+    environment:
+      - TEST_TARGET=repository_before
+    command: pytest tests/test_layout.py
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    environment:
+      - TEST_TARGET=repository_after
+    command: pytest tests/test_layout.py
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app

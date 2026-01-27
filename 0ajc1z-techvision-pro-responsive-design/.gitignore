@@ -9,3 +9,12 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Evaluation Results
+evaluation/**/report.json
+evaluation/202*/
+
+# Tests
+.pytest_cache/
+test-results/
+ms-playwright/
