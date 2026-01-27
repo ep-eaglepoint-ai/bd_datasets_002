@@ -111,3 +111,133 @@ func TestRepository_After_PartialWriteFailures(t *testing.T) {
 		t.Fatal("Failure: Worker context remained active despite repeated partial-write failures.")
 	}
 }
+
+// TEST 4: Admin Preemption / Atomic Revocation
+// Validates: Req 3 (CAS mismatch cancels immediately), plus the "admin preemption" scenario.
+func TestRepository_After_AdminPreemptionCancelsWorker(t *testing.T) {
+	t.Log(">>> [4/5] Testing Admin Preemption Cancels Worker (Expected to PASS) <<<")
+
+	store := NewMockStore()
+	ttl := 600 * time.Millisecond
+	orch := repoAfter.NewLeaseOrchestrator(store, "worker", ttl)
+
+	lease, err := orch.AcquireAndHold(context.Background(), "admin-resource")
+	if err != nil {
+		t.Fatalf("Acquire failed: %v", err)
+	}
+
+	// Simulate an external/admin action that overwrites the lock with a new revision.
+	store.ForceOverwrite("admin-resource", []byte("admin"), ttl)
+
+	// Heartbeat interval is ttl/3; cancellation should happen on the next renewal attempt.
+	select {
+	case <-lease.Context.Done():
+		// ok
+	case <-time.After(2 * ttl):
+		t.Fatal("Expected worker context cancellation after admin preemption")
+	}
+}
+
+// TEST 5: Watcher ctx cancellation + thundering herd mitigation
+// Validates: Req 2 (ctx-respecting watch wait) and "no leaked watchers".
+func TestRepository_After_WatchRespectsContext_AndAvoidsThunderingHerd(t *testing.T) {
+	t.Log(">>> [5/5] Testing Watch Cancellation + Herd Mitigation (Expected to PASS) <<<")
+
+	store := NewMockStore()
+	ttl := 500 * time.Millisecond
+	orch := repoAfter.NewLeaseOrchestrator(store, "holder", ttl)
+
+	// Acquire and hold the lock so others must wait.
+	lease, err := orch.AcquireAndHold(context.Background(), "herd-resource")
+	if err != nil {
+		t.Fatalf("Acquire failed: %v", err)
+	}
+
+	// 5A) ctx-canceled waiter must not leak watchers.
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Millisecond)
+	defer cancel()
+
+	beforeWatches := store.WatchCalls()
+	beforePuts := store.PutIfAbsentCalls()
+
+	waiterOrch := repoAfter.NewLeaseOrchestrator(store, "waiter", ttl)
+	_, err = waiterOrch.AcquireAndHold(ctx, "herd-resource")
+	if err == nil {
+		t.Fatal("Expected AcquireAndHold to fail due to ctx deadline")
+	}
+
+	// Give the watcher cleanup goroutine time to remove itself.
+	deadline := time.Now().Add(400 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if store.ActiveWatchers() == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if store.ActiveWatchers() != 0 {
+		t.Fatalf("Watcher leak: expected 0 active watchers, got %d", store.ActiveWatchers())
+	}
+	if store.WatchCalls() == beforeWatches {
+		t.Fatalf("Expected Watch to be used while waiting")
+	}
+	// While blocked, AcquireAndHold should not poll PutIfAbsent repeatedly.
+	if gotDelta := store.PutIfAbsentCalls() - beforePuts; gotDelta > 2 {
+		t.Fatalf("Expected no polling; too many PutIfAbsent calls while locked: delta=%d", gotDelta)
+	}
+
+	// 5B) Herd mitigation: on release, only one waiter should wake and retry quickly.
+	waiters := 20
+	acquiredCh := make(chan *repoAfter.Lease, waiters)
+	holdCh := make(chan struct{})
+
+	for i := 0; i < waiters; i++ {
+		go func(i int) {
+			wctx, wcancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer wcancel()
+			worch := repoAfter.NewLeaseOrchestrator(store, fmt.Sprintf("w-%d", i), ttl)
+			l, err := worch.AcquireAndHold(wctx, "herd-resource")
+			if err != nil {
+				return
+			}
+			acquiredCh <- l
+			<-holdCh
+			_ = l.Release()
+		} (i)
+	}
+
+	// Wait until they are registered as watchers (best effort).
+	deadline = time.Now().Add(600 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if store.ActiveWatchersForKey("herd-resource") >= waiters {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	putsBeforeRelease := store.PutIfAbsentCalls()
+	_ = lease.Release() // free the lock
+
+	// Within a short window, only one waiter should wake and retry PutIfAbsent.
+	select {
+	case <-acquiredCh:
+		// ok, at least one acquired
+	case <-time.After(200 * time.Millisecond):
+		close(holdCh)
+		t.Fatal("Expected a waiter to acquire after release")
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	putsAfterRelease := store.PutIfAbsentCalls()
+	if delta := putsAfterRelease - putsBeforeRelease; delta > 2 {
+		close(holdCh)
+		t.Fatalf("Thundering herd suspected: too many immediate PutIfAbsent retries after a single release: delta=%d", delta)
+	}
+
+	// Ensure only one waiter acquired in this short window.
+	if len(acquiredCh) > 0 {
+		close(holdCh)
+		t.Fatalf("Expected only one waiter to acquire immediately after release; got %d", 1+len(acquiredCh))
+	}
+
+	close(holdCh)
+}
