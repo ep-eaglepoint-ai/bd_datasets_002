@@ -36,7 +36,7 @@ export function countBasicMetrics(text: string) {
   };
 }
 
-export function analyzeSentiment(text: string) {
+export function analyzeSentiment(text: string): { score: number; polarity: 'positive' | 'negative' | 'neutral'; intensity: number } {
   if (!text || text.trim().length === 0) {
     return { score: 0, polarity: 'neutral' as const, intensity: 0 };
   }
@@ -67,7 +67,7 @@ export function analyzeSentiment(text: string) {
     ? (positiveCount - negativeCount) / totalSentimentWords 
     : 0;
   
-  const polarity = score > 0.1 ? 'positive' : score < -0.1 ? 'negative' : 'neutral';
+  const polarity: 'positive' | 'negative' | 'neutral' = score > 0.1 ? 'positive' : score < -0.1 ? 'negative' : 'neutral';
   const intensity = Math.abs(score);
   
   return { score, polarity, intensity };
@@ -229,4 +229,51 @@ export function detectRepeatedPhrases(text: string, minLength: number = 3): Arra
     .map(([phrase, count]) => ({ phrase, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
+}
+
+export function analyzeGrammarPatterns(text: string) {
+  const doc = compromise(text);
+  const { words } = tokenizeText(text);
+  
+  if (words.length === 0) {
+    return {
+      tenseConsistency: 0,
+      pronounUsage: {},
+      verbFormDistribution: {},
+      modifierDensity: 0,
+    };
+  }
+
+  const verbs = doc.verbs();
+  const pastTense = verbs.toPastTense().length;
+  const presentTense = verbs.toPresentTense().length;
+  const futureTense = doc.match('will #Verb').length;
+  const totalVerbs = pastTense + presentTense + futureTense || 1;
+  
+  const maxTense = Math.max(pastTense, presentTense, futureTense);
+  const tenseConsistency = maxTense / totalVerbs;
+
+  const pronouns = doc.pronouns().out('array') as string[];
+  const pronounUsage: Record<string, number> = {};
+  pronouns.forEach(pronoun => {
+    const normalized = pronoun.toLowerCase();
+    pronounUsage[normalized] = (pronounUsage[normalized] || 0) + 1;
+  });
+
+  const verbFormDistribution = {
+    past: pastTense,
+    present: presentTense,
+    future: futureTense,
+  };
+
+  const adjectives = doc.adjectives().length;
+  const adverbs = doc.adverbs().length;
+  const modifierDensity = (adjectives + adverbs) / words.length;
+
+  return {
+    tenseConsistency,
+    pronounUsage,
+    verbFormDistribution,
+    modifierDensity,
+  };
 }

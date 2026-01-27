@@ -7,7 +7,23 @@ import {
   analyzeStyleMetrics,
   extractKeywords,
   detectRepeatedPhrases,
+  analyzeGrammarPatterns,
 } from '../repository_after/src/lib/textAnalysis';
+
+import {
+  analyzeSentimentDetailed,
+  calculateMovingAverageTTR,
+  calculateAdvancedLexicalMetrics,
+  analyzeAdvancedSyntax,
+  analyzeRhythmAndStyle,
+  analyzeGrammarMetrics,
+  extractNGrams,
+  analyzeRepeatedPhrasesAdvanced,
+  calculateDailyTrends,
+  compareDocuments,
+} from '../repository_after/src/lib/advancedAnalysis';
+
+import { exportToCSV } from '../repository_after/src/lib/exportUtils';
 
 import { DocumentSchema, AnalyticsResultSchema } from '../repository_after/src/lib/types';
 
@@ -522,6 +538,281 @@ describe('Writing Analytics Dashboard', () => {
       const noisy = "Test... with... many... ellipses!!!";
       const metrics = countBasicMetrics(noisy);
       expect(metrics.wordCount).toBeGreaterThan(0);
+    });
+  });
+
+  // Advanced Sentiment Analysis
+  describe('Advanced Sentiment Analysis', () => {
+    it('should calculate sentiment volatility', () => {
+      const text = "I love this! This is terrible. Amazing work! Awful result.";
+      const sentiment = analyzeSentimentDetailed(text);
+      
+      expect(sentiment).toHaveProperty('volatility');
+      expect(sentiment.volatility).toBeGreaterThan(0);
+    });
+
+    it('should provide sentence-level sentiment', () => {
+      const text = "I love this. This is great. Amazing work.";
+      const sentiment = analyzeSentimentDetailed(text);
+      
+      expect(sentiment).toHaveProperty('sentenceLevel');
+      expect(sentiment.sentenceLevel?.length).toBeGreaterThan(0);
+      expect(sentiment.sentenceLevel?.[0]).toHaveProperty('score');
+      expect(sentiment.sentenceLevel?.[0]).toHaveProperty('polarity');
+    });
+
+    it('should detect mood patterns', () => {
+      const text = "Great! Wonderful! Amazing! Fantastic! Excellent! Perfect!";
+      const sentiment = analyzeSentimentDetailed(text);
+      
+      expect(sentiment).toHaveProperty('moodPatterns');
+      expect(Array.isArray(sentiment.moodPatterns)).toBe(true);
+    });
+  });
+
+  // Advanced Lexical Metrics
+  describe('Advanced Lexical Metrics', () => {
+    it('should calculate moving average TTR', () => {
+      const text = "word ".repeat(200);
+      const maTTR = calculateMovingAverageTTR(text, 100);
+      
+      expect(maTTR).toBeGreaterThanOrEqual(0);
+      expect(maTTR).toBeLessThanOrEqual(1);
+    });
+
+    it('should calculate repetition rate', () => {
+      const text = "The cat sat on the mat. The dog sat on the log.";
+      const metrics = calculateAdvancedLexicalMetrics(text);
+      
+      expect(metrics).toHaveProperty('repetitionRate');
+      expect(metrics.repetitionRate).toBeGreaterThanOrEqual(0);
+      expect(metrics.repetitionRate).toBeLessThanOrEqual(1);
+    });
+
+    it('should calculate rare word usage', () => {
+      const text = "The cat sat on the mat. The dog sat on the log.";
+      const metrics = calculateAdvancedLexicalMetrics(text);
+      
+      expect(metrics).toHaveProperty('rareWordUsage');
+      expect(metrics.rareWordUsage).toBeGreaterThanOrEqual(0);
+      expect(metrics.rareWordUsage).toBeLessThanOrEqual(1);
+    });
+  });
+
+  // Advanced Syntax Analysis
+  describe('Advanced Syntax Analysis', () => {
+    it('should calculate clause depth', () => {
+      const text = "I went to the store because I needed milk, although it was raining.";
+      const syntax = analyzeAdvancedSyntax(text);
+      
+      expect(syntax).toHaveProperty('clauseDepth');
+      expect(syntax.clauseDepth).toBeGreaterThan(1);
+    });
+
+    it('should calculate coordination frequency', () => {
+      const text = "I like cats and dogs but not birds or fish.";
+      const syntax = analyzeAdvancedSyntax(text);
+      
+      expect(syntax).toHaveProperty('coordinationFrequency');
+      expect(syntax.coordinationFrequency).toBeGreaterThan(0);
+    });
+
+    it('should calculate syntactic variation', () => {
+      const text = "Short. This is a longer sentence. Medium one.";
+      const syntax = analyzeAdvancedSyntax(text);
+      
+      expect(syntax).toHaveProperty('syntacticVariation');
+      expect(syntax.syntacticVariation).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // Rhythm and Style Analysis
+  describe('Rhythm and Style Analysis', () => {
+    it('should calculate rhythm patterns', () => {
+      const text = "Short. This is longer. Medium.";
+      const rhythm = analyzeRhythmAndStyle(text);
+      
+      expect(rhythm).toHaveProperty('rhythmPatterns');
+      expect(Array.isArray(rhythm.rhythmPatterns)).toBe(true);
+      expect(rhythm.rhythmPatterns.length).toBeGreaterThan(0);
+    });
+
+    it('should calculate function word ratio', () => {
+      const text = "The cat sat on the mat with the dog.";
+      const rhythm = analyzeRhythmAndStyle(text);
+      
+      expect(rhythm).toHaveProperty('functionWordRatio');
+      expect(rhythm.functionWordRatio).toBeGreaterThan(0);
+      expect(rhythm.functionWordRatio).toBeLessThanOrEqual(1);
+    });
+  });
+
+  // Grammar Metrics
+  describe('Grammar Metrics', () => {
+    it('should calculate tense consistency', () => {
+      const text = "I walked to the store. I bought milk. I returned home.";
+      const grammar = analyzeGrammarMetrics(text);
+      
+      expect(grammar).toHaveProperty('tenseConsistency');
+      expect(grammar.tenseConsistency).toBeGreaterThan(0);
+      expect(grammar.tenseConsistency).toBeLessThanOrEqual(1);
+    });
+
+    it('should track pronoun usage', () => {
+      const text = "She went to the store. He stayed home. They met later.";
+      const grammar = analyzeGrammarMetrics(text);
+      
+      expect(grammar).toHaveProperty('pronounUsage');
+      expect(typeof grammar.pronounUsage).toBe('object');
+    });
+
+    it('should track verb form distribution', () => {
+      const text = "I walked. I walk. I will walk.";
+      const grammar = analyzeGrammarMetrics(text);
+      
+      expect(grammar).toHaveProperty('verbFormDistribution');
+      expect(typeof grammar.verbFormDistribution).toBe('object');
+    });
+
+    it('should calculate modifier density', () => {
+      const text = "The quick brown fox jumps quickly over the lazy dog.";
+      const grammar = analyzeGrammarMetrics(text);
+      
+      expect(grammar).toHaveProperty('modifierDensity');
+      expect(grammar.modifierDensity).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // N-gram Extraction
+  describe('N-gram Extraction', () => {
+    it('should extract 2-grams', () => {
+      const text = "The quick brown fox jumps over the lazy dog.";
+      const ngrams = extractNGrams(text, 2, 5);
+      
+      expect(Array.isArray(ngrams)).toBe(true);
+      if (ngrams.length > 0) {
+        expect(ngrams[0]).toHaveProperty('phrase');
+        expect(ngrams[0]).toHaveProperty('count');
+      }
+    });
+
+    it('should extract 3-grams', () => {
+      const text = "The quick brown fox. The quick brown dog. The quick brown cat.";
+      const ngrams = extractNGrams(text, 3, 5);
+      
+      expect(Array.isArray(ngrams)).toBe(true);
+      expect(ngrams.length).toBeGreaterThan(0);
+    });
+  });
+
+  // Advanced Repeated Phrases
+  describe('Advanced Repeated Phrase Detection', () => {
+    it('should detect deliberate vs accidental repetition', () => {
+      const text = "Very very good. The cat sat. The cat sat. The cat sat. The cat sat.";
+      const repeated = analyzeRepeatedPhrasesAdvanced(text, 2);
+      
+      expect(Array.isArray(repeated)).toBe(true);
+      if (repeated.length > 0) {
+        expect(repeated[0]).toHaveProperty('isDeliberate');
+      }
+    });
+  });
+
+  // Daily Trends
+  describe('Daily Trends Calculation', () => {
+    it('should calculate daily writing trends', () => {
+      const docs = [
+        { content: 'Test document one', createdAt: new Date('2024-01-01').getTime() },
+        { content: 'Test document two', createdAt: new Date('2024-01-01').getTime() },
+        { content: 'Test document three', createdAt: new Date('2024-01-02').getTime() },
+      ];
+      
+      const trends = calculateDailyTrends(docs);
+      
+      expect(Array.isArray(trends)).toBe(true);
+      expect(trends.length).toBeGreaterThan(0);
+      expect(trends[0]).toHaveProperty('date');
+      expect(trends[0]).toHaveProperty('wordCount');
+      expect(trends[0]).toHaveProperty('documentCount');
+    });
+  });
+
+  // Document Comparison
+  describe('Document Comparison Advanced', () => {
+    it('should compare two documents with detailed metrics', () => {
+      const analytics1 = {
+        documentId: 'doc1',
+        sentiment: { score: 0.5, polarity: 'positive' as const, intensity: 0.5 },
+        lexicalRichness: { typeTokenRatio: 0.7 },
+        readability: { fleschReadingEase: 60 },
+        styleMetrics: { avgSentenceLength: 10 },
+      };
+      
+      const analytics2 = {
+        documentId: 'doc2',
+        sentiment: { score: -0.3, polarity: 'negative' as const, intensity: 0.3 },
+        lexicalRichness: { typeTokenRatio: 0.5 },
+        readability: { fleschReadingEase: 50 },
+        styleMetrics: { avgSentenceLength: 15 },
+      };
+      
+      const comparison = compareDocuments(analytics1, analytics2);
+      
+      expect(comparison).toHaveProperty('toneDifference');
+      expect(comparison).toHaveProperty('vocabularyDifference');
+      expect(comparison).toHaveProperty('readabilityDifference');
+      expect(comparison).toHaveProperty('complexityDifference');
+      expect(comparison.toneDifference).toBeGreaterThan(0);
+    });
+  });
+
+  // CSV Export
+  describe('CSV Export Functionality', () => {
+    it('should export documents to CSV format', () => {
+      const docs = [
+        {
+          id: '1',
+          title: 'Test Doc',
+          content: 'Test content',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          tags: [],
+        },
+      ];
+      
+      const analytics = new Map();
+      analytics.set('1', {
+        documentId: '1',
+        timestamp: Date.now(),
+        wordCount: 2,
+        characterCount: 12,
+        sentenceCount: 1,
+        paragraphCount: 1,
+        sentiment: { score: 0, polarity: 'neutral' as const, intensity: 0 },
+        readability: { fleschReadingEase: 50, fleschKincaidGrade: 5, gunningFog: 6, smogIndex: 7 },
+        lexicalRichness: { typeTokenRatio: 1, hapaxLegomena: 2, vocabularyDiversity: 1.5 },
+        styleMetrics: { avgSentenceLength: 2, avgWordLength: 6, passiveVoiceCount: 0, punctuationDensity: 0 },
+      });
+      
+      const csv = exportToCSV(docs, analytics);
+      
+      expect(typeof csv).toBe('string');
+      expect(csv.length).toBeGreaterThan(0);
+      expect(csv).toContain('Document ID');
+      expect(csv).toContain('Test Doc');
+    });
+  });
+
+  // Grammar Pattern Analysis
+  describe('Grammar Pattern Analysis', () => {
+    it('should analyze grammar patterns', () => {
+      const text = "She runs quickly. They were running. He has been running.";
+      const patterns = analyzeGrammarPatterns(text);
+      
+      expect(patterns).toHaveProperty('tenseConsistency');
+      expect(patterns).toHaveProperty('pronounUsage');
+      expect(patterns).toHaveProperty('verbFormDistribution');
+      expect(patterns).toHaveProperty('modifierDensity');
     });
   });
 });

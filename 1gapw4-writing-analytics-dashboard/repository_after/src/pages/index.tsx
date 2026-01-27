@@ -4,9 +4,18 @@ import { useState } from 'react';
 import DocumentEditor from '@/components/DocumentEditor';
 import DocumentList from '@/components/DocumentList';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+import DocumentComparison from '@/components/DocumentComparison';
+import { useStore } from '@/lib/store';
+import { exportToCSV, downloadCSV } from '@/lib/exportUtils';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'write' | 'documents' | 'analytics'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'documents' | 'analytics' | 'compare'>('write');
+  const { documents, analytics } = useStore();
+
+  const handleCSVExport = () => {
+    const csv = exportToCSV(documents, analytics);
+    downloadCSV(csv, `writing-analytics-${new Date().toISOString().split('T')[0]}.csv`);
+  };
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -50,6 +59,22 @@ export default function Home() {
           >
             📊 Analytics
           </button>
+          <button
+            onClick={() => setActiveTab('compare')}
+            className={`px-6 py-3 rounded-lg font-medium transition ${
+              activeTab === 'compare'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            🔄 Compare
+          </button>
+          <button
+            onClick={handleCSVExport}
+            className="ml-auto px-6 py-3 rounded-lg font-medium transition bg-green-600 text-white hover:bg-green-700"
+          >
+            📥 Export CSV
+          </button>
         </div>
 
         {/* Content */}
@@ -91,11 +116,28 @@ export default function Home() {
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <h3 className="font-semibold text-purple-900 mb-2">📈 Analytics Features</h3>
                 <ul className="text-sm text-purple-800 space-y-1">
-                  <li>• <strong>Sentiment Analysis:</strong> Detects positive, negative, or neutral tone</li>
+                  <li>• <strong>Sentiment Analysis:</strong> Detects positive, negative, or neutral tone with volatility tracking</li>
                   <li>• <strong>Readability Scores:</strong> Flesch, Gunning Fog, SMOG, and more</li>
-                  <li>• <strong>Lexical Richness:</strong> Vocabulary diversity and unique word usage</li>
-                  <li>• <strong>Style Metrics:</strong> Sentence length, passive voice, punctuation patterns</li>
-                  <li>• <strong>Export:</strong> Download all your data and analytics as JSON</li>
+                  <li>• <strong>Lexical Richness:</strong> Vocabulary diversity, moving average TTR, repetition rates</li>
+                  <li>• <strong>Style Metrics:</strong> Sentence length, passive voice, clause depth, rhythm patterns</li>
+                  <li>• <strong>Grammar Metrics:</strong> Tense consistency, pronoun usage, verb forms, modifiers</li>
+                  <li>• <strong>Advanced Analysis:</strong> N-grams, topic drift, deliberate vs accidental repetition</li>
+                  <li>• <strong>Export:</strong> Download all your data and analytics as JSON or CSV</li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'compare' && (
+            <>
+              <DocumentComparison documents={documents} analytics={analytics} />
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h3 className="font-semibold text-orange-900 mb-2">🔄 Document Comparison</h3>
+                <ul className="text-sm text-orange-800 space-y-1">
+                  <li>• Compare tone, vocabulary, readability, and complexity between two documents</li>
+                  <li>• Side-by-side metric analysis with difference calculations</li>
+                  <li>• Percentage change tracking for all metrics</li>
+                  <li>• Interpretation guidance for understanding differences</li>
                 </ul>
               </div>
             </>
