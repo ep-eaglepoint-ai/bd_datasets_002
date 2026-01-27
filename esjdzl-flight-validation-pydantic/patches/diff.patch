@@ -10,29 +10,17 @@ index e69de29..eb7d8fa 100644
 +	"FlightDetails",
 +	"FlightSearchRequest",
 +]
-diff --git a/repository_before/__pycache__/__init__.cpython-312.pyc b/repository_after/__pycache__/__init__.cpython-312.pyc
-index 3583924..6a10e1c 100644
-Binary files a/repository_before/__pycache__/__init__.cpython-312.pyc and b/repository_after/__pycache__/__init__.cpython-312.pyc differ
-diff --git a/repository_before/__pycache__/flight_model.cpython-312.pyc b/repository_after/__pycache__/flight_model.cpython-312.pyc
-index 61f5496..c909c8b 100644
-Binary files a/repository_before/__pycache__/flight_model.cpython-312.pyc and b/repository_after/__pycache__/flight_model.cpython-312.pyc differ
 diff --git a/repository_before/flight_model.py b/repository_after/flight_model.py
 index dc6deb3..fcde75b 100644
 --- a/repository_before/flight_model.py
 +++ b/repository_after/flight_model.py
 @@ -1,56 +1,96 @@
 -
--import pytest
--from datetime import date
--from dataclasses import dataclass
--from typing import Optional
--
--
 -from dataclasses import dataclass, field
 -from datetime import datetime, date
 +from datetime import datetime, date, time, UTC
  from enum import Enum
--from typing import List, Optional
+-from typing import Optional
 +from typing import Optional
  import uuid
 +import re
@@ -150,4 +138,3 @@ index dc6deb3..fcde75b 100644
 +            raise ValueError("return_date must be on or after departure_date")
 +        
 +        return self
-\ No newline at end of file
