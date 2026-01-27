@@ -8,7 +8,6 @@ assert(authFile !== null, 'src/lib/auth.ts not found');
 if (authFile) {
     const commonOAuth = ['google', 'github', 'apple', 'facebook'];
     commonOAuth.forEach(provider => {
-        // Stronger check: ensure the string "provider" is not used as a key in the auth config
         const regex = new RegExp(`${provider}\\s*:\\s*{`);
         assert(!regex.test(authFile), `Must not enable ${provider} OAuth provider`);
     });

@@ -42,7 +42,7 @@ async function runTests() {
             });
         });
 
-        if (failed) break; // Optional: stop on first failure? The prompt implies passing "all", effectively requires all green.
+        if (failed) break; 
     }
 
     if (failed) {

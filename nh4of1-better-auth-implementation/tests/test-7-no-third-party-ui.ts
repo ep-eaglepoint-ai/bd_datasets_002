@@ -4,11 +4,6 @@ console.log('Running Test 7: No third party UI');
 
 const packageJson = readFile('package.json');
 if (packageJson) {
-    // Check for common UI libraries that provide full auth UI
-    // better-auth has its own UI but the prompt specifically says "No third party UI or hosted auth solutions"
-    // Usually this means things like Clerk, Auth0, or Supabase UI widgets.
-    // better-auth is a library, so using it is fine.
-    // We check for absence of "clerk", "auth0", "supabase-auth-ui".
     const pkg = JSON.parse(packageJson);
     const deps = pkg.dependencies || {};
 
@@ -17,7 +12,6 @@ if (packageJson) {
     assert(!deps['@supabase/auth-ui-react'], 'Should not use Supabase Auth UI');
 }
 
-// Also check that we implemented our own forms
 const signInPage = readFile('src/app/sign-in/page.tsx');
 assert(signInPage !== null, 'Sign In page must exist');
 if (signInPage) {
