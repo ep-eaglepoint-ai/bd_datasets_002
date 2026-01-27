@@ -11,4 +11,4 @@ services:
       - .:/app
     environment:
       - PYTHONPATH=repository_after
-    command: pytest tests/test_fair_semaphore.py
+    command: pytest tests/test_strict_fair_semaphore_test.py

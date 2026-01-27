@@ -1,7 +1,7 @@
 import threading
 import time
 import pytest
-from fair_semaphore import FairSemaphore
+from strict_fair_semaphore import StrictFairSemaphore
 
 
 def run_threads(ts):
@@ -14,7 +14,7 @@ def run_threads(ts):
 # ---------------- FIFO FAIRNESS ----------------
 
 def test_fifo_order_strict():
-    sem = FairSemaphore(1)
+    sem = StrictFairSemaphore(1)
     order = []
 
     def worker(i):
@@ -38,7 +38,7 @@ def test_fifo_order_strict():
 # ---------------- NO THUNDERING HERD ----------------
 
 def test_single_wakeup_only():
-    sem = FairSemaphore(1)
+    sem = StrictFairSemaphore(1)
     sem.acquire()
 
     hits = 0
@@ -78,7 +78,7 @@ def test_single_wakeup_only():
 # ---------------- TIMEOUT CLEANUP ----------------
 
 def test_timeout_removes_waiter():
-    sem = FairSemaphore(1)
+    sem = StrictFairSemaphore(1)
     sem.acquire()
 
     def waiter():
@@ -97,7 +97,7 @@ def test_timeout_removes_waiter():
 # ---------------- TIMEOUT VS RELEASE RACE ----------------
 
 def test_timeout_release_race_safe():
-    sem = FairSemaphore(1)
+    sem = StrictFairSemaphore(1)
     sem.acquire()
 
     result = []
@@ -124,7 +124,7 @@ def test_timeout_release_race_safe():
 # ---------------- RELEASE OVERFLOW ----------------
 
 def test_release_overflow_protection():
-    sem = FairSemaphore(1)
+    sem = StrictFairSemaphore(1)
     sem.acquire()
     sem.release()
 
@@ -135,7 +135,7 @@ def test_release_overflow_protection():
 # ---------------- RESIZE UP ----------------
 
 def test_resize_increase_unblocks():
-    sem = FairSemaphore(1)
+    sem = StrictFairSemaphore(1)
     sem.acquire()
 
     unlocked = []
@@ -158,7 +158,7 @@ def test_resize_increase_unblocks():
 # ---------------- RESIZE DOWN (THROTTLE) ----------------
 
 def test_resize_down_throttles():
-    sem = FairSemaphore(3)
+    sem = StrictFairSemaphore(3)
     sem.acquire()
     sem.acquire()
     sem.acquire()
@@ -190,7 +190,7 @@ def test_resize_down_throttles():
 # ---------------- O(1) AVERAGE WAIT TIME ----------------
 
 def test_average_wait_time_ring_buffer():
-    sem = FairSemaphore(1)
+    sem = StrictFairSemaphore(1)
     sem.acquire()
 
     def worker():
@@ -219,7 +219,7 @@ def test_average_wait_time_ring_buffer():
 # ---------------- STRESS TEST ----------------
 
 def test_stress_no_deadlock():
-    sem = FairSemaphore(5)
+    sem = StrictFairSemaphore(5)
 
     def worker():
         for _ in range(100):

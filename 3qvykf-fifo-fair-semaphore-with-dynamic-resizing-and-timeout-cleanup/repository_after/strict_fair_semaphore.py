@@ -3,7 +3,7 @@ import time
 from collections import deque
 
 
-class FairSemaphore:
+class StrictFairSemaphore:
     def __init__(self, capacity: int):
         if capacity <= 0:
             raise ValueError("capacity must be positive")
@@ -12,6 +12,7 @@ class FairSemaphore:
         self._in_use = 0
 
         # Requirement 3: Use threading.Lock and threading.Condition manually
+        # This lock protects core semaphore state: capacity, in_use, and waiters queue.
         self._lock = threading.Lock()
         
         # Requirement 1: Internal FIFO queue to track waiting threads
@@ -19,6 +20,9 @@ class FairSemaphore:
         self._waiters = deque()
 
         # Requirement 6: Circular buffer for rolling wait-time metrics (O(1) updates)
+        # Use a dedicated lock so metrics reads/writes are thread-safe without
+        # risking re-entrancy issues on the main semaphore lock.
+        self._metrics_lock = threading.Lock()
         self._wait_times = [0.0] * 100
         self._wt_sum = 0.0
         self._wt_count = 0
@@ -28,15 +32,19 @@ class FairSemaphore:
 
     def _record_wait(self, duration: float):
         # Requirement 6: O(1) rolling average update
-        old = self._wait_times[self._wt_index]
-        self._wait_times[self._wt_index] = duration
-        self._wt_sum += (duration - old)
-        self._wt_index = (self._wt_index + 1) % 100
-        self._wt_count = min(self._wt_count + 1, 100)
+        # Protected by _metrics_lock to make the circular buffer thread-safe.
+        with self._metrics_lock:
+            old = self._wait_times[self._wt_index]
+            self._wait_times[self._wt_index] = duration
+            self._wt_sum += (duration - old)
+            self._wt_index = (self._wt_index + 1) % 100
+            self._wt_count = min(self._wt_count + 1, 100)
 
     def get_average_wait_time(self) -> float:
         # Requirement 6: Thread-safe metrics access
-        with self._lock:
+        # Use the same metrics lock used for updates so readers and writers
+        # are fully synchronized.
+        with self._metrics_lock:
             if self._wt_count == 0:
                 return 0.0
             return self._wt_sum / self._wt_count
