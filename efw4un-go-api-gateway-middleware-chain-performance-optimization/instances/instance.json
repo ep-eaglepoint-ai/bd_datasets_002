@@ -1,0 +1,11 @@
+{
+            "instance_id": "EFW4UN",
+            "problem_statement": "The API gateway service proxies requests to backend microservices through a middleware chain handling logging, authentication, and rate limiting. Under load testing, response times spike from expected 20ms to over 500ms, and the service crashes with "too many open files" errors after sustained traffic. Memory profiling shows continuous growth suggesting leaks. The middleware chain processes 50 requests per second but target is 500 RPS with p99 latency under 100ms. Request bodies occasionally arrive empty at handlers despite clients sending valid JSON payloads.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/efw4un-go-api-gateway-middleware-chain-performance-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
