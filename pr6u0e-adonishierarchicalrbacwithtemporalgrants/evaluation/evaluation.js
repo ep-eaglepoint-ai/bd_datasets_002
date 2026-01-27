@@ -165,7 +165,14 @@ class RBACEvaluator {
       error: this.results.after.success ? null : 'Some tests failed',
       environment: this.getEnvironmentInfo(),
       results: {
-        before: null,
+        before: {
+          success: false,
+          exit_code: 1,
+          tests: null,
+          summary: null,
+          stdout: null,
+          stderr: null
+        },
         after: {
           success: this.results.after.success,
           exit_code: this.results.after.exit_code,
