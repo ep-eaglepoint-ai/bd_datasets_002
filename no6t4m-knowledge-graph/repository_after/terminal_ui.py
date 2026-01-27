@@ -98,7 +98,7 @@ class GraphExplorerApp:
         self.stdscr.refresh()
 
     def draw_footer(self, h, w):
-        help_text = "[UP/DOWN] Nav  [ENTER] Visit  [B] Back  [S] Search  [+] Add Node  [-] Del Node  [E] Export  [I] Import  [Q] Quit"
+        help_text = "[Nav] Arrows [Enter] Visit [B] Back [S] Search [+] Add [-] Del [U] Upd Node [M] Mod Edge [E/I] Ex/Im [Q] Quit"
         self.stdscr.addstr(h - 2, 0, help_text[:w-1], curses.color_pair(1) | curses.A_REVERSE)
 
     def prompt_input(self, prompt_text: str):
@@ -143,14 +143,23 @@ class GraphExplorerApp:
 
         # --- Search ---
         elif key == ord('s') or key == ord('S'):
-            query = self.prompt_input("Search Node ID or Label")
-            results = self.graph.search_nodes(query)
-            if results:
-                # If match found, jump to first result
+            query = self.prompt_input("Search (Node or Edge)")
+            # 1. Search Nodes
+            node_results = self.graph.search_nodes(query)
+            if node_results:
                 if self.current_node_id:
                      self.history.append(self.current_node_id) 
-                self.current_node_id = results[0]
+                self.current_node_id = node_results[0]
                 self.selection_index = 0
+            else:
+                # 2. Search Edges if no nodes found
+                edge_results = self.graph.search_edges(query)
+                if edge_results:
+                     # Jump to the source of the first found edge
+                     if self.current_node_id:
+                        self.history.append(self.current_node_id)
+                     self.current_node_id = edge_results[0].source
+                     self.selection_index = 0
 
         # --- Adding Nodes/Edges ---
         elif key == ord('+'):
@@ -174,6 +183,25 @@ class GraphExplorerApp:
             if confirm.lower() == 'y':
                 self.graph.remove_node(self.current_node_id)
                 self.current_node_id = list(self.graph.nodes.keys())[0] if self.graph.nodes else None
+
+        # --- Update Node ---
+        elif key == ord('u') or key == ord('U'):
+            if self.current_node_id:
+                curr = self.graph.nodes[self.current_node_id]
+                new_lbl = self.prompt_input(f"New Label [{curr.label}]")
+                new_desc = self.prompt_input(f"New Desc [{curr.description}]")
+                # Only update if input provided
+                self.graph.update_node(self.current_node_id, 
+                                       label=new_lbl if new_lbl else None, 
+                                       description=new_desc if new_desc else None)
+
+        # --- Modify Edge ---
+        elif key == ord('m') or key == ord('M'):
+             if neighbors and self.selection_index < len(neighbors):
+                edge = neighbors[self.selection_index]
+                new_rel = self.prompt_input(f"New Relationship [{edge.relationship}]")
+                if new_rel:
+                    self.graph.update_edge(edge.source, edge.target, edge.relationship, new_rel)
         
         # --- Import/Export ---
         elif key == ord('e') or key == ord('E'):

@@ -155,6 +155,49 @@ class TestKnowledgeGraph(unittest.TestCase):
         self.assertIn("python", results)
         self.assertIn("java", results)
 
+    def test_search_edges(self):
+        """Test searching edges by relationship."""
+        self.graph.add_node("A", "A")
+        self.graph.add_node("B", "B")
+        self.graph.add_edge("A", "B", "is_linked_to")
+        
+        results = self.graph.search_edges("linked")
+        self.assertEqual(len(results), 1)
+        
+        edge = results[0]
+        # Handle tuple vs object if necessary, but this test is mainly for refactored code
+        if not isinstance(edge, tuple):
+             self.assertEqual(edge.relationship, "is_linked_to")
+
+    def test_update_node(self):
+        """Test updating a node's label and description."""
+        self.graph.add_node("A", "Old Label", "Old Desc")
+        self.graph.update_node("A", label="New Label", description="New Desc")
+        
+        node = self.graph.nodes["A"]
+        # Adapt for possibly dict or object
+        label = node.label if hasattr(node, "label") else node.get("label")
+        desc = node.description if hasattr(node, "description") else node.get("desc")
+        
+        self.assertEqual(label, "New Label")
+        self.assertEqual(desc, "New Desc")
+
+    def test_update_edge(self):
+        """Test updating an edge's relationship."""
+        self.graph.add_node("A", "A")
+        self.graph.add_node("B", "B")
+        self.graph.add_edge("A", "B", "old_rel")
+        
+        self.graph.update_edge("A", "B", "old_rel", "new_rel")
+        
+        edges = self.graph.get_neighbors("A")
+        edge = edges[0]
+        
+        if hasattr(edge, "relationship"):
+            self.assertEqual(edge.relationship, "new_rel")
+        else: # tuple
+            self.assertEqual(edge[1], "new_rel")
+
     def test_json_import_export(self):
         """Test that the graph state can be saved and restored identically."""
         # 1. Setup initial state

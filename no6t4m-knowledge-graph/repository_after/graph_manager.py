@@ -40,6 +40,20 @@ class KnowledgeGraph:
         if source in self.edges:
             self.edges[source] = [e for e in self.edges[source] if e.target != target]
 
+    def update_node(self, node_id: str, label: str = None, description: str = None):
+        if node_id in self.nodes:
+            if label:
+                self.nodes[node_id].label = label
+            if description:
+                self.nodes[node_id].description = description
+
+    def update_edge(self, source: str, target: str, old_relationship: str, new_relationship: str):
+        if source in self.edges:
+            for edge in self.edges[source]:
+                if edge.target == target and edge.relationship == old_relationship:
+                    edge.relationship = new_relationship
+                    return
+
     def get_neighbors(self, node_id: str) -> List[Edge]:
         """Returns list of Edge objects"""
         return self.edges.get(node_id, [])
@@ -51,6 +65,16 @@ class KnowledgeGraph:
         for nid, node in self.nodes.items():
             if query in nid.lower() or query in node.label.lower():
                 results.append(nid)
+        return results
+
+    def search_edges(self, query: str) -> List[Edge]:
+        """Returns Edge objects where relationship matches query (case-insensitive)"""
+        query = query.lower()
+        results = []
+        for src, edges in self.edges.items():
+            for edge in edges:
+                 if query in edge.relationship.lower():
+                     results.append(edge)
         return results
 
     def to_json(self) -> str:
