@@ -1,1 +1,4 @@
-# Add your Python dependencies here
+fastapi
+uvicorn
+httpx
+pytest

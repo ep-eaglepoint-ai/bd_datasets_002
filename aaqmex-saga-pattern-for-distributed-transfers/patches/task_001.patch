@@ -1,0 +1,193 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/__pycache__/__init__.cpython-314.pyc b/repository_after/__pycache__/__init__.cpython-314.pyc
+new file mode 100644
+index 0000000..15cf6cb
+Binary files /dev/null and b/repository_after/__pycache__/__init__.cpython-314.pyc differ
+diff --git a/repository_after/__pycache__/client.cpython-314.pyc b/repository_after/__pycache__/client.cpython-314.pyc
+new file mode 100644
+index 0000000..b89e82c
+Binary files /dev/null and b/repository_after/__pycache__/client.cpython-314.pyc differ
+diff --git a/repository_after/__pycache__/server.cpython-314.pyc b/repository_after/__pycache__/server.cpython-314.pyc
+new file mode 100644
+index 0000000..c70698e
+Binary files /dev/null and b/repository_after/__pycache__/server.cpython-314.pyc differ
+diff --git a/repository_after/client.py b/repository_after/client.py
+new file mode 100644
+index 0000000..c797b97
+--- /dev/null
++++ b/repository_after/client.py
+@@ -0,0 +1,106 @@
++import httpx
++import uuid
++
++
++class TransactionOrchestrator:
++    def __init__(self, base_url: str):
++        self.base_url = base_url
++        self.client = httpx.Client(timeout=10.0)
++    
++    def transfer(self, source_user: str, target_user: str, amount: float):
++        transaction_id = str(uuid.uuid4())
++        
++        try:
++            # Step 1: Debit source user
++            debit_response = self.client.post(
++                f"{self.base_url}/debit",
++                json={"user": source_user, "amount": amount},
++                headers={"transaction-id": f"{transaction_id}-debit"}
++            )
++            debit_response.raise_for_status()
++            
++            # Step 2: Credit target user
++            credit_response = self.client.post(
++                f"{self.base_url}/credit",
++                json={"user": target_user, "amount": amount},
++                headers={"transaction-id": f"{transaction_id}-credit"}
++            )
++            credit_response.raise_for_status()
++            
++            return {"status": "success", "transaction_id": transaction_id}
++        
++        except httpx.HTTPStatusError as e:
++            if e.response.status_code == 500:
++                # Compensate: refund the source user
++                compensate_response = self.client.post(
++                    f"{self.base_url}/compensate_debit",
++                    json={"user": source_user, "amount": amount},
++                    headers={"transaction-id": f"{transaction_id}-compensate"}
++                )
++                compensate_response.raise_for_status()
++                return {"status": "rolled_back", "transaction_id": transaction_id}
++            raise
++    
++    def close(self):
++        self.client.close()
++
++
++def run_demo():
++    import time
++    from multiprocessing import Process
++    import uvicorn
++    
++    # Start server in background
++    def start_server():
++        from repository_after.server import app
++        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="error")
++    
++    server_process = Process(target=start_server)
++    server_process.start()
++    time.sleep(2)  # Wait for server to start
++    
++    try:
++        orchestrator = TransactionOrchestrator("http://127.0.0.1:8000")
++        
++        # Get initial balances
++        initial_response = httpx.get("http://127.0.0.1:8000/balances")
++        initial_balances = initial_response.json()
++        initial_total = sum(initial_balances.values())
++        
++        print(f"Initial balances: {initial_balances}")
++        print(f"Initial total: {initial_total}")
++        
++        # Run 100 transfers
++        success_count = 0
++        rollback_count = 0
++        users = list(initial_balances.keys())
++        
++        for i in range(100):
++            source = users[i % len(users)]
++            target = users[(i + 1) % len(users)]
++            result = orchestrator.transfer(source, target, 10)
++            
++            if result["status"] == "success":
++                success_count += 1
++            else:
++                rollback_count += 1
++        
++        # Get final balances
++        final_response = httpx.get("http://127.0.0.1:8000/balances")
++        final_balances = final_response.json()
++        final_total = sum(final_balances.values())
++        
++        print(f"\nFinal balances: {final_balances}")
++        print(f"Final total: {final_total}")
++        print(f"\nSuccessful transfers: {success_count}")
++        print(f"Rolled back transfers: {rollback_count}")
++        print(f"Total money preserved: {initial_total == final_total}")
++        
++        orchestrator.close()
++    finally:
++        server_process.terminate()
++        server_process.join()
++
++
++if __name__ == "__main__":
++    run_demo()
+diff --git a/repository_after/server.py b/repository_after/server.py
+new file mode 100644
+index 0000000..1f6049d
+--- /dev/null
++++ b/repository_after/server.py
+@@ -0,0 +1,60 @@
++from fastapi import FastAPI, Header, HTTPException
++from pydantic import BaseModel
++import random
++
++app = FastAPI()
++
++balances = {"alice": 1000, "bob": 1000, "charlie": 1000}
++processed_transactions = set()
++
++
++class TransactionRequest(BaseModel):
++    user: str
++    amount: float
++
++
++@app.post("/debit")
++def debit(request: TransactionRequest, transaction_id: str = Header(...)):
++    if transaction_id in processed_transactions:
++        return {"status": "success", "message": "already processed"}
++    
++    if request.user not in balances:
++        raise HTTPException(status_code=404, detail="user not found")
++    
++    balances[request.user] -= request.amount
++    processed_transactions.add(transaction_id)
++    return {"status": "success", "balance": balances[request.user]}
++
++
++@app.post("/credit")
++def credit(request: TransactionRequest, transaction_id: str = Header(...)):
++    if transaction_id in processed_transactions:
++        return {"status": "success", "message": "already processed"}
++    
++    if random.random() < 0.3:
++        raise HTTPException(status_code=500, detail="Internal Server Error")
++    
++    if request.user not in balances:
++        raise HTTPException(status_code=404, detail="user not found")
++    
++    balances[request.user] += request.amount
++    processed_transactions.add(transaction_id)
++    return {"status": "success", "balance": balances[request.user]}
++
++
++@app.post("/compensate_debit")
++def compensate_debit(request: TransactionRequest, transaction_id: str = Header(...)):
++    if transaction_id in processed_transactions:
++        return {"status": "success", "message": "already processed"}
++    
++    if request.user not in balances:
++        raise HTTPException(status_code=404, detail="user not found")
++    
++    balances[request.user] += request.amount
++    processed_transactions.add(transaction_id)
++    return {"status": "success", "balance": balances[request.user]}
++
++
++@app.get("/balances")
++def get_balances():
++    return balances
