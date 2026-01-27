@@ -16,4 +16,3 @@ evaluation/**/report.json
 
 # Test files
 .pytest_cache/
-api/

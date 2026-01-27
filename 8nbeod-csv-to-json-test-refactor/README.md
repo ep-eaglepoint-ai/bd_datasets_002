@@ -62,11 +62,12 @@
 # Build the environment
 docker compose build
 
-# Run refactored tests
+# Run before tests
+docker compose run --rm app python -m pytest repository_before/test_csv_to_json.py
+
+# Run after tests
 docker compose run --rm app python -m pytest repository_after/test_csv_to_json.py
 
-# Run original tests
-docker compose run --rm app python -m pytest repository_before/test_csv_to_json.py
 
 # Run evaluation report
 docker compose run --rm app python evaluation/evaluation.py
