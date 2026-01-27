@@ -3,9 +3,25 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.pytest_cache/
+.coverage
+*.sqlite3
 
 # Node
 node_modules/
 
 # OS
 .DS_Store
+
+# Django runtime artifacts
+repository_after/chunks/
+repository_after/final/
+
+# .NET build outputs
+**/bin/
+**/obj/
+
+# Reports/output
+reports/
+evaluation/reports/
+*.log

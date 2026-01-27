@@ -2,13 +2,29 @@ import os
 import pytest
 
 
-def pytest_collection_modifyitems(config, items):
+def _target_repo() -> str | None:
     py_path = os.environ.get("PYTHONPATH", "")
-    target = None
     if "repository_before" in py_path:
-        target = "repository_before"
-    elif "repository_after" in py_path:
-        target = "repository_after"
+        return "repository_before"
+    if "repository_after" in py_path:
+        return "repository_after"
+    return None
+
+
+def pytest_ignore_collect(collection_path, config):
+    target = _target_repo()
+    if not target:
+        return False
+    path_str = str(collection_path)
+    if target == "repository_before" and "repository_after" in path_str:
+        return True
+    if target == "repository_after" and "repository_before" in path_str:
+        return True
+    return False
+
+
+def pytest_collection_modifyitems(config, items):
+    target = _target_repo()
 
     if not target:
         return
