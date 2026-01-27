@@ -254,37 +254,40 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
      New Requirements Tests
      ========================================================= */
 
-  test("Requirement 1: strict causal buffering (never apply before dependency)", () => {
-    const sync = new SyncCoordinator("u1");
+  test("Requirement 1: strict causal buffering (multi-replica)", () => {
+    const A = new SyncCoordinator("A");
+    const B = new SyncCoordinator("B");
 
-    // Manually construct operations to control clocks
-    // Op 1 (Start)
-    const op1 = {
-      id: "op1",
-      userId: "u2",
-      path: ["a"],
-      value: 1,
-      clock: new Map([["u2", 1]]),
-    };
+    // A creates two operations
+    const opA1 = createOp(A, ["val"], 1, "a1");
+    // opA1 is created, A's clock is now {A:1}
+    // opA1 has clock {A:1}
 
-    // Op 2 (Depends on Op 1)
-    const op2 = {
-      id: "op2",
-      userId: "u2",
-      path: ["a"],
-      value: 2,
-      clock: new Map([["u2", 2]]),
-    };
+    apply(A, opA1);
+    
+    const opA2 = createOp(A, ["val"], 2, "a2");
+    // opA2 is created, A's clock is now {A:2}
+    // opA2 has clock {A:2}
 
-    // Apply Op 2 first (should be buffered)
-    apply(sync, op2);
-    // Sender u2: expected 1, got 2. Should wait.
-    expect(sync.getState()).toEqual({}); 
+    apply(A, opA2);
 
-    // Apply Op 1
-    apply(sync, op1);
-    // Now Op 1 applied, Op 2 unblocked.
-    expect(sync.getState()).toEqual({ a: 2 });
+    // B receives opA2 FIRST (out of order)
+    apply(B, opA2);
+    
+    // B has local clock {B:0}. opA2 has {A:2}.
+    // Dependency check: opA2 requires A:1 (implied) or just senderSeq (2) == local (0) + 1 => NO.
+    // So B buffers opA2.
+    expect(B.getState()).toEqual({});
+
+    // B receives opA1
+    apply(B, opA1);
+    // opA1 has {A:1}. senderSeq(1) == local(0) + 1 => YES.
+    // B applies opA1. local clock now {A:1, B:0}.
+    // B checks buffer. opA2 has {A:2}. senderSeq(2) == local(1) + 1 => YES.
+    // B applies opA2. local clock now {A:2, B:0}.
+
+    // Now B should apply opA1 AND opA2 (unblocked)
+    expect(B.getState()).toEqual({ val: 2 });
   });
 
   test("Requirement 5: bounded memory footprint", () => {
@@ -295,8 +298,6 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
     const EXTRA = 100;
 
     for (let i = 0; i < MAX + EXTRA; i++) {
-        // use unique user IDs or just sequential from same user
-        // Using "u2" to avoid local loopback logic
         const op = {
             id: `id-${i}`,
             userId: "u2",
@@ -307,18 +308,27 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
         apply(sync, op);
     }
     
-    // Access private property for testing OR imply via inability to detect dupe
-    // Since we cannot access private `appliedOps` easily in TS without casting,
-    // we can check if re-applying the *first* op (which should be pruned) works.
-    
-    // To verify pruning, we cast to any.
+    // Verify applied ops bound (pruning)
     const appliedOpsSize = (sync as any).appliedOps.size;
     expect(appliedOpsSize).toBeLessThanOrEqual(MAX);
+
+    // Verify pending ops bound (if we flood gaps)
+    // Create ops that are "future" so they stay pending
+    for (let i = 0; i < MAX + EXTRA; i++) {
+         const op = {
+            id: `pending-${i}`,
+            userId: "u3",
+            path: ["y"],
+            value: i,
+            clock: new Map([["u3", 5000 + i]]) // Way in the future
+        };
+        apply(sync, op);
+    }
+    
+    const pendingOpsSize = (sync as any).pendingOperations.length;
+    expect(pendingOpsSize).toBeLessThanOrEqual(1000); // Check new MAX_PENDING_OPS constant
   });
 
-
-
-  // Explicit test for 10s partition as requested
   test("Requirement 6: long partition (10s) with 3 clients", async () => {
     const A = new SyncCoordinator("A");
     const B = new SyncCoordinator("B");
@@ -353,6 +363,7 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
     const missedByC = [opA1, opB1, opA2];
     missedByC.forEach(op => apply(C, op));
 
+    // C's ops go to others
     const missedFromC = [opC1];
     missedFromC.forEach(op => {
         apply(A, op);
@@ -370,14 +381,15 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
     });
   }, 15000);
 
-  test("Requirement 6: true async latency simulation (50-2000ms)", async () => {
+  test("Requirement 6: true async latency simulation (50-2000ms) with 100 ops", async () => {
+    
     const clients = [
       new SyncCoordinator("c1"),
       new SyncCoordinator("c2"),
       new SyncCoordinator("c3"),
     ];
 
-    const N = 20; // Reduce count slightly to keep test time reasonable with high latency
+    const N = 100; // Requirement explicitly says 100
     const ops: any[] = [];
 
     // Generate ops
@@ -410,6 +422,6 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
 
     expect(s1).toBe(s2);
     expect(s2).toBe(s3);
-  }, 30000);
+  }, 35000);
 
 });
