@@ -1,7 +1,13 @@
-HYIHE2 - password vault
-###Run "After" tests:
+# BMI Calculator - Testing & Evaluation
 
-docker compose up password-vault-app --build
-###Run evaluation:
+## Running Tests
 
+### Run "After" tests:
+```bash
+docker compose up bmi-calculator-app --build
+```
+
+### Run evaluation:
+```bash
 docker compose up evaluation --build
+```

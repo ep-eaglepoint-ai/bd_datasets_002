@@ -3,8 +3,8 @@ FROM node:20-slim
 WORKDIR /app
 
 # Install root dependencies (Vitest, etc.)
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install
 
 # Install app dependencies
 COPY repository_after/package.json ./repository_after/

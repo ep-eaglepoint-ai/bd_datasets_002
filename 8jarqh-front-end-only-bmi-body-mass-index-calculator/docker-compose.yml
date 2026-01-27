@@ -1,5 +1,5 @@
 services:
-  password-vault-app:
+  bmi-calculator-app:
     build: .
     command: npm test
     volumes:
