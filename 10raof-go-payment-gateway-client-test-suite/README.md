@@ -42,19 +42,36 @@
 - Security Standards: (none)
 
 ## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
+- repository_before/: code under test (`payment/client.go`)
+- tests/: test suite (`*_test.go`)
 - instances/: sample/problem instances (JSON)
 - patches/: patches for diffing
 - trajectory/: notes or write-up (Markdown)
 
 ## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+
+Run tests against repository_before:
+  ```bash
+  docker compose run --rm app go test -v ./tests/...
+  ```
+- With Docker (interactive): `docker compose up --build`
+
+## Evaluation
+
+Run the evaluation script:
+```bash
+docker compose run --rm app go run evaluation/evaluation.go
+```
+
+## Regenerate patch
+
+From repo root:
+
+```bash
+git diff --no-index repository_before repository_after > patches/diff.patch
+```
 
 ## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+- The test suite uses a binary-based target selection mechanism. 
+- Setting `TEST_TARGET=before` exercises the pre-built baseline binary.
+- By default, it tests the `repository_after` source directly for maximum performance and coverage.

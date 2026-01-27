@@ -9,3 +9,17 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Go
+*.exe
+*.test
+*-analyzer
+
+# Generated Evaluation Reports
+evaluation/20*
+patches/*.patch
+
+# Temporary Files
+*.bak
+tests/go.mod
+tests/go.sum
