@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm test
+    environment:
+      - NODE_ENV=test
+    networks:
+      - test-network
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./evaluation/reports:/app/evaluation/reports
+    working_dir: /app
+    command: node evaluation/Evaluation.js
+    environment:
+      - NODE_ENV=test
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge

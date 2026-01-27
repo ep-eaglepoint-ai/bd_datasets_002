@@ -1,6 +1,57 @@
+version: '3.9'
+
 services:
   app:
     build: .
     command: pytest -q tests
     volumes:
       - .:/app
+
+  test-beforez:
+    build:
+      context: ./repository_before
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./repository_before:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm test
+    environment:
+      - NODE_ENV=test
+    networks:
+      - test-network
+
+  test-after:
+    build:
+      context: ./repository_after
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./repository_after:/app
+      - ./tests:/app/tests
+      - /app/node_modules
+    working_dir: /app
+    command: npm test
+    environment:
+      - NODE_ENV=test
+    networks:
+      - test-network
+
+  evaluation:
+    build:
+      context: ./repository_after
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./repository_after:/app
+      - ./tests:/app/tests
+      - /app/node_modules
+      - ./repository_after/evaluation/reports:/app/evaluation/reports
+    working_dir: /app
+    command: node evaluation/Evaluation.js
+    environment:
+      - NODE_ENV=test
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
