@@ -4,8 +4,7 @@ class CacheManager {
     }
 
     async update(key, value) {
-        const delay = 0;
-        await new Promise(resolve => setTimeout(resolve, delay));
+        // Deterministic async behavior without arbitrary delays
         this.store.set(key, value);
     }
 
