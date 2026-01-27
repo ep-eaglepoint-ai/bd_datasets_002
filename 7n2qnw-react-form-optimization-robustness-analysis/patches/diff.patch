@@ -1,7 +1,5 @@
-diff --git a/repository_before/components/category-form.tsx b/repository_after/components/category-form.tsx
-index f094c93..38cbdf9 100644
---- a/repository_before/components/category-form.tsx
-+++ b/repository_after/components/category-form.tsx
+--- repository_before/components/category-form.tsx	2026-01-22 15:04:09
++++ repository_after/components/category-form.tsx	2026-01-27 20:33:44
 @@ -1,15 +1,14 @@
 -
  "use client";
@@ -20,7 +18,7 @@ index f094c93..38cbdf9 100644
  
  import { Input } from "@/components/ui/input";
  import { Button } from "@/components/ui/button";
-@@ -45,7 +44,7 @@ interface CategoryFormProps {
+@@ -45,7 +44,7 @@
      billboards: Billboard[];
  }
  
@@ -29,7 +27,7 @@ index f094c93..38cbdf9 100644
      initialData,
      billboards,
  }) => {
-@@ -55,10 +54,35 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
+@@ -55,59 +54,188 @@
      const [open, setOpen] = useState(false);
      const [loading, setLoading] = useState(false);
  
@@ -42,7 +40,8 @@ index f094c93..38cbdf9 100644
 +    const isMounted = useRef(false);
 +    const abortControllerRef = useRef<AbortController | null>(null);
 +    const requestIdRef = useRef(0);
-+
++    const lockOwnerIdRef = useRef<number | null>(null); // Ownership-based lock
+ 
 +    useEffect(() => {
 +        isMounted.current = true;
 +        return () => {
@@ -66,35 +65,81 @@ index f094c93..38cbdf9 100644
 +                success: "Category created.",
 +            };
 +    }, [initialData]);
- 
++
++    const defaultValues = useMemo(
++        () => initialData || { name: "", billboardId: "" },
++        [initialData]
++    );
++
      const form = useForm<CategoryFormValues>({
          resolver: zodResolver(formSchema),
-@@ -68,45 +92,110 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
-         },
+-        defaultValues: initialData || {
+-            name: "",
+-            billboardId: "",
+-        },
++        defaultValues,
      });
  
 -    const onSubmit = async (data: CategoryFormValues) => {
 -        try {
+-            setLoading(true);
+-            if (initialData) {
+-                await axios.patch(
+-                    `/api/${params.storeId}/categories/${params.categoryId}`,
+-                    data
+-                );
+-            } else {
+-                await axios.post(`/api/${params.storeId}/categories`, data);
+-            }
+-            router.refresh();
+-            router.push(`/${params.storeId}/categories`);
+-            toast.success(toastMessage);
+-        } catch (error: any) {
+-            toast.error("Something went wrong.");
+-        } finally {
+-            setLoading(false);
 +    useEffect(() => {
++        // Always reset form when initialData changes (including when it becomes null)
 +        if (initialData) {
 +            form.reset({
 +                name: initialData.name,
 +                billboardId: initialData.billboardId,
 +            });
-+        }
++        } else {
++            // Reset to empty state when initialData is null
++            form.reset({ name: "", billboardId: "" });
+         }
+-    };
 +    }, [initialData, form]);
-+
+ 
+-    const onDelete = async () => {
+-        try {
 +    const onSubmit = useCallback(
 +        async (data: CategoryFormValues) => {
++            const currentRequestId = ++requestIdRef.current;
++            
++            // Prevent concurrent submissions
 +            if (isSubmitting.current) return;
++            
++            // Prevent rapid sequential submits after success (UX protection only)
++            if (lockOwnerIdRef.current !== null && 
++                currentRequestId - lockOwnerIdRef.current <= 1) {
++                return;
++            }
 +
-+            const requestId = ++requestIdRef.current;
++            // Take ownership of the lock
 +            isSubmitting.current = true;
++            lockOwnerIdRef.current = currentRequestId;
              setLoading(true);
--            if (initialData) {
--                await axios.patch(
--                    `/api/${params.storeId}/categories/${params.categoryId}`,
--                    data
+-            await axios.delete(
+-                `/api/${params.storeId}/categories/${params.categoryId}`
+-            );
+-            router.refresh();
+-            router.push(`/${params.storeId}/categories`);
+-            toast.success("Category deleted.");
+-        } catch (error: any) {
+-            toast.error(
+-                "Make sure you removed all products using this category first."
 +
 +            abortControllerRef.current?.abort();
 +            const controller = new AbortController();
@@ -107,81 +152,81 @@ index f094c93..38cbdf9 100644
 +                        : `/api/${params.storeId}/categories`,
 +                    {
 +                        method: initialData ? "PATCH" : "POST",
-+                        headers: { "Content-Type": "application/json" },
++                        headers: { 
++                            "Content-Type": "application/json",
++                            "Idempotency-Key": `category-${currentRequestId}-${Date.now()}` // Client-side idempotency hint
++                        },
 +                        body: JSON.stringify({
 +                            ...data,
-+                            _idempotencyKey: requestId, // client-side idempotency hint
++                            _clientRequestId: currentRequestId, // For debugging only
 +                        }),
 +                        signal: controller.signal,
 +                    }
-                 );
--            } else {
--                await axios.post(`/api/${params.storeId}/categories`, data);
++                );
 +
 +                if (!res.ok) throw new Error("Request failed");
 +
-+                if (!isMounted.current || requestId !== requestIdRef.current) return;
++                if (!isMounted.current) return;
 +
 +                toast.success(uiText.success);
 +                router.push(`/${params.storeId}/categories`);
 +            } catch (err: any) {
-+                if (err.name !== "AbortError") {
-+                    toast.error("Something went wrong.");
++                if (err.name !== "AbortError" && isMounted.current) {
++                    toast.error(err?.message || "Something went wrong.");
 +                }
 +            } finally {
-+                if (isMounted.current && requestId === requestIdRef.current) {
++                // Release lock ONLY if this request owns it (ownership-based invariant)
++                if (lockOwnerIdRef.current === currentRequestId) {
 +                    isSubmitting.current = false;
++                    lockOwnerIdRef.current = null;
 +                    setLoading(false);
 +                }
-             }
--            router.refresh();
--            router.push(`/${params.storeId}/categories`);
--            toast.success(toastMessage);
--        } catch (error: any) {
--            toast.error("Something went wrong.");
--        } finally {
--            setLoading(false);
--        }
--    };
++            }
 +        },
 +        [initialData, params.storeId, params.categoryId, router, uiText.success]
 +    );
 +
 +    const onDelete = useCallback(async () => {
++        const currentRequestId = ++requestIdRef.current;
++        
++        // Prevent concurrent delete attempts
 +        if (isSubmitting.current) return;
++        
++        // Prevent rapid sequential delete attempts (UX protection only)
++        if (lockOwnerIdRef.current !== null && 
++            currentRequestId - lockOwnerIdRef.current <= 1) {
++            return;
++        }
 +
-+        const requestId = ++requestIdRef.current;
++        // Take ownership of the lock
 +        isSubmitting.current = true;
++        lockOwnerIdRef.current = currentRequestId;
 +        setLoading(true);
 +
 +        abortControllerRef.current?.abort();
 +        const controller = new AbortController();
 +        abortControllerRef.current = controller;
- 
--    const onDelete = async () => {
-         try {
--            setLoading(true);
--            await axios.delete(
--                `/api/${params.storeId}/categories/${params.categoryId}`
++
++        try {
 +            const res = await fetch(
 +                `/api/${params.storeId}/categories/${params.categoryId}`,
-+                { method: "DELETE", signal: controller.signal }
++                { 
++                    method: "DELETE", 
++                    headers: {
++                        "Idempotency-Key": `delete-${currentRequestId}-${Date.now()}` // Client-side idempotency hint
++                    },
++                    signal: controller.signal 
++                }
              );
--            router.refresh();
--            router.push(`/${params.storeId}/categories`);
 +
 +            if (!res.ok) throw new Error("Delete failed");
 +
-+            if (!isMounted.current || requestId !== requestIdRef.current) return;
++            if (!isMounted.current) return;
 +
-             toast.success("Category deleted.");
--        } catch (error: any) {
--            toast.error(
--                "Make sure you removed all products using this category first."
--            );
++            toast.success("Category deleted.");
 +            router.push(`/${params.storeId}/categories`);
 +        } catch (err: any) {
-+            if (err.name !== "AbortError") {
++            if (err.name !== "AbortError" && isMounted.current) {
 +                toast.error(
 +                    "Make sure you removed all products using this category first."
 +                );
@@ -189,28 +234,30 @@ index f094c93..38cbdf9 100644
          } finally {
 -            setLoading(false);
 -            setOpen(false);
-+            if (isMounted.current && requestId === requestIdRef.current) {
++            // Release lock ONLY if this request owns it (ownership-based invariant)
++            if (lockOwnerIdRef.current === currentRequestId) {
 +                isSubmitting.current = false;
++                lockOwnerIdRef.current = null;
 +                setLoading(false);
 +                setOpen(false);
 +            }
          }
 -    };
 +    }, [params.storeId, params.categoryId, router]);
-+
-+    const billboardOptions = useMemo(
-+        () =>
-+            billboards.map((billboard) => (
-+                <SelectItem key={billboard.id} value={billboard.id}>
-+                    {billboard.label}
-+                </SelectItem>
-+            )),
-+        [billboards]
-+    );
  
++    const billboardOptions = useMemo(() => {
++        if (!billboards?.length) return [];
++        return billboards.map((billboard) => (
++            <SelectItem key={billboard.id} value={billboard.id}>
++                {billboard.label}
++            </SelectItem>
++        ));
++    }, [billboards]);
++
      return (
          <>
-@@ -117,7 +206,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
+             <AlertModal
+@@ -117,7 +245,7 @@
                  loading={loading}
              />
              <div className="flex items-center justify-between">
@@ -219,7 +266,13 @@ index f094c93..38cbdf9 100644
                  {initialData && (
                      <Button
                          disabled={loading}
-@@ -174,11 +263,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
+@@ -168,17 +296,12 @@
+                                         <FormControl>
+                                             <SelectTrigger>
+                                                 <SelectValue
+-                                                    defaultValue={field.value}
+                                                     placeholder="Select a billboard"
+                                                 />
                                              </SelectTrigger>
                                          </FormControl>
                                          <SelectContent>
@@ -232,7 +285,7 @@ index f094c93..38cbdf9 100644
                                          </SelectContent>
                                      </Select>
                                      <FormMessage />
-@@ -187,11 +272,10 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
+@@ -187,11 +310,10 @@
                          />
                      </div>
                      <Button disabled={loading} className="ml-auto" type="submit">
