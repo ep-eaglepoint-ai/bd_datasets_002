@@ -20,10 +20,8 @@ describe('Formatting & Indentation', () => {
     beforeEach(async () => {
         await page.goto(APP_URL);
 
-        // Wait for textarea to be visible
         await page.waitForSelector('textarea', { visible: true });
 
-        // Clear content using evaluate to bypass React state
         await page.evaluate(() => {
             const textarea = document.querySelector('textarea');
             const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
@@ -31,13 +29,12 @@ describe('Formatting & Indentation', () => {
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
         });
 
-        // Small wait for state to update
         await new Promise(r => setTimeout(r, 200));
     });
 
     test('Tab key inserts spaces', async () => {
         await page.type('textarea', 'start');
-        await page.keyboard.press('Home'); // Move to start
+        await page.keyboard.press('Home');
         await page.keyboard.press('Tab');
 
         const content = await page.$eval('textarea', el => el.value);
@@ -45,25 +42,17 @@ describe('Formatting & Indentation', () => {
     });
 
     test('Auto Format indents code', async () => {
-        // Indentation logic: adds spaces on brace level
-        // Need newlines
         await page.type('textarea', 'function foo() {\nreturn true;\n}');
 
-        // Click Format (Zap icon, bg-purple-600)
         const formatBtn = await page.$('button.bg-purple-600');
         await formatBtn.click();
 
-        // Wait for content to actually change (indentation added)
         await page.waitForFunction(
             () => document.querySelector('textarea').value.includes('  return'),
             { timeout: 5000 }
         );
 
         const content = await page.$eval('textarea', el => el.value);
-        // Expect:
-        // function foo() {
-        //   return true;
-        // }
         const lines = content.split('\n');
         expect(lines[1]).toMatch(/^  return/);
     });

@@ -14,30 +14,24 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const [language, setLanguage] = useState('javascript');
   const [fileName, setFileName] = useState('untitled');
 
-  // Search & Replace
   const [searchTerm, setSearchTerm] = useState('');
   const [replaceMode, setReplaceMode] = useState(false);
   const [replaceTerm, setReplaceTerm] = useState('');
 
-  // History Management
-  // History contains snapshots of code.
   const [history, setHistory] = useState([DEFAULT_CODE]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  // Save State
   const [savedVersion, setSavedVersion] = useState(DEFAULT_CODE);
   const [isModified, setIsModified] = useState(false);
   const textareaRef = useRef(null);
   const lastSaveTime = useRef(null);
   const historyTimeout = useRef(null);
 
-  // Check Modified State
   useEffect(() => {
     const normalize = (s) => (s || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
     setIsModified(normalize(savedVersion) !== normalize(code));
   }, [code, savedVersion]);
 
-  // Update history helper
   const updateHistory = useCallback((newCode) => {
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
@@ -54,7 +48,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     const newCode = e.target.value;
     setCode(newCode);
 
-    // Debounce history recording
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
     }
@@ -62,18 +55,14 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     historyTimeout.current = setTimeout(() => {
       updateHistory(newCode);
       historyTimeout.current = null;
-    }, 300); // Reduced to 300ms to pass tests that expect quicker saves
+    }, 300);
   };
 
   const undo = () => {
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
-      // Pending changes exist. Commit them first so they can be Redone, then Undo.
-      // We append current code to history, but we DON'T advance index, 
-      // effectively staying at the previous commit while saving the new one as a 'future' state.
       setHistory(prev => [...prev.slice(0, historyIndex + 1), code]);
-      // Revert code to the stable state
       setCode(history[historyIndex]);
       return;
     }
@@ -88,9 +77,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
-      // If we are typing (pending), and click Redo?
-      // Typing invalidates the Redo stack. 
-      // Commit pending changes as the new tip. Redo becomes impossible.
       updateHistory(code);
       return;
     }
@@ -105,9 +91,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     if (!searchTerm) return;
 
     try {
-      // Escape special characters if it's not a valid regex or if user likely wants literal match?
-      // Requirement calls for "Regex support". We assume user knows regex if they type special chars.
-      // But we must catch errors.
       const regex = new RegExp(searchTerm, 'g');
       const newCode = code.replace(regex, replaceTerm);
       if (newCode !== code) {
@@ -116,11 +99,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       }
     } catch (e) {
       console.error("Invalid regex", e);
-      // Fallback: Literal replace if regex fails? 
-      // Or just ignore. The prompt says "Fix regex special character handling".
-      // If user types "(" expecting literal, in Regex mode they should type "\(".
-      // But if they just type "(", it crashes. We are catching it now.
-      // Let's also prevent empty string infinite loop if regex matches empty.
       if (searchTerm.length === 0) return;
     }
   };
@@ -134,24 +112,12 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       json: 'json'
     };
 
-    // Determine extension:
-    // 1. If fileName has extension matching language, use it.
-    // 2. Else append language extension.
     let downloadName = fileName;
     const langExt = extensions[language] || 'txt';
 
     if (!downloadName.toLowerCase().endsWith('.' + langExt)) {
-      // If file name has no extension or wrong one, append proper one?
-      // Simply ensuring it ends with correct ext.
-      // If it has *some* extension, maybe keep it?
-      // Requirement: "File name extraction works correctly for files without extensions"
-      // "Download creates files with correct extensions"
       const nameParts = fileName.split('.');
       if (nameParts.length > 1) {
-        // Has extension. Check if valid?
-        // Simplest: use fileName as is if it has ext, else append.
-        // But map says `extensions[language]`.
-        // Safe bet: force the extension for the language.
         if (nameParts[nameParts.length - 1] !== langExt) {
           downloadName = `${fileName}.${langExt}`;
         }
@@ -178,13 +144,12 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       reader.onload = (event) => {
         const content = event.target.result;
         setCode(content);
-        updateHistory(content); // Use helper for consistency
+        updateHistory(content);
 
         const nameParts = file.name.split('.');
-        // Fix: correctly handle filenames with multiple dots or no extension
         const ext = nameParts.length > 1 ? nameParts.pop()?.toLowerCase() : '';
         const name = nameParts.join('.');
-        setFileName(name || file.name); // Fallback to full name if no extension logic applies?
+        setFileName(name || file.name);
 
         const langMap = {
           js: 'javascript',
@@ -208,12 +173,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const saveCode = () => {
     setSavedVersion(code);
     lastSaveTime.current = Date.now();
-    // Force re-render for time display if needed, but lastSaveTime is Ref.
-    // We might need a state to trigger render or rely on other updates.
-    // The original code didn't force render, relying on other updates or time interval?
-    // Original had `getTimeSinceLastSave` called in render.
-    // If we want the UI to update "Saved 0s ago" immediately, we need a re-render.
-    // `setSavedVersion` triggers re-render.
   };
 
   const resetCode = () => {
@@ -231,36 +190,19 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const formatCode = () => {
-    // Normalize code first
     const normalizedCode = code.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = normalizedCode.split('\n');
     let indentLevel = 0;
-
-    // Better heuristic:
-    // Do not count braces inside strings.
-    // Extremely basic parser:
-
-    // For now, let's keep it simple but safe:
-    // Just ensure we don't crash or behave too weirdly.
-    // The previous implementation was fine for simple code.
-    // Let's just clean it up.
 
     const formatted = lines.map(line => {
       const trimmed = line.trim();
       let currentIndent = indentLevel;
 
-      // De-indent close braces
       if (trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')')) {
         currentIndent = Math.max(0, indentLevel - 1);
       }
 
       const indented = '  '.repeat(currentIndent) + trimmed;
-
-      // Calculate next indent
-      // Ignore braces in comments/strings would be ideal, but requires stateful parse.
-      // We will stick to simple count but maybe add basic protection?
-      // No, let's stick to the prompt's request: "auto-formatting handles all edge cases correctly".
-      // Correct handling of nested brackets IS the requirement.
 
       const openBraces = (trimmed.split('{').length - 1);
       const closeBraces = (trimmed.split('}').length - 1);
@@ -284,10 +226,9 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       e.preventDefault();
       const start = textareaRef.current.selectionStart;
       const end = textareaRef.current.selectionEnd;
-      const currentCode = code; // capture current code
+      const currentCode = code;
 
       if (start === end) {
-        // Single cursor: Insert 2 spaces
         const newCode = currentCode.substring(0, start) + '  ' + currentCode.substring(end);
         setCode(newCode);
         updateHistory(newCode);
@@ -297,40 +238,14 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
           }
         }, 0);
       } else {
-        // Multi-line selection: Indent lines
-        // 1. Identify valid range of lines
-        const beforeSelection = currentCode.substring(0, start);
-        const selection = currentCode.substring(start, end);
-        const afterSelection = currentCode.substring(end);
-
-        // We need to indent the *start* of the lines that the selection touches.
-        // Find the start of the line where selection starts
-        const startLineIndex = currentCode.lastIndexOf('\n', start - 1) + 1;
-        // Find the end of the line where selection ends
-        // (If selection ends exactly at \n, does it include next line? Generally no.)
-
-        // Simpler approach: Split all code into lines, indent affected lines, rejoin.
         const allLines = currentCode.split('\n');
-
-        // Calculate which line numbers are selected
-        // Count newlines before start
-        let currentPos = 0;
-        let startLine = 0;
-        let endLine = 0;
-
-        // Helper to find line index from char index
         const getLineFromIndex = (idx) => {
           return currentCode.substring(0, idx).split('\n').length - 1;
         };
 
-        startLine = getLineFromIndex(start);
-        endLine = getLineFromIndex(end);
+        const startLine = getLineFromIndex(start);
+        let endLine = getLineFromIndex(end);
 
-        // If 'end' is exactly at the start of a line (after \n), we usually don't indent that line unless it's the only one 0-length selection?
-        // But here start != end.
-        // If selection is "A\n|B", end is at start of B. Should B be indented? VS Code says yes if it's "selected".
-        // But if selection is "A\n|", end is at start of line 2. VS Code indents line 2?
-        // Actually, if selection ends at column 0 of a line, that line is usually NOT indented.
         const isEndAtLineStart = currentCode[end - 1] === '\n';
         if (isEndAtLineStart && endLine > startLine) {
           endLine--;
@@ -347,27 +262,10 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
         setCode(newCode);
         updateHistory(newCode);
 
-        // Restore selection
-        // Start moves by 2 (if start was not at 0?) -> Actually shift selection to cover same *text*?
-        // Usually we extend selection to cover the indented block?
-        // Or keep it simple: Select the whole lines?
         setTimeout(() => {
           if (textareaRef.current) {
-            // We want to select from start of startLine to end of endLine?
-            // Or just try to shift based on how many lines we indented?
-            // Indented (endLine - startLine + 1) lines. Added 2 chars per line.
-            // New start = start + 2 (since line start is before selection start).
-            // New end = end + (endLine - startLine + 1) * 2.
-            // This is approximate.
-
-            // Better: Restore selection relative to content?
-            // Let's just select the affected lines fully, it's standard behavior for block indent.
-            // But user might want exact selection.
-
-            // Let's rely on simple math:
-            const addedCharsStart = 2; // We indented start line
+            const addedCharsStart = 2;
             const totalAdded = (endLine - startLine + 1) * 2;
-
             textareaRef.current.selectionStart = start + addedCharsStart;
             textareaRef.current.selectionEnd = end + totalAdded;
           }
@@ -385,7 +283,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       undo();
     }
 
-    // Redo: Ctrl+Y or Ctrl+Shift+Z
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
       e.preventDefault();
       redo();
@@ -408,7 +305,7 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       matchCount = (code.match(regex) || []).length;
     }
   } catch (e) {
-    matchCount = 0; // Invalid regex
+    matchCount = 0;
   }
 
   const getTimeSinceLastSave = () => {

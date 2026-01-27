@@ -1,4 +1,3 @@
-// evaluation.js - Test Evaluation and Report Generation
 const fs = require('fs');
 const path = require('path');
 const { execSync, spawn } = require('child_process');
@@ -8,7 +7,6 @@ const net = require('net');
 
 let killPortLib;
 try {
-    // Try to load kill-port from tests dependencies
     killPortLib = require('../tests/node_modules/kill-port');
 } catch (e) {
     console.warn("Warning: kill-port library not found in ./tests/node_modules. Port cleanup might fail.");
@@ -17,7 +15,6 @@ try {
 const TEST_PORT_BEFORE = 3000;
 const TEST_PORT_AFTER = 3001;
 
-// Helper: Ensure port is free
 async function ensurePortFree(port) {
     for (let i = 0; i < 20; i++) {
         const isFree = await new Promise((resolve) => {
@@ -56,14 +53,12 @@ async function ensurePortFree(port) {
     return false;
 }
 
-// Helper: Kill any process on port
 async function killPort(port) {
     console.log(`Cleaning up port ${port}...`);
     try {
         if (killPortLib) {
             await killPortLib(port);
         } else {
-            // Fallback
             try {
                 const testDir = path.join(process.cwd(), 'tests');
                 execSync(`npx kill-port ${port}`, { cwd: testDir, stdio: 'ignore' });
@@ -72,12 +67,10 @@ async function killPort(port) {
     } catch (e) {
         console.error("Error killing port:", e.message);
     }
-    // Verify
     const free = await ensurePortFree(port);
     if (!free) console.error(`WARNING: Port ${port} could not be freed.`);
 }
 
-// Helper: Wait for server to be ready
 async function waitForServer(port, retries = 600) {
     const url = `http://localhost:${port}`;
     console.log(`Waiting for ${url} to be ready...`);
@@ -106,7 +99,6 @@ async function waitForServer(port, retries = 600) {
     return false;
 }
 
-// Helper: Start server
 async function startServer(dirName, port) {
     console.log(`Starting server in ${dirName} on port ${port}...`);
     await killPort(port);
@@ -115,16 +107,13 @@ async function startServer(dirName, port) {
         cwd: path.join(process.cwd(), dirName),
         shell: true,
         stdio: 'inherit',
-        detached: true, // Allow killing the entire process group
+        detached: true,
         env: { ...process.env, PORT: port.toString(), BROWSER: 'none', CI: 'true' }
     });
 
     return serverProcess;
 }
 
-/**
- * Run tests for a specific repository and parse results
- */
 async function runTestsAndParse(repositoryName, port) {
     const startTime = Date.now();
     const testUrl = `http://localhost:${port}`;
@@ -133,7 +122,6 @@ async function runTestsAndParse(repositoryName, port) {
     console.log(`Running tests for ${repositoryName} on ${testUrl}...`);
     console.log(`${'='.repeat(60)}\n`);
 
-    // Start Server
     let serverProc = null;
     try {
         serverProc = await startServer(repositoryName, port);
@@ -165,10 +153,8 @@ async function runTestsAndParse(repositoryName, port) {
         };
     }
 
-    // Run Tests
     const testDir = path.join(process.cwd(), 'tests');
 
-    // Results container
     const tests = [];
     const summary = {
         total: 0,
@@ -187,7 +173,6 @@ async function runTestsAndParse(repositoryName, port) {
 
         let jestOutput;
         try {
-            // Run Jest with APP_URL env var
             const cmd = `npx jest --json --passWithNoTests`;
             jestOutput = execSync(cmd, {
                 cwd: testDir,
@@ -203,12 +188,6 @@ async function runTestsAndParse(repositoryName, port) {
 
         stdout += jestOutput;
 
-        // CRITICAL: Log Jest output to see failures in CI
-        // Extract the JSON part if mixed with other output, or just log the whole thing if it's mostly JSON
-        // For debugging, we log the raw output (which might be large, but necessary)
-        console.log("----- JEST OUTPUT START -----");
-        console.log(jestOutput);
-        console.log("----- JEST OUTPUT END -----");
         if (stderr) {
             console.error("----- JEST STDERR START -----");
             console.error(stderr);
@@ -252,20 +231,16 @@ async function runTestsAndParse(repositoryName, port) {
         summary.errors++;
     }
 
-    // Stop Server (Robust Kill)
     if (serverProc) {
         console.log(`Stopping server process (PID ${serverProc.pid})...`);
         try {
-            // Kill process group (works on Linux/Unix)
             process.kill(-serverProc.pid);
         } catch (e) {
-            // Fallback for Windows or if group kill fails
             try {
                 serverProc.kill();
             } catch (e2) { }
         }
     }
-    // Double check port
     await killPort(port);
 
     const duration = (Date.now() - startTime) / 1000;
@@ -287,9 +262,6 @@ async function runTestsAndParse(repositoryName, port) {
     };
 }
 
-/**
- * Get Git information
- */
 function getGitInfo() {
     try {
         const commit = execSync('git rev-parse HEAD', { encoding: 'utf8', stdio: 'ignore' }).trim();
@@ -300,16 +272,10 @@ function getGitInfo() {
     }
 }
 
-/**
- * Generate UUID-like run ID
- */
 function generateRunId() {
     return Math.random().toString(36).substring(2, 10);
 }
 
-// ------------------------------------------------------------------
-// Main Logic
-// ------------------------------------------------------------------
 async function main() {
     const args = process.argv.slice(2);
     const outputFlag = args.indexOf('--output');
@@ -333,16 +299,13 @@ async function main() {
     let resBefore = { summary: { total: 0, passed: 0, failed: 0, errors: 0 } };
     let resAfter = { summary: { total: 0, passed: 0, failed: 0, errors: 0 } };
 
-    // Initial cleanup of both ports
     await killPort(TEST_PORT_BEFORE);
     await killPort(TEST_PORT_AFTER);
 
-    // 1. Run tests for repository_before
     if (target === 'both' || target === 'before') {
         resBefore = await runTestsAndParse('repository_before', TEST_PORT_BEFORE);
     }
 
-    // 2. Run tests for repository_after
     if (target === 'both' || target === 'after') {
         resAfter = await runTestsAndParse('repository_after', TEST_PORT_AFTER);
     }
@@ -350,24 +313,19 @@ async function main() {
     const finishedAt = new Date();
     const gitInfo = getGitInfo();
 
-    // Calculate improvement percentage (only if both run, otherwise 0 or N/A)
     const beforePassRate = resBefore.summary.total > 0 ? (resBefore.summary.passed / resBefore.summary.total) * 100 : 0;
     const afterPassRate = resAfter.summary.total > 0 ? (resAfter.summary.passed / resAfter.summary.total) * 100 : 0;
     const improvement = (target === 'both') ? (afterPassRate - beforePassRate) : 0;
 
-    // Determine success based on target
     let overallSuccess = true;
     if (target === 'after') {
         overallSuccess = resAfter.summary.failed === 0 && resAfter.summary.errors === 0;
     } else if (target === 'both') {
         overallSuccess = resAfter.summary.failed === 0 && resAfter.summary.errors === 0;
     } else {
-        // For target 'before', we still report results but don't fail the build 
-        // because repository_before is expected to have bugs in this project.
         overallSuccess = true;
     }
 
-    // Generate report
     const shouldGenerateReport = args.includes('--report');
 
     const report = {
@@ -406,7 +364,6 @@ async function main() {
 
     let reportPath = null;
     if (shouldGenerateReport) {
-        // Determine output path
         if (customOutput) {
             reportPath = customOutput;
             const reportDir = path.dirname(reportPath);
@@ -414,14 +371,13 @@ async function main() {
                 fs.mkdirSync(reportDir, { recursive: true });
             }
         } else {
-            const timestampDay = startAll.toISOString().split('T')[0]; // YYYY-MM-DD
-            const timestampTime = startAll.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+            const timestampDay = startAll.toISOString().split('T')[0];
+            const timestampTime = startAll.toTimeString().split(' ')[0].replace(/:/g, '-');
             const reportDir = path.join(baseDir, 'evaluation', 'reports', timestampDay, timestampTime);
             fs.mkdirSync(reportDir, { recursive: true });
             reportPath = path.join(reportDir, 'report.json');
         }
 
-        // Write report
         fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
     }
 
@@ -446,11 +402,9 @@ async function main() {
 
     console.log(`Report generated at: ${reportPath}\n`);
 
-    // Exit with appropriate code
     process.exit(overallSuccess ? 0 : 1);
 }
 
-// Run main function
 main().catch(error => {
     console.error('Evaluation failed:', error);
     process.exit(1);
