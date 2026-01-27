@@ -1,0 +1,12 @@
+{
+  "name": "scenario-016-js-async-test",
+  "version": "1.0.0",
+  "description": "Flaky async tests using sleep",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx jest"
+  },
+  "dependencies": {
+    "jest": "^29.7.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "brcz62-fix-flaky-ci-cd-integration-tests-caused-by-cache-timeout-errors",
+  "version": "1.0.0",
+  "description": "Fix for flaky CI/CD tests",
+  "main": "index.js",
+  "scripts": {
+    "test": "./node_modules/.bin/jest"
+  },
+  "dependencies": {
+    "jest": "^29.7.0"
+  }
+}
