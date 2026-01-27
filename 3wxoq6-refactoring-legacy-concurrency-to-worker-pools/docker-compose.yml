@@ -1,6 +1,21 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    working_dir: /app
+    command: tests/final_runner.sh before
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    working_dir: /app
+    command: tests/final_runner.sh after
+    volumes:
+      - .:/app
+
+  evaluate:
+    build: .
+    working_dir: /app
+    command: go run evaluation/evaluation.go
     volumes:
       - .:/app
