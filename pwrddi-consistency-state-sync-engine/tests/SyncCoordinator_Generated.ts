@@ -7,7 +7,7 @@ interface Operation {
 }
 
 export class SyncCoordinator {
-  public getState() { return this.state; }
+           public getState() { return this.state; }
   private state: Record<string, any> = {};
 
   /**
