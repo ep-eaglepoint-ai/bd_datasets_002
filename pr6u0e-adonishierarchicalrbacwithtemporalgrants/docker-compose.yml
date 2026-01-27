@@ -1,6 +1,10 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  rbac-system:
+    build: 
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - .:/app
+    environment:
+      - NODE_PATH=/app
+      - REPO_PATH=${REPO_PATH:-repository_after}
