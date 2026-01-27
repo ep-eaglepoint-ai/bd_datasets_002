@@ -53,7 +53,7 @@ def test_successful_transfer(db_connection, setup_schema):
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, TRUE), (2, 50.00, TRUE)")
     result = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
     assert len(result) == 1
-    assert result[0]['status'] == 'SUCCESS'
+    assert result[0]['status'] == 0
     assert result[0]['message'] == 'Transfer completed'
     # Check balances
     with db_connection.cursor(cursor_factory=RealDictCursor) as cur:
@@ -79,10 +79,10 @@ def test_idempotent_transfer(db_connection, setup_schema):
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, TRUE), (2, 50.00, TRUE)")
     # First call
     result1 = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result1[0]['status'] == 'SUCCESS'
+    assert result1[0]['status'] == 0
     # Second call with same request_id
     result2 = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result2[0]['status'] == 'SUCCESS'
+    assert result2[0]['status'] == 0
     assert result2[0]['message'] == 'Transfer already processed'
     # Balances should not change again
     with db_connection.cursor(cursor_factory=RealDictCursor) as cur:
@@ -91,54 +91,54 @@ def test_idempotent_transfer(db_connection, setup_schema):
 
 def test_source_account_not_exist(db_connection, setup_schema):
     result = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Source account does not exist' in result[0]['message']
 
 def test_dest_account_not_exist(db_connection, setup_schema):
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, TRUE)")
     result = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Destination account does not exist' in result[0]['message']
 
 def test_source_account_inactive(db_connection, setup_schema):
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, FALSE), (2, 50.00, TRUE)")
     result = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Source account is not active' in result[0]['message']
 
 def test_dest_account_inactive(db_connection, setup_schema):
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, TRUE), (2, 50.00, FALSE)")
     result = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Destination account is not active' in result[0]['message']
 
 def test_negative_amount(db_connection, setup_schema):
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, TRUE), (2, 50.00, TRUE)")
     result = call_transfer(db_connection, 1, 2, -25.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Transfer amount must be positive' in result[0]['message']
 
 def test_zero_amount(db_connection, setup_schema):
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, TRUE), (2, 50.00, TRUE)")
     result = call_transfer(db_connection, 1, 2, 0.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Transfer amount must be positive' in result[0]['message']
 
 def test_insufficient_balance(db_connection, setup_schema):
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 10.00, TRUE), (2, 50.00, TRUE)")
     result = call_transfer(db_connection, 1, 2, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Insufficient balance' in result[0]['message']
 
 def test_same_account(db_connection, setup_schema):
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO accounts (id, balance, active) VALUES (1, 100.00, TRUE)")
     result = call_transfer(db_connection, 1, 1, 25.00, '2023-01-01 12:00:00', 'req1')
-    assert result[0]['status'] == 'ERROR'
+    assert result[0]['status'] == 1
     assert 'Source and destination accounts must be different' in result[0]['message']
