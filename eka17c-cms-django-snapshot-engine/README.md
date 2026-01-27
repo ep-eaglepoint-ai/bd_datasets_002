@@ -5,3 +5,9 @@
 ```bash
 docker compose run app pytest tests
 ```
+
+## Run Evaluation
+
+```bash
+docker compose run app python evaluation/evaluation.py
+```
