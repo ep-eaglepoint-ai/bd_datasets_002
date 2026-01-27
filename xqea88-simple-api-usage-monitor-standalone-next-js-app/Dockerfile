@@ -1,5 +1,24 @@
-FROM python:3.11-slim
+FROM node:20-alpine
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Copy package files
+COPY repository_after/package*.json ./repository_after/
+COPY tests/ ./tests/
+COPY evaluation/ ./evaluation/
+
+# Install dependencies
+WORKDIR /app/repository_after
+RUN npm install
+
+# Copy application code
+COPY repository_after/ ./
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy evaluation script
+WORKDIR /app
+COPY evaluation/ ./evaluation/
+
+# Default command runs evaluation
+CMD ["node", "evaluation/evaluation.js"]
