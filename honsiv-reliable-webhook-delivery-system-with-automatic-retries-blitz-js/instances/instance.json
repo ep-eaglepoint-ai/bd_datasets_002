@@ -1,0 +1,11 @@
+{
+            "instance_id": "HONSIV",
+            "problem_statement": "Outgoing webhooks to third-party systems are inherently unreliable due to network issues, downtime, and transient failures. Without retries, visibility, and idempotency, failed webhook deliveries can cause data inconsistency, missed events, and poor developer experience. We need a reliable, observable, and retryable webhook delivery system that guarantees best-effort delivery, provides auditability, and allows manual intervention when failures occur",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
