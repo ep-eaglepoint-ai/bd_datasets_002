@@ -194,6 +194,12 @@ def main():
 
     with open(report_path, "w", encoding='utf-8') as f:
         json.dump(report, f, indent=2)
+    
+    # Also save to /host/evaluation/report.json
+    host_report_path = Path("/host/evaluation/report.json")
+    host_report_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(host_report_path, "w", encoding='utf-8') as f:
+        json.dump(report, f, indent=2)
 
     if success:
         Path("/tmp/EVALUATION_SUCCESS").touch()
@@ -213,6 +219,7 @@ def main():
     print(f"  Tests: {comparison['after_passed']}/{comparison['after_total']} passed")
 
     print(f"\nReport saved to: {report_path}")
+    print(f"Report also saved to: /host/evaluation/report.json")
     print(f"{'='*60}")
     print("EVALUATION COMPLETE")
     print(f"Duration: {round(duration, 2)}s")

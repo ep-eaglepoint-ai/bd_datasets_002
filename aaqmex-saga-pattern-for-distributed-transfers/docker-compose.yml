@@ -6,3 +6,5 @@ services:
   evaluation:
     build: .
     command: python evaluation/evaluation.py
+    volumes:
+      - ./evaluation:/host/evaluation
