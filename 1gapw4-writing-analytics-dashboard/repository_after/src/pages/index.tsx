@@ -1,16 +1,69 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import DocumentEditor from '@/components/DocumentEditor';
 import DocumentList from '@/components/DocumentList';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import DocumentComparison from '@/components/DocumentComparison';
+import AnnotationManager from '@/components/AnnotationManager';
+import WritingGoals from '@/components/WritingGoals';
+import AdvancedFilters from '@/components/AdvancedFilters';
+import TimeSeriesCharts from '@/components/TimeSeriesCharts';
 import { useStore } from '@/lib/store';
 import { exportToCSV, downloadCSV } from '@/lib/exportUtils';
+import { WritingGoal, Snapshot, Document } from '@/lib/types';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'write' | 'documents' | 'analytics' | 'compare'>('write');
-  const { documents, analytics } = useStore();
+  const [activeTab, setActiveTab] = useState<'write' | 'documents' | 'analytics' | 'compare' | 'trends' | 'goals'>('write');
+  const { documents, analytics, currentDocument } = useStore();
+  const [filteredDocs, setFilteredDocs] = useState<Document[]>([]);
+  const [goals, setGoals] = useState<WritingGoal[]>([]);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+
+  // Calculate aggregate metrics for goals
+  const totalWordCount = useMemo(() => {
+    return Array.from(analytics.values()).reduce((sum, a) => sum + a.wordCount, 0);
+  }, [analytics]);
+
+  const avgReadability = useMemo(() => {
+    const values = Array.from(analytics.values());
+    if (values.length === 0) return 0;
+    return values.reduce((sum, a) => sum + a.readability.fleschReadingEase, 0) / values.length;
+  }, [analytics]);
+
+  const avgSentiment = useMemo(() => {
+    const values = Array.from(analytics.values());
+    if (values.length === 0) return 0;
+    return values.reduce((sum, a) => sum + a.sentiment.score, 0) / values.length;
+  }, [analytics]);
+
+  const handleAddGoal = (goalData: Omit<WritingGoal, 'id' | 'createdAt' | 'currentValue' | 'completed'>) => {
+    const newGoal: WritingGoal = {
+      ...goalData,
+      id: `goal-${Date.now()}`,
+      createdAt: Date.now(),
+      currentValue: 0,
+      completed: false,
+    };
+    setGoals([...goals, newGoal]);
+  };
+
+  const handleUpdateGoal = (id: string, updates: Partial<WritingGoal>) => {
+    setGoals(goals.map(g => g.id === id ? { ...g, ...updates } : g));
+  };
+
+  const handleDeleteGoal = (id: string) => {
+    setGoals(goals.filter(g => g.id !== id));
+  };
+
+  const handleCreateSnapshot = (snapshot: Snapshot) => {
+    setSnapshots([...snapshots, snapshot]);
+  };
+
+  const handleRestoreSnapshot = (snapshot: Snapshot) => {
+    // In a real implementation, this would restore the document content
+    console.log('Restoring snapshot:', snapshot.id);
+  };
 
   const handleCSVExport = () => {
     const csv = exportToCSV(documents, analytics);
@@ -68,6 +121,26 @@ export default function Home() {
             }`}
           >
             🔄 Compare
+          </button>
+          <button
+            onClick={() => setActiveTab('trends')}
+            className={`px-6 py-3 rounded-lg font-medium transition ${
+              activeTab === 'trends'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            📈 Trends
+          </button>
+          <button
+            onClick={() => setActiveTab('goals')}
+            className={`px-6 py-3 rounded-lg font-medium transition ${
+              activeTab === 'goals'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            🎯 Goals
           </button>
           <button
             onClick={handleCSVExport}
@@ -138,6 +211,53 @@ export default function Home() {
                   <li>• Side-by-side metric analysis with difference calculations</li>
                   <li>• Percentage change tracking for all metrics</li>
                   <li>• Interpretation guidance for understanding differences</li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'trends' && (
+            <>
+              <AdvancedFilters
+                documents={documents}
+                analytics={analytics}
+                onFilterChange={setFilteredDocs}
+              />
+              <TimeSeriesCharts documents={documents} analytics={analytics} />
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <h3 className="font-semibold text-teal-900 mb-2">📈 Time-Series Analysis</h3>
+                <ul className="text-sm text-teal-800 space-y-1">
+                  <li>• <strong>Sentiment Timeline:</strong> Track emotional tone changes over time</li>
+                  <li>• <strong>Writing Volume:</strong> Monitor daily word count and productivity</li>
+                  <li>• <strong>Readability Evolution:</strong> See how complexity changes</li>
+                  <li>• <strong>Vocabulary Growth:</strong> Track unique word accumulation</li>
+                  <li>• <strong>Advanced Filters:</strong> Filter by sentiment, readability, word count, and more</li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'goals' && (
+            <>
+              <WritingGoals
+                goals={goals}
+                onAddGoal={handleAddGoal}
+                onUpdateGoal={handleUpdateGoal}
+                onDeleteGoal={handleDeleteGoal}
+                totalWordCount={totalWordCount}
+                avgReadability={avgReadability}
+                avgSentiment={avgSentiment}
+              />
+              {currentDocument && (
+                <AnnotationManager documentId={currentDocument.id} />
+              )}
+              <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
+                <h3 className="font-semibold text-pink-900 mb-2">🎯 Goals & Annotations</h3>
+                <ul className="text-sm text-pink-800 space-y-1">
+                  <li>• <strong>Writing Goals:</strong> Set targets for word count, readability, sentiment</li>
+                  <li>• <strong>Progress Tracking:</strong> Visual progress bars for each goal</li>
+                  <li>• <strong>Annotations:</strong> Add notes and insights to documents</li>
+                  <li>• <strong>Goal Types:</strong> Word count, consistency, readability, sentiment targets</li>
                 </ul>
               </div>
             </>
