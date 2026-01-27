@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: test-runner
+    volumes:
+      - .:/host:rw
     environment:
       DB_HOST: db
       DB_PORT: 5432
