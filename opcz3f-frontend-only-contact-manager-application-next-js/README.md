@@ -4,10 +4,10 @@
 
 ## Run tests on repository_after
 ```bash
-docker compose run --rm test-after
+docker compose run --build --rm test-after
 ```
 
 ## Run evaluation
 ```bash
-docker compose run --rm evaluation
+docker compose run --build --rm evaluation
 ```
