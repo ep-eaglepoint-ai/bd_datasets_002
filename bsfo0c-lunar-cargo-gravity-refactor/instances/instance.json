@@ -1,0 +1,11 @@
+{
+            "instance_id": "BSFO0C",
+            "problem_statement": "Refactor a greedy, one-dimensional packing algorithm into a multi-objective balanced distribution engine. The goal is to incorporate physical constraints (weight and gravity) into cargo placement to ensure rover stability on uneven terrain, while maintaining legacy weight capacity checks.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/bsfo0c-lunar-cargo-gravity-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
