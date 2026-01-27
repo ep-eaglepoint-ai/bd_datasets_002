@@ -42,6 +42,26 @@
 ## Quick start
 - Run tests locally: `python -m pytest -q tests`
 - With Docker: `docker compose up --build --abort-on-container-exit`
+
+### 1. Docker Build
+```bash
+docker compose build
+```
+
+### 2. Repository Before
+```bash
+docker compose run --rm app npm run test:before --prefix tests
+```
+
+### 3. Repository After
+```bash
+docker compose run --rm app npm run test:after --prefix tests
+```
+
+### 4. Evaluation
+```bash
+docker compose run --rm app node evaluation/evaluation.js
+```
 - Add dependencies to `requirements.txt`
 
 ## Notes
