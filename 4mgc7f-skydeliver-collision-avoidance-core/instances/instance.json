@@ -1,0 +1,11 @@
+{
+            "instance_id": "4MGC7F",
+            "problem_statement": "The objective is to implement a 3D airspace deconfliction algorithm in Go. This involves linear trajectory projection, proximity detection within a defined spherical threshold, and a priority-based resolution strategy. The primary engineering challenge is ensuring the 20ms performance constraint while handling cascading dependencies where one altitude adjustment affects other neighboring drones.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/4mgc7f-skydeliver-collision-avoidance-core",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
