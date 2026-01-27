@@ -1,0 +1,283 @@
+# Patch: repository_before -> repository_after
+# Refactoring from monolithic controller to properly structured MVC architecture
+#
+# Changes:
+# 1. Split monolithic dataAggregation.java into separate controller, service, and DTOs
+# 2. Fixed integer division bug in average calculation
+# 3. Added input validation with Jakarta Validation annotations
+# 4. Improved code structure with proper separation of concerns
+
+diff --git a/repository_before/dataAggregation.java b/repository_after/src/main/java/com/example/studentapi/controller/StudentAggregationController.java
+--- a/repository_before/dataAggregation.java
++++ b/repository_after/src/main/java/com/example/studentapi/controller/StudentAggregationController.java
+@@ -1,98 +1,61 @@
+-package com.example.studentapi;
++package com.example.studentapi.controller;
+
+-import org.springframework.web.bind.annotation.*;
+-import java.util.*;
++import com.example.studentapi.dto.AggregationResult;
++import com.example.studentapi.dto.Student;
++import com.example.studentapi.service.StudentAggregationService;
++import jakarta.validation.Valid;
++import org.springframework.http.HttpStatus;
++import org.springframework.http.ResponseEntity;
++import org.springframework.validation.BindingResult;
++import org.springframework.web.bind.annotation.*;
++
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.stream.Collectors;
+
+ @RestController
+ @RequestMapping("/api/students")
+ public class StudentAggregationController {
+-
+-    private List<Student> cachedStudents = new ArrayList<>();
++    
++    private final StudentAggregationService aggregationService;
++    
++    public StudentAggregationController(StudentAggregationService aggregationService) {
++        this.aggregationService = aggregationService;
++    }
+
+     @PostMapping("/aggregate")
+-    public Map<String, Object> aggregateStudents(@RequestBody List<Student> students) {
+-
+-        Map<String, Object> response = new HashMap<>();
+-
++    public ResponseEntity<?> aggregateStudents(@Valid @RequestBody List<Student> students, 
++                                               BindingResult bindingResult) {
++        
++        if (bindingResult.hasErrors()) {
++            Map<String, Object> errorResponse = createValidationErrorResponse(bindingResult);
++            return ResponseEntity.badRequest().body(errorResponse);
++        }
++        
+         if (students == null) {
+-            response.put("error", "Students list is null");
+-            return response;
++            Map<String, Object> errorResponse = Map.of("error", "Students list cannot be null");
++            return ResponseEntity.badRequest().body(errorResponse);
+         }
+-
+-        cachedStudents.clear();
+-        cachedStudents.addAll(students);
+-
+-        int totalScore = 0;
+-        double averageScore = 0.0;
+-        Student topStudent = null;
+-
+-        for (int i = 0; i < students.size(); i++) {
+-            Student current = students.get(i);
+-            if (current.getScore() < 0) {
+-                continue;
+-            }
+-            totalScore = totalScore + current.getScore();
+-
+-            // BUG: O(n²) nested loop
+-            for (int j = 0; j < students.size(); j++) {
+-                if (topStudent == null) {
+-                    topStudent = students.get(j);
+-                } else {
+-                    if (students.get(j).getScore() > topStudent.getScore()) {
+-                        topStudent = students.get(j);
+-                    }
+-                }
+-            }
++        
++        try {
++            AggregationResult result = aggregationService.aggregateStudents(students);
++            return ResponseEntity.ok(result);
++        } catch (Exception e) {
++            Map<String, Object> errorResponse = Map.of("error", "Internal server error occurred");
++            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+         }
++    }
++    
++    private Map<String, Object> createValidationErrorResponse(BindingResult bindingResult) {
++        Map<String, Object> errorResponse = new HashMap<>();
++        errorResponse.put("error", "Validation failed");
+         
+-        // BUG: Integer division loses decimal precision
+-        if (students.size() > 0) {
+-            averageScore = totalScore / students.size();
+-        }
+-
+-        List<String> names = new ArrayList<>();
+-        for (Student s : students) {
+-            names.add(s.getName());
+-        }
+-        Collections.sort(names);
+-
+-        response.put("count", students.size());
+-        response.put("averageScore", averageScore);
+-        response.put("topStudent", topStudent);
+-        response.put("sortedNames", names);
+-        response.put("cachedSize", cachedStudents.size());
+-
+-        return response;
++        List<String> validationErrors = bindingResult.getFieldErrors().stream()
++                .map(error -> error.getField() + ": " + error.getDefaultMessage())
++                .collect(Collectors.toList());
++        
++        errorResponse.put("validationErrors", validationErrors);
++        return errorResponse;
+     }
+-
+-    // Nested class removed - extracted to separate DTO
+-    public static class Student { ... }
+ }
+
+diff --git /dev/null b/repository_after/src/main/java/com/example/studentapi/service/StudentAggregationService.java
+new file mode 100644
+--- /dev/null
++++ b/repository_after/src/main/java/com/example/studentapi/service/StudentAggregationService.java
+@@ -0,0 +1,59 @@
++package com.example.studentapi.service;
++
++import com.example.studentapi.dto.AggregationResult;
++import com.example.studentapi.dto.Student;
++import org.springframework.stereotype.Service;
++
++import java.util.List;
++import java.util.stream.Collectors;
++
++@Service
++public class StudentAggregationService {
++    
++    public AggregationResult aggregateStudents(List<Student> students) {
++        if (students == null || students.isEmpty()) {
++            return new AggregationResult(0, 0.0, null, List.of());
++        }
++        
++        List<Student> validStudents = filterValidStudents(students);
++        
++        int count = validStudents.size();
++        double averageScore = calculateAverageScore(validStudents);
++        Student topStudent = findTopStudent(validStudents);
++        List<String> sortedNames = extractSortedNames(students);
++        
++        return new AggregationResult(count, averageScore, topStudent, sortedNames);
++    }
++    
++    private List<Student> filterValidStudents(List<Student> students) {
++        return students.stream()
++                .filter(student -> student.getScore() != null && student.getScore() >= 0)
++                .collect(Collectors.toList());
++    }
++    
++    // FIX: Proper double division instead of integer division
++    private double calculateAverageScore(List<Student> validStudents) {
++        if (validStudents.isEmpty()) {
++            return 0.0;
++        }
++        
++        int totalScore = validStudents.stream()
++                .mapToInt(Student::getScore)
++                .sum();
++        
++        return (double) totalScore / validStudents.size();  // Fixed: cast to double
++    }
++    
++    // FIX: O(n) instead of O(n²) for finding top student
++    private Student findTopStudent(List<Student> validStudents) {
++        return validStudents.stream()
++                .max((s1, s2) -> Integer.compare(s1.getScore(), s2.getScore()))
++                .orElse(null);
++    }
++    
++    // FIX: Filters out empty/blank names
++    private List<String> extractSortedNames(List<Student> students) {
++        return students.stream()
++                .map(Student::getName)
++                .filter(name -> name != null && !name.trim().isEmpty())
++                .sorted()
++                .collect(Collectors.toList());
++    }
++}
+
+diff --git /dev/null b/repository_after/src/main/java/com/example/studentapi/dto/Student.java
+new file mode 100644
+--- /dev/null
++++ b/repository_after/src/main/java/com/example/studentapi/dto/Student.java
+@@ -0,0 +1,38 @@
++package com.example.studentapi.dto;
++
++import jakarta.validation.constraints.Min;
++import jakarta.validation.constraints.NotBlank;
++import jakarta.validation.constraints.NotNull;
++
++public class Student {
++    
++    @NotBlank(message = "Student name cannot be blank")
++    private String name;
++    
++    @NotNull(message = "Student score cannot be null")
++    @Min(value = 0, message = "Student score must be non-negative")
++    private Integer score;
++    
++    public Student() {}
++    
++    public Student(String name, Integer score) {
++        this.name = name;
++        this.score = score;
++    }
++    
++    public String getName() {
++        return name;
++    }
++    
++    public void setName(String name) {
++        this.name = name;
++    }
++    
++    public Integer getScore() {
++        return score;
++    }
++    
++    public void setScore(Integer score) {
++        this.score = score;
++    }
++}
+
+diff --git /dev/null b/repository_after/src/main/java/com/example/studentapi/dto/AggregationResult.java
+new file mode 100644
+--- /dev/null
++++ b/repository_after/src/main/java/com/example/studentapi/dto/AggregationResult.java
+@@ -0,0 +1,34 @@
++package com.example.studentapi.dto;
++
++import java.util.List;
++
++public class AggregationResult {
++    
++    private int count;
++    private double averageScore;
++    private Student topStudent;
++    private List<String> sortedNames;
++    
++    public AggregationResult(int count, double averageScore, Student topStudent, List<String> sortedNames) {
++        this.count = count;
++        this.averageScore = averageScore;
++        this.topStudent = topStudent;
++        this.sortedNames = sortedNames;
++    }
++    
++    public int getCount() {
++        return count;
++    }
++    
++    public double getAverageScore() {
++        return averageScore;
++    }
++    
++    public Student getTopStudent() {
++        return topStudent;
++    }
++    
++    public List<String> getSortedNames() {
++        return sortedNames;
++    }
++}

@@ -1,6 +1,42 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+    command: >
+      sh -c "mkdir -p /app/tests/src/main/java/com/example/studentapi/controller &&
+             mkdir -p /app/tests/src/main/java/com/example/studentapi/dto &&
+             mkdir -p /app/tests/src/main/java/com/example/studentapi/service &&
+             mkdir -p /app/tests/src/main/resources &&
+             cp /app/repository_after/src/main/java/com/example/studentapi/StudentApiApplication.java /app/tests/src/main/java/com/example/studentapi/ &&
+             cp /app/repository_after/src/main/java/com/example/studentapi/dto/*.java /app/tests/src/main/java/com/example/studentapi/dto/ &&
+             cp /app/repository_after/src/main/java/com/example/studentapi/service/*.java /app/tests/src/main/java/com/example/studentapi/service/ &&
+             cp /app/repository_after/src/main/resources/*.properties /app/tests/src/main/resources/ &&
+             cat /app/repository_before/dataAggregation.java | 
+             sed 's/package com.example.studentapi;/package com.example.studentapi.controller;\\nimport com.example.studentapi.dto.*;\\nimport com.example.studentapi.service.*;/' |
+             sed '/public static class Student/,/^    }$/d' > /app/tests/src/main/java/com/example/studentapi/controller/StudentAggregationController.java &&
+             cd /app/tests && (mvn test; exit 0)"
+
+  test-after:
+    build: .
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_after:/app/repository_after
+    command: >
+      sh -c "mkdir -p /app/tests/src/main/java/com/example/studentapi &&
+             mkdir -p /app/tests/src/main/resources &&
+             cp -r /app/repository_after/src/main/java/com/example/studentapi/* /app/tests/src/main/java/com/example/studentapi/ &&
+             cp /app/repository_after/src/main/resources/*.properties /app/tests/src/main/resources/ &&
+             cd /app/tests && mvn test"
+
+
+  evaluate:
+    build: .
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./repository_after:/app/repository_after
+    command: >
+      sh -c "cd /app/evaluation && mvn compile exec:java -e"
