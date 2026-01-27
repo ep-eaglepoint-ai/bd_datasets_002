@@ -1,0 +1,11 @@
+{
+            "instance_id": "L5CPZT",
+            "problem_statement": "Users need a simple system to track document changes over time and safely restore previous versions when mistakes or unwanted edits occur.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/l5cpzt-document-versioning-app-with-history-and-rollback",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
