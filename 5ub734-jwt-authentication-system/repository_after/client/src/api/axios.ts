@@ -1,7 +1,19 @@
 import axios from "axios";
 
+const getBaseUrl = () => {
+  // Allow test/Node override
+  const nodeUrl = (globalThis as any)?.process?.env?.VITE_API_URL;
+  if (nodeUrl) return nodeUrl;
+
+  // Allow runtime override (optional)
+  const runtimeUrl = (globalThis as any)?.VITE_API_URL;
+  if (runtimeUrl) return runtimeUrl;
+
+  return "http://localhost:4000/api";
+};
+
 const api = axios.create({
-  baseURL: (import.meta as any).env.VITE_API_URL || "http://localhost:4000/api",
+  baseURL: getBaseUrl(),
   withCredentials: true,
 });
 

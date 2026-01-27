@@ -8,6 +8,12 @@ if (!process.env.JWT_PRIVATE_KEY_BASE64 || !process.env.JWT_PUBLIC_KEY_BASE64) {
 export const config = {
   port: process.env.PORT || 4000,
   dbUrl: process.env.DATABASE_URL,
+  security: {
+    bcryptCost: Math.max(
+      parseInt(process.env.BCRYPT_COST || "12", 10) || 12,
+      12
+    ),
+  },
   jwt: {
     privateKey: Buffer.from(
       process.env.JWT_PRIVATE_KEY_BASE64,
