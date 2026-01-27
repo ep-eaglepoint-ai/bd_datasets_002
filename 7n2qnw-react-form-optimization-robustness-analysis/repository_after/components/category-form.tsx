@@ -59,6 +59,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
     const isMounted = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
     const requestIdRef = useRef(0);
+    const lockOwnerIdRef = useRef<number | null>(null); // Ownership-based lock
 
     useEffect(() => {
         isMounted.current = true;
@@ -95,20 +96,34 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
     });
 
     useEffect(() => {
+        // Always reset form when initialData changes (including when it becomes null)
         if (initialData) {
             form.reset({
                 name: initialData.name,
                 billboardId: initialData.billboardId,
             });
+        } else {
+            // Reset to empty state when initialData is null
+            form.reset({ name: "", billboardId: "" });
         }
     }, [initialData, form]);
 
     const onSubmit = useCallback(
         async (data: CategoryFormValues) => {
+            const currentRequestId = ++requestIdRef.current;
+            
+            // Prevent concurrent submissions
             if (isSubmitting.current) return;
+            
+            // Prevent rapid sequential submits after success (UX protection only)
+            if (lockOwnerIdRef.current !== null && 
+                currentRequestId - lockOwnerIdRef.current <= 1) {
+                return;
+            }
 
-            const requestId = ++requestIdRef.current;
+            // Take ownership of the lock
             isSubmitting.current = true;
+            lockOwnerIdRef.current = currentRequestId;
             setLoading(true);
 
             abortControllerRef.current?.abort();
@@ -122,10 +137,13 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
                         : `/api/${params.storeId}/categories`,
                     {
                         method: initialData ? "PATCH" : "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { 
+                            "Content-Type": "application/json",
+                            "Idempotency-Key": `category-${currentRequestId}-${Date.now()}` // Client-side idempotency hint
+                        },
                         body: JSON.stringify({
                             ...data,
-                            _idempotencyKey: requestId, // client-side idempotency hint
+                            _clientRequestId: currentRequestId, // For debugging only
                         }),
                         signal: controller.signal,
                     }
@@ -133,17 +151,19 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
 
                 if (!res.ok) throw new Error("Request failed");
 
-                if (!isMounted.current || requestId !== requestIdRef.current) return;
+                if (!isMounted.current) return;
 
                 toast.success(uiText.success);
                 router.push(`/${params.storeId}/categories`);
             } catch (err: any) {
-                if (err.name !== "AbortError") {
+                if (err.name !== "AbortError" && isMounted.current) {
                     toast.error(err?.message || "Something went wrong.");
                 }
             } finally {
-                if (isMounted.current && requestId === requestIdRef.current) {
+                // Release lock ONLY if this request owns it (ownership-based invariant)
+                if (lockOwnerIdRef.current === currentRequestId) {
                     isSubmitting.current = false;
+                    lockOwnerIdRef.current = null;
                     setLoading(false);
                 }
             }
@@ -152,10 +172,20 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
     );
 
     const onDelete = useCallback(async () => {
+        const currentRequestId = ++requestIdRef.current;
+        
+        // Prevent concurrent delete attempts
         if (isSubmitting.current) return;
+        
+        // Prevent rapid sequential delete attempts (UX protection only)
+        if (lockOwnerIdRef.current !== null && 
+            currentRequestId - lockOwnerIdRef.current <= 1) {
+            return;
+        }
 
-        const requestId = ++requestIdRef.current;
+        // Take ownership of the lock
         isSubmitting.current = true;
+        lockOwnerIdRef.current = currentRequestId;
         setLoading(true);
 
         abortControllerRef.current?.abort();
@@ -165,24 +195,32 @@ export const CategoryForm: React.FC<CategoryFormProps> = React.memo(({
         try {
             const res = await fetch(
                 `/api/${params.storeId}/categories/${params.categoryId}`,
-                { method: "DELETE", signal: controller.signal }
+                { 
+                    method: "DELETE", 
+                    headers: {
+                        "Idempotency-Key": `delete-${currentRequestId}-${Date.now()}` // Client-side idempotency hint
+                    },
+                    signal: controller.signal 
+                }
             );
 
             if (!res.ok) throw new Error("Delete failed");
 
-            if (!isMounted.current || requestId !== requestIdRef.current) return;
+            if (!isMounted.current) return;
 
             toast.success("Category deleted.");
             router.push(`/${params.storeId}/categories`);
         } catch (err: any) {
-            if (err.name !== "AbortError") {
+            if (err.name !== "AbortError" && isMounted.current) {
                 toast.error(
                     "Make sure you removed all products using this category first."
                 );
             }
         } finally {
-            if (isMounted.current && requestId === requestIdRef.current) {
+            // Release lock ONLY if this request owns it (ownership-based invariant)
+            if (lockOwnerIdRef.current === currentRequestId) {
                 isSubmitting.current = false;
+                lockOwnerIdRef.current = null;
                 setLoading(false);
                 setOpen(false);
             }
