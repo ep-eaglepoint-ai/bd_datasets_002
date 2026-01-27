@@ -28,6 +28,14 @@ services:
       - DJANGO_SETTINGS_MODULE=resumable_uploads.settings
       - DATABASE_URL=postgres://myuser:mypassword@db:5432/mydb
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    volumes:
+      - ./:/app
+
   tests:
     build:
       context: .
