@@ -5,7 +5,18 @@
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ipobqc-bank-account-transfer",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
+            "FAIL_TO_PASS": [
+                "test_successful_transfer",
+                "test_idempotent_transfer",
+                "test_source_account_not_exist",
+                "test_dest_account_not_exist",
+                "test_source_account_inactive",
+                "test_dest_account_inactive",
+                "test_negative_amount",
+                "test_zero_amount",
+                "test_insufficient_balance",
+                "test_same_account"
+            ],
             "PASS_TO_PASS": []
         }
         
