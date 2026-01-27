@@ -1,0 +1,11 @@
+{
+            "instance_id": "8QVQB3",
+            "problem_statement": "Build a fully offline music library intelligence web application using Next.js and TailwindCSS that locally indexes audio files, extracts metadata, detects duplicates, and analyzes listening patterns without external APIs or cloud services. Use IndexedDB for persistent storage, Zustand for state management, and Web Workers for background processing to ensure performance with thousands of tracks, while implementing virtualized lists and memoized selectors for responsive UI. The app must provide deep library analytics, rule-based playlists, similarity discovery, and trend visualizations, handling corrupted files and inconsistent tags reliably for long-term use.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/8qvqb3-offline-music-library",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
