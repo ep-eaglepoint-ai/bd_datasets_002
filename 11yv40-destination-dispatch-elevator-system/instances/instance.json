@@ -1,0 +1,11 @@
+{
+            "instance_id": "11YV40",
+            "problem_statement": "The "Elevator Problem" is a classic concurrency test. The specific twist here is Destination Dispatch, where the destination is known at the time of request, and Capacity Constraints. Mid-tier models frequently implement a "First Come First Served" (FCFS) queue, which is woefully inefficient (O(N) travel time), or they fail to implement the "Directional Momentum" constraint (a car going Up shouldn't stop for a Down request unless it's the last stop). The concurrency trap is the race condition between the Assign function reading the car's load, and the Board function increasing the car's load. Without proper locking, the system assigns passengers to a full elevator.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/11yv40-destination-dispatch-elevator-system",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
