@@ -1,107 +1,174 @@
+/* =======================
+   Vector Clock
+======================= */
+
+type VectorClock = Map<string, number>;
+
+function incrementClock(vc: VectorClock, userId: string) {
+  vc.set(userId, (vc.get(userId) ?? 0) + 1);
+}
+
+function dominates(a: VectorClock, b: VectorClock): boolean {
+  let greater = false;
+  for (const [k, v] of b) {
+    const av = a.get(k) ?? 0;
+    if (av < v) return false;
+    if (av > v) greater = true;
+  }
+  return greater;
+}
+
+function concurrent(a: VectorClock, b: VectorClock): boolean {
+  return !dominates(a, b) && !dominates(b, a);
+}
+
+function cloneClock(vc: VectorClock): VectorClock {
+  return new Map(vc);
+}
+
+/* =======================
+   Operation
+======================= */
+
 export interface Operation {
   id: string;
   userId: string;
   path: string[];
   value: any;
-  timestamp: number;
+  clock: VectorClock;
 }
 
-interface StateNode {
+/* =======================
+   CRDT Node
+======================= */
+
+interface CRDTValue {
   value: any;
-  timestamp: number;
-  children: Map<string, StateNode>;
+  clock: VectorClock;
+  userId: string;
 }
+
+interface CRDTNode {
+  values: CRDTValue[];
+  children: Map<string, CRDTNode>;
+}
+
+/* =======================
+   SyncCoordinator
+======================= */
 
 export class SyncCoordinator {
-  private root: StateNode = {
-    value: {},
-    timestamp: 0,
-    children: new Map(),
-  };
+  private root: CRDTNode = { values: [], children: new Map() };
+  private localClock: VectorClock = new Map();
+  private appliedOps = new Set<string>();
 
-  public applyOperation(op: Operation): void {
-    const { path, value, timestamp } = op;
-    
-    // 1. Traverse to check if any ancestor shadows this operation
-    // An ancestor shadows if it has a value (overwrite) and is strictly NEWER.
-    let current = this.root;
-    for (const key of path) {
-      if (current.timestamp > timestamp && current.value !== undefined) {
-        // Ancestor overwrite is newer. This operation is obsolete.
-        return;
-      }
-      if (!current.children.has(key)) {
-        // Optimistically create path, but don't set values yet
-        current.children.set(key, { value: undefined, timestamp: 0, children: new Map() });
-      }
-      current = current.children.get(key)!;
-    }
-
-    // 2. Apply the operation at the target node
-    this.updateNode(current, value, timestamp);
+  constructor(private readonly userId: string) {
+    this.localClock.set(userId, 0);
   }
 
-  private updateNode(node: StateNode, value: any, timestamp: number): void {
-    if (timestamp > node.timestamp) {
-      node.value = value;
-      node.timestamp = timestamp;
-      
-      // 3. Prune children that are now older than this update
-      // (Because this update overwrites the subtree at this node)
-      for (const [key, child] of node.children) {
-        if (child.timestamp <= timestamp) {
-          node.children.delete(key);
-        } else {
-          // If child is newer, it survives. 
-          // We don't need to do anything, it will be merged during getState
-        }
-      }
-    } else {
-        // timestamp <= node.timestamp
-        // This is a stale or concurrent-but-older update to this exact path.
-        // We ignore the value update.
-        // However, if the operation value was a complex object, we might have needed to merge?
-        // No, LWW on the node means the newer node value wins.
-        // The only case is if we wanted to support partial merges of a 'stale' object?
-        // But in CRDTs, usually the whole register wins.
-        // So we do nothing.
-    }
+  /* -------- create local op -------- */
+
+  public createOperation(path: string[], value: any): Operation {
+    incrementClock(this.localClock, this.userId);
+    const op = {
+      id: crypto.randomUUID(),
+      userId: this.userId,
+      path,
+      value,
+      clock: cloneClock(this.localClock),
+    };
+    this.applyOperation(op);
+    return op;
   }
+
+  /* -------- apply remote/local op -------- */
+
+  public applyOperation(op: Operation) {
+    if (this.appliedOps.has(op.id)) return;
+    this.appliedOps.add(op.id);
+
+    // merge clocks
+    for (const [k, v] of op.clock) {
+      this.localClock.set(k, Math.max(this.localClock.get(k) ?? 0, v));
+    }
+
+    let node = this.root;
+    for (const key of op.path) {
+      if (!node.children.has(key)) {
+        node.children.set(key, { values: [], children: new Map() });
+      }
+      node = node.children.get(key)!;
+    }
+
+    this.mergeValue(node, {
+      value: op.value,
+      clock: op.clock,
+      userId: op.userId,
+    });
+
+    this.garbageCollect(node);
+  }
+
+  /* -------- CRDT merge -------- */
+
+  private mergeValue(node: CRDTNode, incoming: CRDTValue) {
+    const survivors: CRDTValue[] = [];
+
+    let dominated = false;
+
+    for (const existing of node.values) {
+      if (dominates(existing.clock, incoming.clock)) {
+        dominated = true;
+        survivors.push(existing);
+      } else if (dominates(incoming.clock, existing.clock)) {
+        continue; // incoming replaces
+      } else {
+        survivors.push(existing); // concurrent
+      }
+    }
+
+    if (!dominated) survivors.push(incoming);
+    node.values = survivors;
+  }
+
+  /* -------- deterministic resolve -------- */
+
+  private resolveNode(node: CRDTNode): any {
+    let base: any = undefined;
+
+    if (node.values.length > 0) {
+      node.values.sort((a, b) =>
+        a.userId.localeCompare(b.userId)
+      );
+      base = node.values[node.values.length - 1].value;
+    }
+
+    if (node.children.size === 0) return base;
+
+    const result =
+      typeof base === "object" && base !== null ? { ...base } : {};
+
+    for (const [k, child] of node.children) {
+      const v = this.resolveNode(child);
+      if (v !== undefined) result[k] = v;
+    }
+
+    return result;
+  }
+
+  /* -------- bounded metadata -------- */
+
+  private garbageCollect(node: CRDTNode) {
+    node.values = node.values.filter(v =>
+      ![...node.values].some(o =>
+        o !== v && dominates(o.clock, v.clock)
+      )
+    );
+  }
+
+  /* -------- public state -------- */
 
   public getState(): any {
-    return this.reconstructState(this.root);
-  }
-
-  private reconstructState(node: StateNode): any {
-    let result = node.value;
-    
-    // If we have children, they represent more granular updates or newer updates
-    if (node.children.size > 0) {
-      // If result is primitive but we have children, the children imply a type change to object
-      // (because children are newer or concurrent-and-survived).
-      if (typeof result !== 'object' || result === null) {
-        result = {}; 
-      } else {
-        // Shallow clone to avoid mutating internal state if it acts as reference
-        // (Though simple assignment of primitives is fine, objects should be cloned)
-        if (Array.isArray(result)) {
-             result = [...result];
-        } else {
-             result = { ...result };
-        }
-      }
-
-      for (const [key, child] of node.children) {
-        const childVal = this.reconstructState(child);
-        // Only set if childVal is defined (or maybe we allow undefined/null as values?)
-        // If childVal is explicitly null from operation, we set it.
-        // If reconstruction returned undefined (e.g. empty node?), maybe skip.
-        if (childVal !== undefined) {
-            result[key] = childVal;
-        }
-      }
-    }
-    
-    return result;
+    return this.resolveNode(this.root);
   }
 }
