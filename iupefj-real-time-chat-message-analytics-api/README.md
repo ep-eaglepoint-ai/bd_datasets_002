@@ -14,5 +14,5 @@ docker compose run app mvn test --repo=after
 
 To run evaluation
 ```bash
-docker compose run app java evaluation/Evaluation.java
+docker compose run app sh -c 'cd evaluation && javac evaluation.java && cd .. && java -cp evaluation evaluation'
 ```

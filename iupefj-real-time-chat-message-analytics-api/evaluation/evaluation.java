@@ -4,7 +4,7 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-public class Evaluation {
+public class evaluation {
 
     private static final Path ROOT = Paths.get(System.getProperty("user.dir"));
     private static final Path REPORTS = ROOT.resolve("evaluation").resolve("reports");
