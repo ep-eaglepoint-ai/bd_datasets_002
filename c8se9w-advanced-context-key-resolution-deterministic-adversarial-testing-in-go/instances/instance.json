@@ -1,0 +1,11 @@
+{
+            "instance_id": "C8SE9W",
+            "problem_statement": "Given a complex Go package that resolves contextual keys using normalization, wildcard matching, version comparison, caching, and concurrency, write a rigorous, deterministic test suite that proves correctness, stability, and race-safety under adversarial and concurrent conditions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/c8se9w-advanced-context-key-resolution-deterministic-adversarial-testing-in-go",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
