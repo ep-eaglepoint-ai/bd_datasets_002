@@ -1,6 +1,41 @@
+version: "3.9"
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    ports:
+      - "5432:5432"
     volumes:
-      - .:/app
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./repository_after:/app
+      - chunk_data:/app/chunks
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DJANGO_SETTINGS_MODULE=resumable_uploads.settings
+      - DATABASE_URL=postgres://myuser:mypassword@db:5432/mydb
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.tests
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+
+volumes:
+  postgres_data:
+  chunk_data:

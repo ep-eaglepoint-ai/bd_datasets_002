@@ -2,6 +2,12 @@
 
 **Category:** sft
 
+## Docker commands
+- Tests:
+	- docker compose run --rm tests dotnet test tests/tests.csproj --filter RepositoryAfterChunkedUploaderTests -c Release --no-build -v minimal
+- Evaluation:
+	- docker compose run --rm tests dotnet run --project evaluation/evaluation.csproj -- --iterations 5 --skills 160,320,640 --slots 20,40,80 --threshold 15 --output-dir evaluation
+
 ## Overview
 - Task ID: SH87H5
 - Title: Django-Chunked-Stateful-Uploader

@@ -1,0 +1,32 @@
+{
+  "run_id": "8df8f0e8-8c82-48b9-8cea-38f8a1745291",
+  "started_at": "2026-01-27T22:03:42.988574Z",
+  "finished_at": "2026-01-27T22:03:43.060720Z",
+  "duration_seconds": 0.072146,
+  "environment": {
+    "python_version": "3.11.2",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.36"
+  },
+  "before": {
+    "tests": {
+      "passed": false,
+      "return_code": 0,
+      "output": "skipped: no tests for repository_before"
+    },
+    "metrics": {}
+  },
+  "after": {
+    "tests": {
+      "passed": false,
+      "return_code": 1,
+      "output": "Traceback (most recent call last):\n  File \"/workspace/repository_after/manage.py\", line 11, in main\n    from django.core.management import execute_from_command_line\nModuleNotFoundError: No module named 'django'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/workspace/repository_after/manage.py\", line 22, in <module>\n    main()\n  File \"/workspace/repository_after/manage.py\", line 13, in main\n    raise ImportError(\nImportError: Couldn't import Django. Are you sure it's installed and available on your PYTHONPATH environment variable? Did you forget to activate a virtual environment?\n"
+    },
+    "metrics": {}
+  },
+  "comparison": {
+    "passed_gate": false,
+    "improvement_summary": "After implementation failed correctness gate."
+  },
+  "success": false,
+  "error": null
+}

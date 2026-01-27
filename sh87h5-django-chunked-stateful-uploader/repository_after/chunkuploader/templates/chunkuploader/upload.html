@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chunked Upload</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    .row { margin-bottom: 1rem; }
+    progress { width: 100%; height: 1.25rem; }
+    .status { font-family: monospace; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Resumable Chunked Upload</h1>
+  <div class="row">
+    <input id="fileInput" type="file" />
+  </div>
+  <div class="row">
+    <button id="uploadBtn">Start Upload</button>
+  </div>
+  <div class="row">
+    <progress id="progress" value="0" max="100"></progress>
+  </div>
+  <div class="row status" id="status"></div>
+
+  <script>
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+
+    const statusEl = document.getElementById("status");
+    const progressEl = document.getElementById("progress");
+
+    function logStatus(message) {
+      statusEl.textContent += `${message}\n`;
+    }
+
+    async function sha256Hex(file) {
+      const buffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function handshake(fileHash) {
+      const response = await fetch(`/upload/handshake/?hash=${encodeURIComponent(fileHash)}`);
+      if (!response.ok) {
+        throw new Error(`Handshake failed: ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function uploadChunk({ file, fileHash, index, totalSize, chunkSize, isFinal }) {
+      const start = index * chunkSize;
+      const end = Math.min(start + chunkSize, totalSize);
+      const blob = file.slice(start, end);
+
+      const form = new FormData();
+      form.append("hash", fileHash);
+      form.append("index", String(index));
+      form.append("total_size", String(totalSize));
+      form.append("chunk_size", String(chunkSize));
+      form.append("final", isFinal ? "1" : "0");
+      form.append("chunk", blob, `${index}.part`);
+
+      const response = await fetch("/upload/ingest/", {
+        method: "POST",
+        body: form
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Upload failed: ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function startUpload() {
+      statusEl.textContent = "";
+      progressEl.value = 0;
+
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) {
+        logStatus("Select a file first.");
+        return;
+      }
+
+      logStatus("Calculating file hash...");
+      const fileHash = await sha256Hex(file);
+      logStatus(`File hash: ${fileHash}`);
+
+      const totalSize = file.size;
+      const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
+
+      const hs = await handshake(fileHash);
+      if (hs.status === "file_exists") {
+        logStatus("File already exists on server.");
+        progressEl.value = 100;
+        return;
+      }
+
+      const missing = hs.status === "incomplete" ? hs.missing : [...Array(totalChunks).keys()];
+      logStatus(`Uploading ${missing.length} of ${totalChunks} chunks...`);
+
+      let uploaded = totalChunks - missing.length;
+      progressEl.value = Math.round((uploaded / totalChunks) * 100);
+
+      for (const index of missing) {
+        const isFinal = index === totalChunks - 1;
+        await uploadChunk({ file, fileHash, index, totalSize, chunkSize: CHUNK_SIZE, isFinal });
+        uploaded += 1;
+        progressEl.value = Math.round((uploaded / totalChunks) * 100);
+      }
+
+      logStatus("Upload complete.");
+    }
+
+    document.getElementById("uploadBtn").addEventListener("click", () => {
+      startUpload().catch(err => logStatus(err.message));
+    });
+  </script>
+</body>
+</html>
