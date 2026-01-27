@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useBmiCalculator } from './composables/useBmiCalculator'
-import { useAppStorage } from './composables/useAppStorage'
+import { useLocalStorage } from './composables/useLocalStorage'
 import FormInputs from './components/FormInputs.vue'
 import ResultCard from './components/ResultCard.vue'
 import HistoryList from './components/HistoryList.vue'
@@ -9,13 +9,13 @@ import ThemeToggle from './components/ThemeToggle.vue'
 import type { BmiResult } from './composables/useBmiCalculator'
 
 // Theme management
-const theme = useAppStorage<'light' | 'dark'>('bmi_theme', 'light')
+const theme = useLocalStorage<'light' | 'dark'>('bmi_theme', 'light')
 
 // BMI Calculator
 const calculator = useBmiCalculator()
 
 // Current result
-const currentResult = ref<BmiResult | null>(null)
+const currentResult = useLocalStorage<BmiResult | null>('bmi_current_result', null)
 
 // History management
 interface HistoryEntry extends BmiResult {
@@ -24,10 +24,10 @@ interface HistoryEntry extends BmiResult {
   unit: 'metric' | 'imperial'
 }
 
-const history = useAppStorage<HistoryEntry[]>('bmi_history', [])
+const history = useLocalStorage<HistoryEntry[]>('bmi_history', [])
 
 // Persist inputs
-const savedInputs = useAppStorage<{
+const savedInputs = useLocalStorage<{
   unitSystem: 'metric' | 'imperial'
   height: number | null
   weight: number | null

@@ -1,6 +1,6 @@
 import { ref, watch } from 'vue'
 
-export function useAppStorage<T>(key: string, defaultValue: T) {
+export function useLocalStorage<T>(key: string, defaultValue: T) {
   const storedValue = localStorage.getItem(key)
   const data = ref<T>(storedValue ? JSON.parse(storedValue) : defaultValue)
 
