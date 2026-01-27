@@ -1,6 +1,16 @@
 services:
-  app:
+  password-vault-app:
     build: .
-    command: pytest -q tests
+    command: npm test
     volumes:
       - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
+
+  evaluation:
+    build: .
+    command: npm run evaluate
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
