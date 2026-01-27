@@ -44,7 +44,7 @@ services:
       - ./repository_after:/app
       - ./tests:/app/tests
       - /app/node_modules
-      - ./repository_after/evaluation/reports:/app/evaluation/reports
+      - ./evaluation/reports:/app/evaluation/reports
     working_dir: /app
     command: node evaluation/Evaluation.js
     environment:
