@@ -11,3 +11,8 @@ Test the repository_after:
 ```bash
 docker-compose run --rm -e REPO=after app
 ```
+
+Run Evaluation:
+```bash
+docker-compose run --rm app npm run evaluate
+```
