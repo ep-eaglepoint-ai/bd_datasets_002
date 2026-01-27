@@ -7,5 +7,5 @@
   ```
 - Run evaluation:
   ```bash
-  docker compose run --rm app npx tsx evaluation/evaluation.ts
+  docker compose run --rm app npx --yes tsx evaluation/evaluation.ts
   ```

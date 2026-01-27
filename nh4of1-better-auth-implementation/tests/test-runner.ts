@@ -1,5 +1,9 @@
 import { spawn } from 'child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const tests = [
     'test-1-better-auth.ts',
@@ -9,6 +13,7 @@ const tests = [
     'test-5-no-oauth.ts',
     'test-6-no-external-services.ts',
     'test-7-no-third-party-ui.ts',
+    'test-8-functional-auth.ts',
 ];
 
 async function runTests() {
@@ -21,7 +26,7 @@ async function runTests() {
 
         await new Promise<void>((resolve) => {
             // Run with 'tsx' which we installed locally
-            const child = spawn('npx', ['tsx', testPath], {
+            const child = spawn('npx', ['tsx', `"${testPath}"`], {
                 stdio: 'inherit',
                 shell: true
             });

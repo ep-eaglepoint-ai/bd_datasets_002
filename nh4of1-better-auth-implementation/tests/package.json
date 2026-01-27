@@ -1,12 +1,15 @@
 {
     "name": "auth-tests",
     "version": "1.0.0",
+    "type": "module",
     "description": "Verification tests for auth system",
     "main": "index.js",
     "scripts": {
         "test": "tsx test-runner.ts"
     },
     "dependencies": {
+        "better-auth": "^1.4.17",
+        "mongodb": "^7.0.0",
         "tsx": "^4.7.0",
         "typescript": "^5.3.3",
         "@types/node": "^20.11.5"

@@ -112,9 +112,9 @@ async function runTestsAndParse(
                 // We use tsx directly on the file. No need to modify imports as our utils handle paths dynamically.
                 const testStartTime = Date.now();
 
-                // Run test with tsx (npx tsx <file>)
+                // Run test with tsx (npx --yes tsx <file>)
                 const result = execSync(
-                    `npx tsx "${fullPath}"`,
+                    `npx --yes tsx "${fullPath}"`,
                     {
                         cwd: testDir, // Run from tests dir to ensure relative paths in utils work if needed
                         encoding: 'utf8',
@@ -202,7 +202,7 @@ function getGitInfo(): { commit: string; branch: string } {
  */
 function getTypeScriptVersion(): string {
     try {
-        const version = execSync('npx tsc --version', { encoding: 'utf8' }).trim();
+        const version = execSync('npx --yes tsc --version', { encoding: 'utf8' }).trim();
         return version.replace('Version ', '');
     } catch {
         return 'unknown';
