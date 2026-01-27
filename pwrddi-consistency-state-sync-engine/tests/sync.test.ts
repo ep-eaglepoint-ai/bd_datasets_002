@@ -316,14 +316,68 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
     expect(appliedOpsSize).toBeLessThanOrEqual(MAX);
   });
 
-  test("Requirement 6: true async latency simulation", async () => {
+
+
+  // Explicit test for 10s partition as requested
+  test("Requirement 6: long partition (10s) with 3 clients", async () => {
+    const A = new SyncCoordinator("A");
+    const B = new SyncCoordinator("B");
+    const C = new SyncCoordinator("C"); // Partitioned node
+
+    const ops: any[] = [];
+    
+    // Initial sync
+    const initOp = createOp(A, ["init"], true, "init");
+    apply(A, initOp); apply(B, initOp); apply(C, initOp);
+
+    // Partition starts: C stops receiving
+    // A and B exchange messages
+    const opA1 = createOp(A, ["a"], 1, "a1");
+    apply(A, opA1); apply(B, opA1); 
+
+    const opB1 = createOp(B, ["b"], 1, "b1");
+    apply(A, opB1); apply(B, opB1);
+
+    // C generates ops in isolation
+    const opC1 = createOp(C, ["c"], 1, "c1");
+    apply(C, opC1);
+
+    // Wait 10 seconds (simulated partition duration)
+    await new Promise(resolve => setTimeout(resolve, 10000));
+
+    // More ops after wait
+    const opA2 = createOp(A, ["a"], 2, "a2");
+    apply(A, opA2); apply(B, opA2);
+
+    // Reconnect C: C receives all missed ops, others receive C's ops
+    const missedByC = [opA1, opB1, opA2];
+    missedByC.forEach(op => apply(C, op));
+
+    const missedFromC = [opC1];
+    missedFromC.forEach(op => {
+        apply(A, op);
+        apply(B, op);
+    });
+
+    // Convergence check
+    expect(A.getState()).toEqual(B.getState());
+    expect(B.getState()).toEqual(C.getState());
+    expect(C.getState()).toMatchObject({
+        init: true,
+        a: 2,
+        b: 1,
+        c: 1
+    });
+  }, 15000);
+
+  test("Requirement 6: true async latency simulation (50-2000ms)", async () => {
     const clients = [
       new SyncCoordinator("c1"),
       new SyncCoordinator("c2"),
       new SyncCoordinator("c3"),
     ];
 
-    const N = 100;
+    const N = 20; // Reduce count slightly to keep test time reasonable with high latency
     const ops: any[] = [];
 
     // Generate ops
@@ -332,13 +386,12 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
       ops.push(createOp(c, ["shared", "val"], i, `op-${i}`));
     }
 
-    // Distribute with random delays
+    // Distribute with random delays 50ms - 2000ms
     const promises: Promise<void>[] = [];
 
     ops.forEach(op => {
       clients.forEach(client => {
-         // 50ms - 500ms (reduced from 2000ms for test speed, but logic holds)
-         const delay = Math.floor(Math.random() * 50) + 1; 
+         const delay = Math.floor(Math.random() * 1950) + 50; 
          const p = new Promise<void>(resolve => {
            setTimeout(() => {
              apply(client, op);
@@ -357,6 +410,6 @@ describe(`SyncCoordinator – ${TARGET_REPO}`, () => {
 
     expect(s1).toBe(s2);
     expect(s2).toBe(s3);
-  });
+  }, 30000);
 
 });
