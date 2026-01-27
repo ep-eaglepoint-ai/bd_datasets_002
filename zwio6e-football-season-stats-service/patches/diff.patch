@@ -1,0 +1,246 @@
+diff --git a/repository_before/FootballSeasonStatsController.java b/repository_after/FootballSeasonStatsController.java
+index 70770208..74d5da3c 100644
+--- a/repository_before/FootballSeasonStatsController.java
++++ b/repository_after/FootballSeasonStatsController.java
+@@ -4,71 +4,20 @@ import org.springframework.web.bind.annotation.GetMapping;
+ import org.springframework.web.bind.annotation.RequestParam;
+ import org.springframework.web.bind.annotation.RestController;
+ 
+-import java.util.*;
+ 
+ @RestController
+ public class FootballSeasonStatsController {
+ 
++    private final FootballSeasonStatsService service;
++
++    public FootballSeasonStatsController(FootballSeasonStatsService service) {
++        this.service = service;
++    }
++
+     @GetMapping("/api/football/season/stats")
+-    public Map<String, Object> getSeasonStats(
++    public SeasonStats getSeasonStats(
+             @RequestParam String teamName,
+             @RequestParam int seasonYear) {
+-
+-        // Simulate slow configuration lookup
+-        try {
+-            Thread.sleep(1500); // BAD: blocking thread
+-        } catch (InterruptedException e) {
+-            e.printStackTrace();
+-        }
+-
+-        Map<String, Object> response = new HashMap<>();
+-        response.put("team", teamName);
+-        response.put("season", seasonYear);
+-
+-        List<Map<String, Object>> matches = new ArrayList<>();
+-
+-        // Simulate loading match data one by one (N+1 problem)
+-        for (int i = 1; i <= 38; i++) {
+-            try {
+-                Thread.sleep(100); // BAD: repeated DB latency
+-            } catch (InterruptedException e) {
+-                e.printStackTrace();
+-            }
+-
+-            Map<String, Object> match = new HashMap<>();
+-            match.put("matchDay", i);
+-            match.put("goalsFor", new Random().nextInt(4));
+-            match.put("goalsAgainst", new Random().nextInt(4));
+-            match.put("shots", new Random().nextInt(20));
+-            match.put("fouls", new Random().nextInt(18));
+-            matches.add(match);
+-        }
+-
+-        // Inefficient aggregation logic
+-        int totalGoals = 0;
+-        int totalFouls = 0;
+-        for (Map<String, Object> match : matches) {
+-            for (int j = 0; j < 10_000; j++) { // unnecessary repetition
+-                totalGoals += (int) match.get("goalsFor");
+-                totalFouls += (int) match.get("fouls");
+-            }
+-        }
+-
+-        // Very inefficient sorting
+-        matches.sort((a, b) -> {
+-            try {
+-                Thread.sleep(50); // BAD: slow comparator
+-            } catch (InterruptedException e) {
+-                e.printStackTrace();
+-            }
+-            return ((int) b.get("goalsFor")) - ((int) a.get("goalsFor"));
+-        });
+-
+-        response.put("matchesPlayed", matches.size());
+-        response.put("totalGoalsScored", totalGoals);
+-        response.put("totalFoulsCommitted", totalFouls);
+-        response.put("matchStats", matches);
+-
+-        return response;
++        return service.getSeasonStats(teamName, seasonYear);
+     }
+ }
+diff --git a/repository_after/FootballSeasonStatsService.java b/repository_after/FootballSeasonStatsService.java
+new file mode 100644
+index 00000000..42c078db
+--- /dev/null
++++ b/repository_after/FootballSeasonStatsService.java
+@@ -0,0 +1,5 @@
++package com.example.gamestats;
++
++public interface FootballSeasonStatsService {
++    SeasonStats getSeasonStats(String teamName, int seasonYear);
++}
+diff --git a/repository_after/FootballSeasonStatsServiceImpl.java b/repository_after/FootballSeasonStatsServiceImpl.java
+new file mode 100644
+index 00000000..5db61136
+--- /dev/null
++++ b/repository_after/FootballSeasonStatsServiceImpl.java
+@@ -0,0 +1,51 @@
++package com.example.gamestats;
++
++import org.springframework.stereotype.Service;
++import java.util.ArrayList;
++import java.util.Comparator;
++import java.util.List;
++import java.util.concurrent.ThreadLocalRandom;
++import java.util.stream.Collectors;
++
++@Service
++public class FootballSeasonStatsServiceImpl implements FootballSeasonStatsService {
++
++    private static final int MATCHES_IN_SEASON = 38;
++    private static final int MAX_GOALS = 4;
++    private static final int MAX_SHOTS = 20;
++    private static final int MAX_FOULS = 18;
++
++    @Override
++    public SeasonStats getSeasonStats(String teamName, int seasonYear) {
++        // Efficient data generation (O(N) with no repeated DB latency simulation)
++        List<MatchStats> matches = new ArrayList<>(MATCHES_IN_SEASON);
++        int totalGoals = 0;
++        int totalFouls = 0;
++
++        for (int i = 1; i <= MATCHES_IN_SEASON; i++) {
++            // Using ThreadLocalRandom for thread safety and performance
++            int goalsFor = ThreadLocalRandom.current().nextInt(MAX_GOALS);
++            int goalsAgainst = ThreadLocalRandom.current().nextInt(MAX_GOALS);
++            int shots = ThreadLocalRandom.current().nextInt(MAX_SHOTS);
++            int fouls = ThreadLocalRandom.current().nextInt(MAX_FOULS);
++
++            matches.add(new MatchStats(i, goalsFor, goalsAgainst, shots, fouls));
++
++            // Aggregation during generation to keep it O(N) and avoid second loop
++            totalGoals += goalsFor;
++            totalFouls += fouls;
++        }
++
++        // Efficient sorting without side effects
++        matches.sort(Comparator.comparingInt(MatchStats::getGoalsFor).reversed());
++
++        return new SeasonStats(
++                teamName,
++                seasonYear,
++                matches.size(),
++                totalGoals,
++                totalFouls,
++                matches
++        );
++    }
++}
+diff --git a/repository_after/MatchStats.java b/repository_after/MatchStats.java
+new file mode 100644
+index 00000000..bc8946c7
+--- /dev/null
++++ b/repository_after/MatchStats.java
+@@ -0,0 +1,37 @@
++package com.example.gamestats;
++
++public class MatchStats {
++    private final int matchDay;
++    private final int goalsFor;
++    private final int goalsAgainst;
++    private final int shots;
++    private final int fouls;
++
++    public MatchStats(int matchDay, int goalsFor, int goalsAgainst, int shots, int fouls) {
++        this.matchDay = matchDay;
++        this.goalsFor = goalsFor;
++        this.goalsAgainst = goalsAgainst;
++        this.shots = shots;
++        this.fouls = fouls;
++    }
++
++    public int getMatchDay() {
++        return matchDay;
++    }
++
++    public int getGoalsFor() {
++        return goalsFor;
++    }
++
++    public int getGoalsAgainst() {
++        return goalsAgainst;
++    }
++
++    public int getShots() {
++        return shots;
++    }
++
++    public int getFouls() {
++        return fouls;
++    }
++}
+diff --git a/repository_after/SeasonStats.java b/repository_after/SeasonStats.java
+new file mode 100644
+index 00000000..31f6cf01
+--- /dev/null
++++ b/repository_after/SeasonStats.java
+@@ -0,0 +1,45 @@
++package com.example.gamestats;
++
++import java.util.List;
++
++public class SeasonStats {
++    private final String team;
++    private final int season;
++    private final int matchesPlayed;
++    private final int totalGoalsScored;
++    private final int totalFoulsCommitted;
++    private final List<MatchStats> matchStats;
++
++    public SeasonStats(String team, int season, int matchesPlayed, int totalGoalsScored, int totalFoulsCommitted, List<MatchStats> matchStats) {
++        this.team = team;
++        this.season = season;
++        this.matchesPlayed = matchesPlayed;
++        this.totalGoalsScored = totalGoalsScored;
++        this.totalFoulsCommitted = totalFoulsCommitted;
++        this.matchStats = matchStats;
++    }
++
++    public String getTeam() {
++        return team;
++    }
++
++    public int getSeason() {
++        return season;
++    }
++
++    public int getMatchesPlayed() {
++        return matchesPlayed;
++    }
++
++    public int getTotalGoalsScored() {
++        return totalGoalsScored;
++    }
++
++    public int getTotalFoulsCommitted() {
++        return totalFoulsCommitted;
++    }
++
++    public List<MatchStats> getMatchStats() {
++        return matchStats;
++    }
++}
