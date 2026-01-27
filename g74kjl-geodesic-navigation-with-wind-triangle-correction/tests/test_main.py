@@ -125,3 +125,71 @@ def test_zero_wind_heading_equals_course_and_gs_equals_tas():
     assert heading == pytest.approx(_normalize_degrees_0_360(course), abs=1e-12)
     assert gs == pytest.approx(tas, abs=1e-12)
     assert wca == pytest.approx(0.0, abs=1e-12)
+
+
+def test_magnetic_heading_applies_variation_and_normalizes():
+    # Exercises magnetic_heading_deg and non-zero magnetic_variation_deg.
+    # Convention documented in code: East positive, West negative.
+    start = Waypoint(0.0, 0.0)
+    end = Waypoint(1.0, 0.0)  # due north => true course ~ 0 deg
+
+    wind = Wind(speed=0.0, direction_from_deg=123.0)  # ignored when speed=0
+
+    fp_east = NavigationUtils.compute_flight_parameters(
+        start,
+        end,
+        tas=100.0,
+        wind=wind,
+        magnetic_variation_deg=15.0,
+    )
+
+    assert fp_east.initial_true_course_deg == pytest.approx(0.0, abs=1e-6)
+    assert fp_east.true_heading_deg == pytest.approx(0.0, abs=1e-6)
+    # Magnetic heading = True - variation, normalized
+    assert fp_east.magnetic_heading_deg == pytest.approx(345.0, abs=1e-6)
+
+    fp_west = NavigationUtils.compute_flight_parameters(
+        start,
+        end,
+        tas=100.0,
+        wind=wind,
+        magnetic_variation_deg=-15.0,
+    )
+    assert fp_west.magnetic_heading_deg == pytest.approx(15.0, abs=1e-6)
+
+
+def test_drift_angle_matches_wind_correction_angle_sign_and_value():
+    # Exercises drift_angle_deg and sign convention between WCA and drift.
+    start = Waypoint(0.0, 0.0)
+    end = Waypoint(0.0, 1.0)  # due east => course ~ 90 deg
+
+    wind = Wind(speed=20.0, direction_from_deg=0.0)  # crosswind for eastbound
+    fp = NavigationUtils.compute_flight_parameters(
+        start,
+        end,
+        tas=100.0,
+        wind=wind,
+        magnetic_variation_deg=0.0,
+    )
+
+    assert fp.initial_true_course_deg == pytest.approx(90.0, abs=1e-6)
+    assert fp.true_heading_deg < fp.initial_true_course_deg
+
+    # For this implementation: heading = course + WCA, so drift == WCA.
+    assert fp.wind_correction_angle_deg == pytest.approx(-11.536, abs=0.05)
+    assert fp.drift_angle_deg == pytest.approx(fp.wind_correction_angle_deg, abs=1e-9)
+
+
+def test_extreme_crosswind_saturates_wind_correction_angle():
+    # Edge condition: crosswind > TAS, WCA clamps to +/- 90 degrees.
+    course = 90.0
+    tas = 50.0
+    wind = Wind(speed=200.0, direction_from_deg=0.0)  # strong crosswind
+
+    heading, gs, wca = NavigationUtils.wind_triangle(course, tas, wind)
+
+    assert wca == pytest.approx(-90.0, abs=1e-9)
+    assert heading == pytest.approx(0.0, abs=1e-9)
+    assert 0.0 <= heading < 360.0
+    # With WCA at 90deg, along-track ground speed collapses to ~0.
+    assert gs == pytest.approx(0.0, abs=1e-9)
