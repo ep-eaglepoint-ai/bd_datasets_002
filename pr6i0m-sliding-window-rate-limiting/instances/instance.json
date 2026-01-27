@@ -1,5 +1,5 @@
 {
-            "instance_id": "PR6I0M",
+            "instance_id": "pr6i0m-sliding-window-rate-limiting",
             "problem_statement": "In high-traffic services that serve many independent clients, uncontrolled request rates can quickly exhaust shared resources, degrade latency, or cause system-wide failures. A mechanism is therefore needed to limit how frequently each client may issue requests while still allowing normal usage patterns to proceed uninterrupted. Because requests arrive concurrently and continuously over time, the solution must evaluate only recent activity using a sliding time window, operate safely under concurrency, and scale to a large client population without relying on global locks or unbounded memory. Without such a function, even well-designed services remain vulnerable to accidental overload, noisy neighbors, and unpredictable performance under peak load.",
             "base_commit": "repository_before/",
             "test_patch": "tests/",

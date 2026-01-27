@@ -1,6 +1,29 @@
+# 1. This volume caches Maven downloads so builds are fast
+volumes:
+  maven_data:
+
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      # Mount Maven Cache
+      - maven_data:/root/.m2
+      
+      # Mount the RateLimiter code
+      - ./repository_after:/app/src/main/java/com/example/ratelimiter
+      
+      # Mount the Test
+      - ./tests/RateLimiterTest.java:/app/src/test/java/com/example/ratelimiter/RateLimiterTest.java
+    command: mvn test
+
+  evaluation:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./instances:/app/instances
+      - ./evaluation/Evaluation.java:/app/src/main/java/com/example/evaluation/Evaluation.java
+    command: sh -c "mvn clean compile exec:java -Dexec.mainClass=com.example.evaluation.Evaluation"
