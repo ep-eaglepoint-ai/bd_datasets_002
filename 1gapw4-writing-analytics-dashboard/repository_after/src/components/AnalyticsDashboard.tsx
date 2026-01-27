@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '@/lib/store';
-import { Line, Bar, Pie } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,10 +11,13 @@ import {
   LineElement,
   BarElement,
   ArcElement,
+  RadialLinearScale,
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from 'chart.js';
+import AdvancedVisualizations from './AdvancedVisualizations';
 
 ChartJS.register(
   CategoryScale,
@@ -23,13 +26,21 @@ ChartJS.register(
   LineElement,
   BarElement,
   ArcElement,
+  RadialLinearScale,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 export default function AnalyticsDashboard() {
-  const { currentDocument, analytics, exportData } = useStore();
+  const { currentDocument, analytics, exportData, productivityMetrics, stylisticEvolution, computeProductivityMetrics, computeStylisticEvolution } = useStore();
+  const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
+
+  useEffect(() => {
+    computeProductivityMetrics();
+    computeStylisticEvolution();
+  }, [analytics, computeProductivityMetrics, computeStylisticEvolution]);
 
   const docAnalytics = currentDocument ? analytics.get(currentDocument.id) : null;
 
@@ -252,24 +263,121 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
-      {/* Charts */}
-      {readabilityData && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Readability Visualization</h3>
-          <Bar
-            data={readabilityData}
-            options={{
-              responsive: true,
-              plugins: {
-                legend: { display: false },
-                title: { display: true, text: 'Readability Metrics Comparison' }
-              },
-              scales: {
-                y: { beginAtZero: true }
-              }
-            }}
-          />
+      {/* Tab Navigation */}
+      <div className="bg-white rounded-lg shadow-md p-2 mb-6">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setActiveTab('basic')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'basic'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            📊 Basic Analytics
+          </button>
+          <button
+            onClick={() => setActiveTab('advanced')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'advanced'
+                ? 'bg-purple-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            🔬 Advanced Analytics
+          </button>
         </div>
+      </div>
+
+      {activeTab === 'basic' && (
+        <>
+          {/* Charts */}
+          {readabilityData && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-4">Readability Visualization</h3>
+              <Bar
+                data={readabilityData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Readability Metrics Comparison' }
+                  },
+                  scales: {
+                    y: { beginAtZero: true }
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* Uncertainty Indicators (Requirement #23) */}
+          {docAnalytics?.uncertaintyIndicators && (
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <h3 className="text-lg font-semibold mb-4">⚠️ Confidence & Reliability</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <div className="text-sm text-gray-600">Sentiment Confidence</div>
+                  <div className={`text-2xl font-bold ${
+                    docAnalytics.uncertaintyIndicators.sentimentConfidence > 0.7 ? 'text-green-600' :
+                    docAnalytics.uncertaintyIndicators.sentimentConfidence > 0.4 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {Math.round(docAnalytics.uncertaintyIndicators.sentimentConfidence * 100)}%
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <div className="text-sm text-gray-600">Readability Confidence</div>
+                  <div className={`text-2xl font-bold ${
+                    docAnalytics.uncertaintyIndicators.readabilityConfidence > 0.7 ? 'text-green-600' :
+                    docAnalytics.uncertaintyIndicators.readabilityConfidence > 0.4 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {Math.round(docAnalytics.uncertaintyIndicators.readabilityConfidence * 100)}%
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <div className="text-sm text-gray-600">Topic Confidence</div>
+                  <div className={`text-2xl font-bold ${
+                    docAnalytics.uncertaintyIndicators.topicConfidence > 0.7 ? 'text-green-600' :
+                    docAnalytics.uncertaintyIndicators.topicConfidence > 0.4 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {Math.round(docAnalytics.uncertaintyIndicators.topicConfidence * 100)}%
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <div className="text-sm text-gray-600">Overall Reliability</div>
+                  <div className={`text-2xl font-bold ${
+                    docAnalytics.uncertaintyIndicators.overallReliability > 0.7 ? 'text-green-600' :
+                    docAnalytics.uncertaintyIndicators.overallReliability > 0.4 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {Math.round(docAnalytics.uncertaintyIndicators.overallReliability * 100)}%
+                  </div>
+                </div>
+              </div>
+              {docAnalytics.uncertaintyIndicators.warnings.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h4 className="font-medium text-yellow-800 mb-2">⚠️ Warnings</h4>
+                  <ul className="text-sm text-yellow-700 space-y-1">
+                    {docAnalytics.uncertaintyIndicators.warnings.map((warning: string, i: number) => (
+                      <li key={i}>• {warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-4">
+                Confidence scores indicate how reliable the analytics are based on text length and complexity. 
+                Longer texts generally produce more reliable metrics.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'advanced' && (
+        <AdvancedVisualizations
+          analytics={docAnalytics}
+          stylisticEvolution={stylisticEvolution}
+          productivityMetrics={productivityMetrics}
+        />
       )}
     </div>
   );

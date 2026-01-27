@@ -1,7 +1,10 @@
 import { create } from 'zustand';
-import { Document, AnalyticsResult, Annotation, Snapshot } from './types';
+import { Document, AnalyticsResult, Annotation, Snapshot, ProductivityMetrics, StylisticEvolution } from './types';
 import * as storage from './storage';
 import * as analysis from './textAnalysis';
+import * as advancedAnalysis from './advancedAnalysis';
+import * as comprehensiveAnalytics from './comprehensiveAnalytics';
+import * as csvExport from './csvExport';
 
 // Analytics cache for memoization
 const analyticsCache = new Map<string, { content: string; result: AnalyticsResult }>();
@@ -11,14 +14,33 @@ let batchQueue: Array<() => Promise<void>> = [];
 let batchTimeout: NodeJS.Timeout | null = null;
 const BATCH_DELAY = 100; // ms
 
+// Web Worker instance for heavy processing
+let analyticsWorker: Worker | null = null;
+
+function getAnalyticsWorker(): Worker | null {
+  if (typeof window === 'undefined') return null;
+  if (!analyticsWorker) {
+    try {
+      analyticsWorker = new Worker('/analytics.worker.js');
+    } catch (e) {
+      console.warn('Failed to create analytics worker:', e);
+      return null;
+    }
+  }
+  return analyticsWorker;
+}
+
 interface AppState {
   documents: Document[];
   currentDocument: Document | null;
   analytics: Map<string, AnalyticsResult>;
   annotations: Map<string, Annotation[]>;
   snapshots: Map<string, Snapshot[]>;
+  productivityMetrics: ProductivityMetrics | null;
+  stylisticEvolution: StylisticEvolution | null;
   loading: boolean;
   error: string | null;
+  workerProgress: { completed: number; total: number } | null;
 
   loadDocuments: () => Promise<void>;
   addDocument: (doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -26,10 +48,16 @@ interface AppState {
   deleteDocument: (id: string) => Promise<void>;
   setCurrentDocument: (doc: Document | null) => void;
   analyzeDocument: (documentId: string, force?: boolean) => Promise<void>;
+  analyzeDocumentWithWorker: (documentId: string) => Promise<void>;
   addAnnotation: (documentId: string, content: string) => Promise<void>;
   createSnapshot: (documentId: string) => Promise<void>;
   loadSnapshots: (documentId: string) => Promise<void>;
+  computeProductivityMetrics: () => void;
+  computeStylisticEvolution: () => void;
   exportData: () => Promise<string>;
+  exportLongitudinalReport: () => string;
+  exportVisualizationData: () => string;
+  exportDocumentCSV: (documentId: string) => string | null;
   batchOperation: (operation: () => Promise<void>) => void;
   flushBatch: () => Promise<void>;
 }
@@ -40,8 +68,11 @@ export const useStore = create<AppState>((set, get) => ({
   analytics: new Map(),
   annotations: new Map(),
   snapshots: new Map(),
+  productivityMetrics: null,
+  stylisticEvolution: null,
   loading: false,
   error: null,
+  workerProgress: null,
 
   loadDocuments: async () => {
     set({ loading: true, error: null });
@@ -157,20 +188,84 @@ export const useStore = create<AppState>((set, get) => ({
         return;
       }
 
+      // Basic metrics
       const basicMetrics = analysis.countBasicMetrics(doc.content);
-      const sentiment = analysis.analyzeSentiment(doc.content);
-      const readability = analysis.calculateReadability(doc.content);
+      
+      // Advanced sentiment analysis (Requirement #4)
+      const advancedSentiment = comprehensiveAnalytics.analyzeAdvancedSentiment(doc.content);
+      
+      // Enhanced readability with edge cases (Requirement #6)
+      const readability = comprehensiveAnalytics.calculateEnhancedReadability(doc.content);
+      
+      // Lexical richness with advanced metrics
       const lexicalRichness = analysis.calculateLexicalRichness(doc.content);
+      const advancedLexical = advancedAnalysis.calculateAdvancedLexicalMetrics(doc.content);
+      
+      // Advanced sentence structure (Requirement #7)
+      const advancedSyntax = comprehensiveAnalytics.analyzeAdvancedSentenceStructure(doc.content);
+      
+      // Style metrics with rhythm and function words
       const styleMetrics = analysis.analyzeStyleMetrics(doc.content);
+      
+      // Stylistic fingerprint (Requirement #8)
+      const stylisticFingerprint = comprehensiveAnalytics.computeStylisticFingerprint(doc.content);
+      
+      // Grammar patterns (Requirement #11)
+      const grammarMetrics = comprehensiveAnalytics.analyzeGrammarPatternsComprehensive(doc.content);
+      
+      // Topic analysis (Requirement #9)
+      const keywords = analysis.extractKeywords(doc.content);
+      const topicAnalysis = comprehensiveAnalytics.analyzeTopics(doc.content, keywords);
+      
+      // Repetition analysis (Requirement #10)
+      const repetitionAnalysis = comprehensiveAnalytics.analyzeRepetition(doc.content);
+      
+      // Uncertainty indicators (Requirement #23)
+      const partialResult = { 
+        sentiment: { 
+          ...advancedSentiment, 
+          polarity: advancedSentiment.polarity as 'positive' | 'negative' | 'neutral' 
+        }, 
+        readability 
+      };
+      const uncertaintyIndicators = comprehensiveAnalytics.calculateUncertaintyIndicators(doc.content, partialResult);
 
       const analyticsResult: AnalyticsResult = {
         documentId,
         timestamp: Date.now(),
         ...basicMetrics,
-        sentiment,
+        sentiment: {
+          ...advancedSentiment,
+          polarity: advancedSentiment.polarity as 'positive' | 'negative' | 'neutral',
+        },
         readability,
-        lexicalRichness,
-        styleMetrics,
+        lexicalRichness: {
+          ...lexicalRichness,
+          movingAverageTTR: (advancedLexical as { movingAverageTTR?: number }).movingAverageTTR || lexicalRichness.typeTokenRatio,
+          repetitionRate: advancedLexical.repetitionRate,
+          rareWordUsage: advancedLexical.rareWordUsage,
+        },
+        styleMetrics: {
+          ...styleMetrics,
+          clauseDepth: advancedSyntax.clauseDepth,
+          coordinationFrequency: advancedSyntax.coordinationFrequency,
+          syntacticVariation: advancedSyntax.syntacticVariation,
+          rhythmPatterns: stylisticFingerprint.rhythmPatterns,
+          functionWordRatio: (Object.values(stylisticFingerprint.functionWordProfile) as number[]).reduce((a, b) => a + b, 0),
+          sentenceLengthDistribution: advancedSyntax.sentenceLengthDistribution,
+        },
+        grammarMetrics,
+        topicAnalysis: {
+          keywords,
+          dominantTopics: topicAnalysis.dominantTopics,
+          nGrams: topicAnalysis.nGrams,
+        },
+        repetitionAnalysis,
+        stylisticFingerprint,
+        uncertaintyIndicators,
+        keywords,
+        nGrams: topicAnalysis.nGrams,
+        repeatedPhrases: repetitionAnalysis.repeatedPhrases,
       };
 
       // Cache the result
@@ -186,9 +281,67 @@ export const useStore = create<AppState>((set, get) => ({
       
       // Automatically create snapshot after analytics recalculation
       await get().createSnapshot(documentId);
+      
+      // Update productivity metrics after new analysis
+      get().computeProductivityMetrics();
     } catch (error) {
       set({ error: (error as Error).message });
     }
+  },
+
+  analyzeDocumentWithWorker: async (documentId) => {
+    const worker = getAnalyticsWorker();
+    if (!worker) {
+      // Fallback to synchronous analysis
+      return get().analyzeDocument(documentId, true);
+    }
+
+    const doc = get().documents.find(d => d.id === documentId);
+    if (!doc) {
+      set({ error: 'Document not found' });
+      return;
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const handleMessage = (e: MessageEvent) => {
+        const { type, payload } = e.data;
+        
+        if (type === 'ANALYSIS_COMPLETE' && payload.documentId === documentId) {
+          worker.removeEventListener('message', handleMessage);
+          
+          const analyticsResult: AnalyticsResult = {
+            documentId,
+            timestamp: Date.now(),
+            ...payload.result,
+          };
+
+          analyticsCache.set(documentId, { content: doc.content, result: analyticsResult });
+
+          set(state => {
+            const newAnalytics = new Map(state.analytics);
+            newAnalytics.set(documentId, analyticsResult);
+            return { analytics: newAnalytics, workerProgress: null };
+          });
+
+          storage.saveAnalytics(analyticsResult).then(() => {
+            get().computeProductivityMetrics();
+            resolve();
+          });
+        } else if (type === 'ANALYSIS_ERROR' && payload.documentId === documentId) {
+          worker.removeEventListener('message', handleMessage);
+          set({ error: payload.error, workerProgress: null });
+          reject(new Error(payload.error));
+        } else if (type === 'BATCH_PROGRESS') {
+          set({ workerProgress: payload });
+        }
+      };
+
+      worker.addEventListener('message', handleMessage);
+      worker.postMessage({
+        type: 'ANALYZE_TEXT',
+        payload: { documentId, content: doc.content }
+      });
+    });
   },
 
   addAnnotation: async (documentId, content) => {
@@ -285,5 +438,42 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (error) {
       throw new Error(`Export failed: ${(error as Error).message}`);
     }
+  },
+
+  computeProductivityMetrics: () => {
+    const { documents, analytics } = get();
+    const productivityMetrics = comprehensiveAnalytics.calculateProductivityMetrics(documents, analytics);
+    set({ productivityMetrics });
+  },
+
+  computeStylisticEvolution: () => {
+    const { documents, analytics } = get();
+    const stylisticEvolution = comprehensiveAnalytics.trackStylisticEvolution(documents, analytics);
+    set({ stylisticEvolution });
+  },
+
+  exportLongitudinalReport: () => {
+    const { documents, analytics, productivityMetrics, stylisticEvolution } = get();
+    const topicAnalysis = comprehensiveAnalytics.detectTopicDrift(documents, analytics);
+    return csvExport.exportLongitudinalReportCSV(
+      documents,
+      analytics,
+      productivityMetrics,
+      stylisticEvolution,
+      topicAnalysis
+    );
+  },
+
+  exportVisualizationData: () => {
+    const { productivityMetrics, stylisticEvolution } = get();
+    return csvExport.exportVisualizationDataCSV(productivityMetrics, stylisticEvolution);
+  },
+
+  exportDocumentCSV: (documentId: string) => {
+    const { documents, analytics } = get();
+    const doc = documents.find((d: Document) => d.id === documentId);
+    const docAnalytics = analytics.get(documentId);
+    if (!doc || !docAnalytics) return null;
+    return csvExport.exportDocumentAnalyticsCSV(doc, docAnalytics);
   },
 }));

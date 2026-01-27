@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Document, AnalyticsResult } from '@/lib/types';
+import { useState, useMemo } from 'react';
+import { Document, AnalyticsResult, LengthBand, Genre } from '@/lib/types';
+import { getLengthBand } from '@/lib/comprehensiveAnalytics';
 
 interface FilterCriteria {
   sentimentRange: [number, number];
@@ -10,6 +11,13 @@ interface FilterCriteria {
   dateRange: [number | null, number | null];
   project: string;
   tags: string[];
+  // Requirement #16: Advanced Filters
+  genre: Genre | '';
+  lengthBand: LengthBand | '';
+  clauseDepthRange: [number, number];
+  syntacticVariationRange: [number, number];
+  topicCluster: string;
+  volatilityRange: [number, number];
 }
 
 interface AdvancedFiltersProps {
@@ -31,10 +39,26 @@ export default function AdvancedFilters({
     dateRange: [null, null],
     project: '',
     tags: [],
+    genre: '',
+    lengthBand: '',
+    clauseDepthRange: [0, 10],
+    syntacticVariationRange: [0, 50],
+    topicCluster: '',
+    volatilityRange: [0, 1],
   });
 
   const allProjects = [...new Set(documents.map(d => d.project).filter(Boolean))];
   const allTags = [...new Set(documents.flatMap(d => d.tags || []))];
+  const allGenres = [...new Set(documents.map(d => d.genre).filter(Boolean))] as Genre[];
+
+  // Extract all topic clusters from analytics
+  const allTopicClusters = useMemo(() => {
+    const topics = new Set<string>();
+    analytics.forEach(a => {
+      a.topicAnalysis?.dominantTopics?.forEach(t => topics.add(t.topic));
+    });
+    return Array.from(topics);
+  }, [analytics]);
 
   const applyFilters = () => {
     const filtered = documents.filter(doc => {
@@ -58,6 +82,40 @@ export default function AdvancedFilters({
         if (wordCount < filters.wordCountRange[0] || wordCount > filters.wordCountRange[1]) {
           return false;
         }
+
+        // Length band filter (Requirement #16)
+        if (filters.lengthBand) {
+          const docLengthBand = getLengthBand(wordCount);
+          if (docLengthBand !== filters.lengthBand) {
+            return false;
+          }
+        }
+
+        // Clause depth filter (Requirement #16)
+        const clauseDepth = docAnalytics.styleMetrics.clauseDepth || 1;
+        if (clauseDepth < filters.clauseDepthRange[0] || clauseDepth > filters.clauseDepthRange[1]) {
+          return false;
+        }
+
+        // Syntactic variation filter (Requirement #16)
+        const syntacticVariation = docAnalytics.styleMetrics.syntacticVariation || 0;
+        if (syntacticVariation < filters.syntacticVariationRange[0] || syntacticVariation > filters.syntacticVariationRange[1]) {
+          return false;
+        }
+
+        // Topic cluster filter (Requirement #16)
+        if (filters.topicCluster) {
+          const docTopics = docAnalytics.topicAnalysis?.dominantTopics?.map(t => t.topic) || [];
+          if (!docTopics.includes(filters.topicCluster)) {
+            return false;
+          }
+        }
+
+        // Volatility filter (Requirement #16)
+        const volatility = docAnalytics.sentiment.volatility || 0;
+        if (volatility < filters.volatilityRange[0] || volatility > filters.volatilityRange[1]) {
+          return false;
+        }
       }
 
       // Date filter
@@ -70,6 +128,11 @@ export default function AdvancedFilters({
 
       // Project filter
       if (filters.project && doc.project !== filters.project) {
+        return false;
+      }
+
+      // Genre filter (Requirement #16)
+      if (filters.genre && doc.genre !== filters.genre) {
         return false;
       }
 
@@ -95,6 +158,12 @@ export default function AdvancedFilters({
       dateRange: [null, null],
       project: '',
       tags: [],
+      genre: '',
+      lengthBand: '',
+      clauseDepthRange: [0, 10],
+      syntacticVariationRange: [0, 50],
+      topicCluster: '',
+      volatilityRange: [0, 1],
     });
     onFilterChange(documents);
   };
@@ -286,6 +355,140 @@ export default function AdvancedFilters({
               </div>
             </div>
           )}
+
+          {/* Genre Filter (Requirement #16) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Genre
+            </label>
+            <select
+              value={filters.genre}
+              onChange={(e) => setFilters({ ...filters, genre: e.target.value as Genre | '' })}
+              className="w-full p-2 border border-gray-300 rounded"
+            >
+              <option value="">All Genres</option>
+              <option value="fiction">Fiction</option>
+              <option value="non-fiction">Non-Fiction</option>
+              <option value="academic">Academic</option>
+              <option value="technical">Technical</option>
+              <option value="creative">Creative</option>
+              <option value="journal">Journal</option>
+              <option value="article">Article</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Length Band Filter (Requirement #16) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Length Band
+            </label>
+            <select
+              value={filters.lengthBand}
+              onChange={(e) => setFilters({ ...filters, lengthBand: e.target.value as LengthBand | '' })}
+              className="w-full p-2 border border-gray-300 rounded"
+            >
+              <option value="">All Lengths</option>
+              <option value="micro">Micro (&lt;100 words)</option>
+              <option value="short">Short (100-500 words)</option>
+              <option value="medium">Medium (500-2000 words)</option>
+              <option value="long">Long (2000-5000 words)</option>
+              <option value="extended">Extended (5000+ words)</option>
+            </select>
+          </div>
+
+          {/* Topic Cluster Filter (Requirement #16) */}
+          {allTopicClusters.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Topic Cluster
+              </label>
+              <select
+                value={filters.topicCluster}
+                onChange={(e) => setFilters({ ...filters, topicCluster: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded"
+              >
+                <option value="">All Topics</option>
+                {allTopicClusters.map(topic => (
+                  <option key={topic} value={topic}>{topic}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Clause Depth Range (Requirement #16) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Clause Depth Range
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="0.5"
+                value={filters.clauseDepthRange[0]}
+                onChange={(e) => setFilters({
+                  ...filters,
+                  clauseDepthRange: [parseFloat(e.target.value), filters.clauseDepthRange[1]]
+                })}
+                className="flex-1"
+              />
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="0.5"
+                value={filters.clauseDepthRange[1]}
+                onChange={(e) => setFilters({
+                  ...filters,
+                  clauseDepthRange: [filters.clauseDepthRange[0], parseFloat(e.target.value)]
+                })}
+                className="flex-1"
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>Min: {filters.clauseDepthRange[0]}</span>
+              <span>Max: {filters.clauseDepthRange[1]}</span>
+            </div>
+          </div>
+
+          {/* Sentiment Volatility Range (Requirement #16) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Sentiment Volatility Range
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={filters.volatilityRange[0]}
+                onChange={(e) => setFilters({
+                  ...filters,
+                  volatilityRange: [parseFloat(e.target.value), filters.volatilityRange[1]]
+                })}
+                className="flex-1"
+              />
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={filters.volatilityRange[1]}
+                onChange={(e) => setFilters({
+                  ...filters,
+                  volatilityRange: [filters.volatilityRange[0], parseFloat(e.target.value)]
+                })}
+                className="flex-1"
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>Stable ({filters.volatilityRange[0].toFixed(1)})</span>
+              <span>Volatile ({filters.volatilityRange[1].toFixed(1)})</span>
+            </div>
+          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2">
