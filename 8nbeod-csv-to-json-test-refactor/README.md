@@ -47,3 +47,53 @@
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
+
+## Folder Layout
+
+- `repository_before/`: Original tests (dependent on live server/env)
+- `repository_after/`: Refactored tests (fully mocked/isolated)
+- `evaluation/`: Scripts to compare implementations
+- `trajectory/`: Log of the refactoring process
+
+## Run with Docker
+
+### Build Image
+```bash
+docker compose build
+```
+
+### Repository Before (Expected to FAIL in isolation)
+```bash
+docker compose run --rm app python repository_before/test_csv_to_json.py
+```
+
+### Repository After (Expected to PASS)
+```bash
+docker compose run --rm app python repository_after/test_csv_to_json.py
+```
+
+### Run Evaluation
+```bash
+docker compose run --rm app python evaluation/evaluation.py
+```
+
+## Run Locally
+
+### Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Run Tests
+```bash
+# Before
+python repository_before/test_csv_to_json.py
+
+# After
+python repository_after/test_csv_to_json.py
+```
+
+### Run Evaluation
+```bash
+python evaluation/evaluation.py
+```
