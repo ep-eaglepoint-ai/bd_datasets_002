@@ -1,11 +1,24 @@
 {
-            "instance_id": "SGM01W",
-            "problem_statement": "The project requires a high-performance, isomorphic state management system for user personalization. The challenge is ensuring that UI settings are available to the server during the rendering phase (via Cookies), persisted on the client (via LocalStorage), and synchronized to a central database (via Nitro API) while maintaining strict type safety and cross-tab reactivity.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sgm01w-nuxtpreferencemanagerwithnitro",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "SGM01W",
+  "problem_statement": "The project requires a high-performance, isomorphic state management system for user personalization. The challenge is ensuring that UI settings are available to the server during the rendering phase (via Cookies), persisted on the client (via LocalStorage), and synchronized to a central database (via Nitro API) while maintaining strict type safety and cross-tab reactivity.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sgm01w-nuxtpreferencemanagerwithnitro",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "test_requirements.ts::SSR initialization parses cookie and resolves theme correctly",
+    "test_requirements.ts::updatePreference performs optimistic update and triggers async sync",
+    "test_requirements.ts::Malformed cookie JSON falls back to default preferences",
+    "test_requirements.ts::Backend /api/settings/sync validates and persists data",
+    "test_requirements.ts::BroadcastChannel notifies listeners of updates",
+    "test_requirements.ts::System theme respects systemPrefersDark flag"
+  ],
+  "PASS_TO_PASS": [
+    "test_requirements.ts::SSR initialization parses cookie and resolves theme correctly",
+    "test_requirements.ts::updatePreference performs optimistic update and triggers async sync",
+    "test_requirements.ts::Malformed cookie JSON falls back to default preferences",
+    "test_requirements.ts::Backend /api/settings/sync validates and persists data",
+    "test_requirements.ts::BroadcastChannel notifies listeners of updates",
+    "test_requirements.ts::System theme respects systemPrefersDark flag"
+  ]
+}
