@@ -115,6 +115,7 @@ async function startServer(dirName, port) {
         cwd: path.join(process.cwd(), dirName),
         shell: true,
         stdio: 'inherit',
+        detached: true, // Allow killing the entire process group
         env: { ...process.env, PORT: port.toString(), BROWSER: 'none', CI: 'true' }
     });
 
@@ -133,11 +134,26 @@ async function runTestsAndParse(repositoryName, port) {
     console.log(`${'='.repeat(60)}\n`);
 
     // Start Server
-    const serverProc = await startServer(repositoryName, port);
+    let serverProc = null;
+    try {
+        serverProc = await startServer(repositoryName, port);
+    } catch (e) {
+        console.error("Failed to start server process:", e);
+        return { success: false, exit_code: 1, tests: [], summary: { failed: 1 }, duration_seconds: 0 };
+    }
+
     const ready = await waitForServer(port);
     if (!ready) {
         console.error("Skipping tests because server didn't start.");
-        await killPort(port);
+        if (serverProc) {
+            try {
+                process.kill(-serverProc.pid);
+            } catch (e) {
+                await killPort(port);
+            }
+        } else {
+            await killPort(port);
+        }
         return {
             success: false,
             exit_code: 1,
@@ -187,6 +203,18 @@ async function runTestsAndParse(repositoryName, port) {
 
         stdout += jestOutput;
 
+        // CRITICAL: Log Jest output to see failures in CI
+        // Extract the JSON part if mixed with other output, or just log the whole thing if it's mostly JSON
+        // For debugging, we log the raw output (which might be large, but necessary)
+        console.log("----- JEST OUTPUT START -----");
+        console.log(jestOutput);
+        console.log("----- JEST OUTPUT END -----");
+        if (stderr) {
+            console.error("----- JEST STDERR START -----");
+            console.error(stderr);
+            console.error("----- JEST STDERR END -----");
+        }
+
         try {
             const results = JSON.parse(jestOutput);
 
@@ -224,7 +252,20 @@ async function runTestsAndParse(repositoryName, port) {
         summary.errors++;
     }
 
-    // Stop Server
+    // Stop Server (Robust Kill)
+    if (serverProc) {
+        console.log(`Stopping server process (PID ${serverProc.pid})...`);
+        try {
+            // Kill process group (works on Linux/Unix)
+            process.kill(-serverProc.pid);
+        } catch (e) {
+            // Fallback for Windows or if group kill fails
+            try {
+                serverProc.kill();
+            } catch (e2) { }
+        }
+    }
+    // Double check port
     await killPort(port);
 
     const duration = (Date.now() - startTime) / 1000;
