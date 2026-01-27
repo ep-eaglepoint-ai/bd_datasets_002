@@ -18,7 +18,7 @@ RUN mkdir -p src/test/java/com/example/gamestats
 
 # Copy the Test file into the image
 # Adapting to our test file
-COPY tests/JavaTestRunner.java src/test/java/com/example/gamestats/
+COPY tests/FootballSeasonStatsTest.java src/test/java/com/example/gamestats/
 
 # Copy the evaluation script
 COPY evaluation/evaluation.py evaluation.py
