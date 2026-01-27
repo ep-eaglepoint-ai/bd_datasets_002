@@ -1,0 +1,11 @@
+{
+            "instance_id": "WH96IX",
+            "problem_statement": "Managing library books and borrower records manually is time-consuming and error-prone, especially when tracking due dates, availability, and overdue items. There is a need for a web-based system that allows librarians to efficiently manage books and users while enabling borrowers to easily search, borrow, and return books. This project aims to develop a full-stack Library Management System using the SvelteKit framework to automate book management, borrowing processes, and due-date tracking through a secure and user-friendly application.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wh96ix-library-management-system-using-sveltekit",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
