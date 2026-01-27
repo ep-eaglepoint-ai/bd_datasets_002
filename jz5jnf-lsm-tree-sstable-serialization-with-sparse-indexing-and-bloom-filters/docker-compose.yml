@@ -1,6 +1,18 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
+    command: go test -v ./tests/...
     volumes:
       - .:/app
+    working_dir: /app
+    environment:
+      - GO111MODULE=on
+
+  evaluation:
+    build: .
+    command: go run ./evaluation/evaluation.go
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - GO111MODULE=on

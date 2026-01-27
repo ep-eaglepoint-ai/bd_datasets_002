@@ -9,3 +9,24 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Go build artifacts
+bin/
+pkg/
+*.exe
+*.out
+*.test
+
+# Logs and temp files
+*.log
+logs/
+*.tmp
+*.swp
+
+# Generic build artifacts
+dist/
+build/
+coverage.*
+
+# Keep evaluation reports tracked
+!evaluation/reports/**

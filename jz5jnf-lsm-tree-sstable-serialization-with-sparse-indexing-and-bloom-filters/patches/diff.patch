@@ -1,0 +1,622 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29b..00000000
+diff --git a/repository_after/memtable.go b/repository_after/memtable.go
+new file mode 100644
+index 00000000..3a08703b
+--- /dev/null
++++ b/repository_after/memtable.go
+@@ -0,0 +1,292 @@
++package repository_after
++
++import (
++	"bufio"
++	"encoding/binary"
++	"fmt"
++	"io"
++	"os"
++	"sort"
++	"sync"
++)
++
++const (
++	// MagicNumber is a fixed identifier at the end of SSTable files
++	MagicNumber = 0x4C534D54 // "LSMT" in ASCII
++)
++
++// MemTable is a concurrent-safe in-memory sorted key-value store
++type MemTable struct {
++	mu   sync.RWMutex
++	data map[string][]byte
++}
++
++// NewMemTable creates a new empty MemTable
++func NewMemTable() *MemTable {
++	return &MemTable{
++		data: make(map[string][]byte),
++	}
++}
++
++// Put inserts or updates a key-value pair
++func (mt *MemTable) Put(key string, value []byte) {
++	mt.mu.Lock()
++	defer mt.mu.Unlock()
++	mt.data[key] = value
++}
++
++// Get retrieves a value by key
++func (mt *MemTable) Get(key string) ([]byte, bool) {
++	mt.mu.RLock()
++	defer mt.mu.RUnlock()
++	value, exists := mt.data[key]
++	return value, exists
++}
++
++// Size returns the number of entries in the MemTable
++func (mt *MemTable) Size() int {
++	mt.mu.RLock()
++	defer mt.mu.RUnlock()
++	return len(mt.data)
++}
++
++// getSortedEntries returns all entries sorted by key (requires read lock)
++func (mt *MemTable) getSortedEntries() []entry {
++	entries := make([]entry, 0, len(mt.data))
++	for k, v := range mt.data {
++		entries = append(entries, entry{key: k, value: v})
++	}
++	sort.Slice(entries, func(i, j int) bool {
++		return entries[i].key < entries[j].key
++	})
++	return entries
++}
++
++type entry struct {
++	key   string
++	value []byte
++}
++
++// BloomFilter is a probabilistic data structure for membership testing
++type BloomFilter struct {
++	bitset    []byte
++	size      uint64 // number of bits
++	numHashes int
++}
++
++// NewBloomFilter creates a new Bloom Filter with specified size and number of hash functions
++func NewBloomFilter(size uint64, numHashes int) *BloomFilter {
++	// Calculate number of bytes needed (round up)
++	bytesNeeded := (size + 7) / 8
++	return &BloomFilter{
++		bitset:    make([]byte, bytesNeeded),
++		size:      size,
++		numHashes: numHashes,
++	}
++}
++
++// hash functions using FNV-1a and bit shifts
++func (bf *BloomFilter) hash(key []byte, seed uint32) uint64 {
++	hash := uint64(2166136261) // FNV offset basis
++	for _, b := range key {
++		hash ^= uint64(b)
++		hash *= 16777619 // FNV prime
++	}
++	// Add seed variation for multiple hash functions
++	hash ^= uint64(seed)
++	hash *= 16777619
++	return hash % bf.size
++}
++
++// Add adds a key to the Bloom Filter
++func (bf *BloomFilter) Add(key []byte) {
++	for i := 0; i < bf.numHashes; i++ {
++		pos := bf.hash(key, uint32(i))
++		byteIndex := pos / 8
++		bitIndex := pos % 8
++		bf.bitset[byteIndex] |= (1 << bitIndex)
++	}
++}
++
++// Contains checks if a key might be in the Bloom Filter
++func (bf *BloomFilter) Contains(key []byte) bool {
++	for i := 0; i < bf.numHashes; i++ {
++		pos := bf.hash(key, uint32(i))
++		byteIndex := pos / 8
++		bitIndex := pos % 8
++		if (bf.bitset[byteIndex] & (1 << bitIndex)) == 0 {
++			return false
++		}
++	}
++	return true
++}
++
++// Serialize writes the Bloom Filter bitset to a writer
++func (bf *BloomFilter) Serialize(w io.Writer) error {
++	// Write size in bits (uint64) - this is critical for correct hash calculation
++	if err := binary.Write(w, binary.LittleEndian, bf.size); err != nil {
++		return err
++	}
++	// Write size of bitset in bytes (uint64)
++	if err := binary.Write(w, binary.LittleEndian, uint64(len(bf.bitset))); err != nil {
++		return err
++	}
++	// Write the bitset
++	if _, err := w.Write(bf.bitset); err != nil {
++		return err
++	}
++	return nil
++}
++
++// SparseIndexEntry represents a single entry in the sparse index
++type SparseIndexEntry struct {
++	Offset uint64
++	Key    string
++}
++
++// FlushToSSTable serializes the MemTable to disk as an SSTable
++func (mt *MemTable) FlushToSSTable(filename string, sparseIndexInterval int) error {
++	// Acquire read lock to freeze the MemTable for reading
++	mt.mu.RLock()
++	defer mt.mu.RUnlock()
++
++	// Get sorted entries
++	entries := mt.getSortedEntries()
++	if len(entries) == 0 {
++		return fmt.Errorf("cannot flush empty MemTable")
++	}
++
++	// Create or truncate the file
++	file, err := os.Create(filename)
++	if err != nil {
++		return fmt.Errorf("failed to create file: %w", err)
++	}
++	defer file.Close()
++
++	// Use bufio.Writer for efficient writes
++	writer := bufio.NewWriter(file)
++	defer writer.Flush()
++
++	// Calculate Bloom Filter size (rule of thumb: 10 bits per element)
++	bfSize := uint64(len(entries) * 10)
++	if bfSize < 64 {
++		bfSize = 64 // minimum size
++	}
++	bloomFilter := NewBloomFilter(bfSize, 3)
++
++	// Track current offset in the file
++	var currentOffset uint64 = 0
++	var sparseIndex []SparseIndexEntry
++
++	// Write all entries
++	for i, entry := range entries {
++		// Record offset for sparse index (every Nth entry)
++		if i%sparseIndexInterval == 0 {
++			sparseIndex = append(sparseIndex, SparseIndexEntry{
++				Offset: currentOffset,
++				Key:    entry.key,
++			})
++		}
++
++		// Add to Bloom Filter
++		bloomFilter.Add([]byte(entry.key))
++
++		// Write KeyLength (uint32)
++		keyLen := uint32(len(entry.key))
++		if err := binary.Write(writer, binary.LittleEndian, keyLen); err != nil {
++			return fmt.Errorf("failed to write key length: %w", err)
++		}
++		currentOffset += 4
++
++		// Write Key (bytes)
++		if _, err := writer.Write([]byte(entry.key)); err != nil {
++			return fmt.Errorf("failed to write key: %w", err)
++		}
++		currentOffset += uint64(len(entry.key))
++
++		// Write ValueLength (uint32)
++		valLen := uint32(len(entry.value))
++		if err := binary.Write(writer, binary.LittleEndian, valLen); err != nil {
++			return fmt.Errorf("failed to write value length: %w", err)
++		}
++		currentOffset += 4
++
++		// Write Value (bytes)
++		if _, err := writer.Write(entry.value); err != nil {
++			return fmt.Errorf("failed to write value: %w", err)
++		}
++		currentOffset += uint64(len(entry.value))
++	}
++
++	// Flush buffered writes before calculating offsets
++	if err := writer.Flush(); err != nil {
++		return fmt.Errorf("failed to flush writer: %w", err)
++	}
++
++	// Get current position (start of Bloom Filter)
++	bloomFilterOffset, err := file.Seek(0, io.SeekCurrent)
++	if err != nil {
++		return fmt.Errorf("failed to get file position: %w", err)
++	}
++
++	// Write Bloom Filter
++	if err := bloomFilter.Serialize(writer); err != nil {
++		return fmt.Errorf("failed to serialize Bloom Filter: %w", err)
++	}
++	if err := writer.Flush(); err != nil {
++		return fmt.Errorf("failed to flush after Bloom Filter: %w", err)
++	}
++
++	// Get current position (start of Sparse Index)
++	sparseIndexOffset, err := file.Seek(0, io.SeekCurrent)
++	if err != nil {
++		return fmt.Errorf("failed to get file position: %w", err)
++	}
++
++	// Write Sparse Index
++	// First write the number of index entries (uint32)
++	numEntries := uint32(len(sparseIndex))
++	if err := binary.Write(writer, binary.LittleEndian, numEntries); err != nil {
++		return fmt.Errorf("failed to write sparse index count: %w", err)
++	}
++
++	// Write each index entry: [Offset (uint64)][KeyLength (uint32)][Key (bytes)]
++	for _, idxEntry := range sparseIndex {
++		// Write Offset
++		if err := binary.Write(writer, binary.LittleEndian, idxEntry.Offset); err != nil {
++			return fmt.Errorf("failed to write index offset: %w", err)
++		}
++		// Write KeyLength
++		keyLen := uint32(len(idxEntry.Key))
++		if err := binary.Write(writer, binary.LittleEndian, keyLen); err != nil {
++			return fmt.Errorf("failed to write index key length: %w", err)
++		}
++		// Write Key
++		if _, err := writer.Write([]byte(idxEntry.Key)); err != nil {
++			return fmt.Errorf("failed to write index key: %w", err)
++		}
++	}
++
++	// Flush before writing footer
++	if err := writer.Flush(); err != nil {
++		return fmt.Errorf("failed to flush after sparse index: %w", err)
++	}
++
++	// Write Footer: [BloomFilterOffset (uint64)][SparseIndexOffset (uint64)][MagicNumber (uint32)]
++	if err := binary.Write(writer, binary.LittleEndian, uint64(bloomFilterOffset)); err != nil {
++		return fmt.Errorf("failed to write Bloom Filter offset: %w", err)
++	}
++	if err := binary.Write(writer, binary.LittleEndian, uint64(sparseIndexOffset)); err != nil {
++		return fmt.Errorf("failed to write Sparse Index offset: %w", err)
++	}
++	if err := binary.Write(writer, binary.LittleEndian, uint32(MagicNumber)); err != nil {
++		return fmt.Errorf("failed to write magic number: %w", err)
++	}
++
++	// Final flush
++	if err := writer.Flush(); err != nil {
++		return fmt.Errorf("failed to final flush: %w", err)
++	}
++
++	return nil
++}
+diff --git a/repository_after/sstable_reader.go b/repository_after/sstable_reader.go
+new file mode 100644
+index 00000000..014b6af6
+--- /dev/null
++++ b/repository_after/sstable_reader.go
+@@ -0,0 +1,315 @@
++package repository_after
++
++import (
++	"encoding/binary"
++	"fmt"
++	"io"
++	"os"
++)
++
++// SSTableReader provides functionality to read and query SSTable files
++type SSTableReader struct {
++	file              *os.File
++	bloomFilterOffset uint64
++	sparseIndexOffset uint64
++	bloomFilter       *BloomFilter
++	sparseIndex       []SparseIndexEntry
++}
++
++// NewSSTableReader opens and parses an SSTable file
++func NewSSTableReader(filename string) (*SSTableReader, error) {
++	file, err := os.Open(filename)
++	if err != nil {
++		return nil, fmt.Errorf("failed to open file: %w", err)
++	}
++
++	reader := &SSTableReader{
++		file: file,
++	}
++
++	// Read footer from the end of the file
++	if err := reader.readFooter(); err != nil {
++		file.Close()
++		return nil, fmt.Errorf("failed to read footer: %w", err)
++	}
++
++	// Read Bloom Filter
++	if err := reader.readBloomFilter(); err != nil {
++		file.Close()
++		return nil, fmt.Errorf("failed to read Bloom Filter: %w", err)
++	}
++
++	// Read Sparse Index
++	if err := reader.readSparseIndex(); err != nil {
++		file.Close()
++		return nil, fmt.Errorf("failed to read Sparse Index: %w", err)
++	}
++
++	return reader, nil
++}
++
++// Close closes the file
++func (r *SSTableReader) Close() error {
++	return r.file.Close()
++}
++
++// readFooter reads the footer from the end of the file
++func (r *SSTableReader) readFooter() error {
++	// Footer is 20 bytes: 8 (BloomFilterOffset) + 8 (SparseIndexOffset) + 4 (MagicNumber)
++	footerSize := int64(20)
++	
++	// Seek to start of footer
++	fileInfo, err := r.file.Stat()
++	if err != nil {
++		return err
++	}
++	
++	_, err = r.file.Seek(fileInfo.Size()-footerSize, io.SeekStart)
++	if err != nil {
++		return err
++	}
++
++	// Read BloomFilterOffset
++	if err := binary.Read(r.file, binary.LittleEndian, &r.bloomFilterOffset); err != nil {
++		return err
++	}
++
++	// Read SparseIndexOffset
++	if err := binary.Read(r.file, binary.LittleEndian, &r.sparseIndexOffset); err != nil {
++		return err
++	}
++
++	// Read and verify MagicNumber
++	var magicNumber uint32
++	if err := binary.Read(r.file, binary.LittleEndian, &magicNumber); err != nil {
++		return err
++	}
++
++	if magicNumber != MagicNumber {
++		return fmt.Errorf("invalid magic number: expected %x, got %x", MagicNumber, magicNumber)
++	}
++
++	return nil
++}
++
++// readBloomFilter reads the Bloom Filter from the file
++func (r *SSTableReader) readBloomFilter() error {
++	// Seek to Bloom Filter offset
++	if _, err := r.file.Seek(int64(r.bloomFilterOffset), io.SeekStart); err != nil {
++		return err
++	}
++
++	// Read size in bits (uint64)
++	var sizeInBits uint64
++	if err := binary.Read(r.file, binary.LittleEndian, &sizeInBits); err != nil {
++		return err
++	}
++
++	// Read bitset size in bytes (uint64)
++	var bitsetSize uint64
++	if err := binary.Read(r.file, binary.LittleEndian, &bitsetSize); err != nil {
++		return err
++	}
++
++	// Read bitset
++	bitset := make([]byte, bitsetSize)
++	if _, err := io.ReadFull(r.file, bitset); err != nil {
++		return err
++	}
++
++	// Create Bloom Filter with the correct size
++	r.bloomFilter = &BloomFilter{
++		bitset:    bitset,
++		size:      sizeInBits,
++		numHashes: 3,
++	}
++
++	return nil
++}
++
++// readSparseIndex reads the Sparse Index from the file
++func (r *SSTableReader) readSparseIndex() error {
++	// Seek to Sparse Index offset
++	if _, err := r.file.Seek(int64(r.sparseIndexOffset), io.SeekStart); err != nil {
++		return err
++	}
++
++	// Read number of entries
++	var numEntries uint32
++	if err := binary.Read(r.file, binary.LittleEndian, &numEntries); err != nil {
++		return err
++	}
++
++	// Read each entry
++	r.sparseIndex = make([]SparseIndexEntry, 0, numEntries)
++	for i := uint32(0); i < numEntries; i++ {
++		var offset uint64
++		if err := binary.Read(r.file, binary.LittleEndian, &offset); err != nil {
++			return err
++		}
++
++		var keyLen uint32
++		if err := binary.Read(r.file, binary.LittleEndian, &keyLen); err != nil {
++			return err
++		}
++
++		keyBytes := make([]byte, keyLen)
++		if _, err := io.ReadFull(r.file, keyBytes); err != nil {
++			return err
++		}
++
++		r.sparseIndex = append(r.sparseIndex, SparseIndexEntry{
++			Offset: offset,
++			Key:    string(keyBytes),
++		})
++	}
++
++	return nil
++}
++
++// Get retrieves a value by key using the Bloom Filter and Sparse Index
++func (r *SSTableReader) Get(key string) ([]byte, bool) {
++	keyBytes := []byte(key)
++
++	// First check Bloom Filter (may have false positives, but not false negatives for existing keys)
++	// Note: We still check it, but if it returns false, the key definitely doesn't exist
++	if r.bloomFilter != nil && !r.bloomFilter.Contains(keyBytes) {
++		return nil, false
++	}
++
++	// Find the appropriate block using binary search on sparse index
++	startOffset := uint64(0)
++	endOffset := r.bloomFilterOffset
++
++	if len(r.sparseIndex) > 0 {
++		// Binary search to find the block containing the key
++		left, right := 0, len(r.sparseIndex)
++		for left < right {
++			mid := (left + right) / 2
++			if r.sparseIndex[mid].Key <= key {
++				left = mid + 1
++			} else {
++				right = mid
++			}
++		}
++
++		// left-1 is the last index where key >= sparseIndex[i].Key
++		if left > 0 {
++			startOffset = r.sparseIndex[left-1].Offset
++		}
++		if left < len(r.sparseIndex) {
++			endOffset = r.sparseIndex[left].Offset
++		}
++	}
++
++	// Linear search within the block
++	if _, err := r.file.Seek(int64(startOffset), io.SeekStart); err != nil {
++		return nil, false
++	}
++
++	for {
++		// Check if we've reached the end of the block
++		currentPos, err := r.file.Seek(0, io.SeekCurrent)
++		if err != nil {
++			return nil, false
++		}
++		if uint64(currentPos) >= endOffset {
++			break
++		}
++
++		// Read KeyLength
++		var keyLen uint32
++		if err := binary.Read(r.file, binary.LittleEndian, &keyLen); err != nil {
++			if err == io.EOF {
++				break
++			}
++			return nil, false
++		}
++
++		// Read Key
++		readKey := make([]byte, keyLen)
++		if _, err := io.ReadFull(r.file, readKey); err != nil {
++			if err == io.EOF {
++				break
++			}
++			return nil, false
++		}
++
++		// Read ValueLength
++		var valLen uint32
++		if err := binary.Read(r.file, binary.LittleEndian, &valLen); err != nil {
++			if err == io.EOF {
++				break
++			}
++			return nil, false
++		}
++
++		// Check if this is the key we're looking for
++		if string(readKey) == key {
++			// Read Value
++			value := make([]byte, valLen)
++			if _, err := io.ReadFull(r.file, value); err != nil {
++				return nil, false
++			}
++			return value, true
++		} else {
++			// Skip value
++			if _, err := r.file.Seek(int64(valLen), io.SeekCurrent); err != nil {
++				if err == io.EOF {
++					break
++				}
++				return nil, false
++			}
++		}
++	}
++
++	return nil, false
++}
++
++// GetAllEntries reads all entries from the SSTable (for testing)
++func (r *SSTableReader) GetAllEntries() (map[string][]byte, error) {
++	result := make(map[string][]byte)
++
++	// Seek to start of data
++	if _, err := r.file.Seek(0, io.SeekStart); err != nil {
++		return nil, err
++	}
++
++	currentOffset := uint64(0)
++	for currentOffset < r.bloomFilterOffset {
++		// Read KeyLength
++		var keyLen uint32
++		if err := binary.Read(r.file, binary.LittleEndian, &keyLen); err != nil {
++			if err == io.EOF {
++				break
++			}
++			return nil, err
++		}
++		currentOffset += 4
++
++		// Read Key
++		key := make([]byte, keyLen)
++		if _, err := io.ReadFull(r.file, key); err != nil {
++			return nil, err
++		}
++		currentOffset += uint64(keyLen)
++
++		// Read ValueLength
++		var valLen uint32
++		if err := binary.Read(r.file, binary.LittleEndian, &valLen); err != nil {
++			return nil, err
++		}
++		currentOffset += 4
++
++		// Read Value
++		value := make([]byte, valLen)
++		if _, err := io.ReadFull(r.file, value); err != nil {
++			return nil, err
++		}
++		currentOffset += uint64(valLen)
++
++		result[string(key)] = value
++	}
++
++	return result, nil
++}
