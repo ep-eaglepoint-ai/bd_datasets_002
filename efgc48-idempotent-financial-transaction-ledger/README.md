@@ -2,12 +2,12 @@
 
 ## Running Tests
 
-To run tests for the repository_before (buggy implementation):
+To run tests for the repository_before 
 ```
 docker compose run app pytest tests --repo before; exit 0
 ```
 
-To run tests for the repository_after (refactored implementation):
+To run tests for the repository_after 
 ```
 docker compose run app pytest tests --repo after; exit 0
 ```
