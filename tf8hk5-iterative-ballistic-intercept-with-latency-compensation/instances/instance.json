@@ -1,12 +1,35 @@
 {
-            "instance_id": "TF8HK5",
-            "problem_statement": "The core difficulty is the "Intercept Problem" in a real-time context. In standard web apps, time is static. In ballistics, time is a variable that affects the destination. Mid-tier models fail to recognize the circular dependency between "Time to Target" and "Target Position at Time T," often defaulting to a static snapshot calculation that results in a "tail-chase" miss. Furthermore, the integration of network latency compensation (synchronizing Date.now() with packet.timestamp) separates senior-level systems engineering from junior scripting. The logic requires extrapolating past data into the future while solving a converging series, a pattern that mid-tier models often mistake for a simple distance-over-time division.
-",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tf8hk5-iterative-ballistic-intercept-with-latency-compensation",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "TF8HK5",
+  "problem_statement": "The core difficulty is the Intercept Problem in a real-time context. Unlike standard web applications where time is static, ballistic interception requires solving a circular dependency between time-to-target and target position at time T. Naive implementations default to static snapshot calculations, resulting in tail-chase misses. Correct solutions must iteratively converge on an intercept while compensating for network latency by synchronizing packet timestamps with Date.now(), extrapolating past state into the future, and handling impossible intercept scenarios.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tf8hk5-iterative-ballistic-intercept-with-latency-compensation",
+  "environment_setup": "Dockerfile",
+
+  "FAIL_TO_PASS": [
+    "R1: Iterative solver uses multiple iterations (not static formula)",
+    "R1: Iterative solver converges to solution",
+    "R2: Calculates latency from packet timestamp vs Date.now()",
+    "R2: Advances target position based on latency",
+    "R3: Intercept position differs from current position (velocity > 0)",
+    "R3: Intercept leads the target (predictive aiming)",
+    "R4: Respects max_iterations limit",
+    "R4: Detects impossible shot (target faster than shell)",
+    "R5: Uses EventEmitter for input",
+    "R5: Emits results asynchronously",
+    "R6: Correctly calculates Euclidean distance",
+    "R6: Correctly calculates velocity magnitude",
+    "R6: Correctly extrapolates position with velocity",
+    "R7: Calculates required azimuth change",
+    "R7: Reports if turret can track target",
+    "R8: Rejects null packet",
+    "R8: Rejects packet with NaN position",
+    "R8: Rejects packet with null velocity",
+    "R8: Rejects packet with invalid timestamp",
+    "Edge: Handles stationary target",
+    "Edge: Handles target at origin",
+    "Integration: Full radar stream simulation"
+  ],
+
+  "PASS_TO_PASS": []
+}

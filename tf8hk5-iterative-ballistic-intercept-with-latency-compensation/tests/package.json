@@ -1,0 +1,11 @@
+{
+  "name": "ballistic-intercept-tests",
+  "version": "1.0.0",
+  "description": "Test suite for iterative ballistic intercept calculator",
+  "main": "intercept.test.js",
+  "scripts": {
+    "test": "node intercept.test.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
