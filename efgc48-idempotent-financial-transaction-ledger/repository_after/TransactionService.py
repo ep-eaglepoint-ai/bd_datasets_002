@@ -32,9 +32,12 @@ class TransactionService:
                     self.db.update_balance(to_account, to_balance + amount)
                     result = True
 
-                self.idempotency_store.set(idempotency_key, 'COMPLETED', result)
-                return result
+            # Set idempotency after successful transaction commit
+            self.idempotency_store.set(idempotency_key, 'COMPLETED', result)
+            return result
         except Exception as e:
             self.db.rollback()
-            self.idempotency_store.set(idempotency_key, 'FAILED', False)
+            # Only set to FAILED if not already set (e.g., if set failed or not reached)
+            if self.idempotency_store.get(idempotency_key) is None:
+                self.idempotency_store.set(idempotency_key, 'FAILED', False)
             raise e
