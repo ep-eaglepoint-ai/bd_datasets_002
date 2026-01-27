@@ -1,12 +1,13 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 describe('File Operations', () => {
     let browser;
     let page;
     const APP_URL = process.env.APP_URL || 'http://localhost:3000';
-    const TEST_FILE_PATH = path.join(__dirname, 'test_upload.py');
+    const TEST_FILE_PATH = path.join(os.tmpdir(), 'test_upload.py');
 
     beforeAll(async () => {
         // Create a dummy file
@@ -51,7 +52,7 @@ describe('File Operations', () => {
     test('Download triggers download with correct name', async () => {
         // Setup download behavior
         const client = await page.target().createCDPSession();
-        const downloadPath = path.join(__dirname, 'downloads');
+        const downloadPath = path.join(os.tmpdir(), `downloads_${Date.now()}`);
         if (!fs.existsSync(downloadPath)) fs.mkdirSync(downloadPath);
 
         await client.send('Page.setDownloadBehavior', {

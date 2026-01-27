@@ -356,10 +356,16 @@ async function main() {
     const improvement = (target === 'both') ? (afterPassRate - beforePassRate) : 0;
 
     // Determine success based on target
-    let overallSuccess = false;
-    if (target === 'before') overallSuccess = resBefore.success;
-    else if (target === 'after') overallSuccess = resAfter.success;
-    else overallSuccess = resAfter.success; // For 'both', usually we care if 'after' is good.
+    let overallSuccess = true;
+    if (target === 'after') {
+        overallSuccess = resAfter.summary.failed === 0 && resAfter.summary.errors === 0;
+    } else if (target === 'both') {
+        overallSuccess = resAfter.summary.failed === 0 && resAfter.summary.errors === 0;
+    } else {
+        // For target 'before', we still report results but don't fail the build 
+        // because repository_before is expected to have bugs in this project.
+        overallSuccess = true;
+    }
 
     // Generate report
     const shouldGenerateReport = args.includes('--report');
@@ -369,7 +375,7 @@ async function main() {
         started_at: startAll.toISOString(),
         finished_at: finishedAt.toISOString(),
         duration_seconds: (finishedAt.getTime() - startAll.getTime()) / 1000,
-        success: overallSuccess,
+        success: (target === 'before' ? resBefore.summary.failed === 0 : resAfter.summary.failed === 0),
         error: null,
         environment: {
             node_version: process.version,
