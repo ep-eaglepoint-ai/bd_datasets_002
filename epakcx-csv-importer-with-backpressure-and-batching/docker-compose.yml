@@ -1,6 +1,96 @@
 services:
-  app:
+  evaluation:
     build: .
-    command: pytest -q tests
+    working_dir: /app
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: csv_importer
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_started
+    command: ["sh", "-c", "sleep 3 && node evaluation/evaluation.js"]
     volumes:
-      - .:/app
+      - .:/host:rw
+    networks:
+      - app-network
+    profiles:
+      - evaluation
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: csv_importer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  server:
+    build: .
+    working_dir: /app/repository_after/server
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: csv_importer
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "npm start"]
+    networks:
+      - app-network
+
+  client:
+    build: .
+    working_dir: /app/repository_after/client
+    ports:
+      - "5174:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    depends_on:
+      - server
+    command: ["sh", "-c", "npm install && npm run dev -- --host"]
+    networks:
+      - app-network
+
+  test:
+    build: .
+    working_dir: /app
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: csv_importer
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_started
+    command: ["npm", "test"]
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
