@@ -336,7 +336,8 @@ def evaluate(repo_name: str) -> Dict[str, Any]:
         all_passed = all(t["passed"] for t in test_list)
     else:
         # For before, only functional tests need to pass
-        functional_tests = [t for t in test_list if t["name"] not in ["set_based_logic", "indexed_column_efficiency"]]
+        # test_11 is expected to fail for before repo (no exception handling for invalid date ranges)
+        functional_tests = [t for t in test_list if t["name"] not in ["set_based_logic", "indexed_column_efficiency", "test_11"]]
         all_passed = all(t["passed"] for t in functional_tests)
     
     result = {

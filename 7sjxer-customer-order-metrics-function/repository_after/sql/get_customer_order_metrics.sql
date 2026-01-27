@@ -12,6 +12,10 @@ RETURNS TABLE(
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF p_start_date > p_end_date THEN
+        RAISE EXCEPTION 'Invalid date range: start_date (%) must be <= end_date (%)', p_start_date, p_end_date;
+    END IF;
+
     RETURN QUERY
     SELECT
         COUNT(*)::INT AS total_orders,
