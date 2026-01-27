@@ -1,0 +1,60 @@
+import { ContactFormData } from "@/types";
+import { v4 as uuidv4 } from "uuid";
+
+export const seedContacts: ContactFormData[] = [
+    {
+        firstName: "Alice",
+        lastName: "Johnson",
+        company: "Tech Corp",
+        jobTitle: "Senior Developer",
+        emails: [{ id: uuidv4(), type: "work", value: "alice.j@example.com" }],
+        phones: [{ id: uuidv4(), type: "mobile", value: "+1-555-0101" }],
+        tags: ["developer", "friend"],
+        isFavorite: true,
+        notes: "Met at the tech conference in 2024.",
+    },
+    {
+        firstName: "Bob",
+        lastName: "Smith",
+        company: "Design Studio",
+        jobTitle: "Creative Director",
+        emails: [{ id: uuidv4(), type: "work", value: "bob@design.studio" }],
+        phones: [{ id: uuidv4(), type: "work", value: "+1-555-0102" }],
+        tags: ["designer", "freelance"],
+        isFavorite: false,
+        notes: "",
+    },
+    {
+        firstName: "Carol",
+        lastName: "Williams",
+        company: "Market Mover",
+        jobTitle: "Marketing Lead",
+        emails: [{ id: uuidv4(), type: "work", value: "carol@example.com" }],
+        phones: [{ id: uuidv4(), type: "mobile", value: "+1-555-0103" }],
+        tags: ["marketing"],
+        isFavorite: false,
+        notes: "Potential client for Q3.",
+    },
+    {
+        firstName: "David",
+        lastName: "Brown",
+        company: "",
+        jobTitle: "",
+        emails: [{ id: uuidv4(), type: "home", value: "david.b@example.org" }],
+        phones: [{ id: uuidv4(), type: "home", value: "+1-555-0104" }],
+        tags: ["family"],
+        isFavorite: true,
+        notes: "Cousin David.",
+    },
+    {
+        firstName: "Eva",
+        lastName: "Davis",
+        company: "Law Firm",
+        jobTitle: "Attorney",
+        emails: [{ id: uuidv4(), type: "work", value: "eva@lawfirm.com" }],
+        phones: [{ id: uuidv4(), type: "work", value: "+1-555-0105" }],
+        tags: ["legal", "consultant"],
+        isFavorite: false,
+        notes: "",
+    }
+];
