@@ -9,3 +9,22 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Go build artifacts
+*.exe
+*.test
+*.out
+bin/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Local packages or build dirs
+vendor/
+dist/
+
+# Evaluation reports (keep placeholder only)
+evaluation/reports/**
+!evaluation/reports/.gitkeep

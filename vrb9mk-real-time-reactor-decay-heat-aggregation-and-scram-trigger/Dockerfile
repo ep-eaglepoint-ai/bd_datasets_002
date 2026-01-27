@@ -1,5 +1,10 @@
-FROM python:3.11-slim
+FROM golang:1.21-alpine
+
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Install git and build tools required for `go test -race` (cgo + compiler)
+RUN apk add --no-cache git build-base
+
+# Enable cgo so that the race detector can run
+ENV CGO_ENABLED=1

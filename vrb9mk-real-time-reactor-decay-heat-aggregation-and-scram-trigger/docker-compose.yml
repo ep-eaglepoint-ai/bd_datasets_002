@@ -1,6 +1,14 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
+    command: sh -c "cd tests && go mod tidy && go test -v -race ./..."
     volumes:
       - .:/app
+    working_dir: /app
+
+  evaluation:
+    build: .
+    command: sh -c "cd evaluation && go mod tidy && go run Evaluation.go"
+    volumes:
+      - .:/app
+    working_dir: /app
