@@ -1,13 +1,13 @@
 # FileStorage Unit Testing
 
+### Run Meta-Tests
 
-### Run Meta-Tests against repository_before (should FAIL)
+Run against repository_before (should FAIL):
 ```bash
 docker compose run --rm -e REPO_PATH=repository_before app
 ```
 
-
-### Run Meta-Tests against repository_after (should PASS)
+Run against repository_after (should PASS):
 ```bash
 docker compose run --rm -e REPO_PATH=repository_after app
 ```
