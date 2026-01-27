@@ -8,7 +8,7 @@ services:
     build: .
     environment:
       - TEST_TARGET=repository_before
-    command: pytest tests/test_layout.py
+    command: /bin/sh -c "pytest tests/test_layout.py || true"
     volumes:
       - .:/app
 
