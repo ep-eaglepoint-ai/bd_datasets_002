@@ -14,6 +14,10 @@ type entry struct {
 	val []byte
 	rev int64
 	ttl time.Time
+	// original TTL for this lease, captured on acquisition so that
+	// renewals can extend based on the same duration without needing
+	// a ttl parameter on CompareAndSwap.
+	leaseTTL time.Duration
 }
 
 type MockStore struct {
@@ -22,6 +26,11 @@ type MockStore struct {
 	globalRev  int64
 	watchers   map[string][]chan struct{}
 	partitions int32 // 0 = healthy, 1 = partitioned
+	// when true, CompareAndSwap will simulate a partial write: it will
+	// mutate the underlying entry but report an error back to the
+	// caller, allowing tests to verify that the orchestrator fails
+	// safely under such conditions.
+	partialWriteMode int32
 }
 
 func NewMockStore() *MockStore {
@@ -47,6 +56,18 @@ func (m *MockStore) checkPartition() error {
 	return nil
 }
 
+// SetPartialWriteMode toggles a simulation mode where CompareAndSwap
+// performs the underlying state mutation but still returns an error to
+// the caller, mimicking a "partial write" failure at the storage
+// layer.
+func (m *MockStore) SetPartialWriteMode(active bool) {
+	if active {
+		atomic.StoreInt32(&m.partialWriteMode, 1)
+	} else {
+		atomic.StoreInt32(&m.partialWriteMode, 0)
+	}
+}
+
 // --- Store Interface Implementation ---
 
 func (m *MockStore) PutIfAbsent(ctx context.Context, key string, val []byte, ttl time.Duration) (int64, bool, error) {
@@ -57,11 +78,12 @@ func (m *MockStore) PutIfAbsent(ctx context.Context, key string, val []byte, ttl
 	if _, exists := m.data[key]; exists { return 0, false, nil }
 
 	m.globalRev++
-	m.data[key] = &entry{val: val, rev: m.globalRev, ttl: time.Now().Add(ttl)}
+	now := time.Now()
+	m.data[key] = &entry{val: val, rev: m.globalRev, ttl: now.Add(ttl), leaseTTL: ttl}
 	return m.globalRev, true, nil
 }
 
-func (m *MockStore) CompareAndSwap(ctx context.Context, key string, oldRev int64, newVal []byte, ttl time.Duration) (bool, error) {
+func (m *MockStore) CompareAndSwap(ctx context.Context, key string, oldRev int64, newVal []byte) (bool, error) {
 	if err := m.checkPartition(); err != nil { return false, err }
 	m.mu.Lock(); defer m.mu.Unlock()
 	m.expireLocked(key)
@@ -69,8 +91,20 @@ func (m *MockStore) CompareAndSwap(ctx context.Context, key string, oldRev int64
 	e, exists := m.data[key]
 	if !exists || e.rev != oldRev { return false, nil }
 
+	// Apply the value change and TTL extension first, so that when
+	// partialWriteMode is enabled we still mutate state but report an
+	// error back to the caller.
 	e.val = newVal
-	e.ttl = time.Now().Add(ttl)
+	if e.leaseTTL > 0 {
+		e.ttl = time.Now().Add(e.leaseTTL)
+	}
+
+	if atomic.LoadInt32(&m.partialWriteMode) == 1 {
+		// Simulate a storage layer that applied the write but could not
+		// confirm success to the client.
+		return false, errors.New("simulated partial write")
+	}
+
 	return true, nil
 }
 
@@ -115,14 +149,17 @@ type LegacyStoreAdapter struct {
 	*MockStore
 }
 func (a *LegacyStoreAdapter) CompareAndSwap(ctx context.Context, key string, oldRevision int64, newVal []byte) (bool, error) {
-	// Adapts 4-arg call to 5-arg call
-	return a.MockStore.CompareAndSwap(ctx, key, oldRevision, newVal, 5*time.Second)
+	// Legacy interface already matches the 4-arg signature; simply
+	// forward the call to the underlying mock store.
+	return a.MockStore.CompareAndSwap(ctx, key, oldRevision, newVal)
 }
 
 // --- Shared Test Logic ---
 func SharedConcurrencyTest(t *testing.T, factory func(id int, store *MockStore) (context.Context, int64, func(), error)) {
 	store := NewMockStore()
-	workerCount := 10
+	// High-concurrency scenario to match requirement: 50 goroutines
+	// competing for the same resource.
+	workerCount := 50
 
 	var activeWorkers int32
 	var fencingTokens []int64

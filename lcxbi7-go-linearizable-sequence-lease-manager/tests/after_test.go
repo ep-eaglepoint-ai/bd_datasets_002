@@ -37,7 +37,7 @@ func TestRepository_After_Concurrency(t *testing.T) {
 // TEST 2: Network Partition / Zombie Prevention
 // Validates Heartbeat,Async Safety/Fail-Fast, Partition Handling
 func TestRepository_After_ZombiePartition(t *testing.T) {
-	t.Log(">>> [2/2] Testing Network Partition / Zombie Prevention (Expected to PASS) <<<")
+	t.Log(">>> [2/3] Testing Network Partition / Zombie Prevention (Expected to PASS) <<<")
 
 	store := NewMockStore()
 	ttl := 1 * time.Second
@@ -67,10 +67,47 @@ func TestRepository_After_ZombiePartition(t *testing.T) {
 		elapsed := time.Since(startTime)
 		t.Logf("Success: Worker context canceled after %v (TTL was %v)", elapsed, ttl)
 
-		if elapsed > ttl {
-			t.Errorf("Safety Violation: Context canceled AFTER TTL expired! (Zombie Worker existed for %v)", elapsed-ttl)
+		// cancellation must occur strictly *before*
+		// the TTL that a healthy node would observe.
+		if elapsed >= ttl {
+			t.Errorf("Safety Violation: Context canceled at or AFTER TTL expired! (elapsed=%v, ttl=%v)", elapsed, ttl)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Failure: Zombie detected! Worker context remained active indefinitely despite partition.")
+	}
+}
+
+// TEST 3: Partial Write Failures
+// Validates robustness against storage-layer partial writes
+func TestRepository_After_PartialWriteFailures(t *testing.T) {
+	t.Log(">>> [3/3] Testing Partial Write Failures (Expected to PASS) <<<")
+
+	store := NewMockStore()
+	// Enable simulated partial writes on CAS operations.
+	store.SetPartialWriteMode(true)
+
+	ttl := 1 * time.Second
+	orch := repoAfter.NewLeaseOrchestrator(store, "partial-worker", ttl)
+
+	lease, err := orch.AcquireAndHold(context.Background(), "partial-resource")
+	if err != nil {
+		t.Fatalf("Acquire failed under partial-write mode: %v", err)
+	}
+
+	startTime := time.Now()
+
+	select {
+	case <-lease.Context.Done():
+		elapsed := time.Since(startTime)
+		t.Logf("Success: Worker context canceled after %v under partial writes (TTL was %v)", elapsed, ttl)
+
+		// Even though the store may be extending TTL internally, the
+		// orchestrator must revoke the lease before the logical TTL a
+		// healthy node would assume.
+		if elapsed >= ttl {
+			t.Errorf("Safety Violation: Context canceled at or AFTER TTL expired under partial writes (elapsed=%v, ttl=%v)", elapsed, ttl)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Failure: Worker context remained active despite repeated partial-write failures.")
 	}
 }
