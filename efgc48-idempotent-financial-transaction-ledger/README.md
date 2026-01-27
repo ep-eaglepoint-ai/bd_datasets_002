@@ -11,3 +11,10 @@ To run tests for the repository_after (refactored implementation):
 ```
 docker compose run app pytest tests --repo after
 ```
+
+## Running Evaluation
+
+To run the evaluation comparing before and after:
+```
+docker compose run app python evaluation/evaluation.py
+```
