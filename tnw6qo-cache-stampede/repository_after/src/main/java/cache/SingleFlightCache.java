@@ -26,15 +26,23 @@ public class SingleFlightCache<K, V> {
             throw new NullPointerException("Compute function must not be null");
         }
         
-        CompletableFuture<V> newFuture = new CompletableFuture<>();
-        
-        CompletableFuture<V> existingFuture = inFlightComputations.putIfAbsent(key, newFuture);
-        
-        if (existingFuture != null) {
-            return waitForResult(existingFuture);
+        while (true) {
+            CompletableFuture<V> newFuture = new CompletableFuture<>();
+            
+            CompletableFuture<V> existingFuture = inFlightComputations.putIfAbsent(key, newFuture);
+            
+            if (existingFuture != null) {
+                // If the existing future already completed exceptionally, clean it up and retry
+                // This allows subsequent requests after a failure to attempt a new computation
+                if (existingFuture.isCompletedExceptionally()) {
+                    inFlightComputations.remove(key, existingFuture);
+                    continue;
+                }
+                return waitForResult(existingFuture);
+            }
+            
+            return executeComputation(key, computeFunction, newFuture);
         }
-        
-        return executeComputation(key, computeFunction, newFuture);
     }
     
     private V executeComputation(K key, ComputeFunction<K, V> computeFunction, 
@@ -56,8 +64,13 @@ public class SingleFlightCache<K, V> {
             throw new ComputationException("Computation failed for key: " + key, e);
             
         } finally {
-            
-            cleanupInflightEntry(key, future);
+            // Only clean up on success, not on failure
+            // On failure, leave the entry in the map so concurrent waiters
+            // can still receive the exception. New arrivals will clean it up
+            // when they see it's completed exceptionally and retry.
+            if (!future.isCompletedExceptionally()) {
+                cleanupInflightEntry(key, future);
+            }
         }
     }
     
