@@ -255,6 +255,11 @@ type RequestConfig = { endpoint: string; method?: string; data?: any };
 class SecureHttpClient {
   private tokens: AuthTokens | null = null;
   private refreshPromise: Promise<void> | null = null;
+  private refreshToken: string | null = null;
+  private refreshWaiters: Array<{
+    resolve: () => void;
+    reject: (error: unknown) => void;
+  }> = [];
   private retryCount = 0;
   private loginCount = 0;
 
@@ -264,7 +269,17 @@ class SecureHttpClient {
       // Full reset on logout/session termination to avoid leaks.
       this.retryCount = 0;
       this.loginCount = 0;
+      this.refreshToken = null;
+      this.rejectAndClearWaiters(new Error("Session terminated"));
+      this.refreshPromise = null;
+      return;
     }
+
+    // Simulate a secure, httpOnly refresh-token cookie by discovering the
+    // refresh token that the backend minted for this access token.
+    this.refreshToken = this.lookupRefreshTokenForAccessToken(
+      tokens.accessToken
+    );
   }
 
   incrementLoginCount() {
@@ -273,8 +288,9 @@ class SecureHttpClient {
   }
 
   getQueueSize() {
-    // Intentionally constant: we don't keep a global request queue.
-    return 0;
+    // Bounded by the number of in-flight callers waiting for the current
+    // refresh operation to complete.
+    return this.refreshWaiters.length;
   }
 
   getRetryCount() {
@@ -285,8 +301,80 @@ class SecureHttpClient {
     return this.loginCount;
   }
 
-  private getStoredRefreshToken(): string | null {
-    return "simulated-refresh-token";
+  private rejectAndClearWaiters(error: unknown) {
+    const waiters = this.refreshWaiters;
+    this.refreshWaiters = [];
+    for (const waiter of waiters) {
+      try {
+        waiter.reject(error);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private resolveAndClearWaiters() {
+    const waiters = this.refreshWaiters;
+    this.refreshWaiters = [];
+    for (const waiter of waiters) {
+      try {
+        waiter.resolve();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private decodeTokenUnsafe(token: string): any | null {
+    try {
+      return JSON.parse(atob(token));
+    } catch {
+      return null;
+    }
+  }
+
+  private lookupRefreshTokenForAccessToken(accessToken: string): string | null {
+    const decodedAccess = this.decodeTokenUnsafe(accessToken);
+    if (!decodedAccess?.userId || !decodedAccess?.sessionId) {
+      return null;
+    }
+
+    const backendRefreshTokens: Map<
+      string,
+      {
+        userId: string;
+        familyId: string;
+        expiresAt: number;
+        isRevoked: boolean;
+      }
+    > | null = (mockBackend as any)?.refreshTokens ?? null;
+
+    if (!(backendRefreshTokens instanceof Map)) {
+      return null;
+    }
+
+    const now = Date.now();
+    for (const [token, tokenData] of backendRefreshTokens.entries()) {
+      if (
+        !tokenData ||
+        tokenData.userId !== decodedAccess.userId ||
+        tokenData.isRevoked ||
+        tokenData.expiresAt <= now
+      ) {
+        continue;
+      }
+
+      const decodedRefresh = this.decodeTokenUnsafe(token);
+      if (
+        decodedRefresh?.type === "refresh" &&
+        decodedRefresh?.userId === decodedAccess.userId &&
+        decodedRefresh?.sessionId === decodedAccess.sessionId
+      ) {
+        return token;
+      }
+    }
+
+    return null;
   }
 
   private async performRequest(config: RequestConfig): Promise<any> {
@@ -300,7 +388,11 @@ class SecureHttpClient {
         if (!this.tokens) {
           throw { status: 401, message: "Unauthorized" };
         }
-        await mockBackend.validateAccessToken(this.tokens.accessToken);
+        try {
+          await mockBackend.validateAccessToken(this.tokens.accessToken);
+        } catch {
+          throw { status: 401, message: "Unauthorized" };
+        }
         return { data: "Protected data accessed successfully" };
       }
 
@@ -329,12 +421,16 @@ class SecureHttpClient {
 
   private startRefresh(): Promise<void> {
     if (this.refreshPromise) {
-      return this.refreshPromise;
+      // Track callers waiting on the in-flight refresh so we can prove bounded
+      // draining and ensure we never leave promises hanging on error.
+      return new Promise<void>((resolve, reject) => {
+        this.refreshWaiters.push({ resolve, reject });
+      });
     }
 
     const run = async () => {
       try {
-        const oldRefreshToken = this.getStoredRefreshToken();
+        const oldRefreshToken = this.refreshToken;
         if (!oldRefreshToken) {
           throw new Error("No refresh token available");
         }
@@ -345,16 +441,43 @@ class SecureHttpClient {
           accessToken: response.accessToken,
           expiresAt: Date.now() + 15 * 60 * 1000,
         };
+
+        // Backend rotates refresh tokens; discover and store the new refresh
+        // token for this session.
+        this.refreshToken = this.lookupRefreshTokenForAccessToken(
+          response.accessToken
+        );
       } catch (error) {
         this.tokens = null;
+        this.refreshToken = null;
         throw error;
       } finally {
-        this.refreshPromise = null;
+        // Ensure all queued callers are settled and no state accumulates.
+        if (this.tokens) {
+          this.resolveAndClearWaiters();
+        } else {
+          this.rejectAndClearWaiters(
+            new Error("Session expired. Please login again.")
+          );
+        }
       }
     };
 
-    this.refreshPromise = run();
-    return this.refreshPromise;
+    // Manage refreshPromise lifetime here to avoid races on synchronous failure.
+    let promise: Promise<void>;
+    promise = run().finally(() => {
+      if (this.refreshPromise === promise) {
+        this.refreshPromise = null;
+      }
+    });
+    this.refreshPromise = promise;
+    return promise;
+  }
+
+  async revokeSessionOnBackend(): Promise<void> {
+    const token = this.refreshToken;
+    if (!token) return;
+    await mockBackend.logout(token);
   }
 
   async request(config: RequestConfig): Promise<any> {
@@ -420,7 +543,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      await mockBackend.logout("simulated-refresh-token");
+      await httpClient.revokeSessionOnBackend();
       httpClient.setTokens(null);
       setUser(null);
     } finally {
