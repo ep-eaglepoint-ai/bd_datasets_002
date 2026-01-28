@@ -7,10 +7,12 @@ services:
     command: ["sh","-lc","chmod +x tests/run_before.sh && sh tests/run_before.sh"]
 
   test-after:
-    image: maven:3.8.7-eclipse-temurin-17
+    build:
+      context: .
+      dockerfile: Dockerfile.test-after
+    image: session-analytics-test-after:latest
     working_dir: /app
-    volumes:
-      - .:/app
+    # no volume mount here so the image-embedded build and dependencies are used
     command: ["bash","-lc","chmod +x tests/run_after.sh && tests/run_after.sh"]
 
   evaluate:
