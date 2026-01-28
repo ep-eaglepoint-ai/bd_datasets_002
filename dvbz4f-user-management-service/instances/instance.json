@@ -1,0 +1,12 @@
+{
+            "instance_id": "DVBZ4F",
+            "problem_statement": "Refactor a Python user management service to follow clean architecture by separating concerns into distinct classes: User (model), UserRepository (data access), UserValidator (validation), PasswordHasher (security), and UserService (orchestration). Use dependency injection for testability, extract magic values into named constants, and ensure all existing registration, authentication, and profile‑update functionality remains unchanged. The refactored code must preserve identical external behavior and pass the original tests while eliminating the god‑class pattern and mixing of responsibilities.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/dvbz4f-user-management-service",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
