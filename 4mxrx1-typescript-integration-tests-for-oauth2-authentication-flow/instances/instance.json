@@ -1,0 +1,13 @@
+{
+            "instance_id": "4MXRX1",
+            "problem_statement": "The OAuth2 authentication service was deployed to production without integration tests and has experienced multiple security incidents. During a recent penetration test, the team discovered expired tokens being accepted, PKCE verification bypassed in certain edge cases, and race conditions when multiple clients refresh the same token simultaneously. The QA team manually tested the happy path but missed authorization code reuse vulnerabilities and redirect URI validation bypasses. 
+
+A comprehensive integration test suite is needed to cover all OAuth2 flows including authorization code exchange, token refresh, PKCE validation, scope enforcement, rate limiting, and concurrent operations. The service code exists in auth-service.ts, token-service.ts, pkce-utils.ts, and server.ts.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/4mxrx1-typescript-integration-tests-for-oauth2-authentication-flow",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
