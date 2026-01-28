@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 describe('Requirement 7: Performance Scaling', () => {
   it('should recalculate balances for 50 members and 10,000 expenses within 2 seconds', async () => {
-    // Note: This is a logic performance test. 
-    // In a real environment we would measure DB operations.
-    // Here we test the core calculation loop efficiency.
+    // In-memory logic test (no DB). For real DB + Prisma path see performance-db.integration.test.ts
     
     const memberCount = 50
     const expenseCount = 10000

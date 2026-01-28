@@ -371,6 +371,7 @@ export default function ExpenseForm({ group, groupId, expense }: ExpenseFormProp
 
   return (
     <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-6">
+      {/* Shared pattern: ErrorAlert + useTransition loading (complex payload; FormWithLoading not used) */}
       {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
       <div>

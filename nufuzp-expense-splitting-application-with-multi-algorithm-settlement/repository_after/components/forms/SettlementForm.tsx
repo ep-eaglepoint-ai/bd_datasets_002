@@ -70,6 +70,7 @@ export default function SettlementForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Shared pattern: ErrorAlert + useTransition loading (controlled state; FormWithLoading not used) */}
       {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
       <div>

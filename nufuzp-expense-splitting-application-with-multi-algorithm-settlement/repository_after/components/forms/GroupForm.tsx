@@ -1,45 +1,26 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createGroup } from '@/server-actions/groups'
-import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ErrorAlert from '@/components/ui/ErrorAlert'
+import FormWithLoading from '@/components/ui/FormWithLoading'
 import Link from 'next/link'
 
 export default function GroupForm() {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError(null)
-
-    const formData = new FormData(e.currentTarget)
-    const name = formData.get('name') as string
-    const description = formData.get('description') as string
-
+  const action = async (formData: FormData) => {
+    const name = (formData.get('name') as string)?.trim()
+    const description = (formData.get('description') as string)?.trim() || undefined
     if (!name) {
-      setError('Group name is required')
-      return
+      throw new Error('Group name is required')
     }
-
-    startTransition(async () => {
-      try {
-        const group = await createGroup(name, description || undefined)
-        router.push(`/groups/${group.id}`)
-        router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create group')
-      }
-    })
+    const group = await createGroup(name, description)
+    router.push(`/groups/${group.id}`)
+    router.refresh()
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-6">
-      {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
-
+    <FormWithLoading action={action} className="bg-white shadow rounded-lg p-6 space-y-6">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-black">
           Group Name *
@@ -76,12 +57,11 @@ export default function GroupForm() {
         </Link>
         <button
           type="submit"
-          disabled={isPending}
           className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] inline-flex items-center justify-center min-w-[120px]"
         >
-          {isPending ? <LoadingSpinner size="sm" /> : 'Create Group'}
+          Create Group
         </button>
       </div>
-    </form>
+    </FormWithLoading>
   )
 }

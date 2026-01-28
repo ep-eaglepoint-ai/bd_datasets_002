@@ -3,7 +3,15 @@ import Resend from 'next-auth/providers/resend'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/db'
 
+// In development, allow running without AUTH_SECRET; in production it must be set.
+const authSecret =
+  process.env.AUTH_SECRET ||
+  (process.env.NODE_ENV === 'development'
+    ? 'dev-secret-change-before-production'
+    : undefined)
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: authSecret,
   debug: false,
   adapter: PrismaAdapter(prisma),
   providers: [
