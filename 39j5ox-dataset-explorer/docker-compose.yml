@@ -17,7 +17,6 @@ services:
       - ./jest.setup.js:/app/jest.setup.js
       - ./eslint.config.mjs:/app/eslint.config.mjs
       - ./postcss.config.mjs:/app/postcss.config.mjs
-      - ./next-env.d.ts:/app/next-env.d.ts
       - /app/node_modules
     command: npm run dev
 
@@ -37,7 +36,6 @@ services:
       - ./jest.setup.js:/app/jest.setup.js
       - ./eslint.config.mjs:/app/eslint.config.mjs
       - ./postcss.config.mjs:/app/postcss.config.mjs
-      - ./next-env.d.ts:/app/next-env.d.ts
       - /app/node_modules
     command: npm test
 
@@ -63,7 +61,6 @@ services:
       - ./jest.setup.js:/app/jest.setup.js
       - ./eslint.config.mjs:/app/eslint.config.mjs
       - ./postcss.config.mjs:/app/postcss.config.mjs
-      - ./next-env.d.ts:/app/next-env.d.ts
       - ./evaluation/reports:/app/evaluation/reports
       - /app/node_modules
     command: npm run evaluate
