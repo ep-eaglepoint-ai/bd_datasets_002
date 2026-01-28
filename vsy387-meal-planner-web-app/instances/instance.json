@@ -1,0 +1,12 @@
+{
+            "instance_id": "VSY387",
+            "problem_statement": "Build an offline‑first meal planner web app using Next.js and TailwindCSS that enables users to create meals, assign them to weekly schedules, and automatically generate consolidated grocery lists without external APIs. Implement Zod for validation and IndexedDB for persistent local storage, ensuring robust handling of missing ingredients, duplicate items, empty plan days, and long‑term data growth. The application must provide a clean interface for managing meals, editing ingredients, exporting plans, and maintaining reliable weekly planning functionality entirely offline.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vsy387-meal-planner-web-app",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
