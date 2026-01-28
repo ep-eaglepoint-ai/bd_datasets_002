@@ -464,32 +464,39 @@ public class RateLimiterTest {
     
     // Requirement 10: Memory usage must remain bounded
     @Test
-    void testRequirement10_MemoryBounded() throws InterruptedException {
-        RateLimiter limiter = new RateLimiter(5, 1000);
+    void testRequirement10_MemoryBounded() throws Exception {
+        int maxRequests = 10;
+        long windowSizeMillis = 200; // Small window for faster test
+        RateLimiter limiter = new RateLimiter(maxRequests, windowSizeMillis);
         
-        // Create many clients
-        int numClients = 5000;
+        // 1. Fill the limiter with many clients
+        int numClients = 2000;
         for (int i = 0; i < numClients; i++) {
             limiter.isAllowed("client_" + i);
         }
         
-        // Wait for cleanup to occur (trigger cleanup by making many requests)
-        // Cleanup happens every 1000 operations
-        for (int i = 0; i < 1000; i++) {
+        // Use reflection to verify internal map size
+        Field field = RateLimiter.class.getDeclaredField("clientWindows");
+        field.setAccessible(true);
+        ConcurrentHashMap<?, ?> map = (ConcurrentHashMap<?, ?>) field.get(limiter);
+        
+        int sizeBefore = map.size();
+        assertTrue(sizeBefore >= numClients, "Map should contain all clients initially");
+        
+        // 2. Wait for clients to expire (expiry is 2x windowSizeMillis)
+        Thread.sleep(windowSizeMillis * 3);
+        
+        // 3. Trigger cleanup by making enough requests
+        // CLEANUP_INTERVAL is 1000
+        for (int i = 0; i < 1001; i++) {
             limiter.isAllowed("active_client");
         }
         
-        // Wait for old clients to expire (2x window size = 2000ms)
-        Thread.sleep(2100);
-        
-        // Trigger cleanup again
-        for (int i = 0; i < 1000; i++) {
-            limiter.isAllowed("active_client");
-        }
-        
-        // Memory should be bounded - old inactive clients should be cleaned up
-        // We can't directly measure memory, but we verify cleanup mechanism exists
-        // by checking that the implementation has cleanup logic
+        // 4. Verify that old clients have been removed
+        int sizeAfter = map.size();
+        assertTrue(sizeAfter < sizeBefore, "Map size should have decreased after cleanup. Before: " + sizeBefore + ", After: " + sizeAfter);
+        // Should only have the 'active_client' plus potentially a few others if timing is tight
+        assertTrue(sizeAfter < 100, "Map size should be small after cleanup. Current size: " + sizeAfter);
     }
     
     // Requirement 11: Valid requests must not be incorrectly rejected

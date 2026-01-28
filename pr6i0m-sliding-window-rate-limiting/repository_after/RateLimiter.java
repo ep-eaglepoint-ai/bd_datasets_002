@@ -60,14 +60,17 @@ public class RateLimiter {
             cleanupOldClients(currentTime);
         }
         
-        ClientWindow window = clientWindows.computeIfAbsent(
-            clientId, 
-            k -> new ClientWindow(maxRequests, windowSizeMillis, currentTime)
-        );
+        // Use compute to atomically retrieve/create and update last access time
+        // This prevents the cleanup race where a window might be removed while in use
+        ClientWindow window = clientWindows.compute(clientId, (k, v) -> {
+            if (v == null) {
+                return new ClientWindow(maxRequests, windowSizeMillis, currentTime);
+            }
+            v.updateLastAccess(currentTime);
+            return v;
+        });
         
-        boolean allowed = window.isAllowed(currentTime);
-        window.updateLastAccess(currentTime);
-        return allowed;
+        return window.isAllowed(currentTime);
     }
     
     /**
@@ -91,34 +94,18 @@ public class RateLimiter {
         private final int maxRequests;
         private final long windowSizeMillis;
         private final long[] requestTimes;
-        private final AtomicInteger writeIndex;
-        private final AtomicLong lastCleanupTime;
+        private int head = 0;
+        private int tail = 0;
+        private int count = 0;
         private final AtomicLong lastAccessTime;
         private final ReentrantReadWriteLock lock;
         private final int bufferSize;
         
-        // Calculate buffer size to be at least maxRequests, rounded up to next power of 2
-        // This ensures we can accurately track all requests within the window
-        private int calculateBufferSize(int maxRequests) {
-            // Minimum buffer size
-            int minSize = 64;
-            // Need at least maxRequests entries, with some headroom
-            int requiredSize = Math.max(minSize, maxRequests * 2);
-            // Round up to next power of 2 for efficient modulo
-            int size = 1;
-            while (size < requiredSize) {
-                size <<= 1;
-            }
-            return size;
-        }
-        
         ClientWindow(int maxRequests, long windowSizeMillis, long initialTime) {
             this.maxRequests = maxRequests;
             this.windowSizeMillis = windowSizeMillis;
-            this.bufferSize = calculateBufferSize(maxRequests);
+            this.bufferSize = maxRequests;
             this.requestTimes = new long[bufferSize];
-            this.writeIndex = new AtomicInteger(0);
-            this.lastCleanupTime = new AtomicLong(initialTime);
             this.lastAccessTime = new AtomicLong(initialTime);
             this.lock = new ReentrantReadWriteLock();
         }
@@ -134,51 +121,26 @@ public class RateLimiter {
         boolean isAllowed(long currentTime) {
             lock.writeLock().lock();
             try {
-                // Cleanup old entries periodically to bound memory
-                long lastCleanup = lastCleanupTime.get();
-                if (currentTime - lastCleanup > windowSizeMillis) {
-                    cleanupOldEntries(currentTime);
-                    lastCleanupTime.set(currentTime);
+                long windowStart = currentTime - windowSizeMillis;
+                
+                // Cleanup expired entries from the head of the circular buffer
+                while (count > 0 && requestTimes[head] <= windowStart) {
+                    head = (head + 1) % bufferSize;
+                    count--;
                 }
                 
-                // Count valid requests within the window
-                int validCount = countValidRequests(currentTime);
-                
-                if (validCount >= maxRequests) {
+                if (count >= maxRequests) {
                     return false;
                 }
                 
-                // Record this request
-                int index = writeIndex.getAndIncrement() & (bufferSize - 1);
-                requestTimes[index] = currentTime;
+                // Add new request timestamp at the tail
+                requestTimes[tail] = currentTime;
+                tail = (tail + 1) % bufferSize;
+                count++;
                 
                 return true;
             } finally {
                 lock.writeLock().unlock();
-            }
-        }
-        
-        private int countValidRequests(long currentTime) {
-            long windowStart = currentTime - windowSizeMillis;
-            int count = 0;
-            
-            for (int i = 0; i < bufferSize; i++) {
-                long requestTime = requestTimes[i];
-                if (requestTime > 0 && requestTime > windowStart) {
-                    count++;
-                }
-            }
-            
-            return count;
-        }
-        
-        private void cleanupOldEntries(long currentTime) {
-            long windowStart = currentTime - windowSizeMillis;
-            
-            for (int i = 0; i < bufferSize; i++) {
-                if (requestTimes[i] > 0 && requestTimes[i] <= windowStart) {
-                    requestTimes[i] = 0;
-                }
             }
         }
     }
