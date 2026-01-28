@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class TestRequirements {
 
     private static String BASE_URI = "http://app:8080/api";
+    // Generate a random 6-digit number string
+    private static String RANDOM_ID = String.format("%06d", new java.util.Random().nextInt(1000000));
 
     @BeforeAll
     public static void setup() {
@@ -47,7 +49,7 @@ public class TestRequirements {
     @Order(1)
     public void testProductLifecycle() {
         Map<String, Object> product = new HashMap<>();
-        product.put("sku", "TST-000001");
+        product.put("sku", "TST-" + RANDOM_ID);
         product.put("name", "JUnit Product");
         product.put("category", "Test");
         product.put("unitPrice", 100.00);
@@ -60,7 +62,7 @@ public class TestRequirements {
             .post("/products")
             .then()
             .statusCode(201)
-            .body("sku", equalTo("TST-000001"))
+            .body("sku", equalTo("TST-" + RANDOM_ID))
             .extract().path("id");
 
         // GET
@@ -69,9 +71,7 @@ public class TestRequirements {
         // UPDATE
         Map<String, Object> update = new HashMap<>();
         update.put("name", "Updated Product");
-        update.put("unitPrice", 150.00); // Need to send other required fields if using PUT fully? 
-        // Our API implementation uses MapStruct and updateEntityFromDto with NullValuePropertyMappingStrategy.IGNORE?
-        // Let's check UpdateProductRequest. It has nullable fields. So partial update is fine.
+        update.put("unitPrice", 150.00); 
         
         given()
             .contentType(ContentType.JSON)
@@ -101,7 +101,7 @@ public class TestRequirements {
         address.put("country", "Testland");
 
         Map<String, Object> location = new HashMap<>();
-        location.put("code", "LOC-TEST");
+        location.put("code", "LOC-" + RANDOM_ID);
         location.put("name", "Test Warehouse");
         location.put("type", "WAREHOUSE");
         location.put("capacity", 1000);
@@ -115,7 +115,7 @@ public class TestRequirements {
             .post("/locations")
             .then()
             .statusCode(201)
-            .body("code", equalTo("LOC-TEST"))
+            .body("code", equalTo("LOC-" + RANDOM_ID))
             .extract().path("id");
 
         // GET
@@ -131,7 +131,7 @@ public class TestRequirements {
     public void testInventoryOperations() {
         // Setup Product
         Map<String, Object> prod = new HashMap<>();
-        prod.put("sku", "INV-000001");
+        prod.put("sku", "INV-" + RANDOM_ID);
         prod.put("name", "Inventory Item");
         prod.put("category", "Test");
         prod.put("unitPrice", 10.00);
@@ -142,11 +142,11 @@ public class TestRequirements {
         addr.put("street", "S"); addr.put("city", "C"); addr.put("state", "S"); addr.put("zip", "Z"); addr.put("country", "C");
         
         Map<String, Object> locA = new HashMap<>();
-        locA.put("code", "WH-A"); locA.put("name", "Warehouse A"); locA.put("type", "WAREHOUSE"); locA.put("capacity", 100); locA.put("address", addr);
+        locA.put("code", "WH-A-" + RANDOM_ID); locA.put("name", "Warehouse A"); locA.put("type", "WAREHOUSE"); locA.put("capacity", 100); locA.put("address", addr);
         int lidA = given().contentType(ContentType.JSON).body(locA).post("/locations").then().statusCode(201).extract().path("id");
 
         Map<String, Object> locB = new HashMap<>();
-        locB.put("code", "WH-B"); locB.put("name", "Warehouse B"); locB.put("type", "WAREHOUSE"); locB.put("capacity", 100); locB.put("address", addr);
+        locB.put("code", "WH-B-" + RANDOM_ID); locB.put("name", "Warehouse B"); locB.put("type", "WAREHOUSE"); locB.put("capacity", 100); locB.put("address", addr);
         int lidB = given().contentType(ContentType.JSON).body(locB).post("/locations").then().statusCode(201).extract().path("id");
 
         // 8. RECEIVE
@@ -204,11 +204,11 @@ public class TestRequirements {
     @Order(4)
     public void testValidations() {
         // Setup
-        int pid = given().contentType(ContentType.JSON).body(Map.of("sku","VAL-000001","name","V","category","C","unitPrice",1)).post("/products").path("id");
+        int pid = given().contentType(ContentType.JSON).body(Map.of("sku","VAL-" + RANDOM_ID,"name","V","category","C","unitPrice",1)).post("/products").path("id");
         
         Map<String, Object> addr = new HashMap<>();
         addr.put("street", "S"); addr.put("city", "C"); addr.put("state", "S"); addr.put("zip", "Z"); addr.put("country", "C");
-        int lid = given().contentType(ContentType.JSON).body(Map.of("code","VAL-LOC","name","L","type","WAREHOUSE","capacity",50,"address",addr)).post("/locations").path("id");
+        int lid = given().contentType(ContentType.JSON).body(Map.of("code","VAL-LOC-" + RANDOM_ID,"name","L","type","WAREHOUSE","capacity",50,"address",addr)).post("/locations").path("id");
 
         // Init with 10
         given().contentType(ContentType.JSON).body(Map.of("locationId", lid, "items", List.of(Map.of("productId", pid, "quantity", 10)), "reference", "I", "performedBy", "T")).post("/inventory/receive");
@@ -221,7 +221,7 @@ public class TestRequirements {
             .body("message", containsString("negative quantity"));
 
         // 13. Fail transfer more than available
-        int lid2 = given().contentType(ContentType.JSON).body(Map.of("code","VAL-LOC2","name","L2","type","WAREHOUSE","capacity",50,"address",addr)).post("/locations").path("id");
+        int lid2 = given().contentType(ContentType.JSON).body(Map.of("code","VAL-LOC2-" + RANDOM_ID,"name","L2","type","WAREHOUSE","capacity",50,"address",addr)).post("/locations").path("id");
         given().contentType(ContentType.JSON)
             .body(Map.of("productId", pid, "fromLocationId", lid, "toLocationId", lid2, "quantity", 15, "reference", "X", "performedBy", "T"))
             .post("/inventory/transfer")

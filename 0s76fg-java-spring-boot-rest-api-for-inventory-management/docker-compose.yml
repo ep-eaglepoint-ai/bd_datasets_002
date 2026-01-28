@@ -31,9 +31,12 @@ services:
 
   evaluation:
     image: python:3.11-alpine
+    depends_on:
+      app:
+        condition: service_healthy
     volumes:
       - ./:/workspace
-      - /var/run/docker.sock:/var/run/docker.sock 
+      - /var/run/docker.sock:/var/run/docker.sock
     working_dir: /workspace
     environment:
       - PYTHONUNBUFFERED=1
