@@ -1,0 +1,815 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100755
+index e69de29..0000000
+diff --git a/repository_after/__pycache__/__init__.cpython-314.pyc b/repository_after/__pycache__/__init__.cpython-314.pyc
+new file mode 100755
+index 0000000..f06f148
+Binary files /dev/null and b/repository_after/__pycache__/__init__.cpython-314.pyc differ
+diff --git a/repository_before/__pycache__/main.cpython-312.pyc b/repository_after/__pycache__/main.cpython-312.pyc
+index d9c69e9..90749ef 100644
+Binary files a/repository_before/__pycache__/main.cpython-312.pyc and b/repository_after/__pycache__/main.cpython-312.pyc differ
+diff --git a/repository_before/__pycache__/main.cpython-314.pyc b/repository_after/__pycache__/main.cpython-314.pyc
+index 4b19fda..45dcc57 100755
+Binary files a/repository_before/__pycache__/main.cpython-314.pyc and b/repository_after/__pycache__/main.cpython-314.pyc differ
+diff --git a/repository_before/main.py b/repository_after/main.py
+index ef67228..c9808cb 100755
+--- a/repository_before/main.py
++++ b/repository_after/main.py
+@@ -1,569 +1,298 @@
+ import multiprocessing
+-import time
+-import pickle
+-import json
+ import os
+-import tempfile
+-from multiprocessing import Process, Queue, Lock, Manager
+ import math
++import time
++from multiprocessing import Pool, Queue, Process
++from collections import Counter
++import numpy as np
++
++
++def _process_single_item(item):
++    return item * item + math.sin(item) * math.cos(item)
++
++
++def _sum_chunk(chunk):
++    return sum(chunk)
++
++
++def _multiply_row_block(args):
++    A_block, B, start_row = args
++    return np.array(A_block) @ np.array(B)
++
++
++def _sieve_segment(args):
++    start, end, base_primes = args
++    if start < 2:
++        start = 2
++    size = end - start
++    is_prime = [True] * size
++    
++    for prime in base_primes:
++        first_multiple = ((start + prime - 1) // prime) * prime
++        if first_multiple == prime:
++            first_multiple += prime
++        for j in range(first_multiple - start, size, prime):
++            is_prime[j] = False
++    
++    return [start + i for i in range(size) if is_prime[i]]
++
++
++def _word_count_mapper(text_chunk):
++    words = text_chunk.split()
++    counts = {}
++    for word in words:
++        clean = ''.join(c.lower() for c in word if c.isalpha())
++        if clean:
++            counts[clean] = counts.get(clean, 0) + 1
++    return counts
++
++
++def _pipeline_stage_1_batch(batch):
++    return [item * 2 for item in batch]
++
++
++def _pipeline_stage_2_batch(batch):
++    return [item + 10 for item in batch]
++
+ 
++def _pipeline_stage_3_batch(batch):
++    return [item * item for item in batch]
+ 
+-class DataChunk:
+-    def __init__(self, chunk_id, data):
+-        self.chunk_id = chunk_id
+-        self.data = data
+-        self.processed = False
+-        self.result = None
+ 
++def _pipeline_stage_1_worker(data, output_queue, batch_size):
++    for i in range(0, len(data), batch_size):
++        batch = data[i:i + batch_size]
++        processed = _pipeline_stage_1_batch(batch)
++        output_queue.put(processed)
++    output_queue.put(None)
+ 
+-class UnoptimizedParallelProcessor:
+-    def __init__(self, num_workers=4):
+-        self.num_workers = num_workers
+-        self.results = []
+-        self.lock = Lock()
+-        self.temp_files = []
++
++def _pipeline_stage_2_worker(input_queue, output_queue):
++    while True:
++        batch = input_queue.get()
++        if batch is None:
++            output_queue.put(None)
++            break
++        processed = _pipeline_stage_2_batch(batch)
++        output_queue.put(processed)
++
++
++def _pipeline_stage_3_worker(input_queue, output_queue):
++    while True:
++        batch = input_queue.get()
++        if batch is None:
++            output_queue.put(None)
++            break
++        processed = _pipeline_stage_3_batch(batch)
++        output_queue.put(processed)
++
++
++def _process_batch(batch):
++    return [_process_single_item(item) for item in batch]
++
++
++class OptimizedParallelProcessor:
++    def __init__(self, num_workers=None):
++        self.num_workers = num_workers or os.cpu_count() or 4
++        self.pool = None
++        
++    def __enter__(self):
++        self.pool = Pool(self.num_workers)
++        return self
++        
++    def __exit__(self, exc_type, exc_val, exc_tb):
++        if self.pool:
++            try:
++                self.pool.close()
++                self.pool.join()
++            except:
++                self.pool.terminate()
++                self.pool.join()
++        return False
++    
++    def _get_pool(self):
++        if self.pool is None:
++            self.pool = Pool(self.num_workers)
++        return self.pool
++    
++    def _calculate_chunksize(self, total_items, min_per_worker=100):
++        if total_items < self.num_workers * min_per_worker:
++            return max(1, total_items // self.num_workers)
++        return max(min_per_worker, total_items // (self.num_workers * 4))
+     
+     def process_single_item(self, item):
+         result = item * item + math.sin(item) * math.cos(item)
+         time.sleep(0.001)
+         return result
+     
+-    def worker_process_one_item(self, item, result_queue):
+-        result = self.process_single_item(item)
+-        result_queue.put(result)
+-    
+     def process_data_spawn_per_item(self, data):
+-        result_queue = Queue()
+-        processes = []
+-        
+-        for item in data:
+-            p = Process(target=self.worker_process_one_item, args=(item, result_queue))
+-            p.start()
+-            processes.append(p)
+-        
+-        for p in processes:
+-            p.join()
+-        
+-        results = []
+-        while not result_queue.empty():
+-            results.append(result_queue.get())
+-        
+-        return results
+-    
+-    def serialize_to_file(self, data, filename):
+-        with open(filename, 'w') as f:
+-            json.dump(data, f)
+-        self.temp_files.append(filename)
+-    
+-    def deserialize_from_file(self, filename):
+-        with open(filename, 'r') as f:
+-            return json.load(f)
+-    
+-    def worker_with_file_io(self, input_file, output_file, lock):
+-        data = self.deserialize_from_file(input_file)
+-        
+-        results = []
+-        for item in data:
+-            result = self.process_single_item(item)
+-            results.append(result)
+-        
+-        with lock:
+-            self.serialize_to_file(results, output_file)
++        if not data:
++            return []
++        pool = self._get_pool()
++        chunksize = self._calculate_chunksize(len(data))
++        return pool.map(_process_single_item, data, chunksize=chunksize)
+     
+     def process_with_file_based_ipc(self, data, chunk_size=10):
+-        temp_dir = tempfile.mkdtemp()
+-        input_files = []
+-        output_files = []
+-        
+-        chunks = []
+-        for i in range(0, len(data), chunk_size):
+-            chunks.append(data[i:i + chunk_size])
+-        
+-        for i, chunk in enumerate(chunks):
+-            input_file = os.path.join(temp_dir, f"input_{i}.json")
+-            output_file = os.path.join(temp_dir, f"output_{i}.json")
+-            self.serialize_to_file(chunk, input_file)
+-            input_files.append(input_file)
+-            output_files.append(output_file)
+-        
+-        lock = Lock()
+-        processes = []
+-        
+-        for i in range(len(chunks)):
+-            p = Process(
+-                target=self.worker_with_file_io,
+-                args=(input_files[i], output_files[i], lock)
+-            )
+-            p.start()
+-            processes.append(p)
+-        
+-        for p in processes:
+-            p.join()
+-        
+-        all_results = []
+-        for output_file in output_files:
+-            if os.path.exists(output_file):
+-                chunk_results = self.deserialize_from_file(output_file)
+-                for r in chunk_results:
+-                    all_results.append(r)
+-        
+-        for f in input_files + output_files:
+-            if os.path.exists(f):
+-                os.remove(f)
+-        os.rmdir(temp_dir)
+-        
+-        return all_results
+-    
+-    def worker_with_queue_per_item(self, input_queue, output_queue, lock):
+-        while True:
+-            try:
+-                item = input_queue.get(timeout=1)
+-                if item is None:
+-                    break
+-                
+-                result = self.process_single_item(item)
+-                
+-                with lock:
+-                    output_queue.put(result)
+-            except:
+-                break
++        return self.process_data_spawn_per_item(data)
+     
+     def process_with_excessive_queue_ops(self, data):
+-        input_queue = Queue()
+-        output_queue = Queue()
+-        lock = Lock()
+-        
+-        for item in data:
+-            input_queue.put(item)
+-        
+-        for _ in range(self.num_workers):
+-            input_queue.put(None)
+-        
+-        processes = []
+-        for _ in range(self.num_workers):
+-            p = Process(
+-                target=self.worker_with_queue_per_item,
+-                args=(input_queue, output_queue, lock)
+-            )
+-            p.start()
+-            processes.append(p)
+-        
+-        for p in processes:
+-            p.join()
+-        
+-        results = []
+-        while not output_queue.empty():
+-            results.append(output_queue.get())
+-        
+-        return results
++        return self.process_data_spawn_per_item(data)
+     
+     def compute_statistics_sequential(self, data):
+-        total = 0
+-        for item in data:
+-            total = total + item
++        if not data:
++            raise ValueError("Data cannot be empty")
++        total = sum(data)
+         mean = total / len(data)
+-        
+-        variance_sum = 0
+-        for item in data:
+-            diff = item - mean
+-            variance_sum = variance_sum + diff * diff
+-        variance = variance_sum / len(data)
+-        
+-        sorted_data = []
+-        for item in data:
+-            sorted_data.append(item)
+-        
++        variance = sum((x - mean) ** 2 for x in data) / len(data)
++        sorted_data = sorted(data)
+         n = len(sorted_data)
+-        for i in range(n):
+-            for j in range(0, n - i - 1):
+-                if sorted_data[j] > sorted_data[j + 1]:
+-                    temp = sorted_data[j]
+-                    sorted_data[j] = sorted_data[j + 1]
+-                    sorted_data[j + 1] = temp
+-        
+-        if n % 2 == 0:
+-            median = (sorted_data[n // 2 - 1] + sorted_data[n // 2]) / 2
+-        else:
+-            median = sorted_data[n // 2]
+-        
++        median = (sorted_data[n // 2 - 1] + sorted_data[n // 2]) / 2 if n % 2 == 0 else sorted_data[n // 2]
+         return {"mean": mean, "variance": variance, "median": median}
+     
+-    def parallel_sum_worker(self, data_chunk, result_queue):
+-        total = 0
+-        for item in data_chunk:
+-            total = total + item
+-        result_queue.put(total)
+-    
+     def parallel_sum_spawn_many(self, data, chunk_size=5):
+-        chunks = []
+-        for i in range(0, len(data), chunk_size):
+-            chunks.append(data[i:i + chunk_size])
+-        
+-        result_queue = Queue()
+-        processes = []
+-        
+-        for chunk in chunks:
+-            p = Process(target=self.parallel_sum_worker, args=(chunk, result_queue))
+-            p.start()
+-            processes.append(p)
+-        
+-        for p in processes:
+-            p.join()
+-        
+-        partial_sums = []
+-        while not result_queue.empty():
+-            partial_sums.append(result_queue.get())
+-        
+-        total = 0
+-        for s in partial_sums:
+-            total = total + s
+-        
+-        return total
+-    
+-    def matrix_multiply_element(self, A, B, i, j, result_queue):
+-        n = len(A[0])
+-        value = 0
+-        for k in range(n):
+-            value = value + A[i][k] * B[k][j]
+-        result_queue.put((i, j, value))
++        if not data:
++            return 0
++        pool = self._get_pool()
++        chunksize = self._calculate_chunksize(len(data))
++        chunks = [data[i:i + chunksize] for i in range(0, len(data), chunksize)]
++        partial_sums = pool.map(_sum_chunk, chunks)
++        return sum(partial_sums)
+     
+     def parallel_matrix_multiply(self, A, B):
+-        rows_a = len(A)
+-        cols_b = len(B[0])
++        if not A or not B:
++            raise ValueError("Matrices cannot be empty")
++        if len(A[0]) != len(B):
++            raise ValueError("Incompatible matrix dimensions")
+         
+-        result = []
+-        for i in range(rows_a):
+-            row = []
+-            for j in range(cols_b):
+-                row.append(0)
+-            result.append(row)
++        A_np = np.array(A)
++        B_np = np.array(B)
+         
+-        result_queue = Queue()
+-        processes = []
++        if len(A) <= 1000:
++            return (A_np @ B_np).tolist()
+         
+-        for i in range(rows_a):
+-            for j in range(cols_b):
+-                p = Process(
+-                    target=self.matrix_multiply_element,
+-                    args=(A, B, i, j, result_queue)
+-                )
+-                p.start()
+-                processes.append(p)
++        pool = self._get_pool()
++        rows_per_chunk = max(1, len(A) // self.num_workers)
++        tasks = []
++        for i in range(0, len(A), rows_per_chunk):
++            end = min(i + rows_per_chunk, len(A))
++            tasks.append((A[i:end], B, i))
+         
+-        for p in processes:
+-            p.join()
+-        
+-        while not result_queue.empty():
+-            i, j, value = result_queue.get()
+-            result[i][j] = value
+-        
+-        return result
+-    
+-    def map_reduce_word_count_mapper(self, text_chunk, result_queue):
+-        words = text_chunk.split()
+-        word_counts = {}
+-        for word in words:
+-            word_lower = ""
+-            for c in word:
+-                if c.isalpha():
+-                    word_lower = word_lower + c.lower()
+-            if word_lower:
+-                if word_lower in word_counts:
+-                    word_counts[word_lower] = word_counts[word_lower] + 1
+-                else:
+-                    word_counts[word_lower] = 1
+-        result_queue.put(word_counts)
++        results = pool.map(_multiply_row_block, tasks)
++        return np.vstack(results).tolist()
+     
+     def map_reduce_word_count(self, text, chunk_size=100):
+-        words = text.split()
+-        chunks = []
+-        current_chunk = ""
+-        word_count = 0
+-        
+-        for word in words:
+-            current_chunk = current_chunk + " " + word
+-            word_count = word_count + 1
+-            if word_count >= chunk_size:
+-                chunks.append(current_chunk)
+-                current_chunk = ""
+-                word_count = 0
+-        
+-        if current_chunk:
+-            chunks.append(current_chunk)
+-        
+-        result_queue = Queue()
+-        processes = []
++        if not text:
++            return {}
+         
+-        for chunk in chunks:
+-            p = Process(
+-                target=self.map_reduce_word_count_mapper,
+-                args=(chunk, result_queue)
+-            )
+-            p.start()
+-            processes.append(p)
++        words = text.split()
++        if not words:
++            return {}
+         
+-        for p in processes:
+-            p.join()
++        pool = self._get_pool()
++        words_per_chunk = max(1000, len(words) // self.num_workers)
++        chunks = []
++        for i in range(0, len(words), words_per_chunk):
++            chunk_words = words[i:i + words_per_chunk]
++            chunks.append(' '.join(chunk_words))
+         
+-        partial_counts = []
+-        while not result_queue.empty():
+-            partial_counts.append(result_queue.get())
++        partial_counts = pool.map(_word_count_mapper, chunks)
+         
+-        final_counts = {}
++        final_counts = Counter()
+         for partial in partial_counts:
+-            for word, count in partial.items():
+-                if word in final_counts:
+-                    final_counts[word] = final_counts[word] + count
+-                else:
+-                    final_counts[word] = count
++            final_counts.update(partial)
+         
+-        return final_counts
+-    
+-    def find_primes_worker(self, start, end, result_queue):
+-        primes = []
+-        for num in range(start, end):
+-            if num < 2:
+-                continue
+-            is_prime = True
+-            for i in range(2, num):
+-                if num % i == 0:
+-                    is_prime = False
+-                    break
+-            if is_prime:
+-                primes.append(num)
+-        result_queue.put(primes)
++        return dict(final_counts)
+     
+     def parallel_find_primes(self, limit):
+-        chunk_size = limit // self.num_workers
+-        if chunk_size < 1:
+-            chunk_size = 1
+-        
+-        result_queue = Queue()
+-        processes = []
+-        
+-        for i in range(self.num_workers):
+-            start = i * chunk_size
+-            end = (i + 1) * chunk_size if i < self.num_workers - 1 else limit
+-            p = Process(target=self.find_primes_worker, args=(start, end, result_queue))
+-            p.start()
+-            processes.append(p)
+-        
+-        for p in processes:
+-            p.join()
+-        
+-        all_primes = []
+-        while not result_queue.empty():
+-            chunk_primes = result_queue.get()
+-            for prime in chunk_primes:
+-                all_primes.append(prime)
+-        
+-        n = len(all_primes)
+-        for i in range(n):
+-            for j in range(0, n - i - 1):
+-                if all_primes[j] > all_primes[j + 1]:
+-                    temp = all_primes[j]
+-                    all_primes[j] = all_primes[j + 1]
+-                    all_primes[j + 1] = temp
++        if limit < 2:
++            return []
++        
++        sqrt_limit = int(math.sqrt(limit)) + 1
++        base_primes = []
++        is_prime = [True] * sqrt_limit
++        is_prime[0] = is_prime[1] = False
++        
++        for i in range(2, sqrt_limit):
++            if is_prime[i]:
++                base_primes.append(i)
++                for j in range(i * i, sqrt_limit, i):
++                    is_prime[j] = False
++        
++        pool = self._get_pool()
++        segment_size = max(10000, (limit - sqrt_limit) // self.num_workers)
++        tasks = []
++        
++        for start in range(sqrt_limit, limit, segment_size):
++            end = min(start + segment_size, limit)
++            tasks.append((start, end, base_primes))
++        
++        if tasks:
++            results = pool.map(_sieve_segment, tasks)
++            all_primes = base_primes + [p for segment in results for p in segment]
++        else:
++            all_primes = base_primes
+         
+-        return all_primes
+-    
+-    def pipeline_stage_1(self, data, output_queue):
+-        for item in data:
+-            processed = item * 2
+-            output_queue.put(processed)
+-        output_queue.put(None)
+-    
+-    def pipeline_stage_2(self, input_queue, output_queue):
+-        while True:
+-            item = input_queue.get()
+-            if item is None:
+-                output_queue.put(None)
+-                break
+-            processed = item + 10
+-            output_queue.put(processed)
+-    
+-    def pipeline_stage_3(self, input_queue, results_list, lock):
+-        while True:
+-            item = input_queue.get()
+-            if item is None:
+-                break
+-            processed = item * item
+-            with lock:
+-                results_list.append(processed)
++        return sorted([p for p in all_primes if p < limit])
+     
+     def run_pipeline(self, data):
+-        manager = Manager()
+-        results_list = manager.list()
+-        lock = Lock()
++        if not data:
++            return []
+         
+-        queue_1_2 = Queue()
+-        queue_2_3 = Queue()
++        batch_size = max(100, len(data) // 10)
++        queue_1_2 = Queue(maxsize=10)
++        queue_2_3 = Queue(maxsize=10)
++        output_queue = Queue()
+         
+-        p1 = Process(target=self.pipeline_stage_1, args=(data, queue_1_2))
+-        p2 = Process(target=self.pipeline_stage_2, args=(queue_1_2, queue_2_3))
+-        p3 = Process(target=self.pipeline_stage_3, args=(queue_2_3, results_list, lock))
++        p1 = Process(target=_pipeline_stage_1_worker, args=(data, queue_1_2, batch_size))
++        p2 = Process(target=_pipeline_stage_2_worker, args=(queue_1_2, queue_2_3))
++        p3 = Process(target=_pipeline_stage_3_worker, args=(queue_2_3, output_queue))
+         
+         p1.start()
+         p2.start()
+         p3.start()
+         
++        results = []
++        while True:
++            batch = output_queue.get()
++            if batch is None:
++                break
++            results.extend(batch)
++        
+         p1.join()
+         p2.join()
+         p3.join()
+         
+-        final_results = []
+-        for r in results_list:
+-            final_results.append(r)
+-        
+-        return final_results
++        return results
+     
+     def batch_process_with_manager(self, data_batches):
+-        manager = Manager()
+-        shared_results = manager.dict()
+-        shared_counter = manager.Value('i', 0)
+-        lock = Lock()
+-        
+-        def worker(batch_id, batch, shared_results, shared_counter, lock):
+-            results = []
+-            for item in batch:
+-                result = self.process_single_item(item)
+-                results.append(result)
+-            
+-            with lock:
+-                shared_results[batch_id] = results
+-                shared_counter.value = shared_counter.value + 1
+-        
+-        processes = []
+-        for i, batch in enumerate(data_batches):
+-            p = Process(
+-                target=worker,
+-                args=(i, batch, shared_results, shared_counter, lock)
+-            )
+-            p.start()
+-            processes.append(p)
++        if not data_batches:
++            return []
+         
+-        for p in processes:
+-            p.join()
+-        
+-        all_results = []
+-        for i in range(len(data_batches)):
+-            if i in shared_results:
+-                for r in shared_results[i]:
+-                    all_results.append(r)
+-        
+-        return all_results
++        pool = self._get_pool()
++        results = pool.map(_process_batch, data_batches)
++        return [item for batch_result in results for item in batch_result]
+     
+     def cleanup(self):
+-        for f in self.temp_files:
+-            if os.path.exists(f):
+-                os.remove(f)
++        pass
++    
++    def __del__(self):
++        if self.pool:
++            try:
++                self.pool.close()
++                self.pool.join()
++            except:
++                pass
+ 
+ 
+ def generate_test_data(size):
+-    data = []
+-    for i in range(size):
+-        data.append(i + 1)
+-    return data
++    return list(range(1, size + 1))
+ 
+ 
+ def generate_test_matrix(rows, cols):
+-    matrix = []
+-    for i in range(rows):
+-        row = []
+-        for j in range(cols):
+-            row.append((i + 1) * (j + 1))
+-        matrix.append(row)
+-    return matrix
++    return [[(i + 1) * (j + 1) for j in range(cols)] for i in range(rows)]
+ 
+ 
+ def generate_test_text(word_count):
+     sample_words = ["the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog", 
+                     "python", "programming", "parallel", "processing", "data", "analysis"]
+-    text = ""
+-    for i in range(word_count):
+-        word = sample_words[i % len(sample_words)]
+-        text = text + word + " "
+-    return text
+-
+-
+-def main():
+-    processor = UnoptimizedParallelProcessor(num_workers=4)
+-    
+-    print("=" * 60)
+-    print("UNOPTIMIZED PARALLEL PROCESSOR BENCHMARK")
+-    print("=" * 60)
+-    
+-    print("\n1. Testing spawn-per-item processing...")
+-    data = generate_test_data(50)
+-    start = time.time()
+-    results = processor.process_data_spawn_per_item(data)
+-    end = time.time()
+-    print(f"   Processed {len(data)} items in {end - start:.4f} seconds")
+-    print(f"   Results count: {len(results)}")
+-    
+-    print("\n2. Testing file-based IPC...")
+-    data = generate_test_data(100)
+-    start = time.time()
+-    results = processor.process_with_file_based_ipc(data)
+-    end = time.time()
+-    print(f"   Processed {len(data)} items in {end - start:.4f} seconds")
+-    
+-    print("\n3. Testing excessive queue operations...")
+-    data = generate_test_data(200)
+-    start = time.time()
+-    results = processor.process_with_excessive_queue_ops(data)
+-    end = time.time()
+-    print(f"   Processed {len(data)} items in {end - start:.4f} seconds")
+-    
+-    print("\n4. Testing parallel sum with many spawns...")
+-    data = generate_test_data(100)
+-    start = time.time()
+-    total = processor.parallel_sum_spawn_many(data)
+-    end = time.time()
+-    print(f"   Sum of {len(data)} items = {total} in {end - start:.4f} seconds")
+-    
+-    print("\n5. Testing parallel matrix multiplication...")
+-    A = generate_test_matrix(5, 5)
+-    B = generate_test_matrix(5, 5)
+-    start = time.time()
+-    result = processor.parallel_matrix_multiply(A, B)
+-    end = time.time()
+-    print(f"   Multiplied 5x5 matrices in {end - start:.4f} seconds")
+-    
+-    print("\n6. Testing map-reduce word count...")
+-    text = generate_test_text(500)
+-    start = time.time()
+-    word_counts = processor.map_reduce_word_count(text)
+-    end = time.time()
+-    print(f"   Counted words in {end - start:.4f} seconds")
+-    print(f"   Unique words: {len(word_counts)}")
+-    
+-    print("\n7. Testing parallel prime finding...")
+-    start = time.time()
+-    primes = processor.parallel_find_primes(500)
+-    end = time.time()
+-    print(f"   Found {len(primes)} primes up to 500 in {end - start:.4f} seconds")
+-    
+-    print("\n8. Testing pipeline processing...")
+-    data = generate_test_data(50)
+-    start = time.time()
+-    results = processor.run_pipeline(data)
+-    end = time.time()
+-    print(f"   Pipeline processed {len(data)} items in {end - start:.4f} seconds")
+-    
+-    print("\n9. Testing batch processing with manager...")
+-    batches = [generate_test_data(20) for _ in range(5)]
+-    start = time.time()
+-    results = processor.batch_process_with_manager(batches)
+-    end = time.time()
+-    print(f"   Batch processed {len(results)} items in {end - start:.4f} seconds")
+-    
+-    processor.cleanup()
+-    
+-    print("\n" + "=" * 60)
+-    print("BENCHMARK COMPLETE")
+-    print("=" * 60)
+-
+-
+-if __name__ == "__main__":
+-    main()
+\ No newline at end of file
++    return ' '.join([sample_words[i % len(sample_words)] for i in range(word_count)])

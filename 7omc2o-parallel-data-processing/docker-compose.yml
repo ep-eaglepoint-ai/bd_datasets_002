@@ -1,6 +1,16 @@
 services:
-  app:
+  test:
     build: .
-    command: pytest -q tests
+    working_dir: /app
+    environment:
+      - REPO_PATH=${REPO_PATH:-repository_after}
     volumes:
-      - .:/app
+      - .:/app:z
+    command: pytest tests/test_main.py -v
+
+  evaluation:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app:z
+    command: python evaluation/evaluation.py
