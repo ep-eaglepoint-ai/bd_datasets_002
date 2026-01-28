@@ -1,16 +1,4 @@
-version: "3.9"
 services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: mydb
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   web:
     build:
       context: .
@@ -22,11 +10,8 @@ services:
       - chunk_data:/app/chunks
     ports:
       - "8000:8000"
-    depends_on:
-      - db
     environment:
       - DJANGO_SETTINGS_MODULE=resumable_uploads.settings
-      - DATABASE_URL=postgres://myuser:mypassword@db:5432/mydb
 
   app:
     build:
@@ -45,5 +30,4 @@ services:
       - ./:/workspace
 
 volumes:
-  postgres_data:
   chunk_data:
