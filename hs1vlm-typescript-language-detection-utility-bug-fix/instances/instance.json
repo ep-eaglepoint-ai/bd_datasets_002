@@ -1,13 +1,22 @@
 {
-            "instance_id": "HS1VLM",
-            "problem_statement": "Noticed inconsistent language detection behavior when testing a content moderation system's language filter for a multi-language customer support platform. The checkLanguage function in languageDetection.ts incorrectly classifies some English text as needing translation, produces different results for the same input when called multiple times, and returns wrong reasons for certain edge cases. 
-
-Users report that simple English sentences like "The quick brown fox jumps over the lazy dog" are being flagged for translation, whitespace-only inputs don't return the expected 'empty' reason, and short texts in Arabic script get classified as 'too_short' instead of 'non_latin'. The utility processes user messages to determine if they need translation before routing to English-speaking support agents, and these misclassifications are causing messages to be incorrectly routed or delayed.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hs1vlm-typescript-language-detection-utility-bug-fix",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "HS1VLM",
+  "problem_statement": "Role: Backend Developer\nBusiness Context: Content moderation system for a multi-language customer support platform\n\nA language detection utility processes user messages to determine if they need translation before routing to English-speaking support agents. The utility must correctly identify English content, flag non-English content for translation, and handle edge cases gracefully.\n\nConstraints:\n- TypeScript with Node.js runtime\n- Only franc-min as external dependency\n- No breaking changes to existing function signatures\n- Results must be deterministic (same input always produces same output)\n- Must handle any string input without throwing exceptions\n\nSuccess Criteria:\n- Empty and whitespace-only inputs return reason 'empty' with isEnglish: false\n- Texts with fewer than 5 words return reason 'too_short' with isEnglish: false\n- Texts containing non-Latin characters return reason 'non_latin' before any other classification\n- Pure English text returns isEnglish: true with reason 'valid'\n- Word counting handles multiple consecutive spaces correctly\n- detectLanguage returns null (not undefined) for empty/undetermined inputs\n- All Unicode ranges for non-Latin scripts are correctly bounded\n\nValidation Scenarios:\n1. \"The quick brown fox jumps over the lazy dog\" -> isEnglish: true, reason: 'valid'\n2. \"   \" (whitespace only) -> isEnglish: false, reason: 'empty'\n3. \"one  two   three    four\" (4 words with extra spaces) -> reason: 'too_short'\n4. \"مرحبا\" (single Arabic word) -> reason: 'non_latin' (not 'too_short')\n5. Same input called 3 times must return identical results each time\n6. detectLanguage(\"   \") -> null (not undefined)\n",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hs1vlm-typescript-language-detection-utility-bug-fix",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "Requirement 1: whitespace-only input returns reason 'empty' (not 'too_short')",
+    "Requirement 2: non-Latin input like Arabic returns reason 'non_latin' before word-count checks",
+    "Requirement 3: multiple consecutive spaces do not inflate word count",
+    "Requirement 6: detectLanguage(whitespace-only) returns null (not undefined)",
+    "Requirement 7: NON_LATIN_REGEX range endpoints include \\u06FF, \\u9FFF, \\uD7AF",
+    "Requirement 8: COMMON_NON_ENGLISH_WORDS contains no English words (prevents false positives)"
+  ],
+  "PASS_TO_PASS": [
+    "Empty string returns reason 'empty'",
+    "Normal short text (4 words, single spaces) returns 'too_short'",
+    "Determinism: same input called 3 times returns identical results",
+    "Functions do not throw on long strings or special characters"
+  ]
+}
