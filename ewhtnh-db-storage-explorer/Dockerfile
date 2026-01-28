@@ -1,5 +1,7 @@
-FROM python:3.11-slim
+FROM node:18-alpine
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+COPY repository_after/package*.json ./
+RUN npm install
+COPY repository_after/ .
+CMD ["npm", "run", "build"]
