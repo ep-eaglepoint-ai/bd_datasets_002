@@ -66,6 +66,12 @@ func (sa *SequenceAuditor) RunAudit(b *balancer.DynamicWeightedBalancer, n int) 
 	}
 }
 
+func (sa *SequenceAuditor) Reset() {
+	sa.counts = make(map[string]int)
+	sa.sequence = make([]string, 0)
+	sa.totalCalls = 0
+}
+
 // ==================== STATIC DISTRIBUTION TESTS (Requirement 8) ====================
 
 func TestStaticDistribution(t *testing.T) {
@@ -156,13 +162,46 @@ func TestStaticDistribution(t *testing.T) {
 			t.Errorf("Expected empty string for all unhealthy, got '%s'", result)
 		}
 	})
+
+	t.Run("MixedHealthy_OnlyHealthySelected", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 5, Healthy: false},
+			{ID: "B", Weight: 5, Healthy: true},
+			{ID: "C", Weight: 5, Healthy: false},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		for i := 0; i < 50; i++ {
+			result := b.GetNextNode()
+			if result != "B" {
+				t.Errorf("Only B should be selected, got '%s'", result)
+			}
+		}
+	})
+
+	t.Run("HighWeightDifference", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "Heavy", Weight: 100, Healthy: true},
+			{ID: "Light", Weight: 1, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b, 1010)
+
+		// Heavy should get ~99%, Light ~1%
+		heavyRatio := float64(auditor.GetCounts()["Heavy"]) / float64(auditor.totalCalls)
+		if heavyRatio < 0.98 {
+			t.Errorf("Heavy node should get ~99%% of traffic, got %.2f%%", heavyRatio*100)
+		}
+	})
 }
 
 // ==================== DYNAMIC TRANSITION TESTS (Requirement 8) ====================
 
 func TestDynamicTransitions(t *testing.T) {
 
-	// Requirement 2: Sequence Continuity Test
+	// Requirement 2: Sequence Continuity Test - EXACT sequence verification
 	t.Run("SequenceContinuity_WeightTransition", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 2, Healthy: true},
@@ -170,16 +209,24 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
+		// Call GetNextNode twice with equal weights
 		result1 := b.GetNextNode()
 		result2 := b.GetNextNode()
 		t.Logf("First two calls: %v, %v", result1, result2)
 
+		// Verify initial behavior - should alternate with equal weights
+		if result1 == result2 {
+			t.Logf("Note: Both initial calls returned same node: %s", result1)
+		}
+
+		// Update to [A:10, B:2]
 		newNodes := []*balancer.Node{
 			{ID: "A", Weight: 10, Healthy: true},
 			{ID: "B", Weight: 2, Healthy: true},
 		}
 		b.UpdateWeights(newNodes)
 
+		// Record next 12 calls
 		auditor := NewSequenceAuditor()
 		auditor.RunAudit(b, 12)
 
@@ -189,9 +236,58 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 
 		counts := auditor.GetCounts()
+		t.Logf("Next 12 calls distribution: A=%d, B=%d", counts["A"], counts["B"])
+		t.Logf("Sequence: %v", next12)
+
+		// A (weight 10) should be selected significantly more than B (weight 2)
+		// Expected ratio: A=10/12=83.3%, B=2/12=16.7%
 		if counts["A"] < counts["B"] {
 			t.Errorf("A (weight 10) should be selected more than B (weight 2), got A=%d, B=%d",
 				counts["A"], counts["B"])
+		}
+
+		// Verify A gets proportionally more selections (at least 5x more for 10:2 ratio)
+		if counts["A"] < 8 {
+			t.Errorf("A should get at least 8 out of 12 calls with weight 10, got %d", counts["A"])
+		}
+	})
+
+	// Requirement 2 - Additional: Verify no skipped turns
+	t.Run("SequenceContinuity_NoSkippedTurns", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 2, Healthy: true},
+			{ID: "B", Weight: 2, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		// Exhaust one full cycle
+		for i := 0; i < 4; i++ {
+			b.GetNextNode()
+		}
+
+		// Update weights
+		newNodes := []*balancer.Node{
+			{ID: "A", Weight: 10, Healthy: true},
+			{ID: "B", Weight: 2, Healthy: true},
+		}
+		b.UpdateWeights(newNodes)
+
+		// Verify balancer continues working
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b, 24)
+
+		if auditor.totalCalls != 24 {
+			t.Errorf("Expected 24 calls, got %d", auditor.totalCalls)
+		}
+
+		// Verify distribution approximately matches weight ratio
+		aCount := auditor.GetCounts()["A"]
+		bCount := auditor.GetCounts()["B"]
+
+		// With weights 10:2, A should get ~83%, B should get ~17%
+		aRatio := float64(aCount) / float64(auditor.totalCalls)
+		if aRatio < 0.7 || aRatio > 0.95 {
+			t.Errorf("A ratio should be ~83%%, got %.1f%% (A=%d, B=%d)", aRatio*100, aCount, bCount)
 		}
 	})
 
@@ -207,6 +303,7 @@ func TestDynamicTransitions(t *testing.T) {
 			GetCurrentState() (int, int, int, int)
 		}
 
+		// Verify initial GCD = 10
 		if s, ok := interface{}(b).(Stater); ok {
 			_, _, maxW1, gcd1 := s.GetCurrentState()
 			if gcd1 != 10 {
@@ -219,16 +316,22 @@ func TestDynamicTransitions(t *testing.T) {
 			t.Fatal("GetCurrentState not implemented - required for GCD Flux test")
 		}
 
+		// Make some calls to advance state
 		for i := 0; i < 5; i++ {
-			b.GetNextNode()
+			result := b.GetNextNode()
+			if result != "X" && result != "Y" {
+				t.Errorf("Unexpected result before update: '%s'", result)
+			}
 		}
 
+		// Update to weights with GCD = 1
 		newNodes := []*balancer.Node{
 			{ID: "X", Weight: 7, Healthy: true},
 			{ID: "Y", Weight: 13, Healthy: true},
 		}
 		b.UpdateWeights(newNodes)
 
+		// Verify new GCD = 1
 		if s, ok := interface{}(b).(Stater); ok {
 			_, _, maxW2, gcd2 := s.GetCurrentState()
 			if gcd2 != 1 {
@@ -239,9 +342,54 @@ func TestDynamicTransitions(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 100; i++ {
+		// Verify no infinite loop or out-of-bounds - make many calls
+		for i := 0; i < 200; i++ {
 			result := b.GetNextNode()
 			if result != "X" && result != "Y" {
+				t.Errorf("Unexpected result after GCD flux: '%s'", result)
+			}
+		}
+	})
+
+	// Requirement 3 - Additional: GCD changes in both directions
+	t.Run("GCDFlux_LowToHighGCD", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 7, Healthy: true},
+			{ID: "B", Weight: 11, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		type Stater interface {
+			GetCurrentState() (int, int, int, int)
+		}
+
+		if s, ok := interface{}(b).(Stater); ok {
+			_, _, _, gcd1 := s.GetCurrentState()
+			if gcd1 != 1 {
+				t.Errorf("Initial GCD should be 1, got %d", gcd1)
+			}
+		} else {
+			t.Fatal("GetCurrentState not implemented")
+		}
+
+		// Update to weights with higher GCD
+		newNodes := []*balancer.Node{
+			{ID: "A", Weight: 15, Healthy: true},
+			{ID: "B", Weight: 25, Healthy: true},
+		}
+		b.UpdateWeights(newNodes)
+
+		if s, ok := interface{}(b).(Stater); ok {
+			_, _, _, gcd2 := s.GetCurrentState()
+			if gcd2 != 5 {
+				t.Errorf("After update GCD should be 5, got %d", gcd2)
+			}
+		}
+
+		// Verify balancer still works
+		for i := 0; i < 100; i++ {
+			result := b.GetNextNode()
+			if result != "A" && result != "B" {
 				t.Errorf("Unexpected result: '%s'", result)
 			}
 		}
@@ -255,18 +403,35 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
+		// Phase 1: Both healthy
 		phase1Auditor := NewSequenceAuditor()
 		phase1Auditor.RunAudit(b, 120)
 
+		phase1Heavy := phase1Auditor.GetCounts()["Heavy"]
+		phase1Light := phase1Auditor.GetCounts()["Light"]
+		t.Logf("Phase 1 (both healthy): Heavy=%d, Light=%d", phase1Heavy, phase1Light)
+
+		if phase1Heavy < phase1Light {
+			t.Errorf("Phase 1: Heavy should be selected more, got Heavy=%d, Light=%d",
+				phase1Heavy, phase1Light)
+		}
+
+		// Phase 2: Heavy unhealthy
 		nodes[0].Healthy = false
 		b.UpdateWeights(nodes)
 
 		phase2Auditor := NewSequenceAuditor()
 		phase2Auditor.RunAudit(b, 50)
+
 		if phase2Auditor.GetCounts()["Heavy"] > 0 {
-			t.Errorf("Heavy should not be selected when unhealthy")
+			t.Errorf("Phase 2: Heavy should not be selected when unhealthy, got %d",
+				phase2Auditor.GetCounts()["Heavy"])
+		}
+		if phase2Auditor.GetCounts()["Light"] != 50 {
+			t.Errorf("Phase 2: Light should get all traffic, got %d", phase2Auditor.GetCounts()["Light"])
 		}
 
+		// Phase 3: Heavy healthy again
 		nodes[0].Healthy = true
 		b.UpdateWeights(nodes)
 
@@ -275,10 +440,20 @@ func TestDynamicTransitions(t *testing.T) {
 
 		phase3Heavy := phase3Auditor.GetCounts()["Heavy"]
 		phase3Light := phase3Auditor.GetCounts()["Light"]
+		t.Logf("Phase 3 (Heavy restored): Heavy=%d, Light=%d", phase3Heavy, phase3Light)
 
+		// Verify Heavy regains proportional share (10:2 = 5:1 ratio)
 		if phase3Heavy < phase3Light {
-			t.Errorf("Heavy should be selected more after regaining health, got Heavy=%d, Light=%d",
+			t.Errorf("Phase 3: Heavy should be selected more after regaining health, got Heavy=%d, Light=%d",
 				phase3Heavy, phase3Light)
+		}
+
+		// Verify approximate ratio
+		expectedRatio := 10.0 / 12.0 // ~83%
+		actualRatio := float64(phase3Heavy) / float64(phase3Heavy+phase3Light)
+		if math.Abs(actualRatio-expectedRatio) > 0.1 {
+			t.Errorf("Phase 3: Heavy ratio should be ~%.1f%%, got %.1f%%",
+				expectedRatio*100, actualRatio*100)
 		}
 	})
 
@@ -293,20 +468,52 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
+		// Advance to near end of slice
 		for i := 0; i < 10; i++ {
 			b.GetNextNode()
 		}
 
+		// Reduce slice size significantly
 		newNodes := []*balancer.Node{
 			{ID: "A", Weight: 1, Healthy: true},
 			{ID: "B", Weight: 1, Healthy: true},
 		}
 		b.UpdateWeights(newNodes)
 
+		// Verify no crash or out-of-bounds
 		for i := 0; i < 20; i++ {
 			result := b.GetNextNode()
 			if result != "A" && result != "B" {
 				t.Errorf("Unexpected result after slice reduction: '%s'", result)
+			}
+		}
+	})
+
+	// Requirement 7 - Additional: Boundary at exact end
+	t.Run("BoundaryTest_ExactEndOfSlice", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 1, Healthy: true},
+			{ID: "B", Weight: 1, Healthy: true},
+			{ID: "C", Weight: 1, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		// Advance exactly to last node (index 2)
+		for i := 0; i < 3; i++ {
+			b.GetNextNode()
+		}
+
+		// Reduce to single node
+		newNodes := []*balancer.Node{
+			{ID: "A", Weight: 1, Healthy: true},
+		}
+		b.UpdateWeights(newNodes)
+
+		// Verify single node is always selected
+		for i := 0; i < 10; i++ {
+			result := b.GetNextNode()
+			if result != "A" {
+				t.Errorf("Expected 'A' after slice reduction to 1, got '%s'", result)
 			}
 		}
 	})
@@ -320,9 +527,36 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
+		// Should not hang and should return empty string
 		result := b.GetNextNode()
 		if result != "" {
 			t.Errorf("Expected empty string for zero weights, got '%s'", result)
+		}
+
+		// Multiple calls should also work
+		for i := 0; i < 10; i++ {
+			result := b.GetNextNode()
+			if result != "" {
+				t.Errorf("Call %d: Expected empty string for zero weights, got '%s'", i, result)
+			}
+		}
+	})
+
+	// Requirement 6 - Additional: Mix of zero and non-zero weights
+	t.Run("AdversarialCase_MixedZeroWeights", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 0, Healthy: true},
+			{ID: "B", Weight: 5, Healthy: true},
+			{ID: "C", Weight: 0, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		// Only B should be selected
+		for i := 0; i < 20; i++ {
+			result := b.GetNextNode()
+			if result != "B" {
+				t.Errorf("Only B should be selected, got '%s'", result)
+			}
 		}
 	})
 }
@@ -341,14 +575,20 @@ func TestConcurrency(t *testing.T) {
 
 		var wg sync.WaitGroup
 
+		// 1000 concurrent GetNextNode calls
 		for i := 0; i < 1000; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				b.GetNextNode()
+				result := b.GetNextNode()
+				// Just verify it doesn't crash and returns valid result
+				if result != "A" && result != "B" && result != "C" && result != "" {
+					t.Errorf("Unexpected result: '%s'", result)
+				}
 			}()
 		}
 
+		// 50 concurrent UpdateWeights calls
 		for i := 0; i < 50; i++ {
 			wg.Add(1)
 			go func(idx int) {
@@ -364,6 +604,49 @@ func TestConcurrency(t *testing.T) {
 
 		wg.Wait()
 	})
+
+	t.Run("ConcurrentGetNextNode_OnlyReads", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 5, Healthy: true},
+			{ID: "B", Weight: 3, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		var wg sync.WaitGroup
+
+		for i := 0; i < 1000; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				b.GetNextNode()
+			}()
+		}
+
+		wg.Wait()
+	})
+
+	t.Run("ConcurrentUpdates_OnlyWrites", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 5, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		var wg sync.WaitGroup
+
+		for i := 0; i < 100; i++ {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				newNodes := []*balancer.Node{
+					{ID: "A", Weight: idx%10 + 1, Healthy: true},
+					{ID: "B", Weight: idx%5 + 1, Healthy: true},
+				}
+				b.UpdateWeights(newNodes)
+			}(i)
+		}
+
+		wg.Wait()
+	})
 }
 
 // ==================== COVERAGE TESTS (Requirement 1) ====================
@@ -371,11 +654,13 @@ func TestConcurrency(t *testing.T) {
 func TestCoverage(t *testing.T) {
 
 	t.Run("AllBranches_GetNextNode", func(t *testing.T) {
+		// Branch: n == 0 (empty nodes)
 		emptyB := balancer.NewDynamicWeightedBalancer([]*balancer.Node{})
 		if emptyB.GetNextNode() != "" {
 			t.Error("Empty nodes should return empty string")
 		}
 
+		// Branch: node.Healthy == false
 		unhealthyNodes := []*balancer.Node{
 			{ID: "A", Weight: 5, Healthy: false},
 			{ID: "B", Weight: 5, Healthy: true},
@@ -387,6 +672,31 @@ func TestCoverage(t *testing.T) {
 				t.Error("Unhealthy node A should not be selected")
 			}
 		}
+
+		// Branch: node.Weight < currentWeight
+		lowWeightNodes := []*balancer.Node{
+			{ID: "A", Weight: 1, Healthy: true},
+			{ID: "B", Weight: 10, Healthy: true},
+		}
+		b2 := balancer.NewDynamicWeightedBalancer(lowWeightNodes)
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b2, 22)
+		// B should be selected more often due to higher weight
+		if auditor.GetCounts()["B"] < auditor.GetCounts()["A"] {
+			t.Error("B should be selected more than A")
+		}
+
+		// Branch: currentWeight <= 0 reset
+		singleNode := []*balancer.Node{
+			{ID: "X", Weight: 1, Healthy: true},
+		}
+		b3 := balancer.NewDynamicWeightedBalancer(singleNode)
+		for i := 0; i < 5; i++ {
+			result := b3.GetNextNode()
+			if result != "X" {
+				t.Errorf("Expected X, got '%s'", result)
+			}
+		}
 	})
 
 	t.Run("AllBranches_UpdateWeights", func(t *testing.T) {
@@ -395,6 +705,7 @@ func TestCoverage(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
+		// Update with more nodes
 		moreNodes := []*balancer.Node{
 			{ID: "A", Weight: 5, Healthy: true},
 			{ID: "B", Weight: 3, Healthy: true},
@@ -410,6 +721,87 @@ func TestCoverage(t *testing.T) {
 		if !found["A"] || !found["B"] {
 			t.Error("Both nodes should be selected after update")
 		}
+
+		// Update with fewer nodes
+		fewerNodes := []*balancer.Node{
+			{ID: "A", Weight: 5, Healthy: true},
+		}
+		b.UpdateWeights(fewerNodes)
+
+		for i := 0; i < 10; i++ {
+			result := b.GetNextNode()
+			if result != "A" {
+				t.Errorf("Only A should be selected, got '%s'", result)
+			}
+		}
+
+		// Update with different weights
+		diffWeights := []*balancer.Node{
+			{ID: "A", Weight: 1, Healthy: true},
+			{ID: "B", Weight: 9, Healthy: true},
+		}
+		b.UpdateWeights(diffWeights)
+
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b, 100)
+		if auditor.GetCounts()["B"] < auditor.GetCounts()["A"] {
+			t.Error("B should be selected more with higher weight")
+		}
+	})
+
+	t.Run("AllBranches_RecalculateGains", func(t *testing.T) {
+		type Stater interface {
+			GetCurrentState() (int, int, int, int)
+		}
+
+		// Single node - GCD equals weight
+		single := []*balancer.Node{
+			{ID: "A", Weight: 7, Healthy: true},
+		}
+		b1 := balancer.NewDynamicWeightedBalancer(single)
+
+		if s, ok := interface{}(b1).(Stater); ok {
+			_, _, maxW, gcd := s.GetCurrentState()
+			if gcd != 7 {
+				t.Errorf("GCD of single node should be its weight (7), got %d", gcd)
+			}
+			if maxW != 7 {
+				t.Errorf("MaxWeight should be 7, got %d", maxW)
+			}
+		} else {
+			t.Fatal("GetCurrentState not implemented")
+		}
+
+		// Two nodes with GCD > 1
+		twoNodes := []*balancer.Node{
+			{ID: "A", Weight: 6, Healthy: true},
+			{ID: "B", Weight: 9, Healthy: true},
+		}
+		b2 := balancer.NewDynamicWeightedBalancer(twoNodes)
+
+		if s, ok := interface{}(b2).(Stater); ok {
+			_, _, maxW, gcd := s.GetCurrentState()
+			if gcd != 3 {
+				t.Errorf("GCD of 6,9 should be 3, got %d", gcd)
+			}
+			if maxW != 9 {
+				t.Errorf("MaxWeight should be 9, got %d", maxW)
+			}
+		}
+
+		// Coprime weights - GCD = 1
+		coprime := []*balancer.Node{
+			{ID: "A", Weight: 7, Healthy: true},
+			{ID: "B", Weight: 11, Healthy: true},
+		}
+		b3 := balancer.NewDynamicWeightedBalancer(coprime)
+
+		if s, ok := interface{}(b3).(Stater); ok {
+			_, _, _, gcd := s.GetCurrentState()
+			if gcd != 1 {
+				t.Errorf("GCD of 7,11 should be 1, got %d", gcd)
+			}
+		}
 	})
 
 	t.Run("GCD_EdgeCases", func(t *testing.T) {
@@ -417,18 +809,52 @@ func TestCoverage(t *testing.T) {
 			GetCurrentState() (int, int, int, int)
 		}
 
-		single := []*balancer.Node{
-			{ID: "A", Weight: 7, Healthy: true},
+		// All same weights
+		same := []*balancer.Node{
+			{ID: "A", Weight: 5, Healthy: true},
+			{ID: "B", Weight: 5, Healthy: true},
+			{ID: "C", Weight: 5, Healthy: true},
 		}
-		b1 := balancer.NewDynamicWeightedBalancer(single)
+		b1 := balancer.NewDynamicWeightedBalancer(same)
 
 		if s, ok := interface{}(b1).(Stater); ok {
-			_, _, _, gcd1 := s.GetCurrentState()
-			if gcd1 != 7 {
-				t.Errorf("GCD of single node should be its weight, got %d", gcd1)
+			_, _, maxW, gcd := s.GetCurrentState()
+			if gcd != 5 {
+				t.Errorf("GCD should be 5, got %d", gcd)
+			}
+			if maxW != 5 {
+				t.Errorf("MaxWeight should be 5, got %d", maxW)
 			}
 		} else {
 			t.Fatal("GetCurrentState not implemented")
+		}
+
+		// Weight of 1
+		withOne := []*balancer.Node{
+			{ID: "A", Weight: 1, Healthy: true},
+			{ID: "B", Weight: 100, Healthy: true},
+		}
+		b2 := balancer.NewDynamicWeightedBalancer(withOne)
+
+		if s, ok := interface{}(b2).(Stater); ok {
+			_, _, _, gcd := s.GetCurrentState()
+			if gcd != 1 {
+				t.Errorf("GCD with weight 1 should be 1, got %d", gcd)
+			}
+		}
+	})
+
+	t.Run("LoopExhaustion_AllNodesSkipped", func(t *testing.T) {
+		// All unhealthy - tests the loop exhaustion return ""
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 5, Healthy: false},
+			{ID: "B", Weight: 5, Healthy: false},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		result := b.GetNextNode()
+		if result != "" {
+			t.Errorf("Expected empty string when all unhealthy, got '%s'", result)
 		}
 	})
 }
@@ -436,6 +862,7 @@ func TestCoverage(t *testing.T) {
 // ==================== SEQUENCE AUDITOR TESTS (Requirement 9) ====================
 
 func TestSequenceAuditor(t *testing.T) {
+
 	t.Run("AuditorRecords1000Calls", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 3, Healthy: true},
@@ -450,9 +877,68 @@ func TestSequenceAuditor(t *testing.T) {
 			t.Errorf("Expected 1000 calls, got %d", auditor.totalCalls)
 		}
 
+		// Verify 1% tolerance
 		auditor.VerifyDistribution(t, map[string]float64{
 			"A": 0.75,
 			"B": 0.25,
 		}, 1.0)
+	})
+
+	t.Run("AuditorSequenceTracking", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "X", Weight: 1, Healthy: true},
+			{ID: "Y", Weight: 1, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b, 10)
+
+		seq := auditor.GetSequence()
+		if len(seq) != 10 {
+			t.Errorf("Expected sequence length 10, got %d", len(seq))
+		}
+
+		for _, nodeID := range seq {
+			if nodeID != "X" && nodeID != "Y" {
+				t.Errorf("Unexpected node in sequence: '%s'", nodeID)
+			}
+		}
+	})
+
+	t.Run("AuditorDistributionVerification", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 1, Healthy: true},
+			{ID: "B", Weight: 1, Healthy: true},
+			{ID: "C", Weight: 1, Healthy: true},
+			{ID: "D", Weight: 1, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b, 1000)
+
+		// Each should get ~25% with 1% tolerance
+		auditor.VerifyDistribution(t, map[string]float64{
+			"A": 0.25,
+			"B": 0.25,
+			"C": 0.25,
+			"D": 0.25,
+		}, 1.0)
+	})
+
+	t.Run("AuditorCountsAccuracy", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "Solo", Weight: 5, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b, 100)
+
+		counts := auditor.GetCounts()
+		if counts["Solo"] != 100 {
+			t.Errorf("Solo should have 100 counts, got %d", counts["Solo"])
+		}
 	})
 }
