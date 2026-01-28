@@ -1,4 +1,8 @@
-import { prisma } from "../repository_after/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient({
+  datasources: { db: { url: "file:./dev.db" } },
+});
 
 export async function updateCustomerCapAndAccess(query: any, data: any) {
   const { caps } = data;

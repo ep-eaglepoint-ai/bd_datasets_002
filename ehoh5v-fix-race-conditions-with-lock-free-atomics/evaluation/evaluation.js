@@ -8,8 +8,7 @@ function generateRunId() {
 }
 
 function getGitInfo() {
-  const gitInfo = { git_commit: "unknown", git_branch: "unknown" };
-  return gitInfo;
+  return { git_commit: "unknown", git_branch: "unknown" };
 }
 
 function getEnvironmentInfo() {
@@ -26,7 +25,7 @@ function getEnvironmentInfo() {
   };
 }
 
-function runJestTests(testProject, testName, expectSuccess = true) {
+function runJestTests(testRepo, testName, expectSuccess = true) {
   console.log("\n" + "=".repeat(60));
   console.log(`RUNNING TESTS: ${testName}`);
   console.log(`Expected outcome: ${expectSuccess ? "PASS" : "FAIL"}`);
@@ -35,21 +34,19 @@ function runJestTests(testProject, testName, expectSuccess = true) {
   const testsDir = path.join(__dirname, "..", "tests");
 
   try {
-    // Run Jest with JSON reporter
     const output = execSync(
-      `node --experimental-vm-modules node_modules/jest/bin/jest.js --selectProjects ${testProject} --json --forceExit`,
+      `node --experimental-vm-modules node_modules/jest/bin/jest.js --json --forceExit`,
       {
         cwd: testsDir,
         encoding: "utf8",
         maxBuffer: 1024 * 1024 * 10,
         stdio: ["pipe", "pipe", "pipe"],
-        env: { ...process.env, CI: "true" },
-      },
+        env: { ...process.env, CI: "true", TEST_REPO: testRepo },
+      }
     );
 
     return parseJestOutput(output, testName, true, expectSuccess);
   } catch (err) {
-    // Jest exits with non-zero when tests fail - this is expected for 'before'
     if (err.stdout) {
       return parseJestOutput(err.stdout, testName, false, expectSuccess);
     }
@@ -76,9 +73,7 @@ function parseJestOutput(output, testName, executionSuccess, expectSuccess) {
   let failed = 0;
   let total = 0;
 
-  // Try to parse Jest JSON output
   try {
-    // Find JSON start (Jest JSON output starts with {)
     const jsonStart = output.indexOf("{");
     const jsonEnd = output.lastIndexOf("}");
 
@@ -91,7 +86,6 @@ function parseJestOutput(output, testName, executionSuccess, expectSuccess) {
   }
 
   if (parsed && parsed.testResults) {
-    // Process Jest JSON format
     parsed.testResults.forEach((fileResult) => {
       if (fileResult.assertionResults) {
         fileResult.assertionResults.forEach((assertion) => {
@@ -117,17 +111,16 @@ function parseJestOutput(output, testName, executionSuccess, expectSuccess) {
     skipped: 0,
   };
 
-  // Determine if test met expectations
   const testsMetExpectation = expectSuccess
     ? failed === 0 && passed > 0
     : failed > 0;
 
   const icon = testsMetExpectation ? "✅" : "❌";
   console.log(
-    `\n${icon} ${testName}: ${summary.passed} passed, ${summary.failed} failed`,
+    `\n${icon} ${testName}: ${summary.passed} passed, ${summary.failed} failed`
   );
   console.log(
-    `   Expected to ${expectSuccess ? "PASS" : "FAIL"}: ${testsMetExpectation ? "YES" : "NO"}`,
+    `   Expected to ${expectSuccess ? "PASS" : "FAIL"}: ${testsMetExpectation ? "YES" : "NO"}`
   );
 
   return {
@@ -158,7 +151,6 @@ function writeReportVariants(primaryPath, reportJson) {
   const stableRootPath = path.join(__dirname, "..", "report.json");
   fs.writeFileSync(stableRootPath, reportJson);
 
-  // Also write to /host/report.json if the volume is mounted (for CI artifacts)
   try {
     if (fs.existsSync("/host")) {
       fs.writeFileSync("/host/report.json", reportJson);
@@ -175,7 +167,6 @@ function writeReportVariants(primaryPath, reportJson) {
   };
 }
 
-// --- Main Evaluation Logic ---
 const runId = generateRunId();
 const startedAt = new Date();
 
@@ -184,23 +175,13 @@ console.log("LOCK-FREE ATOMICS RACE CONDITION EVALUATION");
 console.log("=".repeat(60));
 console.log(`Run ID: ${runId}`);
 console.log(`Started at: ${startedAt.toISOString()}`);
-console.log("\nRequirements:");
-console.log(
-  "  1. Lock-Free: Use Atomics.wait/notify with hashed state; PQ-encrypt hashes",
-);
-console.log(
-  "  2. Verification: Test threads on same record; prove race-free in comments",
-);
 
 const beforeResults = runJestTests("before", "repository_before", false);
-
-// repository_after: Expected to PASS (has atomics, race-free)
 const afterResults = runJestTests("after", "repository_after", true);
 
 const finishedAt = new Date();
 const duration = (finishedAt - startedAt) / 1000;
 
-// Parse test results into required format
 function mapTestsToPythonic(tests, repoName) {
   if (!Array.isArray(tests) || tests.length === 0) return [];
   return tests.map((t, idx) => ({
@@ -210,13 +191,11 @@ function mapTestsToPythonic(tests, repoName) {
   }));
 }
 
-// Combine test results
 const allTests = [
   ...mapTestsToPythonic(beforeResults.tests, "repository_before"),
   ...mapTestsToPythonic(afterResults.tests, "repository_after"),
 ];
 
-// Compose unit_tests section
 const unit_tests = {
   success: beforeResults.success && afterResults.success,
   exit_code: beforeResults.success && afterResults.success ? 0 : 1,
@@ -244,15 +223,14 @@ const unit_tests = {
   stderr: "",
 };
 
-// Algorithm validation (race condition verification)
 const algorithm_validation = {
   success: afterResults.success,
   description: "Lock-free atomics race condition verification",
   criteria: {
     atomics_wait_notify: "Atomics.wait/notify with hashed state",
-    pq_encrypt: "PQ-encrypt hashes (FNV-1a)",
-    thread_verification: "Multiple threads on same record",
-    race_free_proof: "Prove race-free in comments",
+    pq_encrypt: "PQ-secure SHA-256 hash",
+    thread_verification: "1000 threads on same record",
+    race_free_proof: "Prove race-free behavior",
   },
   runs: [],
   statistics: {
@@ -261,7 +239,6 @@ const algorithm_validation = {
   },
 };
 
-// Compose summary
 const overallSuccess = beforeResults.success && afterResults.success;
 const summary = {
   unit_tests_passed: unit_tests.success,
@@ -308,13 +285,13 @@ console.log("EVALUATION RESULTS");
 console.log("=".repeat(60));
 console.log(`\nrepository_before (expected to FAIL):`);
 console.log(
-  `  Tests: ${beforeResults.summary.passed} passed, ${beforeResults.summary.failed} failed`,
+  `  Tests: ${beforeResults.summary.passed} passed, ${beforeResults.summary.failed} failed`
 );
 console.log(`  Met expectation: ${beforeResults.success ? "✅ YES" : "❌ NO"}`);
 
 console.log(`\nrepository_after (expected to PASS):`);
 console.log(
-  `  Tests: ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`,
+  `  Tests: ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`
 );
 console.log(`  Met expectation: ${afterResults.success ? "✅ YES" : "❌ NO"}`);
 

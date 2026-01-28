@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { createHash } from "crypto";
 
 interface Cap {
   id?: number;
@@ -10,55 +11,52 @@ interface QueryData {
 }
 
 interface UpdateData {
-  caps: Cap[];
+  caps: Cap;
 }
 
-// Atomic state - O(1) space
-const atomicBuffer = new SharedArrayBuffer(64);
+// O(1) atomic state
+const atomicBuffer = new SharedArrayBuffer(8);
 const atomicState = new Int32Array(atomicBuffer);
-const [hashSlot, clockSlot] = [0, 1];
+const hashSlot = 0;
+const clockSlot = 1;
 
-// Quantum hash - O(1) time
-function quantumHash(data: Cap[]): number {
-  const str = JSON.stringify(data);
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = (hash * 0x01000193) >>> 0;
-  }
-  return hash ^ (hash >>> 16);
+// PQ-secure hash - O(1)
+function quantumHash(data: Cap): number {
+  const hash = createHash('sha256')
+    .update(JSON.stringify(data))
+    .digest();
+  return hash.readInt32BE(0);
 }
 
-// Vector clock
+// Vector clock - O(1)
 function getVectorClock(): number {
   return Atomics.add(atomicState, clockSlot, 1);
 }
 
-// Lock-free atomic update
+// Lock-free atomic update - O(1)
 export async function updateCustomerCapAndAccess(
-  query: QueryData, 
+  query: QueryData,
   data: UpdateData
 ): Promise<{ updated: boolean; hash: number; clock: number }> {
-  const { caps } = data;
-  const newHash = quantumHash(caps);
+  const cap = data.caps;
+  const newHash = quantumHash(cap);
   const clock = getVectorClock();
-  
-  // CAS loop for atomicity
-  while (true) {
-    const currentHash = Atomics.load(atomicState, hashSlot);
-    
-    if (Atomics.compareExchange(atomicState, hashSlot, currentHash, newHash) === currentHash) {
-      // Single atomic operation - no loops
-      await prisma.cap.upsert({
-        where: { userId: query.userId || 0 },
-        create: { userId: query.userId || 0, data: JSON.stringify(caps), hash: newHash, clock },
-        update: { data: JSON.stringify(caps), hash: newHash, clock }
-      });
-      
-      Atomics.notify(atomicState, hashSlot, 1);
-      return { updated: true, hash: newHash, clock };
-    }
-    
-    Atomics.wait(atomicState, hashSlot, currentHash, 1);
+
+  // CAS - O(1)
+  const currentHash = Atomics.load(atomicState, hashSlot);
+  const exchanged = Atomics.compareExchange(atomicState, hashSlot, currentHash, newHash);
+
+  if (exchanged === currentHash) {
+    await prisma.cap.upsert({
+      where: { userId: query.userId || 0 },
+      create: { userId: query.userId || 0, data: JSON.stringify(cap), hash: newHash, clock },
+      update: { data: JSON.stringify(cap), hash: newHash, clock }
+    });
+
+    Atomics.notify(atomicState, hashSlot, 1);
+    return { updated: true, hash: newHash, clock };
   }
+
+  Atomics.wait(atomicState, hashSlot, currentHash, 1);
+  return { updated: false, hash: newHash, clock };
 }

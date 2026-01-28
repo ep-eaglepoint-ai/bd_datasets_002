@@ -3,21 +3,9 @@ export default {
   testEnvironment: "node",
   transform: {},
   moduleFileExtensions: ["js", "mjs"],
-  testMatch: ["**/before/**/*.test.js", "**/after/**/*.test.js"],
+  testMatch: ["**/*.test.js"],
   verbose: true,
-  testTimeout: 60000, // 60s timeout for race tests
-  projects: [
-    {
-      displayName: "before",
-      testMatch: ["<rootDir>/before/**/*.test.js"],
-      testEnvironment: "node",
-    },
-    {
-      displayName: "after",
-      testMatch: ["<rootDir>/after/**/*.test.js"],
-      testEnvironment: "node",
-    },
-  ],
+  testTimeout: 60000,
   reporters: [
     "default",
     [

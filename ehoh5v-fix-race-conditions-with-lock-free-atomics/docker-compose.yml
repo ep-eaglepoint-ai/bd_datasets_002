@@ -1,19 +1,20 @@
 services:
-  # Full evaluation (runs both before and after tests)
   evaluation:
     build: .
     command: ["node", "evaluation/evaluation.js"]
     volumes:
-      - .:/host:rw  # Mount for report output
+      - .:/host:rw
 
-  # Test repository_before only (expected to FAIL)
   test-before:
     build: .
     working_dir: /app/tests
-    command: ["npm", "run", "test:before"]
+    environment:
+      - TEST_REPO=before
+    command: ["npm", "test"]
 
-  # Test repository_after only (expected to PASS)
   test-after:
     build: .
     working_dir: /app/tests
-    command: ["npm", "run", "test:after"]
+    environment:
+      - TEST_REPO=after
+    command: ["npm", "test"]
