@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import json
 import sys
@@ -30,15 +31,23 @@ def run_tests():
         print(result.stderr, file=sys.stderr)
         
     passed = result.returncode == 0
-    
+
+    # Parse pytest summary line (e.g. "11 passed" or "9 passed, 2 failed in 1.23s")
+    summary = result.stdout or ""
+    passed_match = re.search(r"(\d+)\s+passed", summary)
+    failed_match = re.search(r"(\d+)\s+failed", summary)
+    num_passed = int(passed_match.group(1)) if passed_match else 0
+    num_failed = int(failed_match.group(1)) if failed_match else 0
+    total_tests = num_passed + num_failed
+
     # Basic report structure
     report = {
         "timestamp": datetime.now().isoformat(),
         "success": passed,
         "summary": {
-            "total_tests": 10, # Hardcoded for now based on file content
-            "passed": result.stdout.count("PASSED"),
-            "failed": result.stdout.count("FAILED")
+            "total_tests": total_tests,
+            "passed": num_passed,
+            "failed": num_failed
         },
         "output": result.stdout,
         "error": result.stderr if not passed else None
