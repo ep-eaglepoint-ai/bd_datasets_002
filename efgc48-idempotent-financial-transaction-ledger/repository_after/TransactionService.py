@@ -51,13 +51,21 @@ class MockDatabase:
         self.locks[account_id] = threading.Lock()
 
     def update_balance_atomic(self, account_id, amount, is_add=False):
+        # Get or create lock for this account
+        if account_id not in self.locks:
+            self.locks[account_id] = threading.Lock()
+        
         lock = self.locks[account_id]
         with lock:
             if is_add:
+                # For deposits, always succeed and add amount
+                if account_id not in self.balances:
+                    self.balances[account_id] = 0
                 self.balances[account_id] += amount
                 return True
             else:
-                if self.balances[account_id] >= amount:
+                # For withdrawals, check if sufficient balance exists
+                if self.balances.get(account_id, 0) >= amount:
                     self.balances[account_id] -= amount
                     return True
                 return False
@@ -67,7 +75,6 @@ class MockDatabase:
         try:
             yield
         except Exception:
-            # In a real DB this would rollback
             raise
 
 
@@ -77,6 +84,7 @@ class TransactionService:
         self.idempotency_store = IdempotencyStore()
 
     def transfer_funds(self, from_account, to_account, amount, idempotency_key):
+        # Check idempotency store first
         existing = self.idempotency_store.get(idempotency_key)
         if existing:
             status, result = existing
@@ -92,23 +100,26 @@ class TransactionService:
         self.idempotency_store.set(idempotency_key, 'IN_PROGRESS', None)
 
         try:
+            # Perform atomic updates within transaction
+            # Both sender and receiver updates are atomic and locked
             with self.db.transaction():
-                # Withdraw from sender
+                # Withdraw from sender - atomic check-and-update
                 sender_ok = self.db.update_balance_atomic(from_account, amount, is_add=False)
                 if not sender_ok:
                     raise InsufficientFundsException("Insufficient funds")
 
-                # Deposit to receiver
+                # Deposit to receiver - atomic update with lock
                 receiver_ok = self.db.update_balance_atomic(to_account, amount, is_add=True)
                 if not receiver_ok:
                     raise Exception("Receiver update failed")
 
-            # Commit successful
+            # Transaction committed successfully - update idempotency store
             self.idempotency_store.set(idempotency_key, 'COMPLETED', True)
             return True
 
-        except Exception:
-            # Rollback handled by transaction context
+        except Exception as e:
+            # Transaction failed - mark as FAILED
+            # This allows retry with same key
             current = self.idempotency_store.get(idempotency_key)
             if not current or current[0] != 'COMPLETED':
                 self.idempotency_store.set(idempotency_key, 'FAILED', False)
