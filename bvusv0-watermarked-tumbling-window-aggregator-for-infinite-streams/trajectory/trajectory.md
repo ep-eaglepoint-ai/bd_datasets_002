@@ -1,35 +1,32 @@
-Audit the Original Implementation (Identify Scaling & Correctness Risks):
+## Research
 
-I audited the original stream aggregator implementation. It kept per-window lists in memory without bounds, emitted windows based on arrival order, and scanned all open windows to find expired ones — all of which would not scale for high-throughput or long-event-time skew.
+**Event-time processing fundamentals:**
+- [Streaming 101 - The world beyond batch](https://www.oreilly.com/radar/the-world-beyond-batch-streaming-101/)
+- [Apache Flink - Event Time and Watermarks](https://nightlies.apache.org/flink/flink-docs-master/docs/concepts/time/)
+- [Tyler Akidau - Streaming Systems (YouTube)](https://www.youtube.com/watch?v=BTAGOHeZcDo)
 
-Learn about watermarks and event-time processing: https://www.youtube.com/watch?v=BTAGOHeZcDo
+**Window semantics and allowed lateness:**
+- [Apache Flink - Windows Documentation](https://nightlies.apache.org/flink/flink-docs-release-1.15/docs/dev/datastream/operators/windows/)
+- [Google Cloud - Watermarks and Late Data](https://cloud.google.com/dataflow/docs/concepts/streaming-pipelines#watermarks-and-late-data)
 
-Practical guide to window semantics and late data handling: https://nightlies.apache.org/flink/flink-docs-release-1.15/docs/dev/datastream/operators/windows/
+## Implementation
 
-Define a Performance & Correctness Contract First
+**Define requirements:** Memory-bounded state, exactly-once window emission, configurable allowed lateness, amortized O(1) processing.
 
-I defined explicit requirements: keep memory bounded, emit each tumbling window exactly once, tolerate out-of-order events up to allowed lateness, and achieve amortized O(1) per-event processing.
+**State optimization:** Replace lists with `defaultdict(lambda: {'sum': 0.0, 'count': 0})` for O(W) memory instead of O(N).
 
-Rework the In-Memory State for Efficiency
+**Window assignment:** Hash-based tumbling windows using `(timestamp // 60) * 60` for O(1) assignment.
 
-I replaced unbounded lists with a keyed map from window start → compact aggregate (sum/count). This avoids storing individual event values and reduces memory from O(N events) to O(W windows).
+**Watermark emission:** Track `max_event_timestamp`, emit windows when `window_end + allowed_lateness <= watermark`.
 
-Use Hash-Based Window Assignment + Incremental Aggregation
+**Heap optimization:** Use `heapq` min-heap tracking `(completion_time, window_start)` for O(log W) emission instead of O(W) scan.
 
-Window assignment uses hash-based lookup: `window_start = (timestamp // WINDOW_SIZE) * WINDOW_SIZE` for O(1) updates. Aggregate incrementally (sum += value, count += 1) rather than storing all values.
+**Late event handling:** Drop events beyond `allowed_lateness` boundary to prevent unbounded state growth.
 
-Implement Watermark-Driven Emission
+## Result
 
-I maintain a single `max_event_timestamp` watermark. Windows are emitted when `window_end + allowed_lateness <= watermark`, ensuring no late events can arrive after emission.
-
-Use Min-Heap for O(1) Amortized Emission
-
-Instead of scanning all windows, use a min-heap ordered by window completion time. When watermark advances, pop completed windows from heap in O(log W) per window. Since each window is emitted exactly once, this gives amortized O(1) per event.
-
-Handle Late and Malformed Events
-
-Drop events arriving later than `allowed_lateness` to prevent indefinite state growth. Validate JSON early and skip malformed records.
-
-Result: Amortized O(1) Per-Event + Bounded Memory
-
-The solution achieves O(W) memory where W is active windows, amortized O(1) per event (O(log W) heap operations amortized over all events), and correct event-time semantics. All tests pass, validating correctness for out-of-order streams, proper late-data handling with allowed_lateness, and memory cleanup.
+✅ **18/18 tests passing**
+- Amortized O(1) per-event processing
+- O(W) memory where W = active windows
+- Correct event-time semantics with watermarks
+- Proper late-data handling

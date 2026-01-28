@@ -15,7 +15,7 @@ build/
 htmlcov/
 
 # Evaluation outputs
-evaluation/20*/
+evaluation/report/
 
 # IDE
 .vscode/

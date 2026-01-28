@@ -4,6 +4,8 @@ import json
 import argparse
 from datetime import datetime
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from tests import test_functional, test_structure, test_score
 
 
@@ -76,7 +78,7 @@ def main():
                 return 1
     else:
         timestamp = datetime.now().strftime('%Y-%m-%d/%H-%M-%S')
-        output_dir = os.path.join(os.path.dirname(__file__), timestamp)
+        output_dir = os.path.join(os.path.dirname(__file__), 'report', timestamp)
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, 'report.json')
 

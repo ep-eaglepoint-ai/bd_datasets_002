@@ -1,10 +1,5 @@
 from app.stream_aggregator import StreamWindowAggregator
 
-"""
-Structural tests for StreamWindowAggregator.
-Validates code structure, memory management, and implementation quality.
-"""
-
 def test_memory_cleanup():
     """Test that windows are deleted after emission to prevent memory leaks."""
     def stream():
@@ -26,12 +21,12 @@ def test_class_structure():
 
 
 def test_window_size_constant():
-    """Test that WINDOW_SIZE is set to 60 seconds."""
+    """Test that window_size is set to 60 seconds."""
     def stream():
         yield '{"timestamp": 100, "value": 1.0}'
     
     aggregator = StreamWindowAggregator(stream())
-    assert aggregator.WINDOW_SIZE == 60
+    assert aggregator.window_size == 60
 
 
 def test_iterator_based_processing():

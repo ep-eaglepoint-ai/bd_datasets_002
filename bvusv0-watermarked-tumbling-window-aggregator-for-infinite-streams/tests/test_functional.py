@@ -1,10 +1,5 @@
 from app.stream_aggregator import StreamWindowAggregator
 
-"""
-Functional tests for StreamWindowAggregator implementation.
-Tests core functionality including windowing, watermarks, and aggregation.
-"""
-
 def test_basic_tumbling_windows():
     """Test basic 60-second tumbling window aggregation."""
     def stream():

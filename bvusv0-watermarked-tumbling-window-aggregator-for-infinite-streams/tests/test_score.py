@@ -1,10 +1,5 @@
 from app.stream_aggregator import StreamWindowAggregator
 
-"""
-Score and performance tests for StreamWindowAggregator.
-Validates correctness metrics and edge case handling.
-"""
-
 def test_watermark_correctness():
     """Test that watermark is correctly maintained."""
     def stream():
