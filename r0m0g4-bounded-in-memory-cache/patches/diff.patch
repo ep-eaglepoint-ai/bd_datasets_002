@@ -1,0 +1,185 @@
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/src/main/java/com/example/cache/BoundedCache.java b/repository_after/src/main/java/com/example/cache/BoundedCache.java
+new file mode 100644
+index 0000000..2d1c53b
+--- /dev/null
++++ b/repository_after/src/main/java/com/example/cache/BoundedCache.java
+@@ -0,0 +1,176 @@
++package com.example.cache;
++
++import java.util.HashMap;
++import java.util.Map;
++import java.util.Objects;
++import java.util.concurrent.locks.ReentrantLock;
++
++public class BoundedCache<K, V> {
++
++    private final Segment<K, V>[] segments;
++    private final int segmentMask;
++
++    @SuppressWarnings("unchecked")
++    public BoundedCache(int capacity) {
++        if (capacity <= 0) {
++            throw new IllegalArgumentException();
++        }
++
++        int concurrencyLevel = 16;
++        if (capacity < concurrencyLevel) {
++            concurrencyLevel = 1;
++        }
++
++        int sshift = 0;
++        int ssize = 1;
++        while (ssize < concurrencyLevel) {
++            ++sshift;
++            ssize <<= 1;
++        }
++        this.segmentMask = ssize - 1;
++        this.segments = new Segment[ssize];
++
++        int segmentCapacity = capacity / ssize;
++        int remainder = capacity % ssize;
++
++        for (int i = 0; i < ssize; ++i) {
++            int cap = segmentCapacity + (i < remainder ? 1 : 0);
++            this.segments[i] = new Segment<>(cap); // Fixed: Pass exact capacity
++        }
++    }
++
++    public V get(K key) {
++        Objects.requireNonNull(key);
++        int hash = hash(key);
++        return segmentFor(hash).get(key, hash);
++    }
++
++    public void put(K key, V value, long ttlMillis) {
++        Objects.requireNonNull(key);
++        Objects.requireNonNull(value);
++        if (ttlMillis <= 0) {
++            return;
++        }
++        int hash = hash(key);
++        segmentFor(hash).put(key, hash, value, ttlMillis);
++    }
++
++    private int hash(Object key) {
++        int h = key.hashCode();
++        h ^= (h >>> 20) ^ (h >>> 12);
++        return h ^ (h >>> 7) ^ (h >>> 4);
++    }
++
++    private Segment<K, V> segmentFor(int hash) {
++        return segments[hash & segmentMask];
++    }
++
++    static class Segment<K, V> extends ReentrantLock {
++        private final int capacity;
++        private final Map<K, Node<K, V>> map;
++        private final Node<K, V> head;
++        private final Node<K, V> tail;
++        private int size;
++
++        Segment(int capacity) {
++            this.capacity = capacity;
++            this.map = new HashMap<>();
++            this.head = new Node<>(null, null, 0);
++            this.tail = new Node<>(null, null, 0);
++            head.next = tail;
++            tail.prev = head;
++            this.size = 0;
++        }
++
++        V get(K key, int hash) {
++            lock();
++            try {
++                Node<K, V> node = map.get(key);
++                if (node == null) {
++                    return null;
++                }
++
++                if (isExpired(node)) {
++                    removeNode(node);
++                    map.remove(key);
++                    size--;
++                    return null;
++                }
++
++                moveToHead(node);
++                return node.value;
++            } finally {
++                unlock();
++            }
++        }
++
++        void put(K key, int hash, V value, long ttlMillis) {
++            lock();
++            try {
++                long expirationTime = System.currentTimeMillis() + ttlMillis;
++                Node<K, V> node = map.get(key);
++
++                if (node != null) {
++                    node.value = value;
++                    node.expirationTime = expirationTime;
++                    moveToHead(node);
++                } else {
++                    if (size >= capacity) {
++                        evict();
++                    }
++                    Node<K, V> newNode = new Node<>(key, value, expirationTime);
++                    addNode(newNode);
++                    map.put(key, newNode);
++                    size++;
++                }
++            } finally {
++                unlock();
++            }
++        }
++
++        private void evict() {
++            Node<K, V> lru = tail.prev;
++            if (lru == head) {
++                return;
++            }
++            removeNode(lru);
++            map.remove(lru.key);
++            size--;
++        }
++
++        private void moveToHead(Node<K, V> node) {
++            removeNode(node);
++            addNode(node);
++        }
++
++        private void addNode(Node<K, V> node) {
++            node.prev = head;
++            node.next = head.next;
++            head.next.prev = node;
++            head.next = node;
++        }
++
++        private void removeNode(Node<K, V> node) {
++            node.prev.next = node.next;
++            node.next.prev = node.prev;
++        }
++
++        private boolean isExpired(Node<K, V> node) {
++            return System.currentTimeMillis() > node.expirationTime;
++        }
++    }
++
++    static class Node<K, V> {
++        final K key;
++        V value;
++        long expirationTime;
++        Node<K, V> prev;
++        Node<K, V> next;
++
++        Node(K key, V value, long expirationTime) {
++            this.key = key;
++            this.value = value;
++            this.expirationTime = expirationTime;
++        }
++    }
++}
