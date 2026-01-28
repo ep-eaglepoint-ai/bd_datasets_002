@@ -1,6 +1,18 @@
 services:
-  app:
+  test:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    # Compile the executor and the test, then run the test
+    # Classpath includes repository_after (for the source) and current dir (for the test class)
+    # Actually, we put CustomThreadPoolExecutor in repository_after.
+    # We compile repository_after/*.java and tests/*.java
+    command: >
+      sh -c "javac -d out repository_after/*.java tests/test_requirements.java && 
+             java -cp out test_requirements"
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    command: python3 evaluation/evaluation.py

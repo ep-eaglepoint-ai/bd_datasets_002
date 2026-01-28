@@ -1,5 +1,6 @@
-FROM python:3.11-slim
+FROM openjdk:21-jdk-slim
 WORKDIR /app
+RUN apt-get update && apt-get install -y python3 && rm -rf /var/lib/apt/lists/*
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+# Default command placeholder, overridden by docker-compose
+CMD ["sh", "-c", "echo 'Use docker compose run test'"]
