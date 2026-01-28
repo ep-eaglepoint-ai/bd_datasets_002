@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "jest --coverage",
-    "test:watch": "jest --watch"
+    "test": "npx jest --runInBand --coverage",
+    "test:watch": "npx jest --watch"
   },
   "dependencies": {
     "stripe": "^14.0.0"

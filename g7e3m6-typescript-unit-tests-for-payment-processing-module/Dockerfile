@@ -10,11 +10,12 @@ WORKDIR /app
 RUN apk add --no-cache git
 ENV NODE_ENV=production
 COPY --from=deps /app/repository_after/node_modules ./repository_after/node_modules
-# Also expose dependencies at the workspace root so code in repository_before
-# can resolve modules like "stripe" when imported from tests.
+# Expose deps at root so npx jest / npm test resolve from /app (no global jest).
 COPY --from=deps /app/repository_after/node_modules ./node_modules
+# Root package.json required for npm test / npm run evaluate.
+COPY package.json ./
 COPY . .
 
-# Default command runs root-level meta tests.
-# Target repository is controlled via REPO_PATH env var.
-CMD ["node", "repository_after/node_modules/jest/bin/jest.js", "--runInBand", "tests/meta-requirements.test.ts"]
+# Run root-level meta tests via npm test (uses npx jest; never bare jest).
+# REPO_PATH env controls which repo the meta tests inspect.
+CMD ["npm", "test"]

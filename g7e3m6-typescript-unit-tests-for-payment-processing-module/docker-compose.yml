@@ -1,11 +1,8 @@
 services:
   app:
     build: .
-    # By default, run ONLY the root-level meta test suite using the Jest
-    # config from repository_after. REPO_PATH (repository_before |
-    # repository_after) controls which repo the meta tests inspect.
-    command: npm test --prefix repository_after -- --runInBand tests/meta-requirements.test.ts
+    command: npm test
     volumes:
-      - .:/app
+      - ./evaluation:/app/evaluation
     environment:
       - NODE_ENV=production
