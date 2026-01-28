@@ -1,0 +1,13 @@
+{
+            "instance_id": "TFQ7B5",
+            "problem_statement": "The existing scientific calculator web service in Go, originally built during a hackathon, is being repurposed for sensitive financial computations in a fintech platform. Current production monitoring shows non-deterministic behavior: identical inputs sometimes yield different outputs depending on execution context, time, session state, or concurrency. Such inconsistencies violate regulatory requirements (SOC2) and make the service unsuitable for audit-logged financial operations. 
+
+Task:- Refactor the calculator to be fully deterministic, mathematically correct, error-safe, and audit-ready, while preserving the existing API and operational workflow.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tfq7b5-deterministic-financial-calculator-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
