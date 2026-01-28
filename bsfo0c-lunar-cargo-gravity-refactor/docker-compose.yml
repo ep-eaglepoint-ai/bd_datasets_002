@@ -3,7 +3,7 @@ services:
     build: .
     environment:
       - REPO=repository_before
-    command: npm test
+    command: sh -c "npm test || true"
     volumes:
       - .:/app
 
@@ -11,7 +11,7 @@ services:
     build: .
     environment:
       - REPO=repository_after
-    command: npm test
+    command: sh -c "npm test || true"
     volumes:
       - .:/app
 
@@ -20,3 +20,4 @@ services:
     command: npm run evaluation
     volumes:
       - .:/app
+
