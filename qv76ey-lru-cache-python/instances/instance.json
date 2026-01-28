@@ -1,0 +1,11 @@
+{
+            "instance_id": "QV76EY",
+            "problem_statement": "Implement an LRU cache in Python with O(1) `get` and `put` operations using a dictionary for O(1) lookup and a doubly linked list for O(1) order maintenance, evicting the least recently used item when capacity is exceeded. Both operations must maintain the most‑recently‑used order correctly and handle any hashable key and any value type while returning `-1` for missing keys. The cache must enforce the capacity limit strictly and ensure constant‑time performance under all operations.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/qv76ey-lru-cache-python",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
