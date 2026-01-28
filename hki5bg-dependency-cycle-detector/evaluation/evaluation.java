@@ -349,10 +349,10 @@ public final class evaluation {
 
     private static Map<String, Object> mapCriteria(List<Map<String, Object>> tests) {
         return Map.of(
-                "req1_detect_cycles", allPass(tests, "twoNodeCycleIsDetected", "longerCycleIsDetected"),
-                "req2_disconnected_graphs", allPass(tests, "disconnectedAcyclicGraphIsAccepted", "cycleInDisconnectedComponentIsDetected"),
-                "req3_self_dependency", singleCheck(tests, "selfDependencyIsCycle"),
-                "req4_scales_large_inputs", allPass(tests, "scalesToLargeInputChainWithoutCycle", "scalesToLargeInputWithCycle")
+                "detect_cycles", allPass(tests, "twoNodeCycleIsDetected", "longerCycleIsDetected"),
+                "disconnected_graphs", allPass(tests, "disconnectedAcyclicGraphIsAccepted", "cycleInDisconnectedComponentIsDetected"),
+                "self_dependency", singleCheck(tests, "selfDependencyIsCycle"),
+                "scales_large_inputs", allPass(tests, "scalesToLargeInputChainWithoutCycle", "scalesToLargeInputWithCycle")
         );
     }
 

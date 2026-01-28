@@ -6,11 +6,8 @@ COPY pom.xml /app/pom.xml
 COPY repository_after /app/repository_after
 COPY tests /app/tests
 COPY evaluation /app/evaluation
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN mvn -q -DskipTests package
 
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["sh", "-lc", "if [ \"${1-}\" = test ]; then shift; wd=\"$(mktemp -d)\"; trap 'rm -rf \"$wd\"' EXIT; cp -r /app/pom.xml /app/repository_after /app/tests \"$wd\"; cd \"$wd\"; exec mvn -B test \"$@\"; fi; exec \"$@\"", "--"]
 CMD ["test"]
