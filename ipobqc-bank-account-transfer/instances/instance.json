@@ -15,8 +15,14 @@
                 "test_negative_amount",
                 "test_zero_amount",
                 "test_insufficient_balance",
-                "test_same_account"
+                "test_same_account",
+                "test_null_source_id",
+                "test_null_dest_id",
+                "test_null_amount",
+                "test_null_transfer_ts",
+                "test_null_request_id",
+                "test_empty_request_id",
+                "test_whitespace_request_id"
             ],
             "PASS_TO_PASS": []
         }
-        
