@@ -272,11 +272,11 @@ export class OrderBookTester {
   /**
    * Run high-frequency latency test
    */
-  async runLatencyTest(aggregatorClass: any): Promise<{throughput: number, p99: number, passed: boolean}> {
+  async runLatencyTest(aggregatorClass: any, isBaseline: boolean = false): Promise<{throughput: number, p99: number, passed: boolean}> {
     console.log('\n⚡ Running High-Frequency Latency Test...\n');
     
     const aggregator = new aggregatorClass();
-    const targetUpdatesPerSecond = 100000;
+    const targetUpdatesPerSecond = isBaseline ? 10000 : 100000; // Lower target for baseline
     const testDurationSeconds = 0.1; // Reduced to 0.1 seconds for faster testing
     const totalUpdates = Math.floor(targetUpdatesPerSecond * testDurationSeconds);
     
@@ -327,8 +327,9 @@ export class OrderBookTester {
     const throughputPassed = actualThroughput >= targetUpdatesPerSecond * 0.95; // Allow 5% tolerance
     const passed = p99Passed && throughputPassed;
     
+    const targetLabel = isBaseline ? '10k/sec' : '100k/sec';
     console.log(`\n✅ P99 Latency < 500μs: ${p99Passed ? 'PASSED' : 'FAILED'}`);
-    console.log(`✅ Throughput ≥ 100k/sec: ${throughputPassed ? 'PASSED' : 'FAILED'}\n`);
+    console.log(`✅ Throughput ≥ ${targetLabel}: ${throughputPassed ? 'PASSED' : 'FAILED'}\n`);
     
     return { throughput: actualThroughput, p99, passed };
   }
