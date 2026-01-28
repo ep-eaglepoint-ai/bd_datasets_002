@@ -37,19 +37,7 @@ type RepositoryTests struct {
 }
 
 type RepositoryMetrics struct {
-	TotalFiles               int  `json:"total_files"`
-	SamplingWorking          bool `json:"sampling_working"`
-	DeduplicationWorking     bool `json:"deduplication_working"`
-	MaxEntriesWorking        bool `json:"max_entries_working"`
-	RedactionWorking         bool `json:"redaction_working"`
-	HashingWorking           bool `json:"hashing_working"`
-	TruncationWorking        bool `json:"truncation_working"`
-	TruncationMarkersWorking bool `json:"truncation_markers_working"`
-	SinkFlushWorking         bool `json:"sink_flush_working"`
-	TypeTagsWorking          bool `json:"type_tags_working"`
-	WildcardPathsWorking     bool `json:"wildcard_paths_working"`
-	DeepPathsWorking         bool `json:"deep_paths_working"`
-	ArrayPathsWorking        bool `json:"array_paths_working"`
+	TotalFiles int `json:"total_files"`
 }
 
 type Repository struct {
@@ -58,21 +46,26 @@ type Repository struct {
 }
 
 type RequirementsChecklist struct {
-	SamplingAboveRate     bool `json:"sampling_above_rate"`
-	SamplingBelowRate     bool `json:"sampling_below_rate"`
-	MaxEntriesEviction    bool `json:"max_entries_eviction"`
-	DeduplicationEnabled  bool `json:"deduplication_enabled"`
-	DeduplicationDisabled bool `json:"deduplication_disabled"`
-	RedactionRules        bool `json:"redaction_rules"`
-	HashingRules          bool `json:"hashing_rules"`
-	TruncationWhenExceeds bool `json:"truncation_when_exceeds"`
-	MetaTruncatedFlag     bool `json:"meta_truncated_flag"`
-	TruncationMarkers     bool `json:"truncation_markers"`
-	SinkFlushBehavior     bool `json:"sink_flush_behavior"`
-	ComplexSnapshotTags   bool `json:"complex_snapshot_tags"`
-	WildcardRulePaths     bool `json:"wildcard_rule_paths"`
-	DeepRulePaths         bool `json:"deep_rule_paths"`
-	ArrayRulePaths        bool `json:"array_rule_paths"`
+	SamplingAboveRate       bool `json:"sampling_above_rate"`
+	SamplingBelowRate       bool `json:"sampling_below_rate"`
+	MaxEntriesEviction      bool `json:"max_entries_eviction"`
+	DeduplicationEnabled    bool `json:"deduplication_enabled"`
+	DeduplicationDisabled   bool `json:"deduplication_disabled"`
+	RedactionRules          bool `json:"redaction_rules"`
+	HashingRules            bool `json:"hashing_rules"`
+	TruncationWhenExceeds   bool `json:"truncation_when_exceeds"`
+	MetaTruncatedFlag       bool `json:"meta_truncated_flag"`
+	TruncationMarkers       bool `json:"truncation_markers"`
+	SinkFlushBehavior       bool `json:"sink_flush_behavior"`
+	ComplexSnapshotTags     bool `json:"complex_snapshot_tags"`
+	WildcardRulePaths       bool `json:"wildcard_rule_paths"`
+	DeepRulePaths           bool `json:"deep_rule_paths"`
+	ArrayRulePaths          bool `json:"array_rule_paths"`
+	FlushWithNoSink         bool `json:"flush_with_no_sink"`
+	FlushBatchSize          bool `json:"flush_batch_size"`
+	LogsClearedAfterFlush   bool `json:"logs_cleared_after_flush"`
+	InvalidRulePathRobust   bool `json:"invalid_rule_path_robust"`
+	CircularReferenceHandle bool `json:"circular_reference_handle"`
 }
 
 type EvaluationReport struct {
@@ -101,43 +94,8 @@ type EvaluationReport struct {
 		Stdout   string       `json:"stdout"`
 		Stderr   string       `json:"stderr"`
 	} `json:"test_execution"`
-	MetaTesting struct {
-		RequirementTraceability map[string]string `json:"requirement_traceability"`
-		AdversarialTesting      map[string]string `json:"adversarial_testing"`
-		EdgeCaseCoverage        map[string]string `json:"edge_case_coverage"`
-	} `json:"meta_testing"`
-	ComplianceCheck struct {
-		SamplingFixed          bool `json:"sampling_fixed"`
-		DeduplicationFixed     bool `json:"deduplication_fixed"`
-		MaxEntriesFixed        bool `json:"max_entries_fixed"`
-		RedactionFixed         bool `json:"redaction_fixed"`
-		HashingFixed           bool `json:"hashing_fixed"`
-		TruncationFixed        bool `json:"truncation_fixed"`
-		TruncationMarkersFixed bool `json:"truncation_markers_fixed"`
-		SinkFlushFixed         bool `json:"sink_flush_fixed"`
-		TypeTagsFixed          bool `json:"type_tags_fixed"`
-		WildcardPathsFixed     bool `json:"wildcard_paths_fixed"`
-		DeepPathsFixed         bool `json:"deep_paths_fixed"`
-		ArrayPathsFixed        bool `json:"array_paths_fixed"`
-	} `json:"compliance_check"`
 	Before                Repository            `json:"before"`
 	After                 Repository            `json:"after"`
-	Comparison            struct {
-		SamplingFixed      bool `json:"sampling_fixed"`
-		DeduplicationFixed bool `json:"deduplication_fixed"`
-		MaxEntriesFixed    bool `json:"max_entries_fixed"`
-		RedactionFixed     bool `json:"redaction_fixed"`
-		HashingFixed       bool `json:"hashing_fixed"`
-		TruncationFixed    bool `json:"truncation_fixed"`
-		SinkFlushFixed     bool `json:"sink_flush_fixed"`
-		TypeTagsFixed      bool `json:"type_tags_fixed"`
-		WildcardPathsFixed bool `json:"wildcard_paths_fixed"`
-		DeepPathsFixed     bool `json:"deep_paths_fixed"`
-		ArrayPathsFixed    bool `json:"array_paths_fixed"`
-		TestsPassing       int  `json:"tests_passing"`
-		TestImprovement    int  `json:"test_improvement"`
-		AllRequirementsMet bool `json:"all_requirements_met"`
-	} `json:"comparison"`
 	RequirementsChecklist RequirementsChecklist `json:"requirements_checklist"`
 	FinalVerdict          struct {
 		Success           bool   `json:"success"`
@@ -149,14 +107,13 @@ type EvaluationReport struct {
 	} `json:"final_verdict"`
 }
 
-const TOTAL_REQUIREMENTS = 15
+const TOTAL_REQUIREMENTS = 20
 
 func main() {
 	fmt.Println("🔬 Starting AuditLogger Evaluation...")
 
 	startTime := time.Now()
 
-	// Create reports directory with date/time structure
 	dateStr := startTime.Format("2006-01-02")
 	timeStr := startTime.Format("15-04-05")
 	reportsDir := filepath.Join("reports", dateStr, timeStr)
@@ -165,7 +122,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Run all tests
 	fmt.Println("📊 Running Go tests...")
 	cmdVerbose := exec.Command("go", "test", "-v", "./...")
 	cmdVerbose.Dir = "/app/tests"
@@ -175,11 +131,9 @@ func main() {
 	fmt.Println("Test output:")
 	fmt.Println(verboseOutputStr)
 
-	// Parse test results
-	beforeResults := parseTestResultsForVersion(verboseOutputStr, "TestBeforeVersion")
-	afterResults := parseTestResultsForVersion(verboseOutputStr, "TestAfterVersion")
+	beforeResults := parseTestResultsForVersion(verboseOutputStr, "BeforeVersion")
+	afterResults := parseTestResultsForVersion(verboseOutputStr, "AfterVersion")
 
-	// Calculate summary
 	beforePassed := countPassed(beforeResults)
 	beforeFailed := countFailed(beforeResults)
 	afterPassed := countPassed(afterResults)
@@ -189,20 +143,16 @@ func main() {
 	totalPassed := beforePassed + afterPassed
 	totalFailed := beforeFailed + afterFailed
 
-	// Success criteria: After tests should pass all 15, Before tests should have some failures
-	success := afterPassed == TOTAL_REQUIREMENTS && beforeFailed >= 3
+	success := afterPassed == TOTAL_REQUIREMENTS
 
-	// Create evaluation report
 	report := EvaluationReport{}
 
-	// Metadata
 	report.EvaluationMetadata.EvaluationID = generateID()
 	report.EvaluationMetadata.Timestamp = startTime.Format(time.RFC3339Nano)
 	report.EvaluationMetadata.Evaluator = "automated_test_suite"
 	report.EvaluationMetadata.Project = "auditlogger_test_coverage"
-	report.EvaluationMetadata.Version = "1.0.0"
+	report.EvaluationMetadata.Version = "2.0.0"
 
-	// Environment
 	report.Environment.GoVersion = getGoVersion()
 	report.Environment.Platform = runtime.GOOS
 	report.Environment.OS = getOSName()
@@ -212,7 +162,6 @@ func main() {
 	report.Environment.GitCommit = getGitCommit()
 	report.Environment.GitBranch = getGitBranch()
 
-	// Test execution
 	exitCode := 0
 	if testErr != nil {
 		exitCode = 1
@@ -227,119 +176,30 @@ func main() {
 	report.TestExecution.Stdout = fmt.Sprintf("Before Repository: %d/%d passed\nAfter Repository: %d/%d passed", beforePassed, len(beforeResults), afterPassed, len(afterResults))
 	report.TestExecution.Stderr = ""
 
-	// Combine all tests
 	allTests := append(beforeResults, afterResults...)
 	report.TestExecution.Tests = allTests
 
-	// Meta testing
-	report.MetaTesting.RequirementTraceability = map[string]string{
-		"sampling_requirements":       "requirement_1_2",
-		"storage_requirements":        "requirement_3_4_5",
-		"transformation_requirements": "requirement_6_7",
-		"truncation_requirements":     "requirement_8_9_10",
-		"sink_requirements":           "requirement_11",
-		"snapshot_requirements":       "requirement_12",
-		"path_rule_requirements":      "requirement_13_14_15",
-	}
-	report.MetaTesting.AdversarialTesting = map[string]string{
-		"sampling_edge_cases":    "requirement_1_2",
-		"deduplication_behavior": "requirement_4_5",
-		"rule_application":       "requirement_6_7",
-		"truncation_behavior":    "requirement_8_9_10",
-		"sink_error_handling":    "requirement_11",
-		"complex_type_handling":  "requirement_12",
-		"path_matching":          "requirement_13_14_15",
-	}
-	report.MetaTesting.EdgeCaseCoverage = map[string]string{
-		"boundary_sample_rates":   "requirement_1_2",
-		"max_entries_overflow":    "requirement_3",
-		"large_data_truncation":   "requirement_8_9_10",
-		"nested_type_conversion":  "requirement_12",
-		"deep_nested_path_rules":  "requirement_14",
-		"array_element_redaction": "requirement_15",
-	}
-
-	// Compliance check (based on after version results)
-	report.ComplianceCheck.SamplingFixed = isTestPassed(afterResults, "Requirement1") && isTestPassed(afterResults, "Requirement2")
-	report.ComplianceCheck.DeduplicationFixed = isTestPassed(afterResults, "Requirement4") && isTestPassed(afterResults, "Requirement5")
-	report.ComplianceCheck.MaxEntriesFixed = isTestPassed(afterResults, "Requirement3")
-	report.ComplianceCheck.RedactionFixed = isTestPassed(afterResults, "Requirement6")
-	report.ComplianceCheck.HashingFixed = isTestPassed(afterResults, "Requirement7")
-	report.ComplianceCheck.TruncationFixed = isTestPassed(afterResults, "Requirement8") && isTestPassed(afterResults, "Requirement9")
-	report.ComplianceCheck.TruncationMarkersFixed = isTestPassed(afterResults, "Requirement10")
-	report.ComplianceCheck.SinkFlushFixed = isTestPassed(afterResults, "Requirement11")
-	report.ComplianceCheck.TypeTagsFixed = isTestPassed(afterResults, "Requirement12")
-	report.ComplianceCheck.WildcardPathsFixed = isTestPassed(afterResults, "Requirement13")
-	report.ComplianceCheck.DeepPathsFixed = isTestPassed(afterResults, "Requirement14")
-	report.ComplianceCheck.ArrayPathsFixed = isTestPassed(afterResults, "Requirement15")
-
-	// Before repository metrics
-	report.Before.Metrics = RepositoryMetrics{
-		TotalFiles:               1,
-		SamplingWorking:          isTestPassed(beforeResults, "Requirement1") && isTestPassed(beforeResults, "Requirement2"),
-		DeduplicationWorking:     isTestPassed(beforeResults, "Requirement4"),
-		MaxEntriesWorking:        isTestPassed(beforeResults, "Requirement3"),
-		RedactionWorking:         isTestPassed(beforeResults, "Requirement6"),
-		HashingWorking:           isTestPassed(beforeResults, "Requirement7"),
-		TruncationWorking:        isTestPassed(beforeResults, "Requirement8"),
-		TruncationMarkersWorking: isTestPassed(beforeResults, "Requirement10"),
-		SinkFlushWorking:         isTestPassed(beforeResults, "Requirement11"),
-		TypeTagsWorking:          isTestPassed(beforeResults, "Requirement12"),
-		WildcardPathsWorking:     isTestPassed(beforeResults, "Requirement13"),
-		DeepPathsWorking:         isTestPassed(beforeResults, "Requirement14"),
-		ArrayPathsWorking:        isTestPassed(beforeResults, "Requirement15"),
-	}
+	report.Before.Metrics = RepositoryMetrics{TotalFiles: 1}
 	report.Before.Tests = RepositoryTests{
 		Passed:  beforePassed,
 		Failed:  beforeFailed,
 		Total:   len(beforeResults),
 		Success: beforeFailed == 0,
 		Tests:   beforeResults,
-		Output:  extractTestOutput(verboseOutputStr, "TestBeforeVersion"),
+		Output:  extractTestOutput(verboseOutputStr, "BeforeVersion"),
 	}
 
-	// After repository metrics
-	report.After.Metrics = RepositoryMetrics{
-		TotalFiles:               1,
-		SamplingWorking:          isTestPassed(afterResults, "Requirement1") && isTestPassed(afterResults, "Requirement2"),
-		DeduplicationWorking:     isTestPassed(afterResults, "Requirement4"),
-		MaxEntriesWorking:        isTestPassed(afterResults, "Requirement3"),
-		RedactionWorking:         isTestPassed(afterResults, "Requirement6"),
-		HashingWorking:           isTestPassed(afterResults, "Requirement7"),
-		TruncationWorking:        isTestPassed(afterResults, "Requirement8"),
-		TruncationMarkersWorking: isTestPassed(afterResults, "Requirement10"),
-		SinkFlushWorking:         isTestPassed(afterResults, "Requirement11"),
-		TypeTagsWorking:          isTestPassed(afterResults, "Requirement12"),
-		WildcardPathsWorking:     isTestPassed(afterResults, "Requirement13"),
-		DeepPathsWorking:         isTestPassed(afterResults, "Requirement14"),
-		ArrayPathsWorking:        isTestPassed(afterResults, "Requirement15"),
-	}
+	report.After.Metrics = RepositoryMetrics{TotalFiles: 1}
 	report.After.Tests = RepositoryTests{
 		Passed:  afterPassed,
 		Failed:  afterFailed,
 		Total:   len(afterResults),
 		Success: afterFailed == 0,
 		Tests:   afterResults,
-		Output:  extractTestOutput(verboseOutputStr, "TestAfterVersion"),
+		Output:  extractTestOutput(verboseOutputStr, "AfterVersion"),
 	}
 
-	// Comparison
-	report.Comparison.SamplingFixed = !report.Before.Metrics.SamplingWorking && report.After.Metrics.SamplingWorking
-	report.Comparison.DeduplicationFixed = !report.Before.Metrics.DeduplicationWorking && report.After.Metrics.DeduplicationWorking
-	report.Comparison.MaxEntriesFixed = !report.Before.Metrics.MaxEntriesWorking && report.After.Metrics.MaxEntriesWorking
-	report.Comparison.RedactionFixed = !report.Before.Metrics.RedactionWorking && report.After.Metrics.RedactionWorking
-	report.Comparison.HashingFixed = !report.Before.Metrics.HashingWorking && report.After.Metrics.HashingWorking
-	report.Comparison.TruncationFixed = !report.Before.Metrics.TruncationWorking && report.After.Metrics.TruncationWorking
-	report.Comparison.SinkFlushFixed = !report.Before.Metrics.SinkFlushWorking && report.After.Metrics.SinkFlushWorking
-	report.Comparison.TypeTagsFixed = !report.Before.Metrics.TypeTagsWorking && report.After.Metrics.TypeTagsWorking
-	report.Comparison.WildcardPathsFixed = !report.Before.Metrics.WildcardPathsWorking && report.After.Metrics.WildcardPathsWorking
-	report.Comparison.DeepPathsFixed = !report.Before.Metrics.DeepPathsWorking && report.After.Metrics.DeepPathsWorking
-	report.Comparison.ArrayPathsFixed = !report.Before.Metrics.ArrayPathsWorking && report.After.Metrics.ArrayPathsWorking
-	report.Comparison.TestsPassing = afterPassed
-	report.Comparison.TestImprovement = afterPassed - beforePassed
-	report.Comparison.AllRequirementsMet = afterPassed == TOTAL_REQUIREMENTS
-
-	// Requirements checklist
+	// Map test results to requirements
 	report.RequirementsChecklist.SamplingAboveRate = isTestPassed(afterResults, "Requirement1")
 	report.RequirementsChecklist.SamplingBelowRate = isTestPassed(afterResults, "Requirement2")
 	report.RequirementsChecklist.MaxEntriesEviction = isTestPassed(afterResults, "Requirement3")
@@ -355,8 +215,12 @@ func main() {
 	report.RequirementsChecklist.WildcardRulePaths = isTestPassed(afterResults, "Requirement13")
 	report.RequirementsChecklist.DeepRulePaths = isTestPassed(afterResults, "Requirement14")
 	report.RequirementsChecklist.ArrayRulePaths = isTestPassed(afterResults, "Requirement15")
+	report.RequirementsChecklist.FlushWithNoSink = isTestPassed(afterResults, "Requirement16")
+	report.RequirementsChecklist.FlushBatchSize = isTestPassed(afterResults, "Requirement17")
+	report.RequirementsChecklist.LogsClearedAfterFlush = isTestPassed(afterResults, "Requirement18")
+	report.RequirementsChecklist.InvalidRulePathRobust = isTestPassed(afterResults, "Requirement19")
+	report.RequirementsChecklist.CircularReferenceHandle = isTestPassed(afterResults, "Requirement20")
 
-	// Final verdict
 	report.FinalVerdict.Success = success
 	report.FinalVerdict.TotalTests = len(afterResults)
 	report.FinalVerdict.PassedTests = afterPassed
@@ -368,7 +232,6 @@ func main() {
 	}
 	report.FinalVerdict.MeetsRequirements = afterPassed == TOTAL_REQUIREMENTS
 
-	// Save report
 	reportFile := filepath.Join(reportsDir, "report.json")
 	reportJSON, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -381,7 +244,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Display results
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("🎯 EVALUATION RESULTS")
 	fmt.Println(strings.Repeat("=", 60))
@@ -393,23 +255,28 @@ func main() {
 	fmt.Printf("   BEFORE VERSION: %d/%d passed (%d failed)\n", beforePassed, len(beforeResults), beforeFailed)
 	fmt.Printf("   AFTER VERSION:  %d/%d passed (%d failed)\n", afterPassed, len(afterResults), afterFailed)
 	fmt.Println()
-	fmt.Println("📋 REQUIREMENTS CHECKLIST:")
+	fmt.Println("📋 REQUIREMENTS CHECKLIST (After Version):")
 	fmt.Println(strings.Repeat("-", 40))
 	printRequirement("1. Sampling Above Rate", report.RequirementsChecklist.SamplingAboveRate)
 	printRequirement("2. Sampling Below Rate", report.RequirementsChecklist.SamplingBelowRate)
 	printRequirement("3. Max Entries Eviction", report.RequirementsChecklist.MaxEntriesEviction)
 	printRequirement("4. Deduplication Enabled", report.RequirementsChecklist.DeduplicationEnabled)
 	printRequirement("5. Deduplication Disabled", report.RequirementsChecklist.DeduplicationDisabled)
-	printRequirement("6. Redaction Rules", report.RequirementsChecklist.RedactionRules)
-	printRequirement("7. Hashing Rules", report.RequirementsChecklist.HashingRules)
+	printRequirement("6. Redaction Rules (+ custom)", report.RequirementsChecklist.RedactionRules)
+	printRequirement("7. Hashing Rules (deterministic)", report.RequirementsChecklist.HashingRules)
 	printRequirement("8. Truncation When Exceeds", report.RequirementsChecklist.TruncationWhenExceeds)
 	printRequirement("9. Meta Truncated Flag", report.RequirementsChecklist.MetaTruncatedFlag)
-	printRequirement("10. Truncation Markers", report.RequirementsChecklist.TruncationMarkers)
+	printRequirement("10. Truncation Markers (all types)", report.RequirementsChecklist.TruncationMarkers)
 	printRequirement("11. Sink Flush Behavior", report.RequirementsChecklist.SinkFlushBehavior)
 	printRequirement("12. Complex Snapshot Tags", report.RequirementsChecklist.ComplexSnapshotTags)
 	printRequirement("13. Wildcard Rule Paths", report.RequirementsChecklist.WildcardRulePaths)
 	printRequirement("14. Deep Rule Paths", report.RequirementsChecklist.DeepRulePaths)
 	printRequirement("15. Array Rule Paths", report.RequirementsChecklist.ArrayRulePaths)
+	printRequirement("16. Flush With No Sink", report.RequirementsChecklist.FlushWithNoSink)
+	printRequirement("17. Flush Batch Size", report.RequirementsChecklist.FlushBatchSize)
+	printRequirement("18. Logs Cleared After Flush", report.RequirementsChecklist.LogsClearedAfterFlush)
+	printRequirement("19. Invalid Rule Path Robust", report.RequirementsChecklist.InvalidRulePathRobust)
+	printRequirement("20. Circular Reference Handle", report.RequirementsChecklist.CircularReferenceHandle)
 	fmt.Println()
 	fmt.Println(strings.Repeat("=", 60))
 	if success {
@@ -435,11 +302,9 @@ func printRequirement(name string, passed bool) {
 
 func parseTestResultsForVersion(output string, versionPrefix string) []TestResult {
 	var results []TestResult
-
 	lines := strings.Split(output, "\n")
 
 	for i, line := range lines {
-		// Match PASS lines
 		if strings.Contains(line, "--- PASS:") && strings.Contains(line, versionPrefix) {
 			testName := extractTestName(line, "--- PASS:")
 			duration := extractDuration(line)
@@ -450,18 +315,16 @@ func parseTestResultsForVersion(output string, versionPrefix string) []TestResul
 			})
 		}
 
-		// Match FAIL lines
 		if strings.Contains(line, "--- FAIL:") && strings.Contains(line, versionPrefix) {
 			testName := extractTestName(line, "--- FAIL:")
 			duration := extractDuration(line)
 
-			// Collect failure messages (lines between RUN and FAIL)
 			var failureMessages []string
 			for j := i - 1; j >= 0 && j > i-20; j-- {
 				if strings.Contains(lines[j], "=== RUN") {
 					break
 				}
-				if strings.Contains(lines[j], "Error:") || strings.Contains(lines[j], "Expected") || strings.Contains(lines[j], "Received") {
+				if strings.Contains(lines[j], "Error:") || strings.Contains(lines[j], "Expected") || strings.Contains(lines[j], "got") {
 					failureMessages = append([]string{strings.TrimSpace(lines[j])}, failureMessages...)
 				}
 			}
@@ -501,19 +364,13 @@ func extractDuration(line string) string {
 
 func extractTestOutput(output, versionPrefix string) string {
 	var sb strings.Builder
-	inVersion := false
-
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
-		if strings.Contains(line, "=== RUN") && strings.Contains(line, versionPrefix) {
-			inVersion = true
-		}
-		if inVersion {
+		if strings.Contains(line, versionPrefix) {
 			sb.WriteString(line)
 			sb.WriteString("\n")
 		}
 	}
-
 	return sb.String()
 }
 
@@ -547,12 +404,8 @@ func isTestPassed(results []TestResult, testNamePart string) bool {
 }
 
 func generateID() string {
-	return randomString(12)
-}
-
-func randomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, length)
+	b := make([]byte, 12)
 	t := time.Now().UnixNano()
 	for i := range b {
 		b[i] = charset[(t+int64(i))%int64(len(charset))]

@@ -5,13 +5,13 @@ services:
     build: .
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    command: sh -c "cd /app/tests && go test -v -run 'TestBeforeVersion' ./..."
+    command: sh -c "cd /app/tests && go test -v -run '/BeforeVersion' ./..."
 
   repository-after:
     build: .
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    command: sh -c "cd /app/tests && go test -v -run 'TestAfterVersion' ./..."
+    command: sh -c "cd /app/tests && go test -v -run '/AfterVersion' ./..."
 
   evaluation:
     build: .

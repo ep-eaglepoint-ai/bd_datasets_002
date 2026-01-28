@@ -6,50 +6,27 @@
     "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/21xfjf-auditlogger-test-coverage",
     "environment_setup": "Dockerfile",
     "FAIL_TO_PASS": [
-        "TestBeforeVersion_Requirement8_TruncationWhenExceedsMaxBytes",
-        "TestBeforeVersion_Requirement9_MetaTruncatedFlag",
-        "TestBeforeVersion_Requirement10_TruncationMarkers"
+        "TestRequirement8_TruncationWhenExceedsMaxBytes",
+        "TestRequirement9_MetaTruncatedFlag",
+        "TestRequirement10_TruncationMarkers"
     ],
     "PASS_TO_PASS": [
-        "TestAfterVersion_Requirement1_SamplingAboveRate",
-        "TestAfterVersion_Requirement2_SamplingBelowRate",
-        "TestAfterVersion_Requirement3_MaxEntriesEviction",
-        "TestAfterVersion_Requirement4_DeduplicationEnabled",
-        "TestAfterVersion_Requirement5_DeduplicationDisabled",
-        "TestAfterVersion_Requirement6_RedactionRules",
-        "TestAfterVersion_Requirement7_HashingRules",
-        "TestAfterVersion_Requirement8_TruncationWhenExceedsMaxBytes",
-        "TestAfterVersion_Requirement9_MetaTruncatedFlag",
-        "TestAfterVersion_Requirement10_TruncationMarkers"
-    ],
-    "requirements": {
-        "requirement_1": "Verify that when the random value is greater than or equal to sampleRate, no log entry is created",
-        "requirement_2": "Verify that when the random value is less than sampleRate, exactly one log entry is created",
-        "requirement_3": "Verify that when more than maxEntries requests are logged, the oldest entries are evicted and only the most recent entries remain",
-        "requirement_4": "Verify that when deduplication is enabled, logging the same effective snapshot twice results in only one stored log entry",
-        "requirement_5": "Verify that when deduplication is disabled, identical snapshots are logged multiple times",
-        "requirement_6": "Verify that redaction rules replace matched values with [REDACTED] or a custom replacement",
-        "requirement_7": "Verify that hashing rules replace matched values with deterministic [HASH:...] values",
-        "requirement_8": "Verify that when maxApproxBytes is set very small, large inputs are truncated",
-        "requirement_9": "Verify that meta.truncated is set to true",
-        "requirement_10": "Verify that the output data contains truncation markers (e.g. __truncated, __more, or __moreKeys)"
-    },
-    "test_summary": {
-        "before_repository": {
-            "passed": 7,
-            "failed": 3,
-            "total": 10
-        },
-        "after_repository": {
-            "passed": 10,
-            "failed": 0,
-            "total": 10
-        },
-        "improvement": 3
-    },
-    "bugs_fixed": [
-        "Truncation not triggered when data exceeds maxApproxBytes",
-        "Meta.truncated flag not set to true for truncated data",
-        "Truncation markers (__truncated, __moreKeys, __more) not added to output"
+        "TestRequirement1_SamplingAboveRate",
+        "TestRequirement2_SamplingBelowRate",
+        "TestRequirement3_MaxEntriesEviction",
+        "TestRequirement4_DeduplicationEnabled",
+        "TestRequirement5_DeduplicationDisabled",
+        "TestRequirement6_RedactionRules",
+        "TestRequirement7_HashingRules",
+        "TestRequirement11_SinkFlushBehavior",
+        "TestRequirement12_ComplexSnapshotTypeTags",
+        "TestRequirement13_WildcardRulePaths",
+        "TestRequirement14_DeepRulePaths",
+        "TestRequirement15_ArrayRulePaths",
+        "TestRequirement16_FlushWithNoSink",
+        "TestRequirement17_FlushBatchSizeVerification",
+        "TestRequirement18_LogsClearedAfterFlush",
+        "TestRequirement19_InvalidRulePathRobustness",
+        "TestRequirement20_CircularReferenceHandling"
     ]
 }
