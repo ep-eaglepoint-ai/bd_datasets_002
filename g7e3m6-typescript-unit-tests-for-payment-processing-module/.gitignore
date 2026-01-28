@@ -9,3 +9,8 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Unnecessary but harmless ignores
+dist-temp/
+debug-output.log
+evaluation/**/*.json 
