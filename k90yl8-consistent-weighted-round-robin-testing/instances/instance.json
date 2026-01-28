@@ -9,7 +9,9 @@
   "FAIL_TO_PASS": [
     "TestDynamicTransitions",
     "TestDynamicTransitions/GCDFlux_TransitionFromHighToLowGCD",
+    "TestDynamicTransitions/GCDFlux_LowToHighGCD",
     "TestCoverage",
+    "TestCoverage/AllBranches_RecalculateGains",
     "TestCoverage/GCD_EdgeCases"
   ],
 
@@ -21,15 +23,32 @@
     "TestStaticDistribution/SingleNode_AllTraffic",
     "TestStaticDistribution/EmptyNodes_ReturnsEmpty",
     "TestStaticDistribution/AllUnhealthy_ReturnsEmpty",
+    "TestStaticDistribution/MixedHealthy_OnlyHealthySelected",
+    "TestStaticDistribution/HighWeightDifference",
+
     "TestDynamicTransitions/SequenceContinuity_WeightTransition",
+    "TestDynamicTransitions/SequenceContinuity_NoSkippedTurns",
     "TestDynamicTransitions/FairnessUnderHealthFlaps",
     "TestDynamicTransitions/BoundaryTest_SliceReduction",
+    "TestDynamicTransitions/BoundaryTest_ExactEndOfSlice",
     "TestDynamicTransitions/AdversarialCase_ZeroWeights",
+    "TestDynamicTransitions/AdversarialCase_MixedZeroWeights",
+
     "TestConcurrency",
     "TestConcurrency/ConcurrentGetNextNode_WithUpdates",
+    "TestConcurrency/ConcurrentGetNextNode_OnlyReads",
+    "TestConcurrency/ConcurrentUpdates_OnlyWrites",
+
     "TestCoverage/AllBranches_GetNextNode",
     "TestCoverage/AllBranches_UpdateWeights",
+    "TestCoverage/LoopExhaustion_AllNodesSkipped",
+
     "TestSequenceAuditor",
-    "TestSequenceAuditor/AuditorRecords1000Calls"
+    "TestSequenceAuditor/AuditorRecords1000Calls",
+    "TestSequenceAuditor/AuditorSequenceTracking",
+    "TestSequenceAuditor/AuditorDistributionVerification",
+    "TestSequenceAuditor/AuditorCountsAccuracy",
+    "TestSequenceAuditor/AuditorExactSequenceVerification",
+    "TestSequenceAuditor/AuditorReset"
   ]
 }

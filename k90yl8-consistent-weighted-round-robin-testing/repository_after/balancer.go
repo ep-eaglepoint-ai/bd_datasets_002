@@ -41,7 +41,7 @@ func (b *DynamicWeightedBalancer) recalculateGains() {
 		}
 		if g == 0 {
 			g = n.Weight
-		} else {
+		} else if n.Weight > 0 {
 			g = gcd(g, n.Weight)
 		}
 	}
@@ -66,6 +66,10 @@ func (b *DynamicWeightedBalancer) UpdateWeights(newNodes []*Node) {
 	defer b.mu.Unlock()
 	b.nodes = newNodes
 	b.recalculateGains()
+	// FIX: Ensure currentIndex is within bounds after slice reduction
+	if len(b.nodes) > 0 && b.currentIndex >= len(b.nodes) {
+		b.currentIndex = b.currentIndex % len(b.nodes)
+	}
 }
 
 // GetNextNode selects the next node using Interleaved Weighted Round Robin logic.
@@ -75,6 +79,11 @@ func (b *DynamicWeightedBalancer) GetNextNode() string {
 
 	n := len(b.nodes)
 	if n == 0 {
+		return ""
+	}
+
+	// FIX: Handle case where all weights are zero
+	if b.maxWeight == 0 {
 		return ""
 	}
 

@@ -59,6 +59,22 @@ func (sa *SequenceAuditor) VerifyDistribution(t *testing.T, expectedRatios map[s
 	}
 }
 
+// VerifyExactSequence verifies the sequence matches exactly (Requirement 2)
+func (sa *SequenceAuditor) VerifyExactSequence(t *testing.T, expected []string) {
+	t.Helper()
+
+	if len(sa.sequence) != len(expected) {
+		t.Errorf("Sequence length mismatch: expected %d, got %d", len(expected), len(sa.sequence))
+		return
+	}
+
+	for i, exp := range expected {
+		if sa.sequence[i] != exp {
+			t.Errorf("Sequence mismatch at position %d: expected '%s', got '%s'", i, exp, sa.sequence[i])
+		}
+	}
+}
+
 func (sa *SequenceAuditor) RunAudit(b *balancer.DynamicWeightedBalancer, n int) {
 	for i := 0; i < n; i++ {
 		result := b.GetNextNode()
@@ -214,9 +230,12 @@ func TestDynamicTransitions(t *testing.T) {
 		result2 := b.GetNextNode()
 		t.Logf("First two calls: %v, %v", result1, result2)
 
-		// Verify initial behavior - should alternate with equal weights
-		if result1 == result2 {
-			t.Logf("Note: Both initial calls returned same node: %s", result1)
+		// Verify initial behavior - with equal weights, should be A, B
+		if result1 != "A" {
+			t.Errorf("First call should return 'A', got '%s'", result1)
+		}
+		if result2 != "B" {
+			t.Errorf("Second call should return 'B', got '%s'", result2)
 		}
 
 		// Update to [A:10, B:2]
@@ -231,24 +250,23 @@ func TestDynamicTransitions(t *testing.T) {
 		auditor.RunAudit(b, 12)
 
 		next12 := auditor.GetSequence()
-		if len(next12) != 12 {
-			t.Errorf("Expected 12 results, got %d", len(next12))
-		}
+		t.Logf("Next 12 calls sequence: %v", next12)
+
+		// EXACT SEQUENCE VERIFICATION (Requirement 2)
+		// With weights A:10, B:2 (GCD=2, Max=10), starting after state [index=1, weight=2]
+		// Expected sequence: A, A, A, A, A, B, A, A, A, A, A, B
+		expectedSequence := []string{"A", "A", "A", "A", "A", "B", "A", "A", "A", "A", "A", "B"}
+		auditor.VerifyExactSequence(t, expectedSequence)
 
 		counts := auditor.GetCounts()
-		t.Logf("Next 12 calls distribution: A=%d, B=%d", counts["A"], counts["B"])
-		t.Logf("Sequence: %v", next12)
+		t.Logf("Distribution: A=%d, B=%d", counts["A"], counts["B"])
 
-		// A (weight 10) should be selected significantly more than B (weight 2)
-		// Expected ratio: A=10/12=83.3%, B=2/12=16.7%
-		if counts["A"] < counts["B"] {
-			t.Errorf("A (weight 10) should be selected more than B (weight 2), got A=%d, B=%d",
-				counts["A"], counts["B"])
+		// Also verify counts: A should have 10, B should have 2
+		if counts["A"] != 10 {
+			t.Errorf("A should be selected exactly 10 times, got %d", counts["A"])
 		}
-
-		// Verify A gets proportionally more selections (at least 5x more for 10:2 ratio)
-		if counts["A"] < 8 {
-			t.Errorf("A should get at least 8 out of 12 calls with weight 10, got %d", counts["A"])
+		if counts["B"] != 2 {
+			t.Errorf("B should be selected exactly 2 times, got %d", counts["B"])
 		}
 	})
 
@@ -260,7 +278,7 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
-		// Exhaust one full cycle
+		// Exhaust one full cycle (4 calls for weights 2:2)
 		for i := 0; i < 4; i++ {
 			b.GetNextNode()
 		}
@@ -280,7 +298,7 @@ func TestDynamicTransitions(t *testing.T) {
 			t.Errorf("Expected 24 calls, got %d", auditor.totalCalls)
 		}
 
-		// Verify distribution approximately matches weight ratio
+		// Verify distribution approximately matches weight ratio (10:2 = 5:1)
 		aCount := auditor.GetCounts()["A"]
 		bCount := auditor.GetCounts()["B"]
 
@@ -697,6 +715,16 @@ func TestCoverage(t *testing.T) {
 				t.Errorf("Expected X, got '%s'", result)
 			}
 		}
+
+		// Branch: maxWeight == 0
+		zeroWeightNodes := []*balancer.Node{
+			{ID: "A", Weight: 0, Healthy: true},
+		}
+		b4 := balancer.NewDynamicWeightedBalancer(zeroWeightNodes)
+		result := b4.GetNextNode()
+		if result != "" {
+			t.Errorf("Zero weight nodes should return empty, got '%s'", result)
+		}
 	})
 
 	t.Run("AllBranches_UpdateWeights", func(t *testing.T) {
@@ -939,6 +967,42 @@ func TestSequenceAuditor(t *testing.T) {
 		counts := auditor.GetCounts()
 		if counts["Solo"] != 100 {
 			t.Errorf("Solo should have 100 counts, got %d", counts["Solo"])
+		}
+	})
+
+	t.Run("AuditorExactSequenceVerification", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 2, Healthy: true},
+			{ID: "B", Weight: 1, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		auditor := NewSequenceAuditor()
+		auditor.RunAudit(b, 6)
+
+		// With weights A:2, B:1, GCD=1, Max=2
+		// Expected: at weight level 2, only A qualifies; at level 1, both qualify
+		// Sequence should be: A, A, B, A, A, B (pattern)
+		expected := []string{"A", "A", "B", "A", "A", "B"}
+		auditor.VerifyExactSequence(t, expected)
+	})
+
+	t.Run("AuditorReset", func(t *testing.T) {
+		auditor := NewSequenceAuditor()
+		auditor.Record("A")
+		auditor.Record("B")
+
+		if auditor.totalCalls != 2 {
+			t.Errorf("Expected 2 calls, got %d", auditor.totalCalls)
+		}
+
+		auditor.Reset()
+
+		if auditor.totalCalls != 0 {
+			t.Errorf("After reset, expected 0 calls, got %d", auditor.totalCalls)
+		}
+		if len(auditor.GetSequence()) != 0 {
+			t.Errorf("After reset, expected empty sequence")
 		}
 	})
 }
