@@ -1,9 +1,8 @@
+const assert = require('assert');
 
-// Setup mock environment for repository_before
 try {
     require('@prisma/client');
 } catch (e) {
-    // Mock @prisma/client if not found to support repository_before
     const { Module } = require('module');
     const originalRequire = Module.prototype.require;
     Module.prototype.require = function (id: string) {
@@ -21,7 +20,6 @@ try {
     };
 }
 
-// Dynamically require repositories to ensure mock takes effect for repository_before
 const dalBefore = (require('../repository_before/topupTransaction.dal') as any).topupTransactionDal;
 const dalAfter = (require('../repository_after/topupTransaction.dal') as any).topupTransactionDal;
 
@@ -63,16 +61,11 @@ async function testConsistency() {
     if (!resBefore1 || !resBefore1.body || !resBefore1.body.data) throw new Error('Invalid response from DAL Before (Test 1)');
     if (!resAfter1 || !resAfter1.body || !resAfter1.body.data) throw new Error('Invalid response from DAL After (Test 1)');
 
-    // For repository_before (mocked), we accept empty array since DB might not be connected
-    // The key here is that both return equivalent structures or behave safely
+    // Soft check for mocked before repo
     if (resBefore1.body.data.length === 0 && resAfter1.body.data.length > 0) {
         console.log('  ⚠️  Note: Before repo returned empty (mocked), After repo returned data. Skipping deep data comparison for Test 1.');
-    } else if (JSON.stringify(normalize(resBefore1)) !== JSON.stringify(normalize(resAfter1))) {
-        console.error('  ❌ FAILED: Data mismatch on first page');
-        console.log('Before length:', resBefore1.body.data.length);
-        console.log('After length:', resAfter1.body.data.length);
-        process.exit(1);
     } else {
+        assert.deepStrictEqual(normalize(resBefore1), normalize(resAfter1), 'Data mismatch on first page');
         console.log('  ✅ PASSED: Identical data returned');
     }
 
@@ -96,13 +89,10 @@ async function testConsistency() {
     if (!resBefore2 || !resBefore2.body || !resBefore2.body.data) throw new Error('Invalid response from DAL Before (Test 2)');
     if (!resAfter2 || !resAfter2.body || !resAfter2.body.data) throw new Error('Invalid response from DAL After (Test 2)');
 
-    // Soft check for mocked before repo
     if (resBefore2.body.data.length === 0 && resAfter2.body.data.length > 0) {
         console.log('  ⚠️  Note: Before repo returned empty (mocked). Skipping comparison Test 2.');
-    } else if (JSON.stringify(normalize(resBefore2)) !== JSON.stringify(normalize(resAfter2))) {
-        console.error('  ❌ FAILED: Data mismatch with filter');
-        process.exit(1);
     } else {
+        assert.deepStrictEqual(normalize(resBefore2), normalize(resAfter2), 'Data mismatch with filter');
         console.log('  ✅ PASSED: Identical filtered data returned');
     }
 
@@ -126,17 +116,11 @@ async function testConsistency() {
     if (!resBefore3 || !resBefore3.body || !resBefore3.body.data) throw new Error('Invalid response from DAL Before (Test 3)');
     if (!resAfter3 || !resAfter3.body || !resAfter3.body.data) throw new Error('Invalid response from DAL After (Test 3)');
 
-    if (resBefore3.body.data.length !== 0 || resAfter3.body.data.length !== 0) {
-        console.error('  ❌ FAILED: Expected empty results');
-        process.exit(1);
-    }
+    assert.strictEqual(resBefore3.body.data.length, 0, 'Before repo should return empty results');
+    assert.strictEqual(resAfter3.body.data.length, 0, 'After repo should return empty results');
+    assert.deepStrictEqual(normalize(resBefore3), normalize(resAfter3), 'Empty state mismatch');
 
-    if (JSON.stringify(normalize(resBefore3)) !== JSON.stringify(normalize(resAfter3))) {
-        console.error('  ❌ FAILED: Empty state mismatch');
-        process.exit(1);
-    }
     console.log('  ✅ PASSED: Both return empty consistent responses');
-
     console.log('\n  ✅ ALL CONSISTENCY TESTS PASSED');
 }
 
