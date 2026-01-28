@@ -47,21 +47,21 @@ function runMetaTestsForRepo(repoName) {
   const cwd = process.cwd();
   const jestConfigPath = path.join('repository_after', 'jest.config.js');
   const metaTestPath = 'tests/meta-requirements.test.ts';
+  const env = { ...process.env, NODE_ENV: 'test', REPO_PATH: repoName === 'before' ? 'repository_before' : 'repository_after' };
+  const cmd = `npx jest --config ${jestConfigPath} --runInBand ${metaTestPath} --json --no-coverage || true`;
+
+  let stdout = '';
+  let stderr = '';
+  try {
+    stdout = execSync(cmd, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env });
+  } catch (err) {
+    stdout = err.stdout?.toString?.() ?? '';
+    stderr = err.stderr?.toString?.() ?? '';
+  }
 
   try {
-    const result = execSync(
-      `npx jest --config ${jestConfigPath} --runInBand ${metaTestPath} --json --no-coverage`,
-      {
-        cwd,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, NODE_ENV: 'test', REPO_PATH: repoName === 'before' ? 'repository_before' : 'repository_after' },
-      },
-    );
-
-    const jestOutput = JSON.parse(result);
+    const jestOutput = JSON.parse(stdout);
     const tests = [];
-
     jestOutput.testResults.forEach((suite) => {
       suite.assertionResults.forEach((test) => {
         tests.push({
@@ -90,46 +90,7 @@ function runMetaTestsForRepo(repoName) {
       stderr: jestOutput.stderr ?? '',
       error: success ? undefined : 'Meta tests reported failures',
     };
-  } catch (err) {
-    const stdout = err.stdout?.toString?.() ?? '';
-    const stderr = err.stderr?.toString?.() ?? '';
-
-    try {
-      if (stdout) {
-        const jestOutput = JSON.parse(stdout);
-        const tests = [];
-        jestOutput.testResults.forEach((suite) => {
-          suite.assertionResults.forEach((test) => {
-            tests.push({
-              nodeid: `${repoName}::${test.ancestorTitles.join(' > ')} > ${test.title}`,
-              name: test.title,
-              outcome: test.status === 'passed' ? 'passed' : 'failed',
-            });
-          });
-        });
-
-        const success = jestOutput.success;
-        const exitCode = success ? 0 : 1;
-
-        return {
-          success,
-          exit_code: exitCode,
-          tests,
-          summary: {
-            total: jestOutput.numTotalTests,
-            passed: jestOutput.numPassedTests,
-            failed: jestOutput.numFailedTests,
-            errors: 0,
-            skipped: 0,
-          },
-          stdout,
-          stderr,
-          error: success ? undefined : 'Meta tests reported failures',
-        };
-      }
-    } catch {}
-
-    const errorMessage = err.message || String(err);
+  } catch {
     return {
       success: false,
       exit_code: 1,
@@ -137,7 +98,7 @@ function runMetaTestsForRepo(repoName) {
       summary: { total: 0, passed: 0, failed: 0, errors: 1, skipped: 0 },
       stdout,
       stderr,
-      error: errorMessage,
+      error: stderr || 'Could not parse Jest output',
     };
   }
 }
