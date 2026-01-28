@@ -1,27 +1,18 @@
 const { cache } = require('../src/cache_manager');
 
-async function waitForCacheUpdate(key, expectedValue, timeoutMs = 5000) {
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeoutMs) {
-        if (cache.get(key) === expectedValue) {
-            return;
-        }
-        await new Promise(resolve => setTimeout(resolve, 10)); // poll every 10ms
-    }
-    throw new Error(`Cache update for key '${key}' did not complete within ${timeoutMs}ms`);
-}
-
 describe('Async Cache Update', () => {
     it('should eventually update the cache after the event', async () => {
-        console.log("\n=== Bug Scenario 016: Async Sleep Test ===");
+        console.log("\n=== Bug Scenario 016: Async Event-Listener Test ===");
 
         const key = 'user_set';
         const val = 'active';
         cache.update(key, val);
 
-        console.log("Waiting for cache update (polling)...");
+        console.log("Waiting for cache update (event-listener with 5s timeout)...");
 
-        await waitForCacheUpdate(key, val);
+        // Use event-listener approach with 5-second timeout
+        // This eliminates setTimeout polling and uses native event system
+        await cache.waitForKey(key);
 
         const result = cache.get(key);
 
