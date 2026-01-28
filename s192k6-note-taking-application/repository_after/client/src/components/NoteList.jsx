@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function NoteList({ notes, onUpdate, onDelete }) {
+export default function NoteList({ notes, onUpdate, onDelete, onView }) {
   if (notes.length === 0) {
     return <p className="empty">No notes found.</p>;
   }
@@ -9,13 +9,13 @@ export default function NoteList({ notes, onUpdate, onDelete }) {
     <div className="note-list">
       <h2>Notes</h2>
       {notes.map((note) => (
-        <NoteItem key={note.id} note={note} onUpdate={onUpdate} onDelete={onDelete} />
+        <NoteItem key={note.id} note={note} onUpdate={onUpdate} onDelete={onDelete} onView={onView} />
       ))}
     </div>
   );
 }
 
-function NoteItem({ note, onUpdate, onDelete }) {
+function NoteItem({ note, onUpdate, onDelete, onView }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -57,6 +57,7 @@ function NoteItem({ note, onUpdate, onDelete }) {
             ))}
           </div>
           <div className="note-actions">
+            <button onClick={() => onView(note.id)}>View</button>
             <button onClick={() => setEditing(true)}>Edit</button>
             <button onClick={() => onDelete(note.id)} className="danger">
               Delete

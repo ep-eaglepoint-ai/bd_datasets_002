@@ -91,3 +91,28 @@ button.danger {
 .empty {
   color: #666;
 }
+
+.note-detail {
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.note-detail h2 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.note-detail .note-id {
+  color: #666;
+  font-size: 0.85em;
+  margin-bottom: 16px;
+}
+
+.note-detail .note-content {
+  background: white;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}

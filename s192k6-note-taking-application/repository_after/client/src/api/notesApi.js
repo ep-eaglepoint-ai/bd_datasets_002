@@ -6,6 +6,14 @@ export async function getNotes(tag) {
   return res.json();
 }
 
+export async function getNoteById(id) {
+  const res = await fetch(`${API_URL}/api/notes/${id}`);
+  if (!res.ok) {
+    throw new Error("Note not found");
+  }
+  return res.json();
+}
+
 export async function getTags() {
   const res = await fetch(`${API_URL}/api/tags`);
   return res.json();

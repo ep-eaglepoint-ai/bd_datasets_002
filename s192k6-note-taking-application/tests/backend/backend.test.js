@@ -116,3 +116,98 @@ describe("Notes API lifecycle", () => {
     expect(afterDeleteRes.response.ok).toBe(false);
   });
 });
+
+describe("Notes API edge cases", () => {
+  test("create note with empty tags array", async () => {
+    const createRes = await request(endpoint("/notes"), {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Note with no tags",
+        content: "Content here",
+        tags: [],
+      }),
+    });
+
+    expect(createRes.response.ok).toBe(true);
+    expect(createRes.json.id).toBeDefined();
+    expect(Array.isArray(createRes.json.tags)).toBe(true);
+    expect(createRes.json.tags.length).toBe(0);
+
+    // Cleanup
+    await request(endpoint(`/notes/${createRes.json.id}`), { method: "DELETE" });
+  });
+
+  test("create note without tags field", async () => {
+    const createRes = await request(endpoint("/notes"), {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Note without tags field",
+        content: "Content here",
+      }),
+    });
+
+    expect(createRes.response.ok).toBe(true);
+    expect(createRes.json.id).toBeDefined();
+
+    // Cleanup
+    await request(endpoint(`/notes/${createRes.json.id}`), { method: "DELETE" });
+  });
+
+  test("filter by non-existent tag returns empty array", async () => {
+    const nonExistentTag = `nonexistent-${Date.now()}`;
+    const filterRes = await request(endpoint(`/notes?tag=${encodeURIComponent(nonExistentTag)}`));
+
+    expect(filterRes.response.ok).toBe(true);
+    expect(Array.isArray(filterRes.json)).toBe(true);
+    expect(filterRes.json.length).toBe(0);
+  });
+
+  test("get note with invalid ID format returns 400", async () => {
+    const invalidRes = await request(endpoint("/notes/invalid-id"));
+    expect(invalidRes.response.status).toBe(400);
+  });
+
+  test("get note with non-existent ID returns 404", async () => {
+    const notFoundRes = await request(endpoint("/notes/999999999"));
+    expect(notFoundRes.response.status).toBe(404);
+  });
+
+  test("create note without title returns 400", async () => {
+    const createRes = await request(endpoint("/notes"), {
+      method: "POST",
+      body: JSON.stringify({
+        content: "Content without title",
+      }),
+    });
+
+    expect(createRes.response.status).toBe(400);
+  });
+
+  test("create note without content returns 400", async () => {
+    const createRes = await request(endpoint("/notes"), {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Title without content",
+      }),
+    });
+
+    expect(createRes.response.status).toBe(400);
+  });
+
+  test("update non-existent note returns 404", async () => {
+    const updateRes = await request(endpoint("/notes/999999999"), {
+      method: "PUT",
+      body: JSON.stringify({ title: "Updated" }),
+    });
+
+    expect(updateRes.response.status).toBe(404);
+  });
+
+  test("delete non-existent note returns 404", async () => {
+    const deleteRes = await request(endpoint("/notes/999999999"), {
+      method: "DELETE",
+    });
+
+    expect(deleteRes.response.status).toBe(404);
+  });
+});

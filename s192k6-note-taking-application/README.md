@@ -1,5 +1,11 @@
 # S192K6 - Note-Taking Application
 
+## Build and Start the Application
+
+```bash
+docker compose up --build
+```
+
 ## Run tests
 
 ```bash

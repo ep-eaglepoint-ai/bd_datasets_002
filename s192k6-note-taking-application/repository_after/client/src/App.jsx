@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { getNotes, getTags, createNote, updateNote, deleteNote } from "./api/notesApi";
+import { getNotes, getTags, getNoteById, createNote, updateNote, deleteNote } from "./api/notesApi";
 import TagFilter from "./components/TagFilter";
 import NoteForm from "./components/NoteForm";
 import NoteList from "./components/NoteList";
+import NoteDetail from "./components/NoteDetail";
 
 export default function App() {
   const [notes, setNotes] = useState([]);
   const [tags, setTags] = useState([]);
   const [activeTag, setActiveTag] = useState("");
+  const [selectedNote, setSelectedNote] = useState(null);
 
   async function loadData(tag = "") {
     const [notesData, tagsData] = await Promise.all([getNotes(tag), getTags()]);
@@ -35,13 +37,35 @@ export default function App() {
     await loadData(activeTag);
   }
 
+  async function handleView(id) {
+    try {
+      const note = await getNoteById(id);
+      setSelectedNote(note);
+    } catch (err) {
+      console.error("Failed to fetch note:", err);
+    }
+  }
+
+  function handleBack() {
+    setSelectedNote(null);
+  }
+
+  if (selectedNote) {
+    return (
+      <div className="container">
+        <h1>Notes App</h1>
+        <NoteDetail note={selectedNote} onBack={handleBack} />
+      </div>
+    );
+  }
+
   return (
     <div className="container">
       <h1>Notes App</h1>
 
       <TagFilter tags={tags} activeTag={activeTag} onSelectTag={setActiveTag} onClear={() => setActiveTag("")} />
 
-      <NoteList notes={notes} onUpdate={handleUpdate} onDelete={handleDelete} />
+      <NoteList notes={notes} onUpdate={handleUpdate} onDelete={handleDelete} onView={handleView} />
 
       <NoteForm onCreate={handleCreate} />
     </div>
