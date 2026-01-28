@@ -36,6 +36,11 @@ public class ProductController {
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
         
+        // Cap size at 100 (Req 15)
+        if (size > 100) {
+            size = 100;
+        }
+        
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
         return ResponseEntity.ok(productService.getAllProducts(category, search, pageable));

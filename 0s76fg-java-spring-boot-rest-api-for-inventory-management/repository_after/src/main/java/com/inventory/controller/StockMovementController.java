@@ -39,6 +39,11 @@ public class StockMovementController {
             @RequestParam(defaultValue = "performedAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         
+        // Cap size at 100 (Req 15)
+        if (size > 100) {
+            size = 100;
+        }
+        
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
         return ResponseEntity.ok(stockMovementService.getMovements(startDate, endDate, productId, locationId, type, reference, pageable));

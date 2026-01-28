@@ -42,8 +42,8 @@ public class StockMovementService {
                 predicates.add(criteriaBuilder.equal(root.get("product").get("id"), productId));
             }
             if (locationId != null) {
-                Predicate fromLoc = criteriaBuilder.equal(root.get("fromLocation").get("id"), locationId);
-                Predicate toLoc = criteriaBuilder.equal(root.get("toLocation").get("id"), locationId);
+                Predicate fromLoc = criteriaBuilder.equal(root.join("fromLocation", jakarta.persistence.criteria.JoinType.LEFT).get("id"), locationId);
+                Predicate toLoc = criteriaBuilder.equal(root.join("toLocation", jakarta.persistence.criteria.JoinType.LEFT).get("id"), locationId);
                 predicates.add(criteriaBuilder.or(fromLoc, toLoc));
             }
             if (type != null) {

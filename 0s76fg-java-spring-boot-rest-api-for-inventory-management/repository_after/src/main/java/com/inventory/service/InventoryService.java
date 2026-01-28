@@ -136,7 +136,23 @@ public class InventoryService {
     @Transactional
     public void adjustStock(AdjustStockRequest request) {
         Inventory inventory = inventoryRepository.findByProductIdAndLocationId(request.getProductId(), request.getLocationId())
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory record not found"));
+                .orElse(null);
+
+        if (inventory == null) {
+            Product product = productRepository.findById(request.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+            Location location = locationRepository.findById(request.getLocationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Location not found"));
+            
+            inventory = new Inventory();
+            inventory.setProduct(product);
+            inventory.setLocation(location);
+            inventory.setQuantity(0);
+            inventory.setReservedQuantity(0);
+            inventory.setReorderPoint(0);
+            // We need to save it if we proceed, or rely on cascade? 
+            // Better to just work with it and save at end.
+        }
 
         int newQuantity = inventory.getQuantity() + request.getAdjustmentQuantity();
         if (newQuantity < 0) {
@@ -150,17 +166,6 @@ public class InventoryService {
 
         inventory.setQuantity(newQuantity);
         inventoryRepository.save(inventory);
-
-        // Audit
-        // For adjustment, we treat it as internal. 
-        // If positive, it's like a receipt (ish) or just ADJ. If negative, also ADJ.
-        // We set toLocation or fromLocation based on sign? Or just keep both null?
-        // Let's keep both null for simple adjustment or assign location to 'to' if positive, 'from' if negative?
-        // Requirement says: "Update inventory quantity, create StockMovement record with type ADJUSTMENT"
-        // Let's just set the location involved.
-        // Usually adjustment is in-place. Let's set the location as 'toLocation' (where the adjustment happened) 
-        // or just leave them null and rely on the fact it's an adjustment? 
-        // Most standardized way: If Adding -> toLocation = current. If Removing -> fromLocation = current.
         
         Location from = null;
         Location to = null;

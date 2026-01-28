@@ -27,4 +27,8 @@ public class LocationDto {
     public void setCapacity(int capacity) { this.capacity = capacity; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    
+    // JSON serialization alias
+    public boolean getIsActive() { return active; }
+    public void setIsActive(boolean isActive) { this.active = isActive; }
 }
