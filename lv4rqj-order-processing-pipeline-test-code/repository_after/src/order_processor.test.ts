@@ -74,7 +74,7 @@ describe("OrderProcessor.processOrders", () => {
 
   test("throws ValidationError when items is not an array", async () => {
     const processor = new OrderProcessor();
-    await expect(processor.processOrders(null, baseOptions)).rejects.toThrow(
+    await expect(processor.processOrders(null as any, baseOptions)).rejects.toThrow(
       ValidationError
     );
   });
@@ -82,7 +82,7 @@ describe("OrderProcessor.processOrders", () => {
   test("throws ValidationError when options is missing", async () => {
     const processor = new OrderProcessor();
     await expect(
-      processor.processOrders([], undefined)
+      processor.processOrders([], undefined as any)
     ).rejects.toThrow(ValidationError);
   });
 
@@ -186,6 +186,60 @@ describe("OrderProcessor.processOrders", () => {
       expect(aboveMax.items.map((i) => i.id)).toEqual(["mid", "low"]);
     });
 
+    test("minPriority boundary just below/exact/just above", async () => {
+      const processor = new OrderProcessor();
+      const items: Item[] = [
+        { id: "p4", priority: 4, name: "x" },
+        { id: "p5", priority: 5, name: "y" },
+        { id: "p6", priority: 6, name: "z" },
+      ];
+
+      const justBelow = await processor.processOrders(items, {
+        ...baseOptions,
+        minPriority: 4,
+      });
+      expect(justBelow.items.map((i) => i.id)).toEqual(["p6", "p5", "p4"]);
+
+      const exact = await processor.processOrders(items, {
+        ...baseOptions,
+        minPriority: 5,
+      });
+      expect(exact.items.map((i) => i.id)).toEqual(["p6", "p5"]);
+
+      const justAbove = await processor.processOrders(items, {
+        ...baseOptions,
+        minPriority: 6,
+      });
+      expect(justAbove.items.map((i) => i.id)).toEqual(["p6"]);
+    });
+
+    test("maxPriority boundary just below/exact/just above", async () => {
+      const processor = new OrderProcessor();
+      const items: Item[] = [
+        { id: "p4", priority: 4, name: "x" },
+        { id: "p5", priority: 5, name: "y" },
+        { id: "p6", priority: 6, name: "z" },
+      ];
+
+      const justBelow = await processor.processOrders(items, {
+        ...baseOptions,
+        maxPriority: 4,
+      });
+      expect(justBelow.items.map((i) => i.id)).toEqual(["p4"]);
+
+      const exact = await processor.processOrders(items, {
+        ...baseOptions,
+        maxPriority: 5,
+      });
+      expect(exact.items.map((i) => i.id)).toEqual(["p5", "p4"]);
+
+      const justAbove = await processor.processOrders(items, {
+        ...baseOptions,
+        maxPriority: 6,
+      });
+      expect(justAbove.items.map((i) => i.id)).toEqual(["p6", "p5", "p4"]);
+    });
+
     test("include and exclude name substrings with whitespace-only and normalization", async () => {
       const processor = new OrderProcessor();
       const items: Item[] = [
@@ -208,6 +262,57 @@ describe("OrderProcessor.processOrders", () => {
       // "foo   baz" should be excluded due to excludeNameSubstr
       // whitespace-only name should be trimmed to "" and not match include
       // "xxx" does not contain "foo bar"
+    });
+
+    test("normalization changes include/exclude substring matching behavior", async () => {
+      const processor = new OrderProcessor();
+      const items: Item[] = [
+        { id: "spaced", priority: 1, name: "foo   bar" },
+        { id: "compact", priority: 1, name: "foobar" },
+      ];
+
+      const withoutNormalization = await processor.processOrders(items, {
+        ...baseOptions,
+        normalizeName: false,
+        includeNameSubstr: "foo bar",
+      });
+      expect(withoutNormalization.items.map((i) => i.id)).toEqual([]);
+
+      const withNormalization = await processor.processOrders(items, {
+        ...baseOptions,
+        normalizeName: true,
+        includeNameSubstr: "foo bar",
+      });
+      expect(withNormalization.items.map((i) => i.id)).toEqual(["spaced"]);
+    });
+
+    test("whitespace-only include/exclude substrings interact with normalization", async () => {
+      const processor = new OrderProcessor();
+      const items: Item[] = [
+        { id: "hasSpace", priority: 2, name: "foo   bar" },
+        { id: "noSpace", priority: 1, name: "foobar" },
+      ];
+
+      const includeSingleSpace = await processor.processOrders(items, {
+        ...baseOptions,
+        normalizeName: true,
+        includeNameSubstr: " ",
+      });
+      expect(includeSingleSpace.items.map((i) => i.id)).toEqual(["hasSpace"]);
+
+      const excludeSingleSpace = await processor.processOrders(items, {
+        ...baseOptions,
+        normalizeName: true,
+        excludeNameSubstr: " ",
+      });
+      expect(excludeSingleSpace.items.map((i) => i.id)).toEqual(["noSpace"]);
+
+      const includeTripleSpaceAfterNormalization = await processor.processOrders(items, {
+        ...baseOptions,
+        normalizeName: true,
+        includeNameSubstr: "   ",
+      });
+      expect(includeTripleSpaceAfterNormalization.items.map((i) => i.id)).toEqual([]);
     });
   });
 
@@ -338,7 +443,7 @@ describe("OrderProcessor.processOrders", () => {
     });
 
     test("enrichment timeout per item throws EnrichTimeoutError", async () => {
-      jest.useRealTimers();
+      jest.useFakeTimers();
       const neverResolvingEnricher: Enricher = {
         enrich: async () =>
           new Promise<Partial<Item>>(() => {
@@ -354,21 +459,61 @@ describe("OrderProcessor.processOrders", () => {
       );
       const items: Item[] = [{ id: "1", priority: 1, name: "x" }];
 
+      // Attach the rejection handler before advancing timers to avoid unhandled rejection noise.
+      const p = processor.processOrders(items, {
+        ...baseOptions,
+        enrich: true,
+        enrichTimeoutMs: 10,
+        enrichConcurrency: 1,
+      });
+
+      const expectation = expect(p).rejects.toThrow(EnrichTimeoutError);
+      await jest.advanceTimersByTimeAsync(11);
+      await expectation;
+      jest.useRealTimers();
+    });
+
+    test("enricher rejection propagates (failure case)", async () => {
+      const err = new Error("enrich failed");
+      const enricher: Enricher = {
+        enrich: async () => {
+          throw err;
+        },
+      };
+      const processor = new OrderProcessor(new FakeRandomSource([0.1]), async () => {}, enricher, null);
+      const items = makeItems([{ priority: 1 }]);
+
       await expect(
         processor.processOrders(items, {
           ...baseOptions,
           enrich: true,
-          enrichTimeoutMs: 10,
           enrichConcurrency: 1,
         })
-      ).rejects.toThrow(EnrichTimeoutError);
+      ).rejects.toThrow(err);
     });
 
     test("concurrency is throttled according to enrichConcurrency", async () => {
       const inFlight: { current: number; max: number } = { current: 0, max: 0 };
+      let started = 0;
       const resolvers: (() => void)[] = [];
+
+      const flushMicrotasks = async (times: number) => {
+        for (let i = 0; i < times; i++) {
+          await Promise.resolve();
+        }
+      };
+
+      const waitUntil = async (predicate: () => boolean) => {
+        for (let i = 0; i < 50; i++) {
+          if (predicate()) return;
+          await flushMicrotasks(1);
+        }
+        throw new Error("waitUntil: condition not met");
+      };
+
       const enricher: Enricher = {
         enrich: (item) => {
+          started++;
           inFlight.current++;
           if (inFlight.current > inFlight.max) {
             inFlight.max = inFlight.current;
@@ -404,30 +549,24 @@ describe("OrderProcessor.processOrders", () => {
         enrichConcurrency: 2,
       });
 
-      // Allow the mapWithConcurrency loop to start
-      await Promise.resolve();
-      await Promise.resolve();
-
-      // Initially only 2 in-flight calls should be started
+      // Initially only 2 in-flight calls should be started.
+      await waitUntil(() => started === 2);
       expect(inFlight.max).toBe(2);
       expect(resolvers).toHaveLength(2);
 
-      // Resolve first two to allow next two to start
-      resolvers.shift()?.();
-      resolvers.shift()?.();
-
-      // Wait for workers to pick up next items
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      await Promise.resolve();
-      await Promise.resolve();
-
-      // Now two more should have started, but still max concurrency 2
+      // Resolve one, then wait for a third to start.
+      resolvers[0]?.();
+      await waitUntil(() => started === 3);
       expect(inFlight.max).toBe(2);
-      expect(resolvers.length).toBeGreaterThanOrEqual(2); // two new resolvers should be added
 
-      // Resolve remaining
-      resolvers.shift()?.();
-      resolvers.shift()?.();
+      // Resolve another, then wait for the fourth to start.
+      resolvers[1]?.();
+      await waitUntil(() => started === 4);
+      expect(inFlight.max).toBe(2);
+
+      // Resolve remaining started enrich operations.
+      resolvers[2]?.();
+      resolvers[3]?.();
 
       const result = await promise;
       expect(result.items).toHaveLength(4);
@@ -460,6 +599,7 @@ describe("OrderProcessor.processOrders", () => {
       });
       expect(firstPage.items).toHaveLength(pageSize);
       expect(firstPage.nextCursor).toBeDefined();
+      expect(firstPage.nextCursor).toBe(Buffer.from(String(pageSize), "utf8").toString("base64"));
 
       const secondPage = await processor.processOrders(items, {
         ...baseOptions,
@@ -659,6 +799,71 @@ describe("OrderProcessor.processOrders", () => {
           const actualIds = group.map((g) => `${g.it.id}:${g.it.name}`);
           const expectedIds = expectedOrder.map((g) => `${g.it.id}:${g.it.name}`);
           expect(actualIds).toEqual(expectedIds);
+        }
+      }
+    });
+
+    test("invariants still hold when enrichment patches names (id/priority subset, ordering)", async () => {
+      const iterations = 20;
+      for (let iter = 0; iter < iterations; iter++) {
+        const rand = seededRandom(iter + 123);
+        const itemCount = 1 + Math.floor(rand() * 6); // 1..6
+        const items: Item[] = [];
+        for (let i = 0; i < itemCount; i++) {
+          const priority = Math.floor(rand() * 5); // 0..4
+          const id = String.fromCharCode(97 + (i % 3)); // 'a','b','c'
+          const name = `n${Math.floor(rand() * 3)}`; // n0,n1,n2
+          items.push({ id: `${id}`, priority, name });
+        }
+
+        const enricher: Enricher = {
+          enrich: async (item) => ({ name: `${item.name}-enriched` }),
+        };
+        const processor = new OrderProcessor(new FakeRandomSource([0.1]), async () => {}, enricher, null);
+
+        const options: ProcessorOptions = {
+          stable: true,
+          deduplicate: false,
+          enrich: true,
+          enrichConcurrency: 3,
+        };
+
+        const result = await processor.processOrders(items, options);
+
+        expect(result.items.length).toBeLessThanOrEqual(items.length);
+
+        for (const out of result.items) {
+          const input = items.find((i) => i.id === out.id && i.priority === out.priority);
+          expect(input).toBeDefined();
+          expect(out.name === input!.name || out.name === `${input!.name}-enriched`).toBe(true);
+        }
+
+        for (let i = 1; i < result.items.length; i++) {
+          expect(result.items[i - 1].priority).toBeGreaterThanOrEqual(result.items[i].priority);
+        }
+
+        // stable tie-breaking is still enforced on the output set
+        const outputWithOriginalIndex = result.items.map((it) => ({
+          it,
+          originalIndex: items.findIndex(
+            (x) => x.id === it.id && x.priority === it.priority && (it.name === x.name || it.name === `${x.name}-enriched`)
+          ),
+        }));
+
+        for (let p = 0; p <= 4; p++) {
+          const group = outputWithOriginalIndex.filter((x) => x.it.priority === p);
+          const expected = group
+            .slice()
+            .sort((a, b) => {
+              const byId = a.it.id.localeCompare(b.it.id);
+              if (byId !== 0) return byId;
+              const byName = a.it.name.localeCompare(b.it.name);
+              if (byName !== 0) return byName;
+              return a.originalIndex - b.originalIndex;
+            })
+            .map((x) => `${x.it.id}:${x.it.name}`);
+          const actual = group.map((x) => `${x.it.id}:${x.it.name}`);
+          expect(actual).toEqual(expected);
         }
       }
     });
