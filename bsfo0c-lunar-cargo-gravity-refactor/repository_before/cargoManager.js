@@ -1,7 +1,7 @@
 // filename: cargoManager.js
 
 // Low-level rover telemetry provides gravity and dimensions
-import { roverConfig } from '../hardware/specs'; // roverConfig.maxCapacityWeight, roverConfig.width, roverConfig.height
+import { roverConfig } from '../hardware/specs.js'; // roverConfig.maxCapacityWeight, roverConfig.width, roverConfig.height
 
 /**
  * LEGACY LOGIC: Greedy volume-first packing.
