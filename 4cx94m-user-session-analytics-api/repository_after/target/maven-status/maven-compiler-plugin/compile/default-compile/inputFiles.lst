@@ -1,3 +1,4 @@
 /app/repository_after/src/main/java/com/example/sessions/SessionAnalyticsController.java
+/app/repository_after/src/main/java/com/example/sessions/ApiError.java
 /app/repository_after/src/main/java/com/example/sessions/ApiExceptionHandler.java
 /app/repository_after/src/main/java/com/example/sessions/Session.java

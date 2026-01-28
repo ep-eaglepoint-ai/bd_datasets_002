@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.sessions.AdditionalRequirementsTest" time="0.265" tests="5" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.sessions.AdditionalRequirementsTest" time="0.269" tests="5" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="17"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -13,7 +13,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="/opt/java/openjdk/lib"/>
-    <property name="sun.java.command" value="/app/repository_after/target/surefire/surefirebooter-20260128072636247_3.jar /app/repository_after/target/surefire 2026-01-28T07-26-32_548-jvmRun1 surefire-20260128072636247_1tmp surefire_0-20260128072636247_2tmp"/>
+    <property name="sun.java.command" value="/app/repository_after/target/surefire/surefirebooter-20260128085231642_3.jar /app/repository_after/target/surefire 2026-01-28T08-52-22_911-jvmRun1 surefire-20260128085231642_1tmp surefire_0-20260128085231642_2tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -28,7 +28,7 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
-    <property name="surefire.real.class.path" value="/app/repository_after/target/surefire/surefirebooter-20260128072636247_3.jar"/>
+    <property name="surefire.real.class.path" value="/app/repository_after/target/surefire/surefirebooter-20260128085231642_3.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="17.0.6+10"/>
     <property name="user.name" value="root"/>
@@ -53,13 +53,13 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="61.0"/>
   </properties>
-  <testcase name="controllerIsStatelessAndValidatorIsStaticFinal" classname="com.example.sessions.AdditionalRequirementsTest" time="0.188">
-    <system-err><![CDATA[Jan 28, 2026 7:26:36 AM org.hibernate.validator.internal.util.Version <clinit>
+  <testcase name="controllerIsStatelessAndValidatorIsStaticFinal" classname="com.example.sessions.AdditionalRequirementsTest" time="0.192">
+    <system-err><![CDATA[Jan 28, 2026 8:52:32 AM org.hibernate.validator.internal.util.Version <clinit>
 INFO: HV000001: Hibernate Validator 6.2.5.Final
 ]]></system-err>
   </testcase>
   <testcase name="sessionHasBeanValidationAnnotations" classname="com.example.sessions.AdditionalRequirementsTest" time="0.004"/>
-  <testcase name="controllerHasCorrectRequestMappingAndMethod" classname="com.example.sessions.AdditionalRequirementsTest" time="0.041"/>
-  <testcase name="apiExceptionHandlerReturnsStableStructure" classname="com.example.sessions.AdditionalRequirementsTest" time="0.005"/>
-  <testcase name="repositoryAfterContainsNoMutableCacheOrNestedLoops" classname="com.example.sessions.AdditionalRequirementsTest" time="0.013"/>
+  <testcase name="controllerHasCorrectRequestMappingAndMethod" classname="com.example.sessions.AdditionalRequirementsTest" time="0.043"/>
+  <testcase name="apiExceptionHandlerReturnsStableStructure" classname="com.example.sessions.AdditionalRequirementsTest" time="0.004"/>
+  <testcase name="repositoryAfterContainsNoMutableCacheOrNestedLoops" classname="com.example.sessions.AdditionalRequirementsTest" time="0.011"/>
 </testsuite>

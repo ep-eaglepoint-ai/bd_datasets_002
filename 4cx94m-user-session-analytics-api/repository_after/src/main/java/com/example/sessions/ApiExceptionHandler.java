@@ -11,12 +11,9 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ResponseBody
-    public Map<String, Object> handleConstraintViolation(ConstraintViolationException ex) {
+    public ApiError handleConstraintViolation(ConstraintViolationException ex) {
         List<String> errors = new ArrayList<>();
         ex.getConstraintViolations().forEach(v -> errors.add(v.getPropertyPath() + " " + v.getMessage()));
-        Map<String, Object> body = new HashMap<>();
-        body.put("status", "error");
-        body.put("errors", errors);
-        return body;
+        return new ApiError("error", errors);
     }
 }

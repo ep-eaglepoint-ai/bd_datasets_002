@@ -58,10 +58,10 @@ public class AdditionalRequirementsTest {
         set.add(v);
         ConstraintViolationException ex = new ConstraintViolationException(set);
 
-        Map<String, Object> body = handler.handleConstraintViolation(ex);
-        assertEquals("error", body.get("status"));
-        assertTrue(body.get("errors") instanceof List);
-        List<?> errors = (List<?>) body.get("errors");
+        ApiError body = handler.handleConstraintViolation(ex);
+        assertEquals("error", body.getStatus());
+        assertTrue(body.getErrors() instanceof List);
+        List<?> errors = body.getErrors();
         assertFalse(errors.isEmpty());
     }
 

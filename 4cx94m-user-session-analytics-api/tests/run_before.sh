@@ -73,7 +73,6 @@ echo
 if [ "$failed_count" -gt 0 ]; then
 	echo "Test summary: some tests failed"
 	echo "Total: $total, Passed: $passed, Failed: $failed_count"
-	echo "Failed tests: $failed_list" >&2
 	exit 1
 else
 	echo "Test summary: all tests passed"
