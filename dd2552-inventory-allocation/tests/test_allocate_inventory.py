@@ -611,3 +611,151 @@ def test_multi_product_concurrent_partial_update_prevention(load_function, db_co
             assert stock_b == 50 or stock_b == 20, "If product A updated for order 1, product B must also be updated"
         if stock_b == 50:
             assert stock_a == 50, "If product B updated for order 1, product A must also be updated"
+
+
+def test_concurrent_multi_product_race_condition(load_function, db_connection):
+    """Test that validates no race condition between validation and update for multi-product orders
+    
+    This test specifically targets the race condition mentioned in feedback:
+    - Order with products A+B
+    - Concurrent transaction modifies inventory between validation and update
+    - Must prevent partial allocation (A updated, B not updated)
+    """
+    cursor = load_function
+    
+    cursor.execute("INSERT INTO inventory VALUES (1, 100, 60), (2, 100, 60), (3, 100, 60)")
+    cursor.execute("INSERT INTO order_items VALUES (1, 1, 30), (1, 2, 30), (1, 3, 30)")
+    cursor.execute("INSERT INTO order_items VALUES (2, 1, 40), (2, 2, 40), (2, 3, 40)")
+    db_connection.commit()
+    
+    import threading
+    results = []
+    errors = []
+    
+    def allocate(order_id):
+        try:
+            conn = psycopg2.connect(
+                host=os.getenv("DB_HOST", "localhost"),
+                port=os.getenv("DB_PORT", "5432"),
+                database=os.getenv("DB_NAME", "testdb"),
+                user=os.getenv("DB_USER", "postgres"),
+                password=os.getenv("DB_PASSWORD", "postgres")
+            )
+            conn.set_isolation_level(ISOLATION_LEVEL_READ_COMMITTED)
+            cur = conn.cursor()
+            cur.execute(f"SELECT allocate_inventory({order_id}, 100)")
+            result = cur.fetchone()[0]
+            conn.commit()
+            results.append((order_id, result))
+            cur.close()
+            conn.close()
+        except Exception as e:
+            errors.append((order_id, str(e)))
+    
+    threads = [threading.Thread(target=allocate, args=(i,)) for i in [1, 2]]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    
+    cursor.execute("SELECT product_id, stock_quantity FROM inventory WHERE warehouse_id = 100 ORDER BY product_id")
+    stocks = {row[0]: row[1] for row in cursor.fetchall()}
+    
+    success_count = sum(1 for _, r in results if r)
+    
+    if is_before_implementation():
+        pass
+    else:
+        if success_count == 2:
+            assert stocks[1] == 0 and stocks[2] == 0 and stocks[3] == 0
+        elif success_count == 1:
+            if stocks[1] == 30:
+                assert stocks[2] == 30 and stocks[3] == 30
+            elif stocks[1] == 20:
+                assert stocks[2] == 20 and stocks[3] == 20
+        else:
+            assert stocks[1] == 60 and stocks[2] == 60 and stocks[3] == 60
+
+
+def test_atomic_all_or_nothing_with_insufficient_middle_product(load_function, db_connection):
+    """Test that if middle product has insufficient stock, no products are updated
+    
+    BEFORE: May update product 1 before discovering product 2 is insufficient
+    AFTER: Validates ALL products first, updates only if all sufficient
+    """
+    cursor = load_function
+    
+    cursor.execute("INSERT INTO inventory VALUES (1, 100, 100), (2, 100, 5), (3, 100, 100)")
+    cursor.execute("INSERT INTO order_items VALUES (1, 1, 20), (1, 2, 10), (1, 3, 20)")
+    db_connection.commit()
+    
+    cursor.execute("SELECT allocate_inventory(1, 100)")
+    result = cursor.fetchone()[0]
+    db_connection.commit()
+    
+    assert result == False
+    
+    cursor.execute("SELECT product_id, stock_quantity FROM inventory WHERE warehouse_id = 100 ORDER BY product_id")
+    stocks = {row[0]: row[1] for row in cursor.fetchall()}
+    
+    if is_before_implementation():
+        if stocks[1] != 100 or stocks[3] != 100:
+            pytest.fail("BEFORE allowed partial update when middle product insufficient")
+    else:
+        assert stocks[1] == 100, "Product 1 should not be updated when allocation fails"
+        assert stocks[2] == 5, "Product 2 should remain unchanged"
+        assert stocks[3] == 100, "Product 3 should not be updated when allocation fails"
+
+
+def test_concurrent_depletion_prevents_double_allocation(load_function, db_connection):
+    """Test that concurrent allocations don't both succeed when combined they exceed stock
+    
+    Two orders each want 60 units, but only 100 available.
+    At most one should succeed.
+    """
+    cursor = load_function
+    
+    cursor.execute("INSERT INTO inventory VALUES (1, 100, 100)")
+    cursor.execute("INSERT INTO order_items VALUES (1, 1, 60)")
+    cursor.execute("INSERT INTO order_items VALUES (2, 1, 60)")
+    db_connection.commit()
+    
+    import threading
+    results = []
+    
+    def allocate(order_id):
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST", "localhost"),
+            port=os.getenv("DB_PORT", "5432"),
+            database=os.getenv("DB_NAME", "testdb"),
+            user=os.getenv("DB_USER", "postgres"),
+            password=os.getenv("DB_PASSWORD", "postgres")
+        )
+        conn.set_isolation_level(ISOLATION_LEVEL_READ_COMMITTED)
+        cur = conn.cursor()
+        cur.execute(f"SELECT allocate_inventory({order_id}, 100)")
+        result = cur.fetchone()[0]
+        conn.commit()
+        results.append(result)
+        cur.close()
+        conn.close()
+    
+    threads = [threading.Thread(target=allocate, args=(i,)) for i in [1, 2]]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    
+    cursor.execute("SELECT stock_quantity FROM inventory WHERE product_id = 1 AND warehouse_id = 100")
+    final_stock = cursor.fetchone()[0]
+    
+    success_count = sum(1 for r in results if r)
+    
+    if is_before_implementation():
+        pass
+    else:
+        assert success_count <= 1, f"At most one allocation should succeed, got {success_count}"
+        if success_count == 1:
+            assert final_stock == 40, f"Stock should be 40 after one allocation, got {final_stock}"
+        else:
+            assert final_stock == 100, f"Stock should be 100 if both failed, got {final_stock}"
