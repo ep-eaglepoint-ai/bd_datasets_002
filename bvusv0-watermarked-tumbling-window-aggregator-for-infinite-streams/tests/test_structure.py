@@ -1,4 +1,4 @@
-from repository_after.app.stream_aggregator import StreamWindowAggregator
+from app.stream_aggregator import StreamWindowAggregator
 
 """
 Structural tests for StreamWindowAggregator.

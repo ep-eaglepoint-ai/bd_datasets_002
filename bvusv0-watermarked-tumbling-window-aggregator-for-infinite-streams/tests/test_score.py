@@ -1,5 +1,4 @@
-
-from repository_after.app.stream_aggregator import StreamWindowAggregator
+from app.stream_aggregator import StreamWindowAggregator
 
 """
 Score and performance tests for StreamWindowAggregator.

@@ -1,5 +1,4 @@
-
-from repository_after.app.stream_aggregator import StreamWindowAggregator
+from app.stream_aggregator import StreamWindowAggregator
 
 """
 Functional tests for StreamWindowAggregator implementation.
@@ -52,6 +51,25 @@ def test_late_data_rejection():
     window_0 = [r for r in results if r[0] == 0]
     if window_0:
         assert window_0[0][1] != 999.0
+
+
+def test_allowed_lateness_prevents_premature_emission():
+    """Test that windows aren't emitted prematurely before allowed_lateness expires."""
+    def stream():
+        yield '{"timestamp": 200, "value": 100.0}'
+        yield '{"timestamp": 150, "value": 50.0}'
+        yield '{"timestamp": 310, "value": 200.0}'
+    
+    aggregator = StreamWindowAggregator(stream(), allowed_lateness=100)
+    results = list(aggregator.process())
+    
+    window_120 = [r for r in results if r[0] == 120]
+    assert len(window_120) == 1
+    assert window_120[0][1] == 50.0
+    
+    window_180 = [r for r in results if r[0] == 180]
+    assert len(window_180) == 1
+    assert window_180[0][1] == 100.0
 
 
 def test_malformed_json_handling():
