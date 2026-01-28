@@ -21,29 +21,51 @@ public class DocumentIndex {
     public void indexDocument(Document doc) {
         lock.writeLock().lock();
         try {
-            documentsById.put(doc.getId(), doc);
-            String content = doc.getContent();
-            String[] terms = extractTerms(content);
-            Map<String, Integer> docTermFreqs = new HashMap<>();
-            for (String term : terms) {
-                String normalized = term.toLowerCase().trim();
-                if (normalized.length() < 2)
-                    continue;
-                docTermFreqs.merge(normalized, 1, Integer::sum);
-                termIndex.computeIfAbsent(normalized, k -> new HashSet<>()).add(doc.getId());
-            }
-            for (Map.Entry<String, Integer> entry : docTermFreqs.entrySet()) {
-                termFrequencies.computeIfAbsent(entry.getKey(), k -> new HashMap<>())
-                        .put(doc.getId(), entry.getValue());
-            }
+            indexDocumentInternal(doc);
         } finally {
             lock.writeLock().unlock();
         }
     }
 
     public void indexDocuments(List<Document> docs) {
-        for (Document doc : docs) {
-            indexDocument(doc);
+        lock.writeLock().lock();
+        try {
+            for (Document doc : docs) {
+                indexDocumentInternal(doc);
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    private void indexDocumentInternal(Document doc) {
+        documentsById.put(doc.getId(), doc);
+        String content = doc.getContent();
+        if (content == null)
+            return;
+
+        String[] terms = extractTerms(content);
+        Map<String, Integer> docTermFreqs = new HashMap<>();
+
+        // Phase 1: Count local frequencies (in-memory only)
+        for (String term : terms) {
+            String normalized = term.toLowerCase().trim();
+            if (normalized.length() < 2)
+                continue;
+            docTermFreqs.merge(normalized, 1, Integer::sum);
+        }
+
+        // Phase 2: Update global indices (Once per unique term)
+        for (Map.Entry<String, Integer> entry : docTermFreqs.entrySet()) {
+            String term = entry.getKey();
+            Integer count = entry.getValue();
+
+            // efficient update of inverted index
+            termIndex.computeIfAbsent(term, k -> new HashSet<>()).add(doc.getId());
+
+            // efficient update of frequency map
+            termFrequencies.computeIfAbsent(term, k -> new HashMap<>())
+                    .put(doc.getId(), count);
         }
     }
 
