@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { BmiCategory } from '../composables/useBmiCalculator'
 
 const props = defineProps<{
@@ -12,6 +13,10 @@ const getCategoryColor = (position: number): string => {
   if (position < 75) return 'var(--overweight-color)'
   return 'var(--obese-color)'
 }
+
+const clampedPosition = computed(() => {
+  return Math.max(0, Math.min(100, props.position))
+})
 </script>
 
 <template>
@@ -32,9 +37,9 @@ const getCategoryColor = (position: number): string => {
       
       <div 
         class="gauge-marker" 
-        :style="{ left: `${position}%`, borderColor: getCategoryColor(position) }"
+        :style="{ left: `${clampedPosition}%`, borderColor: getCategoryColor(clampedPosition) }"
         role="img"
-        :aria-label="`Your BMI is ${bmi}, positioned at ${Math.round(position)}% on the scale`"
+        :aria-label="`Your BMI is ${bmi}, positioned at ${Math.round(clampedPosition)}% on the scale`"
       >
         <div class="marker-value">{{ bmi }}</div>
       </div>

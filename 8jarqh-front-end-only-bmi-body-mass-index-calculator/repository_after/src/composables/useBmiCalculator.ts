@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 export type UnitSystem = 'metric' | 'imperial'
 export type BmiCategory = 'Underweight' | 'Normal' | 'Overweight' | 'Obese'
@@ -121,13 +121,14 @@ export function useBmiCalculator() {
     }
 
     const bmi = weightInKg / (heightInMeters * heightInMeters)
-    const category = getBmiCategory(bmi)
+    const roundedBmi = Math.round(bmi * 10) / 10
+    const category = getBmiCategory(roundedBmi)
     const healthyWeightRange = getHealthyWeightRange(heightInMeters)
     const weightDifference = getWeightDifference(weightInKg, healthyWeightRange, category)
     const guidance = getGuidance(category)
 
     return {
-      bmi: Math.round(bmi * 10) / 10,
+      bmi: roundedBmi,
       category,
       healthyWeightRange,
       weightDifference,
@@ -193,6 +194,11 @@ export function useBmiCalculator() {
     }
     return messages[category]
   }
+
+  // Validate inputs when they change
+  watch([height, weight, heightFeet, heightInches, unitSystem], () => {
+    validateInputs()
+  }, { immediate: false })
 
   return {
     unitSystem,

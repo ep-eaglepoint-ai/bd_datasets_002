@@ -1,0 +1,27 @@
+{
+  "run_id": "lc7ehl3x",
+  "started_at": "2026-01-28T06:53:33.394Z",
+  "finished_at": "2026-01-28T06:54:06.526Z",
+  "duration_seconds": 33.13,
+  "environment": {
+    "node_version": "v20.20.0",
+    "platform": "linux-x64"
+  },
+  "after": {
+    "tests": {
+      "passed": true,
+      "return_code": 0,
+      "output": "\n> bmi-calculator-root@1.0.0 test\n> vitest run\n\n\n RUN  v2.1.8 /app\n\n ✓ tests/useBmiCalculator.test.ts (59 tests) 119ms\n ✓ tests/requirements.test.ts (50 tests) 3970ms\n   ✓ Requirements Coverage - All 12 Requirements > Requirement 1: Users can enter height and weight to calculate BMI > should allow entering height and weight inputs 569ms\n   ✓ Requirements Coverage - All 12 Requirements > Requirement 1: Users can enter height and weight to calculate BMI > should display calculated BMI result 1805ms\n   ✓ Requirements Coverage - All 12 Requirements > Requirement 9: Responsive layout (mobile + desktop) > should have responsive CSS classes 329ms\n ✓ tests/integration.test.ts (18 tests) 5802ms\n   ✓ BMI Calculator - Integration Tests > Complete Calculation Flow > should calculate BMI and display result (metric) 2439ms\n   ✓ BMI Calculator - Integration Tests > Complete Calculation Flow > should limit history to 10 entries 1361ms\n ✓ tests/components.test.ts (36 tests) 1107ms\n ✓ tests/useLocalStorage.test.ts (21 tests) 32ms\n\n Test Files  5 passed (5)\n      Tests  184 passed (184)\n   Start at  06:53:38\n   Duration  27.50s (transform 9.08s, setup 3.27s, collect 21.01s, tests 11.03s, environment 24.69s, prepare 2.50s)\n\n"
+    },
+    "metrics": {
+      "duration_sec": 33.113,
+      "tests_passed": 5
+    }
+  },
+  "comparison": {
+    "passed_gate": true,
+    "summary": "Implementation passed all correctness and security benchmarks."
+  },
+  "success": true,
+  "error": null
+}

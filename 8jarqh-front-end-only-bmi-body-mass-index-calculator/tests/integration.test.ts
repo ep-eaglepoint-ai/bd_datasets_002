@@ -324,6 +324,9 @@ describe('BMI Calculator - Integration Tests', () => {
     });
 
     it('should clear all history', async () => {
+      // Mock window.confirm to return true
+      window.confirm = vi.fn(() => true);
+      
       const wrapper = mount(App);
       await nextTick();
       
@@ -423,6 +426,7 @@ describe('BMI Calculator - Integration Tests', () => {
       // Set invalid JSON in localStorage
       localStorage.setItem('bmi_inputs', 'invalid json{');
       localStorage.setItem('bmi_history', 'not json');
+      localStorage.setItem('bmi_current_result', 'not valid json');
       
       const wrapper = mount(App);
       await nextTick();

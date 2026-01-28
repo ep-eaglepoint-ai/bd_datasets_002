@@ -1,13 +1,14 @@
 # BMI Calculator - Testing & Evaluation
 
-## Running Tests
-
-### Run "After" tests:
+ 
+#### Build and run tests:
 ```bash
-docker compose up bmi-calculator-app --build
+
+docker-compose run --rm bmi-calculator-app
 ```
 
-### Run evaluation:
+#### Build and run evaluation:
 ```bash
-docker compose up evaluation --build
+docker-compose run --rm evaluation
 ```
+ 

@@ -10,7 +10,7 @@ describe('useLocalStorage - Basic Functionality', () => {
 
   it('should initialize with default value when localStorage is empty', () => {
     const storage = useLocalStorage('test_key', 'default_value');
-    
+
     expect(storage.value).toBe('default_value');
   });
 
@@ -265,7 +265,7 @@ describe('useLocalStorage - BMI Calculator Specific Use Cases', () => {
     expect(saved.category).toBe('Normal');
   });
 
-  it('should persist calculation history', () => {
+  it('should persist calculation history', async () => {
     interface HistoryEntry {
       bmi: number;
       category: string;
