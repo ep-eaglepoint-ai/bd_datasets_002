@@ -488,7 +488,7 @@ public class CustomThreadPoolExecutor implements ExecutorService {
         }
     }
 
-    public static class CustomFutureTask<V> implements RunnableFuture<V> {
+    public static class CustomFutureTask<V> implements RunnableFuture<V>, Comparable<Object> {
         private volatile int state;
         private static final int NEW = 0;
         private static final int RUNNING = 1;
@@ -500,8 +500,10 @@ public class CustomThreadPoolExecutor implements ExecutorService {
         private Callable<V> callable;
         private Object outcome; // result or exception
         private volatile Thread runner;
-        // Simple wait/notify mechanism
         private final Object lock = new Object();
+        
+        // For FIFO tie-breaking in PriorityQueue if needed, or default compare
+        long seqNum = System.nanoTime(); 
 
         public CustomFutureTask(Callable<V> callable) {
             if (callable == null) throw new NullPointerException();
@@ -603,27 +605,40 @@ public class CustomThreadPoolExecutor implements ExecutorService {
                  throw new ExecutionException((Throwable)x);
              return (V)x;
         }
+
+        @Override
+        public int compareTo(Object other) {
+            if (other instanceof PriorityTask) {
+                return -1; // Standard task has lower priority than any PriorityTask
+            }
+            // FIFO for standard tasks
+            if (other instanceof CustomFutureTask) {
+                 return Long.compare(this.seqNum, ((CustomFutureTask<?>)other).seqNum);
+            }
+            return 0;
+        }
     }
     
-    public static class PriorityTask<V> extends CustomFutureTask<V> implements Comparable<PriorityTask<V>> {
+    public static class PriorityTask<V> extends CustomFutureTask<V> {
         private final int priority;
-        private final long seqNum;
-        private static final AtomicInteger seq = new AtomicInteger();
 
         public PriorityTask(Callable<V> callable, int priority) {
             super(callable);
             this.priority = priority;
-            this.seqNum = seq.getAndIncrement();
         }
         
         public int getPriority() { return priority; }
 
         @Override
-        public int compareTo(PriorityTask<V> other) {
-            int cmp = Integer.compare(other.priority, this.priority); // Higher priority first
-            if (cmp == 0)
-                cmp = Long.compare(this.seqNum, other.seqNum); // FIFO
-            return cmp;
+        public int compareTo(Object other) {
+            if (other instanceof PriorityTask) {
+                PriorityTask<?> o = (PriorityTask<?>) other;
+                int cmp = Integer.compare(o.priority, this.priority); // Higher priority first
+                if (cmp == 0)
+                     return Long.compare(this.seqNum, o.seqNum);
+                return cmp;
+            }
+            return 1; // PriorityTask is higher than standard task
         }
     }
 }
