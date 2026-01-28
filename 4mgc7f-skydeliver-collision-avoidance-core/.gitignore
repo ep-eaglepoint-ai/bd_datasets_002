@@ -11,3 +11,6 @@ node_modules/
 .DS_Store
 reports/
 report.json
+
+# Evaluation Reports
+evaluation/2026-01-28/
