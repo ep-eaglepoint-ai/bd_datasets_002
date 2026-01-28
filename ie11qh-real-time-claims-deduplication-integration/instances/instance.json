@@ -1,0 +1,10 @@
+{
+    "instance_id": "IE11QH",
+    "problem_statement": "During end-of-month reconciliation, the billing team discovered 847 duplicate claim submissions resulting in $127,000 in rejected payments and 3-week delays. The claims processing system ingests EDI 837 files from multiple zip archives, but identical claims appear across different files due to clearinghouse resubmissions and system errors. Production data shows 12-15% duplicate rates, with some claims appearing 3-4 times. Insurance payers are threatening penalties for suspicious patterns. Currently, the system processes each claim independently without tracking duplicates. Need to detect duplicates using ClaimId + PatientId + ServiceDateFrom, handle conflicts when amounts differ, maintain deterministic output, prevent memory exhaustion with 5000+ claims, and log all decisions—while preserving existing parsing logic.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ie11qh-real-time-claims-deduplication-integration",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": []
+}
