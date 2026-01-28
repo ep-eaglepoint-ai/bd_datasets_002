@@ -1,4 +1,4 @@
-from app.stream_aggregator import StreamWindowAggregator
+from streamAggregator.stream_aggregator import StreamWindowAggregator
 
 def test_basic_tumbling_windows():
     """Test basic 60-second tumbling window aggregation."""

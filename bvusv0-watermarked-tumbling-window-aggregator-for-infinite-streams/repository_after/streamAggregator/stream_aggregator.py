@@ -4,8 +4,7 @@ import heapq
 from collections import defaultdict
 
 
-class StreamWindowAggregator:
-    
+class StreamWindowAggregator:    
     def __init__(self, input_stream, allowed_lateness=30):
         self.input_stream = input_stream
         self.allowed_lateness = allowed_lateness

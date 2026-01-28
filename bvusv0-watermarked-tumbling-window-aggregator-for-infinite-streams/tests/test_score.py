@@ -1,4 +1,4 @@
-from app.stream_aggregator import StreamWindowAggregator
+from streamAggregator.stream_aggregator import StreamWindowAggregator
 
 def test_watermark_correctness():
     """Test that watermark is correctly maintained."""

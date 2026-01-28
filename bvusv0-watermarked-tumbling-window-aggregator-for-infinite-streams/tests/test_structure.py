@@ -1,4 +1,4 @@
-from app.stream_aggregator import StreamWindowAggregator
+from streamAggregator.stream_aggregator import StreamWindowAggregator
 
 def test_memory_cleanup():
     """Test that windows are deleted after emission to prevent memory leaks."""
