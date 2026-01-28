@@ -67,7 +67,3 @@ docker compose run --rm --build app npm run evaluate
 This will:
 - Run tests for both before and after implementations
 - Compare results and write a report under `evaluation/reports/YYYY-MM-DD/HH-MM-SS/report.json`
-
-```bash
-git diff --no-index repository_before repository_after > patches/task_001.patch
-```
