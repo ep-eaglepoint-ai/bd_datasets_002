@@ -1,0 +1,11 @@
+{
+            "instance_id": "9A9PCC",
+            "problem_statement": "Refactor a Python e‑commerce order processing system by replacing nested conditionals with a strategy pattern for discounts, extracting duplicate shipping calculations into reusable methods, introducing a Money value object for safe currency operations, and creating custom exception classes for proper error handling. Use early returns to reduce nesting and ensure the refactored code produces identical results for all order scenarios while eliminating primitive obsession and improving maintainability. The solution must preserve all existing order processing logic—inventory validation, discount tiers, shipping rules, tax calculations, and order creation—while applying clean code principles.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9a9pcc-order-processing-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
