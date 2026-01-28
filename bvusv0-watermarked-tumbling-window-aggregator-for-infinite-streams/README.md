@@ -4,7 +4,7 @@
 
 ### Run tests (after - expected all pass)
 ```bash
-docker compose run --rm -e PYTHONPATH=/app/repository_after app pytest -q tests/
+docker compose run --rm -e PYTHONPATH=/app/repository_after app python -m pytest -q tests/
 ```
 
 **Expected behavior:**
