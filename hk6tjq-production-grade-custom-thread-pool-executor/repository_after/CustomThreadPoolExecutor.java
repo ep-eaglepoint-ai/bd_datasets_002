@@ -17,7 +17,7 @@ public class CustomThreadPoolExecutor implements ExecutorService {
     private volatile long keepAliveTimeNanos;
     private volatile boolean allowCoreThreadTimeOut;
     private volatile ThreadFactory threadFactory;
-    private volatile RejectedExecutionHandler handler;
+    private volatile CustomThreadPoolExecutor.RejectedExecutionHandler handler;
     private final BlockingQueue<Runnable> workQueue;
 
     // State
@@ -87,11 +87,16 @@ public class CustomThreadPoolExecutor implements ExecutorService {
             if (state < SHUTDOWN) {
                 runState.compareAndSet(state, SHUTDOWN);
             }
+            interruptIdleWorkers(); // FIX: Interrupt idle workers waiting on queue
         } finally {
             mainLock.unlock();
         }
         tryTerminate();
     }
+    
+    // ...
+
+    // ... (Removed duplicates)
 
     @Override
     public List<Runnable> shutdownNow() {
@@ -235,11 +240,31 @@ public class CustomThreadPoolExecutor implements ExecutorService {
         return false;
     }
 
+    private void interruptIdleWorkers() {
+        mainLock.lock();
+        try {
+            for (Worker w : workers) {
+                if (!w.isWorking && w.thread.isAlive() && !w.thread.isInterrupted()) {
+                    try {
+                        w.thread.interrupt();
+                    } catch (SecurityException ignore) {}
+                }
+            }
+        } finally {
+            mainLock.unlock();
+        }
+    }
+
+    // --- Inner Classes ---
+
+
+    
     final void runWorker(Worker w) {
         Runnable task = w.firstTask;
         w.firstTask = null;
         try {
             while (task != null || (task = getTask()) != null) {
+                w.isWorking = true;
                 if (runState.get() >= STOP && !Thread.currentThread().isInterrupted())
                     Thread.currentThread().interrupt();
                 try {
@@ -248,6 +273,7 @@ public class CustomThreadPoolExecutor implements ExecutorService {
                     // log
                 } finally {
                     task = null;
+                    w.isWorking = false;
                     completedTaskCount.incrementAndGet();
                 }
             }
@@ -370,7 +396,7 @@ public class CustomThreadPoolExecutor implements ExecutorService {
         allowCoreThreadTimeOut = value;
     }
     
-    public void setRejectedExecutionHandler(RejectedExecutionHandler handler) {
+    public void setRejectedExecutionHandler(CustomThreadPoolExecutor.RejectedExecutionHandler handler) {
         if (handler == null) throw new NullPointerException();
         this.handler = handler;
     }
@@ -426,6 +452,7 @@ public class CustomThreadPoolExecutor implements ExecutorService {
     private final class Worker implements Runnable {
         Thread thread;
         Runnable firstTask;
+        volatile boolean isWorking;
 
         Worker(Runnable firstTask) {
             this.firstTask = firstTask;
@@ -441,26 +468,27 @@ public class CustomThreadPoolExecutor implements ExecutorService {
         void rejectedExecution(Runnable r, CustomThreadPoolExecutor executor);
     }
 
-    public static class AbortPolicy implements RejectedExecutionHandler {
+    public static class AbortPolicy implements CustomThreadPoolExecutor.RejectedExecutionHandler {
         public void rejectedExecution(Runnable r, CustomThreadPoolExecutor e) {
             throw new RejectedExecutionException("Task rejected: " + r.toString());
         }
     }
 
-    public static class CallerRunsPolicy implements RejectedExecutionHandler {
+    public static class CallerRunsPolicy implements CustomThreadPoolExecutor.RejectedExecutionHandler {
         public void rejectedExecution(Runnable r, CustomThreadPoolExecutor e) {
             if (!e.isShutdown()) {
+                // CallerRuns runs the task directly
                 r.run();
             }
         }
     }
 
-    public static class DiscardPolicy implements RejectedExecutionHandler {
+    public static class DiscardPolicy implements CustomThreadPoolExecutor.RejectedExecutionHandler {
         public void rejectedExecution(Runnable r, CustomThreadPoolExecutor e) {
         }
     }
 
-    public static class DiscardOldestPolicy implements RejectedExecutionHandler {
+    public static class DiscardOldestPolicy implements CustomThreadPoolExecutor.RejectedExecutionHandler {
         public void rejectedExecution(Runnable r, CustomThreadPoolExecutor e) {
             if (!e.isShutdown()) {
                 e.getQueue().poll();

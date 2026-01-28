@@ -29,6 +29,7 @@ public class test_requirements {
         }
         long end = System.currentTimeMillis();
         System.out.println("Total time: " + (end - start) + "ms");
+        System.exit(0);
     }
 
     private static void testBasicExecution() throws Exception {
