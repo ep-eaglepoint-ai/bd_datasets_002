@@ -1,0 +1,13 @@
+{
+            "instance_id": "LM6HJ9",
+            "problem_statement": "Noticed a calculation discrepancy when testing the shopping cart checkout flow in a Python-based e-commerce system. The issue appeared while working on the calculate_total function in the cart.py module, where the goal is to compute the final order amount after applying discounts and tax. 
+
+The system needs to apply fixed discounts before percentage discounts, prevent discount code reuse per customer, handle BOGO deals correctly, and never produce negative totals — all while ensuring cart state updates immediately when items are modified. QA reported that Order #4521 with $120 subtotal, 10% off, and $5 fixed discount showed wrong final amount, and Order #4523 required page refresh after item removal to see updated total.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/lm6hj9-python-shopping-cart-discount-calculator-bug-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
