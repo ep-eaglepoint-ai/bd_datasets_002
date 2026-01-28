@@ -43,19 +43,19 @@ mvn clean test
 ### Run Evaluation
 ```bash
 # Docker
-docker compose run --rm app mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation" -q
+docker compose run --rm app mvn clean compile exec:java "-Dexec.mainClass=com.eaglepoint.parallel.Evaluation" -q
 
 # Local
-mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation"
+mvn clean compile exec:java "-Dexec.mainClass=com.eaglepoint.parallel.Evaluation"
 ```
 
 ### Run Evaluation (Custom Output)
 ```bash
 # Docker
-docker compose run --rm app mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation" -Dexec.args="--output /app/evaluation/report.json" -q
+docker compose run --rm app mvn clean compile exec:java "-Dexec.mainClass=com.eaglepoint.parallel.Evaluation" "-Dexec.args=--output /app/evaluation/report.json" -q
 
 # Local
-mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation" -Dexec.args="--output evaluation/custom-report.json"
+mvn clean compile exec:java "-Dexec.mainClass=com.eaglepoint.parallel.Evaluation" "-Dexec.args=--output /app/evaluation/report.json"
 ```
 
 ## Patches
