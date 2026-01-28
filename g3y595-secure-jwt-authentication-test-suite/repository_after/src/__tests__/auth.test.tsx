@@ -248,7 +248,7 @@ describe("JWT Authentication — security-critical flows", () => {
 
     // Act
     const req = httpClient.request({ endpoint: "/api/protected" });
-    
+
     // Assert
     await expect(req).rejects.toThrow("Session expired. Please login again.");
     expect((httpClient as any).tokens).toBeNull();
@@ -643,7 +643,7 @@ describe("JWT Authentication — UI + state management", () => {
       screen.getByRole("button", { name: /fetch protected data/i })
     );
     // Instant failure expected due to mockRejectedValue
-    await advance(0); 
+    await advance(0);
 
     // Assert
     expect(
