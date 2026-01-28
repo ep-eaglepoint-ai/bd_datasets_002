@@ -7,6 +7,7 @@ Runs tests and outputs results in JSON format for evaluation parsing.
 import sys
 import json
 import uuid
+import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Dict, List, Any
@@ -28,6 +29,22 @@ def run_test_after() -> Dict[str, Any]:
     tests = run_tests(repo_path)
     set_based = check_set_based_logic(repo_path)
     indexed_efficiency = check_indexed_column_efficiency(repo_path)
+    
+    # Run stress and performance tests
+    print("\nRunning stress and performance tests...")
+    stress_test_path = ROOT / "tests" / "performance_and_stress_tests.py"
+    try:
+        stress_result = subprocess.run(
+            [sys.executable, str(stress_test_path)],
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        stress_passed = stress_result.returncode == 0
+        stress_output = stress_result.stdout + stress_result.stderr
+    except Exception as e:
+        stress_passed = False
+        stress_output = str(e)
     
     # Parse test results
     test_list = []
@@ -76,6 +93,13 @@ def run_test_after() -> Dict[str, Any]:
         "name": "indexed_column_efficiency",
         "description": "Indexed column efficiency (no function calls on indexed columns)",
         "passed": indexed_efficiency["passed"]
+    })
+    
+    test_list.append({
+        "name": "stress_and_performance",
+        "description": "Empirical validation of scalability and concurrency",
+        "passed": stress_passed,
+        "details": stress_output[:1000] # Include some output if it failed
     })
     
     finished_at = datetime.now(timezone.utc)

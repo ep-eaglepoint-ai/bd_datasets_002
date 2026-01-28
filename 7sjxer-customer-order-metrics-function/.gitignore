@@ -20,8 +20,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # Evaluation Reports (generated)
-evaluation/reports/
+evaluation/reports/*.json
+evaluation/reports/**/*.json
 evaluation/*.json
+!evaluation/reports/.gitkeep
 evaluation/test_before_results.json
 evaluation/test_after_results.json
 

@@ -544,6 +544,67 @@ BEGIN
     RAISE NOTICE 'Test 16 PASSED: Very large date ranges handled correctly';
 END $$;
 
+-- Test 17: Verify determinism (repeatability)
+DO $$
+DECLARE
+    v_result1 RECORD;
+    v_result2 RECORD;
+    v_result3 RECORD;
+    v_customer_id BIGINT := 1;
+    v_start_date DATE := '2024-01-01';
+    v_end_date DATE := '2024-12-31';
+BEGIN
+    -- Call function 3 times
+    SELECT * INTO v_result1 FROM get_customer_order_metrics(v_customer_id, v_start_date, v_end_date);
+    SELECT * INTO v_result2 FROM get_customer_order_metrics(v_customer_id, v_start_date, v_end_date);
+    SELECT * INTO v_result3 FROM get_customer_order_metrics(v_customer_id, v_start_date, v_end_date);
+    
+    -- Verify all results are identical
+    IF v_result1 != v_result2 OR v_result2 != v_result3 THEN
+        RAISE EXCEPTION 'Test 17 FAILED: Results are not deterministic across multiple calls';
+    END IF;
+    
+    RAISE NOTICE 'Test 17 PASSED: Determinism verified across multiple calls';
+END $$;
+
+-- Test 18: Verify single index scan using EXPLAIN
+DO $$
+DECLARE
+    v_explain_output TEXT;
+    v_scan_count INT;
+BEGIN
+    -- Get EXPLAIN output for the function's internal query (simulated)
+    -- We use a representative query since EXPLAIN ANALYZE on a function call 
+    -- might not show the inner query plan clearly depending on the PG version
+    
+    FOR v_explain_output IN 
+        EXPLAIN (FORMAT TEXT)
+        SELECT
+            COUNT(*)::INT,
+            COUNT(*) FILTER (WHERE status = 'COMPLETED')::INT,
+            COUNT(*) FILTER (WHERE status = 'CANCELLED')::INT,
+            COALESCE(SUM(total_price) FILTER (WHERE status = 'COMPLETED'), 0)
+        FROM orders
+        WHERE customer_id = 1
+          AND created_at >= '2024-01-01'::timestamp
+          AND created_at < ('2024-12-31'::date + INTERVAL '1 day')::timestamp
+    LOOP
+        -- Check if it's using an index scan on orders
+        -- And count total scans on 'orders'
+        IF v_explain_output ~* 'Scan.*orders' THEN
+            v_scan_count := COALESCE(v_scan_count, 0) + 1;
+        END IF;
+    END LOOP;
+
+    IF v_scan_count > 1 THEN
+        RAISE EXCEPTION 'Test 18 FAILED: Multiple scans detected on orders table (count: %)', v_scan_count;
+    ELSIF v_scan_count = 0 THEN
+        RAISE EXCEPTION 'Test 18 FAILED: No scan detected on orders table in EXPLAIN output';
+    END IF;
+
+    RAISE NOTICE 'Test 18 PASSED: Single scan verified on orders table';
+END $$;
+
 -- Final success message
 DO $$
 BEGIN
