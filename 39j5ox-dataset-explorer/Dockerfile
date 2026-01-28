@@ -18,7 +18,7 @@ COPY jest.config.js ./
 COPY jest.setup.js ./
 COPY eslint.config.mjs ./
 COPY postcss.config.mjs ./
-COPY next-env.d.ts ./
+# COPY next-env.d.ts ./
 
 # Expose port
 EXPOSE 3000
