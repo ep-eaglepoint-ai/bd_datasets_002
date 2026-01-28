@@ -1,48 +1,7 @@
-# R5RBPY - pub sub python
+# pub sub python
 
-**Category:** sft
+```bash
 
-## Overview
-- Task ID: R5RBPY
-- Title: pub sub python
-- Category: sft
-- Repository: ep-eaglepoint-ai/bd_datasets_002
-- Branch: r5rbpy-pub-sub-python
-
-## Requirements
-- Define an Event base class using the @dataclass decorator with fields: event_id (str, default_factory generating UUID4), timestamp (datetime, default_factory for current UTC time), source (str, default empty string identifying the publisher), and metadata (Dict[str, Any], default_factory for empty dict). The dataclass must use kw_only=True for Python 3.10+ or equivalent pattern to allow subclasses to add required fields. Subclasses like UserEvent must add user_id field, and further subclasses like UserCreatedEvent must add additional fields like email. The isinstance() check must work correctly for subscription matching: an event of type UserCreatedEvent must match subscriptions for UserCreatedEvent, UserEvent, and Event. Events must be immutable after creation (frozen=True) to prevent accidental modification by handlers. Provide a to_dict() method for serialization and a from_dict() classmethod for deserialization that handles the event type hierarchy. Include a __str__ method returning a readable representation for logging.
-- The EventBus class must accept both regular functions and async coroutines as handlers. The publish(event) method must execute handlers synchronously, running async handlers using asyncio.get_event_loop().run_until_complete() if not already in an async context, or raising an error if called from within an async context (use asyncio.get_running_loop() to detect). The publish_async(event) method must be an async method that uses asyncio.gather() to execute all matching handlers concurrently, wrapping sync handlers in loop.run_in_executor(None, handler, event) for thread pool execution. Both methods must return an EventResult dataclass containing: success (bool), event (the published event), handler_results (list of individual results), errors (list of exceptions), and duration_ms (float). Handler execution must respect a configurable timeout: handlers exceeding the timeout are cancelled (async) or interrupted (sync via concurrent.futures timeout). The EventBus constructor must accept an optional asyncio event loop, executor for sync handlers, and default timeout.
-- The subscribe method must accept: event_type (the Event class to subscribe to), handler (callable), priority (int, default 0, higher executes first), and filter_predicate (optional callable taking event and returning bool). Handlers must be stored in a data structure that maintains priority ordering, such as a list of (priority, handler, filter) tuples sorted by priority descending, or a priority queue. When publishing, handlers must be invoked in priority order, and filter predicates must be evaluated before invocation—handlers whose predicate returns False are skipped without counting as an error. Wildcard subscription must be implemented through the event type hierarchy: subscribing to Event matches all events, subscribing to UserEvent matches UserEvent and all subclasses. Use a dictionary mapping event types to handler lists, and on publish, walk the event's __mro__ (method resolution order) to find all matching subscriptions. The subscribe method must return a Subscription object with an unsubscribe() method for easy cleanup. A @event_bus.on(EventType, priority=10) decorator must be provided for declarative subscription.
-- Define a Middleware protocol/ABC with async method __call__(self, event: Event, next: Callable) -> EventResult that receives the event and a callable to invoke the next middleware or final handlers. Middleware can: modify the event before passing to next (transformation), inspect or log the event (observability), catch exceptions from next and handle them (error handling), skip calling next to short-circuit processing (validation/filtering), or add try/finally cleanup (resource management). The EventBus must maintain an ordered list of middleware, and publish must chain them: each middleware's next callable invokes the subsequent middleware, with the final next invoking actual handlers. Implement built-in middleware: LoggingMiddleware that logs event type and duration, ValidationMiddleware that checks event fields against a schema, RetryMiddleware that retries failed handlers with exponential backoff, and TimingMiddleware that records processing duration in event metadata. Middleware must be added via event_bus.add_middleware(middleware) and support ordering via a priority parameter.
-- Define a RetryPolicy dataclass with: max_retries (int, default 3), base_delay (float, seconds, default 1.0), max_delay (float, seconds, default 60.0), exponential_base (float, default 2.0), and jitter (bool, default True for adding randomness to prevent thundering herd). The delay for retry n must be: min(base_delay * (exponential_base ** n) + random_jitter, max_delay). Handler invocation must catch exceptions: if retry policy is configured and retries remain, schedule retry with calculated delay; if retries exhausted, invoke the dead letter handler. The EventBus must accept a dead_letter_handler callable that receives (event, handler, exception, retry_count) for events that cannot be delivered. Implement a DeadLetterQueue class that stores failed events with their failure context, supports retrieval and replay, and has configurable capacity with oldest-first eviction. The EventResult must include retry_counts for each handler and dead_letter_count for events sent to DLQ. Provide event_bus.configure_retry(event_type, policy) to set per-event-type retry policies.
-- The EventBus must support an optional event store for persistence through a configurable EventStore protocol with methods: async save(event), async get(event_id), async get_by_type(event_type, since, until, limit), and async replay(event_type, since, handler). Implement an InMemoryEventStore that stores events in a list with index by event_id and event_type. The EventBus constructor must accept an optional event_store parameter; when configured, all published events are saved before dispatch. Provide replay_events(event_type, since, until) async method that retrieves stored events and re-publishes them to current subscribers (useful for rebuilding state after restart). Support event snapshots: a Snapshot dataclass representing aggregate state at a point in time, and restore_from_snapshot(snapshot, replay_since) to rebuild state. The event store operations must not block the main publish path—use asyncio.create_task for fire-and-forget persistence with optional await for guaranteed persistence mode.
-- The EventBus must collect metrics accessible via get_metrics(): events_published (counter by event type), events_failed (counter by event type and error type), handler_duration_ms (histogram by handler), queue_depth (gauge of pending async events), and active_subscriptions (gauge by event type). Implement a MetricsCollector protocol that handlers can implement for custom metrics backends (Prometheus, StatsD, etc.) with default InMemoryMetricsCollector. Support distributed tracing by accepting optional trace_context in event metadata and propagating it to handlers; provide hooks for span creation compatible with OpenTelemetry patterns. Implement health_check() method returning HealthStatus dataclass with: healthy (bool), details (dict with subscription counts, queue depths, error rates), and last_event_time. Support a circuit breaker pattern: if error rate exceeds threshold (configurable), temporarily stop publishing to failing handlers and return failures immediately, with automatic recovery attempts. Expose event_bus.stats property for quick access to key metrics.
-- All classes and functions must include complete type hints compatible with mypy strict mode. Define generic types using TypeVar: E = TypeVar('E', bound=Event) for event types, R = TypeVar('R') for handler return types. The Handler type must be defined as: Handler = Union[Callable[[E], R], Callable[[E], Awaitable[R]]] supporting both sync and async handlers. The subscribe method must be generic: def subscribe(self, event_type: Type[E], handler: Handler[E, R], ...) -> Subscription[E]. Use @overload decorators to provide precise type signatures for different calling patterns (e.g., subscribe with and without filter). Event subclasses must preserve generic typing: class UserEvent(Event, Generic[T]) if needed for typed payloads. Include py.typed marker file for PEP 561 compliance. Implement runtime type checking in development mode: validate that published events are instances of their declared types and handler signatures match expected patterns. Type errors must be caught by mypy before runtime, and runtime checks can be disabled via configuration for production performance.
-
-## Metadata
-- Programming Languages: Python
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
-
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
-
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
-
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+docker-compose run --rm test-after
+docker-compose run --rm evaluation
+```

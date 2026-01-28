@@ -1,0 +1,711 @@
+diff -urN repository_before/bus.py repository_after/bus.py
+--- repository_before/bus.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/bus.py	2026-01-28 10:04:17.828686017 +0300
+@@ -0,0 +1,298 @@
++from __future__ import annotations
++import asyncio
++import time
++import inspect
++import functools
++from typing import (
++    Any, Callable, Dict, List, Optional, Type, TypeVar, Union, 
++    Generic, Set, Tuple, Awaitable, cast, overload
++)
++from concurrent.futures import ThreadPoolExecutor, TimeoutError
++from .events import Event
++from .protocols import (
++    Handler, EventResult, HandlerResult, Middleware, EventStore, MetricsCollector
++)
++from .retry import RetryPolicy, DeadLetterQueue
++from .metrics import InMemoryMetricsCollector
++
++E = TypeVar("E", bound=Event)
++R = TypeVar("R")
++
++class Subscription(Generic[E]):
++    def __init__(self, bus: EventBus, event_type: Type[E], handler: Handler[E, Any], priority: int, filter_predicate: Optional[Callable[[E], bool]]):
++        self.bus = bus
++        self.event_type = event_type
++        self.handler = handler
++        self.priority = priority
++        self.filter_predicate = filter_predicate
++
++    def unsubscribe(self):
++        self.bus.unsubscribe(self.event_type, self.handler)
++
++class EventBus:
++    def __init__(
++        self, 
++        loop: Optional[asyncio.AbstractEventLoop] = None,
++        executor: Optional[ThreadPoolExecutor] = None,
++        default_timeout: Optional[float] = None,
++        event_store: Optional[EventStore] = None,
++        metrics_collector: Optional[MetricsCollector] = None,
++        concurrency_limit: int = 0,
++        development_mode: bool = False
++    ):
++        self.loop = loop or asyncio.get_event_loop()
++        self.executor = executor or ThreadPoolExecutor(max_workers=10)
++        self.default_timeout = default_timeout
++        self.event_store = event_store
++        self.metrics = metrics_collector or InMemoryMetricsCollector()
++        self.concurrency_limit = concurrency_limit
++        self.semaphore = asyncio.Semaphore(concurrency_limit) if concurrency_limit > 0 else None
++        self.development_mode = development_mode
++        
++        self._subscriptions: Dict[Type[Event], List[Tuple[int, Handler[Any, Any], Optional[Callable[[Any], bool]]]]] = {}
++        self._middlewares: List[Tuple[int, Middleware]] = []
++        self._retry_policies: Dict[Type[Event], RetryPolicy] = {}
++        self._dead_letter_queue = DeadLetterQueue()
++        self._dead_letter_handler: Optional[Callable[[Event, Handler, Exception, int], None]] = None
++        self._handler_cache: Dict[Type[Event], List[Tuple[int, Handler[Any, Any], Optional[Callable[[Any], bool]]]]] = {}
++        self._middleware_chain: Optional[Callable[[Event], Awaitable[EventResult]]] = None
++        self._on_publish_hooks: List[Callable[[Event], Any]] = []
++        
++        self._error_counts: Dict[str, int] = {}
++        self._circuit_open: Dict[str, bool] = {}
++        self._error_threshold = 5
++        self._recovery_timeout = 30.0
++        self._last_error_time: Dict[str, float] = {}
++
++    def _validate_event(self, event: Event):
++        if not isinstance(event, Event):
++            raise TypeError(f"Expected Event instance, got {type(event)}")
++        
++    def _validate_handler(self, handler: Handler[Any, Any]):
++        sig = inspect.signature(handler)
++        if len(sig.parameters) != 1:
++            raise TypeError(f"Handler {handler} must take exactly one argument (the event)")
++
++    @overload
++    def subscribe(self, event_type: Type[E], handler: Handler[E, R], priority: int = 0, filter_predicate: Optional[Callable[[E], bool]] = None) -> Subscription[E]: ...
++    @overload
++    def subscribe(self, event_type: Type[E], handler: Callable[[E], R], priority: int = 0, filter_predicate: Optional[Callable[[E], bool]] = None) -> Subscription[E]: ...
++
++    def subscribe(self, event_type: Type[E], handler: Handler[E, R], priority: int = 0, filter_predicate: Optional[Callable[[E], bool]] = None) -> Subscription[E]:
++        if self.development_mode:
++            if not issubclass(event_type, Event): raise TypeError(f"Can only subscribe to Event subclasses, got {event_type}")
++            self._validate_handler(handler)
++        if event_type not in self._subscriptions: self._subscriptions[event_type] = []
++        self._subscriptions[event_type].append((priority, handler, filter_predicate))
++        self._subscriptions[event_type].sort(key=lambda x: x[0], reverse=True)
++        self._handler_cache.clear()
++        self.metrics.update_active_subscriptions(event_type.__name__, len(self._subscriptions[event_type]))
++        return Subscription(self, event_type, handler, priority, filter_predicate)
++
++    def unsubscribe(self, event_type: Type[Event], handler: Handler[Any, Any]):
++        if event_type in self._subscriptions:
++            self._subscriptions[event_type] = [s for s in self._subscriptions[event_type] if s[1] != handler]
++            self._handler_cache.clear()
++            self.metrics.update_active_subscriptions(event_type.__name__, len(self._subscriptions[event_type]))
++
++    def on(self, event_type: Type[E], priority: int = 0):
++        def decorator(handler: Handler[E, R]) -> Handler[E, R]:
++            self.subscribe(event_type, handler, priority=priority)
++            return handler
++        return decorator
++
++    def add_middleware(self, middleware: Middleware, priority: int = 0):
++        self._middlewares.append((priority, middleware))
++        self._middlewares.sort(key=lambda x: x[0], reverse=True)
++        self._middleware_chain = None
++
++    def add_publish_hook(self, hook: Callable[[Event], Any]):
++        self._on_publish_hooks.append(hook)
++
++    def _build_middleware_chain(self):
++        async def final_dispatch(ev: Event) -> EventResult: return await self._dispatch_to_handlers(ev)
++        current_call = final_dispatch
++        for _, middleware in reversed(self._middlewares):
++            def make_next(m, next_c):
++                async def middleware_wrapper(ev: Event) -> EventResult: return await m(ev, next_c)
++                return middleware_wrapper
++            current_call = make_next(middleware, current_call)
++        self._middleware_chain = current_call
++
++    def configure_retry(self, event_type: Type[Event], policy: RetryPolicy): self._retry_policies[event_type] = policy
++    def set_dead_letter_handler(self, handler: Callable[[Event, Handler, Exception, int], None]): self._dead_letter_handler = handler
++
++    def _get_matching_handlers(self, event: Event) -> List[Tuple[int, Handler[Any, Any], Optional[Callable[[Any], bool]]]]:
++        event_type = type(event)
++        if event_type in self._handler_cache: return self._handler_cache[event_type]
++        handlers = []
++        for cls in event_type.__mro__:
++            if cls in self._subscriptions: handlers.extend(self._subscriptions[cls])
++        handlers.sort(key=lambda x: x[0], reverse=True)
++        self._handler_cache[event_type] = handlers
++        return handlers
++
++    async def _invoke_handler(self, handler: Handler[Any, Any], event: Event, retry_policy: Optional[RetryPolicy]) -> HandlerResult:
++        try:
++            handler_name = handler._bus_name # type: ignore
++            is_async = handler._is_coro # type: ignore
++        except AttributeError:
++            handler_name = getattr(handler, "__name__", str(handler))
++            is_async = asyncio.iscoroutinefunction(handler)
++            try:
++                setattr(handler, "_bus_name", handler_name)
++                setattr(handler, "_is_coro", is_async)
++            except: pass
++
++        start_time = time.perf_counter()
++        if self._circuit_open.get(handler_name, False):
++            if start_time - self._last_error_time.get(handler_name, 0) > self._recovery_timeout:
++                self._circuit_open[handler_name] = False
++                self._error_counts[handler_name] = 0
++            else: return HandlerResult(handler_name, False, error=Exception("Circuit breaker open"), duration_ms=0)
++
++        retry_count = 0
++        timeout = self.default_timeout
++        
++        async def run():
++            if is_async:
++                if timeout is not None:
++                    async with asyncio.timeout(timeout): return await handler(event)
++                return await handler(event)
++            loop = asyncio.get_running_loop()
++            fut = loop.run_in_executor(self.executor, handler, event)
++            if timeout is not None:
++                async with asyncio.timeout(timeout): return await fut
++            return await fut
++
++        while True:
++            try:
++                if self.semaphore:
++                    async with self.semaphore: result = await run()
++                else: result = await run()
++                
++                now = time.perf_counter()
++                duration = (now - start_time) * 1000
++                self.metrics._handler_durations[handler_name].append(duration)
++                self._error_counts[handler_name] = 0
++                return HandlerResult(handler_name, True, result=result, duration_ms=duration, retry_count=retry_count)
++            except (Exception, asyncio.TimeoutError) as e:
++                if isinstance(e, asyncio.TimeoutError): e = TimeoutError(f"Handler {handler_name} timed out")
++                now = time.perf_counter()
++                self._error_counts[handler_name] = self._error_counts.get(handler_name, 0) + 1
++                self._last_error_time[handler_name] = now
++                if self._error_counts[handler_name] >= self._error_threshold: self._circuit_open[handler_name] = True
++                if retry_policy and retry_count < retry_policy.max_retries:
++                    retry_count += 1
++                    await asyncio.sleep(retry_policy.get_delay(retry_count-1))
++                    continue
++                duration = (now - start_time) * 1000
++                self.metrics.record_event_failed(event.__class__.__name__, e.__class__.__name__)
++                self._dead_letter_queue.add(event, handler_name, e, retry_count)
++                if self._dead_letter_handler:
++                    try: self._dead_letter_handler(event, handler, e, retry_count)
++                    except: pass
++                return HandlerResult(handler_name, False, error=e, duration_ms=duration, retry_count=retry_count)
++
++    async def _dispatch_to_handlers(self, event: Event) -> EventResult:
++        start_time = time.perf_counter()
++        handlers_to_run = self._get_matching_handlers(event)
++        retry_policy = self._retry_policies.get(event.__class__)
++        
++        if len(handlers_to_run) == 1:
++            priority, handler, filter_predicate = handlers_to_run[0]
++            if filter_predicate and not filter_predicate(event):
++                return EventResult(success=True, event=event, handler_results=[], errors=[], duration_ms=(time.perf_counter() - start_time) * 1000)
++            
++            # Fast path check
++            if not retry_policy and not self._circuit_open and self.default_timeout is None and self.concurrency_limit == 0:
++                try:
++                    is_async = getattr(handler, "_is_coro", None)
++                    if is_async is None:
++                        is_async = asyncio.iscoroutinefunction(handler)
++                        try: setattr(handler, "_is_coro", is_async)
++                        except: pass
++                    
++                    if is_async: result = await handler(event)
++                    else: result = await asyncio.get_running_loop().run_in_executor(self.executor, handler, event)
++                    
++                    now = time.perf_counter()
++                    duration = (now - start_time) * 1000
++                    h_name = getattr(handler, "_bus_name", None)
++                    if h_name is None:
++                        h_name = getattr(handler, "__name__", str(handler))
++                        try: setattr(handler, "_bus_name", h_name)
++                        except: pass
++                    self.metrics._handler_durations[h_name].append(duration)
++                    
++                    return EventResult(
++                        success=True, event=event, handler_results=[HandlerResult(h_name, True, result=result, duration_ms=duration)],
++                        errors=[], duration_ms=duration, dead_letter_count=0, retry_counts=[0]
++                    )
++                except Exception: pass # fallback
++
++        tasks = []
++        for _, handler, filter_predicate in handlers_to_run:
++            if filter_predicate and not filter_predicate(event): continue
++            tasks.append(self._invoke_handler(handler, event, retry_policy))
++        
++        if not tasks: return EventResult(True, event, [], [], duration_ms=(time.perf_counter() - start_time) * 1000)
++
++        results = await asyncio.gather(*tasks, return_exceptions=True)
++        handler_results, errors, retry_counts, dead_letter_count = [], [], [], 0
++        for res in results:
++            if isinstance(res, HandlerResult):
++                handler_results.append(res)
++                retry_counts.append(res.retry_count)
++                if not res.success:
++                    if res.error: errors.append(res.error)
++                    dead_letter_count += 1
++            elif isinstance(res, Exception):
++                errors.append(res); retry_counts.append(0); dead_letter_count += 1
++        
++        return EventResult(
++            success=not errors, event=event, handler_results=handler_results, errors=errors,
++            duration_ms=(time.perf_counter() - start_time) * 1000, dead_letter_count=dead_letter_count, retry_counts=retry_counts
++        )
++
++    def publish_async(self, event: Event) -> Awaitable[EventResult]:
++        if self.development_mode: self._validate_event(event)
++        self.metrics._events_published[event.__class__.__name__] += 1
++        for hook in self._on_publish_hooks:
++            try: hook(event)
++            except: pass
++        if self.event_store: asyncio.create_task(self.event_store.save(event))
++        if not self._middlewares: return self._dispatch_to_handlers(event)
++        if self._middleware_chain is None: self._build_middleware_chain()
++        return self._middleware_chain(event)
++
++    def publish(self, event: Event) -> EventResult:
++        try:
++            asyncio.get_running_loop()
++            raise RuntimeError("publish() cannot be called from within an async context. Use publish_async() instead.")
++        except RuntimeError as e:
++            if "no running event loop" in str(e): pass
++            else: raise e
++        return self.loop.run_until_complete(self.publish_async(event))
++
++    @property
++    def stats(self) -> Dict[str, Any]: return self.metrics.get_metrics()
++    def get_metrics(self) -> Dict[str, Any]: return self.metrics.get_metrics()
++
++    async def health_check(self) -> Any:
++        from .metrics import HealthStatus
++        return HealthStatus(
++            healthy=all(not open for open in self._circuit_open.values()),
++            details={"subscription_counts": {t.__name__: len(h) for t, h in self._subscriptions.items()},
++                     "queue_depth": self.semaphore._value if self.semaphore and hasattr(self.semaphore, "_value") else 0,
++                     "error_rates": self._error_counts},
++            last_event_time=time.time()
++        )
++
++    async def replay_events(self, event_type: Type[Event], since: datetime, until: Optional[datetime] = None):
++        if not self.event_store: return
++        events = await self.event_store.get_by_type(event_type, since=since, until=until)
++        for event in events: await self.publish_async(event)
++
++    async def restore_from_snapshot(self, snapshot: Any, replay_since: Optional[datetime] = None):
++        if replay_since: await self.replay_events(Event, since=replay_since)
+diff -urN repository_before/events.py repository_after/events.py
+--- repository_before/events.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/events.py	2026-01-28 10:04:17.766685562 +0300
+@@ -0,0 +1,68 @@
++from __future__ import annotations
++from dataclasses import dataclass, field, asdict
++from datetime import datetime, timezone
++import uuid
++from typing import Any, Dict, Type, TypeVar, Optional, cast
++
++E = TypeVar("E", bound="Event")
++
++_uuid4 = uuid.uuid4
++_now = datetime.now
++_utc = timezone.utc
++
++@dataclass(frozen=True, kw_only=True)
++class Event:
++    event_id: str = field(default_factory=lambda: _uuid4().hex)
++    timestamp: datetime = field(default_factory=lambda: _now(_utc))
++    source: str = ""
++    metadata: Dict[str, Any] = field(default_factory=dict)
++
++    def to_dict(self) -> Dict[str, Any]:
++        data = asdict(self)
++        data["__type__"] = self.__class__.__name__
++        return data
++
++    @classmethod
++    def from_dict(cls: Type[E], data: Dict[str, Any]) -> E:
++        # Shallow copy to avoid modifying input
++        data = data.copy()
++        type_name = data.pop("__type__", None)
++        
++        # Handle timestamp conversion if it's a string
++        if isinstance(data.get("timestamp"), str):
++            data["timestamp"] = datetime.fromisoformat(data["timestamp"])
++            
++        # Find the correct subclass if type_name is provided
++        target_cls = cls
++        if type_name and type_name != cls.__name__:
++            # Search in subclasses
++            for subclass in cls.__subclasses__():
++                if subclass.__name__ == type_name:
++                    target_cls = subclass
++                    break
++            # Recursive search for deeper subclasses
++            if target_cls == cls:
++                def find_subclass(current_cls, name):
++                    for sub in current_cls.__subclasses__():
++                        if sub.__name__ == name:
++                            return sub
++                        res = find_subclass(sub, name)
++                        if res:
++                            return res
++                    return None
++                found = find_subclass(cls, type_name)
++                if found:
++                    target_cls = found
++
++        return target_cls(**data)
++
++    def __str__(self) -> str:
++        return f"{self.__class__.__name__}(id={self.event_id}, source='{self.source}', timestamp={self.timestamp})"
++
++@dataclass(frozen=True, kw_only=True)
++class UserEvent(Event):
++    user_id: str
++
++@dataclass(frozen=True, kw_only=True)
++class UserCreatedEvent(UserEvent):
++    email: str
+diff -urN repository_before/__init__.py repository_after/__init__.py
+--- repository_before/__init__.py	2026-01-28 09:01:26.199128289 +0300
++++ repository_after/__init__.py	2026-01-28 09:13:27.520343996 +0300
+@@ -0,0 +1,30 @@
++from .events import Event, UserEvent, UserCreatedEvent
++from .bus import EventBus, Subscription
++from .protocols import EventResult, HandlerResult, Middleware, EventStore, MetricsCollector
++from .retry import RetryPolicy, DeadLetterQueue
++from .middleware import LoggingMiddleware, ValidationMiddleware, RetryMiddleware, TimingMiddleware
++from .storage import InMemoryEventStore, Snapshot
++from .metrics import InMemoryMetricsCollector, HealthStatus
++
++__all__ = [
++    "Event",
++    "UserEvent",
++    "UserCreatedEvent",
++    "EventBus",
++    "Subscription",
++    "EventResult",
++    "HandlerResult",
++    "Middleware",
++    "EventStore",
++    "MetricsCollector",
++    "RetryPolicy",
++    "DeadLetterQueue",
++    "LoggingMiddleware",
++    "ValidationMiddleware",
++    "RetryMiddleware",
++    "TimingMiddleware",
++    "InMemoryEventStore",
++    "Snapshot",
++    "InMemoryMetricsCollector",
++    "HealthStatus",
++]
+diff -urN repository_before/metrics.py repository_after/metrics.py
+--- repository_before/metrics.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/metrics.py	2026-01-28 10:04:17.765685555 +0300
+@@ -0,0 +1,50 @@
++from __future__ import annotations
++import time
++from dataclasses import dataclass, field
++from typing import Any, Dict, List, Optional
++from .protocols import MetricsCollector
++
++@dataclass
++class HealthStatus:
++    healthy: bool
++    details: Dict[str, Any]
++    last_event_time: float
++
++from collections import deque, defaultdict
++
++class InMemoryMetricsCollector:
++    def __init__(self):
++        self._events_published: Dict[str, int] = defaultdict(int)
++        self._events_failed: Dict[str, int] = defaultdict(int)
++        self._handler_durations: Dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=1000))
++        self._queue_depth: int = 0
++        self._active_subscriptions: Dict[str, int] = defaultdict(int)
++
++    def record_event_published(self, event_type: str) -> None:
++        self._events_published[event_type] += 1
++
++    def record_event_failed(self, event_type: str, error_type: str) -> None:
++        key = f"{event_type}:{error_type}"
++        self._events_failed[key] += 1
++
++    def record_handler_duration(self, handler_name: str, duration_ms: float) -> None:
++        self._handler_durations[handler_name].append(duration_ms)
++
++    def update_queue_depth(self, depth: int) -> None:
++        self._queue_depth = depth
++
++    def update_active_subscriptions(self, event_type: str, count: int) -> None:
++        self._active_subscriptions[event_type] = count
++
++    def get_metrics(self) -> Dict[str, Any]:
++        avg_durations = {
++            name: sum(durations) / len(durations) 
++            for name, durations in self._handler_durations.items() if durations
++        }
++        return {
++            "events_published": self._events_published,
++            "events_failed": self._events_failed,
++            "handler_durations_avg_ms": avg_durations,
++            "queue_depth": self._queue_depth,
++            "active_subscriptions": self._active_subscriptions
++        }
+diff -urN repository_before/middleware.py repository_after/middleware.py
+--- repository_before/middleware.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/middleware.py	2026-01-28 09:13:27.512343740 +0300
+@@ -0,0 +1,60 @@
++from __future__ import annotations
++import time
++import logging
++import asyncio
++from typing import Any, Callable, Dict, Optional, Type
++from .events import Event
++from .protocols import Middleware, EventResult
++from .retry import RetryPolicy
++
++logger = logging.getLogger(__name__)
++
++class LoggingMiddleware:
++    async def __call__(self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]) -> EventResult:
++        start_time = time.perf_counter()
++        logger.info(f"Processing event {type(event).__name__} (id={event.event_id})")
++        result = await next_handler(event)
++        duration = (time.perf_counter() - start_time) * 1000
++        logger.info(f"Finished processing event {type(event).__name__} in {duration:.2f}ms. Success: {result.success}")
++        return result
++
++class TimingMiddleware:
++    async def __call__(self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]) -> EventResult:
++        start_time = time.perf_counter()
++        result = await next_handler(event)
++        duration = (time.perf_counter() - start_time) * 1000
++        # Add to metadata as requested
++        event.metadata["dispatch_duration_ms"] = duration
++        return result
++
++class ValidationMiddleware:
++    def __init__(self, schema: Optional[Dict[str, Any]] = None):
++        self.schema = schema
++
++    async def __call__(self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]) -> EventResult:
++        # Simple validation: check if all required fields are present (they are, since it's a dataclass)
++        # In a real app, this might use jsonschema or pydantic
++        if self.schema:
++            for field, field_type in self.schema.items():
++                if not hasattr(event, field):
++                    raise ValueError(f"Missing required field: {field}")
++                if not isinstance(getattr(event, field), field_type):
++                    raise TypeError(f"Field {field} must be of type {field_type}")
++        
++        return await next_handler(event)
++
++class RetryMiddleware:
++    def __init__(self, policy: Optional[RetryPolicy] = None):
++        self.policy = policy or RetryPolicy()
++
++    async def __call__(self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]) -> EventResult:
++        retry_count = 0
++        while True:
++            result = await next_handler(event)
++            if result.success or retry_count >= self.policy.max_retries:
++                return result
++            
++            delay = self.policy.get_delay(retry_count)
++            retry_count += 1
++            logger.warning(f"Retrying event {type(event).__name__} (attempt {retry_count}/{self.policy.max_retries}) after {delay:.2f}s")
++            await asyncio.sleep(delay)
+diff -urN repository_before/protocols.py repository_after/protocols.py
+--- repository_before/protocols.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/protocols.py	2026-01-28 09:52:06.943967384 +0300
+@@ -0,0 +1,54 @@
++from __future__ import annotations
++from typing import Protocol, runtime_checkable, Any, Callable, Awaitable, TypeVar, Union, Type, List, Optional, Dict
++from dataclasses import dataclass, field
++from datetime import datetime
++from .events import Event
++
++E = TypeVar("E", bound=Event)
++R = TypeVar("R")
++
++Handler = Union[Callable[[E], R], Callable[[E], Awaitable[R]]]
++
++@dataclass
++class HandlerResult:
++    handler_name: str
++    success: bool
++    result: Any = None
++    error: Optional[Exception] = None
++    duration_ms: float = 0.0
++    retry_count: int = 0
++
++@dataclass
++class EventResult:
++    success: bool
++    event: Event
++    handler_results: List[HandlerResult]
++    errors: List[Exception]
++    duration_ms: float = 0.0
++    dead_letter_count: int = 0
++    retry_counts: List[int] = field(default_factory=list)
++
++@runtime_checkable
++class Middleware(Protocol):
++    async def __call__(
++        self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]
++    ) -> EventResult:
++        ...
++
++@runtime_checkable
++class EventStore(Protocol):
++    async def save(self, event: Event) -> None: ...
++    async def get(self, event_id: str) -> Optional[Event]: ...
++    async def get_by_type(
++        self, event_type: Type[Event], since: Optional[datetime] = None, until: Optional[datetime] = None, limit: Optional[int] = None
++    ) -> List[Event]: ...
++    async def replay(self, event_type: Type[Event], since: datetime, handler: Handler) -> None: ...
++
++@runtime_checkable
++class MetricsCollector(Protocol):
++    def record_event_published(self, event_type: str) -> None: ...
++    def record_event_failed(self, event_type: str, error_type: str) -> None: ...
++    def record_handler_duration(self, handler_name: str, duration_ms: float) -> None: ...
++    def update_queue_depth(self, depth: int) -> None: ...
++    def update_active_subscriptions(self, event_type: str, count: int) -> None: ...
++    def get_metrics(self) -> Dict[str, Any]: ...
+Binary files repository_before/__pycache__/bus.cpython-311.pyc and repository_after/__pycache__/bus.cpython-311.pyc differ
+Binary files repository_before/__pycache__/events.cpython-311.pyc and repository_after/__pycache__/events.cpython-311.pyc differ
+Binary files repository_before/__pycache__/__init__.cpython-311.pyc and repository_after/__pycache__/__init__.cpython-311.pyc differ
+Binary files repository_before/__pycache__/metrics.cpython-311.pyc and repository_after/__pycache__/metrics.cpython-311.pyc differ
+Binary files repository_before/__pycache__/middleware.cpython-311.pyc and repository_after/__pycache__/middleware.cpython-311.pyc differ
+Binary files repository_before/__pycache__/protocols.cpython-311.pyc and repository_after/__pycache__/protocols.cpython-311.pyc differ
+Binary files repository_before/__pycache__/retry.cpython-311.pyc and repository_after/__pycache__/retry.cpython-311.pyc differ
+Binary files repository_before/__pycache__/storage.cpython-311.pyc and repository_after/__pycache__/storage.cpython-311.pyc differ
+diff -urN repository_before/retry.py repository_after/retry.py
+--- repository_before/retry.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/retry.py	2026-01-28 09:52:06.948967409 +0300
+@@ -0,0 +1,50 @@
++from __future__ import annotations
++import asyncio
++import random
++from dataclasses import dataclass, field
++from typing import Any, Callable, Dict, List, Optional, Tuple, Type
++from .events import Event
++
++@dataclass
++class RetryPolicy:
++    max_retries: int = 3
++    base_delay: float = 1.0
++    max_delay: float = 60.0
++    exponential_base: float = 2.0
++    jitter: bool = True
++
++    def get_delay(self, retry_count: int) -> float:
++        delay = min(self.base_delay * (self.exponential_base ** retry_count), self.max_delay)
++        if self.jitter:
++            delay += random.uniform(0, 0.1 * delay)
++        return delay
++
++@dataclass
++class DeadLetterEntry:
++    event: Event
++    handler_name: str
++    exception: Exception
++    retry_count: int
++    timestamp: float = field(default_factory=lambda: asyncio.get_event_loop().time())
++
++class DeadLetterQueue:
++    def __init__(self, capacity: int = 1000):
++        self.capacity = capacity
++        self.queue: List[DeadLetterEntry] = []
++
++    def add(self, event: Event, handler_name: str, exception: Exception, retry_count: int):
++        if len(self.queue) >= self.capacity:
++            self.queue.pop(0)  # Evict oldest
++        self.queue.append(DeadLetterEntry(event, handler_name, exception, retry_count))
++
++    def get_all(self) -> List[DeadLetterEntry]:
++        return list(self.queue)
++
++    async def replay(self, replay_func: Callable[[Event], Awaitable[Any]]):
++        entries = self.get_all()
++        self.clear()
++        for entry in entries:
++            await replay_func(entry.event)
++
++    def clear(self):
++        self.queue.clear()
+diff -urN repository_before/storage.py repository_after/storage.py
+--- repository_before/storage.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/storage.py	2026-01-28 09:13:27.520343996 +0300
+@@ -0,0 +1,61 @@
++from __future__ import annotations
++import asyncio
++from dataclasses import dataclass, field
++from datetime import datetime
++from typing import Any, Dict, List, Optional, Type
++from .events import Event
++from .protocols import EventStore, Handler
++
++@dataclass
++class Snapshot:
++    timestamp: datetime
++    state: Dict[str, Any]
++    last_event_id: str
++
++class InMemoryEventStore:
++    def __init__(self):
++        self._events: List[Event] = []
++        self._by_id: Dict[str, Event] = {}
++        self._snapshots: List[Snapshot] = []
++
++    async def save(self, event: Event) -> None:
++        self._events.append(event)
++        self._by_id[event.event_id] = event
++
++    async def get(self, event_id: str) -> Optional[Event]:
++        return self._by_id.get(event_id)
++
++    async def get_by_type(
++        self, 
++        event_type: Type[Event], 
++        since: Optional[datetime] = None, 
++        until: Optional[datetime] = None, 
++        limit: Optional[int] = None
++    ) -> List[Event]:
++        results = []
++        for event in self._events:
++            if isinstance(event, event_type):
++                if since and event.timestamp < since:
++                    continue
++                if until and event.timestamp > until:
++                    continue
++                results.append(event)
++                if limit and len(results) >= limit:
++                    break
++        return results
++
++    async def replay(self, event_type: Type[Event], since: datetime, handler: Handler) -> None:
++        events = await self.get_by_type(event_type, since=since)
++        for event in events:
++            if asyncio.iscoroutinefunction(handler):
++                await handler(event)
++            else:
++                handler(event)
++
++    async def save_snapshot(self, snapshot: Snapshot):
++        self._snapshots.append(snapshot)
++
++    async def get_latest_snapshot(self) -> Optional[Snapshot]:
++        if not self._snapshots:
++            return None
++        return sorted(self._snapshots, key=lambda s: s.timestamp, reverse=True)[0]
