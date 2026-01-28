@@ -1,5 +1,16 @@
-FROM python:3.11-slim
+FROM maven:3.9-eclipse-temurin-17
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Copy project files
+COPY pom.xml .
+COPY repository_after/ repository_after/
+COPY tests/ tests/
+COPY evaluation/ evaluation/
+COPY instances/ instances/
+
+# Download dependencies
+RUN mvn dependency:go-offline -q
+
+# Default command runs tests
+CMD ["mvn", "test", "-q"]

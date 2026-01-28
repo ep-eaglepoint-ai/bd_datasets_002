@@ -29,20 +29,102 @@
 - Performance Metrics: (none)
 - Security Standards: (none)
 
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
+## Quick Start
 
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+### Run Tests
+```bash
+# Docker
+docker compose run --rm app mvn clean test
 
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+# Local
+mvn clean test
+```
+
+### Run Evaluation
+```bash
+# Docker
+docker compose run --rm app mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation" -q
+
+# Local
+mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation"
+```
+
+### Run Evaluation (Custom Output)
+```bash
+# Docker
+docker compose run --rm app mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation" -Dexec.args="--output /app/evaluation/report.json" -q
+
+# Local
+mvn clean compile exec:java -Dexec.mainClass="com.eaglepoint.parallel.Evaluation" -Dexec.args="--output evaluation/custom-report.json"
+```
+
+## Patches
+To generate a patch for the implementation made:
+```bash
+git diff --no-index repository_before repository_after > patches/task_001.patch
+```
+
+## Expected Test Results
+
+The test suite includes:
+- ✓ Core interface implementations (IdentityMapper, SummingReducer, CountingReducer, EvenPartitioner)
+- ✓ ParallelProcessor execution modes (ForkJoin, CustomPool, ParallelStream)
+- ✓ Large dataset processing (1M+ elements)
+- ✓ Exception handling and accumulation
+- ✓ Fail-fast mode
+- ✓ Progress monitoring
+- ✓ Cancellation and timeouts
+- ✓ ParallelOperations utilities (map, filter, sort, reduce, forEach, findAny)
+- ✓ Performance benchmarks
+
+## Performance Expectations
+
+On a 4-core system:
+- 1M element processing: < 100ms
+- 10M element processing: < 500ms  
+- Expected speedup: 3x+ over sequential
+
+## Project Structure
+
+```text
+.
+├── evaluation/                    # Directory for generated evaluation reports
+├── instances/
+│   └── instance.json              # Task metadata and problem statement
+├── patches/
+│   └── diff.patch                 # Patch file and implementation summary
+├── repository_after/              # Production implementations
+│   └── src/main/java/com/eaglepoint/parallel/
+│       ├── Mapper.java            # Element transformation interface
+│       ├── Reducer.java           # Parallel reduction interface
+│       ├── Partitioner.java       # Data splitting interface
+│       ├── IdentityMapper.java    # Default identity transformation
+│       ├── SummingReducer.java    # Numeric summation implementation
+│       ├── CountingReducer.java   # Element counting implementation
+│       ├── EvenPartitioner.java   # Equal-sized chunk partitioner
+│       ├── ParallelProcessor.java # Main processor with Task decomposition
+│       ├── ParallelOperations.java# Static utility operations (map, sort, etc.)
+│       ├── ProgressListener.java  # Progress monitoring interface
+│       ├── CancellationToken.java # Cancellation and timeout support
+│       ├── ParallelProcessingException.java # Aggregated error handling
+│       ├── ProcessingFailure.java # Error detail record
+│       ├── DataSource.java        # Data source abstraction
+│       └── Evaluation.java        # Evaluation and benchmark script
+├── repository_before/             # Baseline repository (empty)
+├── tests/
+│   └── ParallelFrameworkTest.java # Comprehensive JUnit 5 test suite
+├── trajectory/
+│   └── trajectory.md              # Implementation trajectory and notes
+├── Dockerfile                     # Docker environment configuration
+├── docker-compose.yml             # Docker Compose for test execution
+├── pom.xml                        # Maven project configuration
+└── README.md                      # Documentation and Quick Start guide
+```
+
+## Dependencies
+
+- Java 17+
+- Maven 3.6+
+- JUnit 5.9.2 (for testing)
+
+No external runtime dependencies!

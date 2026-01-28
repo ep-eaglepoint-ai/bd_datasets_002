@@ -1,6 +1,10 @@
 services:
   app:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+      - maven-cache:/root/.m2
+    working_dir: /app
+
+volumes:
+  maven-cache:
