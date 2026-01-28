@@ -2,8 +2,8 @@
   "name": "lv4rqj-order-processing-pipeline-test-code",
   "version": "1.0.0",
   "scripts": {
-    "test:before": "NODE_PATH=repository_before npx jest --config=repository_before/jest.config.cjs --runInBand",
-    "test:after": "NODE_PATH=repository_after npx jest --config=repository_after/jest.config.cjs --runInBand",
+    "test:before": "cd repository_before && NODE_PATH=. npx jest --runInBand",
+    "test:after": "cd repository_after && NODE_PATH=. npx jest --runInBand",
     "test": "npm run test:after"
   },
   "devDependencies": {

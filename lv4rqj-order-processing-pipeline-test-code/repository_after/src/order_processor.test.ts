@@ -74,7 +74,6 @@ describe("OrderProcessor.processOrders", () => {
 
   test("throws ValidationError when items is not an array", async () => {
     const processor = new OrderProcessor();
-    // @ts-expect-error intentional invalid input
     await expect(processor.processOrders(null, baseOptions)).rejects.toThrow(
       ValidationError
     );
@@ -82,10 +81,9 @@ describe("OrderProcessor.processOrders", () => {
 
   test("throws ValidationError when options is missing", async () => {
     const processor = new OrderProcessor();
-    // @ts-expect-error intentional invalid input
-    await expect(processor.processOrders([], undefined)).rejects.toThrow(
-      ValidationError
-    );
+    await expect(
+      processor.processOrders([], undefined)
+    ).rejects.toThrow(ValidationError);
   });
 
   test("throws ValidationError for empty id", async () => {

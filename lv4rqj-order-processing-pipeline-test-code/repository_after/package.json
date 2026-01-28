@@ -6,6 +6,14 @@
   "scripts": {
     "test": "jest"
   },
+  "jest": {
+    "verbose": false,
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": ["src"],
+    "testMatch": ["**/*.test.ts"],
+    "testPathIgnorePatterns": ["node_modules"]
+  },
   "dependencies": {
     "jest": "^29.7.0",
     "ts-jest": "^29.1.1",
