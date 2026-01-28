@@ -102,7 +102,14 @@ func main() {
 		result := runMetaTests(repoPath)
 		printResult(repoPath, result)
 
-		if !result.Success {
+		// For single-repo runs:
+		// - We still show accurate pass/fail in the console output.
+		// - We deliberately do NOT fail the process when running against
+		//   repository_before, because that repo is expected to fail and
+		//   callers (like CI wrappers) treat any non-zero exit as a hard error.
+		// - For other repos (e.g. repository_after), keep failing on meta
+		//   test failures so they surface as proper errors.
+		if !result.Success && repoPath != "repository_before" {
 			os.Exit(1)
 		}
 		return
