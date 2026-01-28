@@ -6,7 +6,7 @@ const prisma = new PrismaClient({ datasources: { db: { url: 'postgresql://user:p
 export async function topupTransactionDal(props: any) {
   if (props.method === 'get paginate') {
     const { page, limit, filters } = props;
-    const skip = (page - 1) * limit; 
+    const skip = (page - 1) * limit;
     const transactions = await prisma.topUpTransaction.findMany({
       skip,
       take: limit,

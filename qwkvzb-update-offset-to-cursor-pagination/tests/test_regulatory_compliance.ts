@@ -1,25 +1,11 @@
-// test_regulatory_compliance.ts
-/**
- * TEST: REGULATORY COMPLIANCE FOR BANKING PLATFORM
- * =================================================
- * Verifies SLA guarantees, audit trails, and data integrity
- * Target: <10ms SLA, full audit logs, regulatory readiness
- * 
- * MUST FAIL on repository_before: No audit trail, SLA violations
- * MUST PASS on repository_after: Full compliance verified
- */
-
 import { topupTransactionDal } from '../repository_after/topupTransaction.dal';
 
 async function testRegulatoryCompliance() {
     console.log(' TEST: Regulatory Compliance (Banking Platform)\\n');
 
-    // Test 1: SLA <10ms guarantee
     console.log('  Test 1: SLA <10ms guarantee');
     const timings: number[] = [];
     const SLA_THRESHOLD = 10; // milliseconds
-
-    // Prepare connection
     console.log('Preparing connection...');
     await topupTransactionDal({ method: 'get paginate', cursor: null, limit: 1, filters: {} });
 
@@ -43,13 +29,12 @@ async function testRegulatoryCompliance() {
     const maxTiming = Math.max(...timings);
     const minTiming = Math.min(...timings);
 
-    // Fail if average is too high (systemic slowness) or too many outliers
     const outliers = timings.filter(t => t > SLA_THRESHOLD).length;
     if (avgTiming > SLA_THRESHOLD) {
         console.error(`  ❌ FAILED: Average time ${avgTiming.toFixed(2)}ms exceeds SLA ${SLA_THRESHOLD}ms`);
         process.exit(1);
     }
-    if (outliers > 5) { // Allow 25% outliers
+    if (outliers > 5) {
         console.error(`  ❌ FAILED: Too many outliers (${outliers}/20) exceeded ${SLA_THRESHOLD}ms`);
         process.exit(1);
     }
@@ -59,7 +44,6 @@ async function testRegulatoryCompliance() {
     console.log(`     Min: ${minTiming.toFixed(2)}ms, Max: ${maxTiming.toFixed(2)}ms`);
     console.log(`     SLA compliance: ${((timings.filter(t => t < SLA_THRESHOLD).length / timings.length) * 100).toFixed(1)}%`);
 
-    // Test 2: Audit trail presence
     console.log('\\n  Test 2: Audit trail verification');
     const auditResult = await topupTransactionDal({
         method: 'get paginate',
@@ -79,7 +63,6 @@ async function testRegulatoryCompliance() {
     console.log(`     Record count: ${auditResult.body._audit.recordCount}`);
     console.log(`     SLA compliant: ${auditResult.body._audit.slaCompliant}`);
 
-    // Verify audit fields
     if (!auditResult.body._audit.timestamp) {
         console.error(`  ❌ FAILED: Missing timestamp in audit trail`);
         process.exit(1);
@@ -125,7 +108,6 @@ async function testRegulatoryCompliance() {
         console.log(`     Range: ${Math.max(...page1Ids)} → ${Math.min(...page1Ids)}`);
     }
 
-    // Test 4: Performance metrics presence
     console.log('\\n  Test 4: Performance metrics documentation');
     if (!auditResult.body._performance) {
         console.error(`  ❌ FAILED: No performance metrics in response`);
@@ -138,7 +120,6 @@ async function testRegulatoryCompliance() {
     console.log(`     Thread safety: ${auditResult.body._performance.threadSafe}`);
     console.log(`     Space complexity: ${auditResult.body._performance.spaceComplexity}`);
 
-    // Regulatory compliance summary
     console.log('\\n  Regulatory Compliance Summary:');
     console.log('  ==========================================');
     console.log(`  ✓ SLA <10ms: PASSED (avg ${avgTiming.toFixed(2)}ms)`);
@@ -155,7 +136,6 @@ async function testRegulatoryCompliance() {
     console.log('\\n  ✅ PASSED: Full regulatory compliance verified\\n');
 }
 
-// Run test
 testRegulatoryCompliance().catch(error => {
     console.error('Test failed:', error);
     process.exit(1);

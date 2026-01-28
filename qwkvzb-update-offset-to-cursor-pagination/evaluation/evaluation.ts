@@ -49,8 +49,8 @@ interface EvaluationReport {
         git_branch: string;
     };
     results: {
-        before: RepositoryTestResult;
-        after: RepositoryTestResult;
+        before: RepositoryTestResult | null;
+        after: RepositoryTestResult | null;
         comparison: {
             before_tests_passed: boolean;
             after_tests_passed: boolean;
@@ -61,7 +61,7 @@ interface EvaluationReport {
             after_passed: number;
             after_failed: number;
             improvement_percentage: number;
-        };
+        } | null;
     };
 }
 
@@ -123,7 +123,7 @@ async function runTestsAndParse(
 
                 // Run test with ts-node
                 const result = execSync(
-                    `npx ts-node "${tempTestFile}"`,
+                    `npx ts-node --transpile-only "${tempTestFile}"`,
                     {
                         cwd: process.cwd(),
                         encoding: 'utf8',
@@ -241,39 +241,66 @@ async function main() {
     const outputFlag = args.indexOf('--output');
     const customOutput = outputFlag !== -1 ? args[outputFlag + 1] : null;
 
+    const targetArg = args.find(arg => arg.startsWith('--target='));
+    const target = targetArg ? targetArg.split('=')[1] : 'all';
+
+    const noReport = args.includes('--no-report');
+
     const startAll = new Date();
     const runId = generateRunId();
 
     console.log(`\n${'='.repeat(60)}`);
     console.log(`EVALUATION RUN ID: ${runId}`);
     console.log(`Started at: ${startAll.toISOString()}`);
+    console.log(`Target: ${target}`);
     console.log(`${'='.repeat(60)}\n`);
 
     const baseDir = process.cwd();
+    let resBefore: RepositoryTestResult | null = null;
+    let resAfter: RepositoryTestResult | null = null;
 
-    // Run tests for both repositories
-    const resBefore = await runTestsAndParse('repository_before', 'repository_before');
-    const resAfter = await runTestsAndParse('repository_after', 'repository_after');
+    // Run tests based on target
+    if (target === 'all' || target === 'repository_before') {
+        console.log('Running repository_before tests...');
+        resBefore = await runTestsAndParse('repository_before', 'repository_before');
+    }
+
+    if (target === 'all' || target === 'repository_after') {
+        console.log('Running repository_after tests...');
+        resAfter = await runTestsAndParse('repository_after', 'repository_after');
+    }
 
     const finishedAt = new Date();
     const gitInfo = getGitInfo();
 
-    // Calculate improvement percentage
-    const beforePassRate = resBefore.summary.total > 0
-        ? (resBefore.summary.passed / resBefore.summary.total) * 100
-        : 0;
-    const afterPassRate = resAfter.summary.total > 0
-        ? (resAfter.summary.passed / resAfter.summary.total) * 100
-        : 0;
+    // Helper to calculate pass rate safely
+    const calculatePassRate = (res: RepositoryTestResult | null) =>
+        (res && res.summary.total > 0) ? (res.summary.passed / res.summary.total) * 100 : 0;
+
+    const beforePassRate = calculatePassRate(resBefore);
+    const afterPassRate = calculatePassRate(resAfter);
+
     const improvement = afterPassRate - beforePassRate;
 
-    // Generate report
+    // Determine overall success
+    let overallSuccess = false;
+    if (target === 'repository_before' && resBefore) {
+        overallSuccess = resBefore.success;
+    } else if (target === 'repository_after' && resAfter) {
+        overallSuccess = resAfter.success;
+    } else if (target === 'all' && resAfter) {
+        // For 'all' (evaluation), we consider it a success if repository_after passes
+        // We expect repository_before to potentially fail
+        overallSuccess = resAfter.success;
+    }
+
+    // Generate report object
     const report: EvaluationReport = {
         run_id: runId,
         started_at: startAll.toISOString(),
         finished_at: finishedAt.toISOString(),
         duration_seconds: (finishedAt.getTime() - startAll.getTime()) / 1000,
-        success: resAfter.success,
+        success: overallSuccess,
         error: null,
         environment: {
             node_version: process.version,
@@ -289,7 +316,7 @@ async function main() {
         results: {
             before: resBefore,
             after: resAfter,
-            comparison: {
+            comparison: (resBefore && resAfter) ? {
                 before_tests_passed: resBefore.success,
                 after_tests_passed: resAfter.success,
                 before_total: resBefore.summary.total,
@@ -299,28 +326,29 @@ async function main() {
                 after_passed: resAfter.summary.passed,
                 after_failed: resAfter.summary.failed + resAfter.summary.errors,
                 improvement_percentage: improvement,
-            },
+            } : null,
         },
     };
 
-    // Determine output path
-    let reportPath: string;
-    if (customOutput) {
-        reportPath = customOutput;
-        const reportDir = path.dirname(reportPath);
-        if (reportDir && !fs.existsSync(reportDir)) {
+    let reportPath = 'SKIPPED';
+    if (!noReport) {
+        if (customOutput) {
+            reportPath = customOutput;
+            const reportDir = path.dirname(reportPath);
+            if (reportDir && !fs.existsSync(reportDir)) {
+                fs.mkdirSync(reportDir, { recursive: true });
+            }
+        } else {
+            const timestampDay = startAll.toISOString().split('T')[0]; // YYYY-MM-DD
+            const timestampTime = startAll.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+            const reportDir = path.join(baseDir, 'evaluation', 'reports', timestampDay, timestampTime);
             fs.mkdirSync(reportDir, { recursive: true });
+            reportPath = path.join(reportDir, 'report.json');
         }
-    } else {
-        const timestampDay = startAll.toISOString().split('T')[0]; // YYYY-MM-DD
-        const timestampTime = startAll.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-        const reportDir = path.join(baseDir, 'evaluation', 'reports', timestampDay, timestampTime);
-        fs.mkdirSync(reportDir, { recursive: true });
-        reportPath = path.join(reportDir, 'report.json');
-    }
 
-    // Write report
-    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+        // Write report
+        fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+    }
 
     console.log(`\n${'='.repeat(60)}`);
     console.log(`EVALUATION COMPLETE`);
@@ -332,14 +360,28 @@ async function main() {
     console.log(`  Overall Success: ${report.success ? '✅ YES' : '❌ NO'}\n`);
 
     console.log(`Results:`);
-    console.log(`  repository_before: ${resBefore.summary.passed}/${resBefore.summary.total} passed`);
-    console.log(`  repository_after:  ${resAfter.summary.passed}/${resAfter.summary.total} passed`);
+    if (resBefore) {
+        console.log(`  repository_before: ${resBefore.summary.passed}/${resBefore.summary.total} passed`);
+    } else {
+        console.log(`  repository_before: SKIPPED`);
+    }
+
+    if (resAfter) {
+        console.log(`  repository_after:  ${resAfter.summary.passed}/${resAfter.summary.total} passed`);
+    } else {
+        console.log(`  repository_after:  SKIPPED`);
+    }
+
     console.log(`  Improvement: ${improvement > 0 ? '+' : ''}${improvement.toFixed(1)}%\n`);
 
-    console.log(`Report generated at: ${reportPath}\n`);
+    if (!noReport) {
+        console.log(`Report generated at: ${reportPath}\n`);
+    } else {
+        console.log(`Report generation skipped (--no-report)\n`);
+    }
 
     // Exit with appropriate code
-    process.exit(resAfter.success ? 0 : 1);
+    process.exit(overallSuccess ? 0 : 1);
 }
 
 // Run main function
