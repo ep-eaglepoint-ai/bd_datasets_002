@@ -28,3 +28,17 @@ services:
       - ./tests:/tests
     working_dir: /app
     command: mvn test -Dtest=TestRequirements
+
+  evaluation:
+    image: python:3.11-alpine
+    volumes:
+      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock 
+    working_dir: /workspace
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      sh -c "
+      apk add --no-cache openjdk17 maven &&
+      python evaluation/evaluation.py
+      "
