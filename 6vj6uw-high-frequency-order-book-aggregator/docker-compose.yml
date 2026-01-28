@@ -1,6 +1,115 @@
+version: '3.8'
+
 services:
-  app:
+  # Test original implementation (repository_before)
+  repository-before:
     build: .
-    command: pytest -q tests
+    command: npm run test:before
     volumes:
       - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+    container_name: repository-before
+
+  # Test optimized implementation (repository_after)
+  repository-after:
+    build: .
+    command: npm run test:after
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+    container_name: repository-after
+
+  # Run comparison tests
+  test-comparison:
+    build: .
+    command: npm run test:comparison
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+    container_name: repository-comparison
+
+  # Generate comprehensive evaluation report
+  evaluate:
+    build: .
+    command: npm run evaluate
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./evaluation/reports:/app/evaluation/reports
+    environment:
+      - NODE_ENV=test
+    container_name: evaluate
+
+  # Run memory leak tests
+  test-memory:
+    build: .
+    command: npm run test:memory
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+      - NODE_OPTIONS=--expose-gc
+    container_name: repository-memory
+
+  # Build and validate TypeScript
+  build:
+    build: .
+    command: npm run build
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    container_name: repository-build
+
+  # Interactive development environment
+  dev:
+    build: .
+    command: /bin/bash
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    stdin_open: true
+    tty: true
+    container_name: orderbook-dev
+
+  # Run all tests in sequence
+  test-all:
+    build: .
+    command: >
+      sh -c "
+        echo '🚀 Running All OrderBook Aggregator Tests' &&
+        echo '============================================' &&
+        echo '' &&
+        echo '📋 1. Testing Original Implementation (repository_before)...' &&
+        npm run test:before &&
+        echo '' &&
+        echo '📋 2. Testing Optimized Implementation (repository_after)...' &&
+        npm run test:after &&
+        echo '' &&
+        echo '📋 3. Running Comparison Tests...' &&
+        npm run test:comparison &&
+        echo '' &&
+        echo '📋 4. Generating Evaluation Report...' &&
+        npm run evaluate &&
+        echo '' &&
+        echo '🎉 All tests completed! Check evaluation/reports/ for detailed results.'
+      "
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./evaluation/reports:/app/evaluation/reports
+    environment:
+      - NODE_ENV=test
+    container_name: test-all
+    depends_on:
+      - build

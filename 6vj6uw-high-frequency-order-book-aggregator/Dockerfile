@@ -1,6 +1,23 @@
-FROM node:18-slim
+FROM node:18-alpine
+
+# Set working directory
 WORKDIR /app
+
+# Copy package files first for better caching
 COPY package*.json ./
-RUN npm install
-COPY . /app
-CMD ["echo", "Dockerfile setup complete"]
+COPY tsconfig.json ./
+
+# Install dependencies
+RUN npm ci --only=production=false
+
+# Copy source code
+COPY . .
+
+# Create reports directory
+RUN mkdir -p evaluation/reports
+
+# Set proper permissions
+RUN chmod -R 755 /app
+
+# Default command
+CMD ["npm", "test"]
