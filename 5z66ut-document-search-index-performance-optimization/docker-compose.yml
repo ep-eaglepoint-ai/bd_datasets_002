@@ -1,6 +1,18 @@
 services:
-  app:
+  evaluate:
     build: .
-    command: pytest -q tests
+    command: /bin/bash -c "javac -d evaluation_bin evaluation/Evaluation.java && java -ea -cp evaluation_bin evaluation.Evaluation"
+    volumes:
+      - .:/app
+
+  test-before:
+    build: .
+    command: /bin/bash -c "javac -d bin -cp repository_before/src/main/java repository_before/src/main/java/com/legal/search/*.java tests/com/legal/search/SearchOptimizationTest.java && java -ea -cp bin com.legal.search.SearchOptimizationTest || true"
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    command: /bin/bash -c "javac -d bin -cp repository_after/src/main/java repository_after/src/main/java/com/legal/search/*.java tests/com/legal/search/SearchOptimizationTest.java && java -ea -cp bin com.legal.search.SearchOptimizationTest"
     volumes:
       - .:/app

@@ -9,3 +9,17 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Java
+target/
+*.class
+*.log
+hs_err_pid*.log
+
+# Build Output
+bin/
+evaluation_bin/
+
+# Evaluation Reports
+report.json
+evaluation/report.json
