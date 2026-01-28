@@ -59,5 +59,21 @@ services:
     depends_on:
       - api
       - client
+  evaluation:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    container_name: notes_evaluation
+    volumes:
+      - ./evaluations:/app/evaluations
+      - ./repository_after/client:/app/client
+      - ./repository_after/server:/app/server
+    environment:
+      SERVER_URL: http://api:3001
+    command: node /app/evaluations/evaluation.js
+    depends_on:
+      api:
+        condition: service_started
+
 volumes:
   notes_db_data:
