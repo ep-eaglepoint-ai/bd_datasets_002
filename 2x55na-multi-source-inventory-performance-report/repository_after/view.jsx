@@ -14,15 +14,22 @@ export function InventoryHealthView({ supabaseClient }) {
         let mounted = true;
 
         async function loadData() {
-            const { orders, expenses, reviews } = await InventoryService.fetchInventoryData(supabaseClient);
+            try {
+                const { orders, expenses, reviews } = await InventoryService.fetchInventoryData(supabaseClient);
 
-            // Perform calculations without blocking UI (in this simple case, sync is fine, 
-            // but we could use web workers if it was massive. For now, we just do it in the effect).
-            const computedMetrics = InventoryAnalytics.calculateMetrics(orders, expenses, reviews);
+                // Perform calculations without blocking UI (in this simple case, sync is fine, 
+                // but we could use web workers if it was massive. For now, we just do it in the effect).
+                const computedMetrics = InventoryAnalytics.calculateMetrics(orders, expenses, reviews);
 
-            if (mounted) {
-                setMetrics(computedMetrics);
-                setLoading(false);
+                if (mounted) {
+                    setMetrics(computedMetrics);
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error('Failed to load inventory data:', error);
+                if (mounted) {
+                    setLoading(false);
+                }
             }
         }
 

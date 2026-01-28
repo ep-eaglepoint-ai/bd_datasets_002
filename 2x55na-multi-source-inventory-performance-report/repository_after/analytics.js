@@ -25,10 +25,17 @@ export const InventoryAnalytics = {
         let totalWeight = 0;
 
         reviews.forEach(review => {
-            const rating = Number(review.rating) || 0;
-            const weight = Number(review.weight) || 1; // Default weight to 1 if not present
-            sentimentSum += rating * weight;
-            totalWeight += weight;
+            const rating = Number(review.rating);
+            const weight = review.weight !== undefined && review.weight !== null ? Number(review.weight) : 1; // Default weight to 1 if not present
+            
+            // Only include valid ratings (not NaN, null, undefined, or invalid strings)
+            if (!isNaN(rating) && rating > 0) {
+                // Include all weights except zero (positive and negative for mathematical calculation)
+                if (weight !== 0) {
+                    sentimentSum += rating * weight;
+                    totalWeight += weight;
+                }
+            }
         });
 
         const weightedSentiment = totalWeight > 0 ? (sentimentSum / totalWeight).toFixed(2) : 0;

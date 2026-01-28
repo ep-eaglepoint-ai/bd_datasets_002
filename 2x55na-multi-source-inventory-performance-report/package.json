@@ -7,7 +7,7 @@
         "repository_after"
     ],
     "scripts": {
-        "test": "node --test tests/inventory.test.js",
+        "test": "node --test tests/inventory.test.js tests/view.test.js",
         "evaluate": "node evaluation/evaluation.js"
     },
     "devDependencies": {
