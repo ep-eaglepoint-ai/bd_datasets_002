@@ -14,5 +14,5 @@ docker-compose run --rm repository-before
 docker-compose run --rm repository-after
 
 # Generate evaluation report
-docker-compose run --rm evaluateS
+docker-compose run --rm evaluate
 ```
