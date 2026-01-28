@@ -1,5 +1,12 @@
-FROM python:3.11-slim
+FROM golang:1.25
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Copy all files (respects .dockerignore)
+COPY . .
+
+# Download dependencies (repository directories are now available for replace directives)
+RUN go mod download
+
+# Set default command
+CMD ["/bin/bash"]

@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Go build and cache
+.gocache
+*.exe
+*.test
+*.out
+vendor/
+
+# Evaluation output (generated at run time)
+evaluation/reports/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation and misc (optional: exclude from image to keep it small)
+# README.md
+# trajectory/
