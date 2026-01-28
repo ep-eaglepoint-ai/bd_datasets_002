@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const ROOT = resolve(__dirname, "..");
-const REPORTS_DIR = join(ROOT, "evaluation", "reports");
+const REPORTS_DIR = join(ROOT, "evaluations", "reports");
 
 const runId = Math.random().toString(36).substring(2, 10);
 const startedAt = new Date().toISOString();
