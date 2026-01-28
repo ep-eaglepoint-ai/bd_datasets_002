@@ -1,0 +1,409 @@
+diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.xo2uUmJGDi/SessionAnalyticsController.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.xo2uUmJGDi/SessionAnalyticsController.java
+deleted file mode 100644
+index 6717d3d..0000000
+--- a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.xo2uUmJGDi/SessionAnalyticsController.java
++++ /dev/null
+@@ -1,56 +0,0 @@
+-package com.example.sessions;
+-
+-import org.springframework.web.bind.annotation.*;
+-import java.util.*;
+-
+-@RestController
+-@RequestMapping("/api/sessions")
+-public class SessionAnalyticsController {
+-
+-    private List<Session> cachedSessions = new ArrayList<>();
+-
+-    @PostMapping("/analyze")
+-    public Map<String, Object> analyze(@RequestBody List<Session> sessions) {
+-
+-        Map<String, Object> result = new HashMap<>();
+-        cachedSessions.clear();
+-        cachedSessions.addAll(sessions);
+-
+-        long totalDuration = 0;
+-        Session longest = null;
+-
+-        for (int i = 0; i < sessions.size(); i++) {
+-            Session s = sessions.get(i);
+-            totalDuration += s.getEndTime() - s.getStartTime();
+-
+-            for (int j = 0; j < sessions.size(); j++) {
+-                if (longest == null) {
+-                    longest = sessions.get(j);
+-                } else if ((sessions.get(j).getEndTime() - sessions.get(j).getStartTime())
+-                        > (longest.getEndTime() - longest.getStartTime())) {
+-                    longest = sessions.get(j);
+-                }
+-            }
+-        }
+-
+-        long average = 0;
+-        if (!sessions.isEmpty()) {
+-            average = totalDuration / sessions.size();
+-        }
+-
+-        result.put("count", sessions.size());
+-        result.put("averageDuration", average);
+-        result.put("longestSession", longest);
+-        result.put("cacheSize", cachedSessions.size());
+-
+-        return result;
+-    }
+-
+-    static class Session {
+-        private long startTime;
+-        private long endTime;
+-
+-        public long getStartTime() { return startTime; }
+-        public long getEndTime() { return endTime; }
+-    }
+-}
+diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/pom.xml b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/pom.xml
+new file mode 100644
+index 0000000..51e2976
+--- /dev/null
++++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/pom.xml
+@@ -0,0 +1,51 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0"
++         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
++    <modelVersion>4.0.0</modelVersion>
++    <groupId>com.example</groupId>
++    <artifactId>session-analytics</artifactId>
++    <version>1.0-SNAPSHOT</version>
++    <properties>
++        <maven.compiler.source>17</maven.compiler.source>
++        <maven.compiler.target>17</maven.compiler.target>
++        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
++        <junit.version>5.9.2</junit.version>
++    </properties>
++    <dependencies>
++        <dependency>
++            <groupId>org.hibernate.validator</groupId>
++            <artifactId>hibernate-validator</artifactId>
++            <version>6.2.5.Final</version>
++        </dependency>
++        <dependency>
++            <groupId>javax.validation</groupId>
++            <artifactId>validation-api</artifactId>
++            <version>2.0.1.Final</version>
++        </dependency>
++        <dependency>
++            <groupId>org.glassfish</groupId>
++            <artifactId>javax.el</artifactId>
++            <version>3.0.1-b11</version>
++        </dependency>
++        <dependency>
++            <groupId>org.junit.jupiter</groupId>
++            <artifactId>junit-jupiter</artifactId>
++            <version>${junit.version}</version>
++            <scope>test</scope>
++        </dependency>
++        <dependency>
++            <groupId>org.springframework</groupId>
++            <artifactId>spring-web</artifactId>
++            <version>5.3.27</version>
++        </dependency>
++    </dependencies>
++    <build>
++        <plugins>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-surefire-plugin</artifactId>
++                <version>3.0.0-M7</version>
++            </plugin>
++        </plugins>
++    </build>
++</project>
+diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/ApiExceptionHandler.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/ApiExceptionHandler.java
+new file mode 100644
+index 0000000..7af38de
+--- /dev/null
++++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/ApiExceptionHandler.java
+@@ -0,0 +1,22 @@
++package com.example.sessions;
++
++import org.springframework.http.HttpStatus;
++import org.springframework.web.bind.annotation.*;
++import javax.validation.ConstraintViolationException;
++import java.util.*;
++
++@ControllerAdvice
++public class ApiExceptionHandler {
++
++    @ExceptionHandler(ConstraintViolationException.class)
++    @ResponseStatus(HttpStatus.BAD_REQUEST)
++    @ResponseBody
++    public Map<String, Object> handleConstraintViolation(ConstraintViolationException ex) {
++        List<String> errors = new ArrayList<>();
++        ex.getConstraintViolations().forEach(v -> errors.add(v.getPropertyPath() + " " + v.getMessage()));
++        Map<String, Object> body = new HashMap<>();
++        body.put("status", "error");
++        body.put("errors", errors);
++        return body;
++    }
++}
+diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/Session.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/Session.java
+new file mode 100644
+index 0000000..a7652c2
+--- /dev/null
++++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/Session.java
+@@ -0,0 +1,30 @@
++package com.example.sessions;
++
++import javax.validation.constraints.*;
++
++public class Session {
++    @NotNull
++    private Long startTime;
++
++    @NotNull
++    private Long endTime;
++
++    public Session() {}
++
++    public Session(Long startTime, Long endTime) {
++        this.startTime = startTime;
++        this.endTime = endTime;
++    }
++
++    public Long getStartTime() { return startTime; }
++    public void setStartTime(Long startTime) { this.startTime = startTime; }
++
++    public Long getEndTime() { return endTime; }
++    public void setEndTime(Long endTime) { this.endTime = endTime; }
++
++    @AssertTrue(message = "endTime must be greater than or equal to startTime")
++    public boolean isEndAfterOrEqualStart() {
++        if (startTime == null || endTime == null) return true;
++        return endTime >= startTime;
++    }
++}
+diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/SessionAnalyticsController.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/SessionAnalyticsController.java
+new file mode 100644
+index 0000000..6f04146
+--- /dev/null
++++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/SessionAnalyticsController.java
+@@ -0,0 +1,49 @@
++package com.example.sessions;
++
++import org.springframework.web.bind.annotation.*;
++import javax.validation.*;
++import java.util.*;
++
++@RestController
++@RequestMapping("/api/sessions")
++public class SessionAnalyticsController {
++
++    private static final Validator validator;
++    static {
++        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
++        validator = factory.getValidator();
++    }
++
++    @PostMapping("/analyze")
++    public Map<String, Object> analyze(@RequestBody List<Session> sessions) {
++        // Validate declaratively using Bean Validation (separate from aggregation)
++        for (Session s : sessions) {
++            Set<ConstraintViolation<Session>> violations = validator.validate(s);
++            if (!violations.isEmpty()) {
++                throw new ConstraintViolationException(violations);
++            }
++        }
++
++        long totalDuration = 0L;
++        long longestDuration = Long.MIN_VALUE;
++        Session longest = null;
++
++        // Single-pass O(n) aggregation
++        for (Session s : sessions) {
++            long duration = s.getEndTime() - s.getStartTime();
++            totalDuration += duration;
++            if (longest == null || duration > longestDuration) {
++                longest = s;
++                longestDuration = duration;
++            }
++        }
++
++        long average = sessions.isEmpty() ? 0L : totalDuration / sessions.size();
++
++        Map<String, Object> result = new HashMap<>();
++        result.put("count", sessions.size());
++        result.put("averageDuration", average);
++        result.put("longestSession", longest);
++        return result;
++    }
++}
+diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/AdditionalRequirementsTest.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/AdditionalRequirementsTest.java
+new file mode 100644
+index 0000000..62e6e0c
+--- /dev/null
++++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/AdditionalRequirementsTest.java
+@@ -0,0 +1,120 @@
++package com.example.sessions;
++
++import org.junit.jupiter.api.Test;
++
++import javax.validation.constraints.NotNull;
++import javax.validation.constraints.AssertTrue;
++import javax.validation.ConstraintViolation;
++import javax.validation.ConstraintViolationException;
++import java.lang.reflect.Field;
++import java.lang.reflect.Method;
++import java.lang.reflect.Modifier;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.*;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++public class AdditionalRequirementsTest {
++
++    @Test
++    void sessionHasBeanValidationAnnotations() throws Exception {
++        Class<?> session = Class.forName("com.example.sessions.Session");
++        Field start = session.getDeclaredField("startTime");
++        Field end = session.getDeclaredField("endTime");
++        assertTrue(start.isAnnotationPresent(NotNull.class), "startTime must be @NotNull");
++        assertTrue(end.isAnnotationPresent(NotNull.class), "endTime must be @NotNull");
++
++        Method m = session.getDeclaredMethod("isEndAfterOrEqualStart");
++        assertTrue(m.isAnnotationPresent(AssertTrue.class), "Session must declare @AssertTrue validation for end >= start");
++    }
++
++    @Test
++    void apiExceptionHandlerReturnsStableStructure() {
++        ApiExceptionHandler handler = new ApiExceptionHandler();
++
++        // Create a tiny ConstraintViolation implementation to include in the exception
++        class SimpleViolation implements ConstraintViolation<Session> {
++            private final String message;
++            SimpleViolation(String message) { this.message = message; }
++            public String getMessage() { return message; }
++            public String getMessageTemplate() { return null; }
++            public Session getRootBean() { return null; }
++            public Class<Session> getRootBeanClass() { return Session.class; }
++            public Object getLeafBean() { return null; }
++            public Object[] getExecutableParameters() { return new Object[0]; }
++            public Object getExecutableReturnValue() { return null; }
++            public javax.validation.Path getPropertyPath() { return new javax.validation.Path() {
++                public Iterator<Node> iterator() { return Collections.emptyIterator(); }
++            }; }
++            public Object getInvalidValue() { return null; }
++            public javax.validation.metadata.ConstraintDescriptor<?> getConstraintDescriptor() { return null; }
++            public <T> T unwrap(Class<T> type) { return null; }
++        }
++
++        ConstraintViolation<Session> v = new SimpleViolation("endTime must be greater than or equal to startTime");
++
++        Set<ConstraintViolation<?>> set = new HashSet<>();
++        set.add(v);
++        ConstraintViolationException ex = new ConstraintViolationException(set);
++
++        Map<String, Object> body = handler.handleConstraintViolation(ex);
++        assertEquals("error", body.get("status"));
++        assertTrue(body.get("errors") instanceof List);
++        List<?> errors = (List<?>) body.get("errors");
++        assertFalse(errors.isEmpty());
++    }
++
++    @Test
++    void controllerHasCorrectRequestMappingAndMethod() throws Exception {
++        Class<?> ctrl = Class.forName("com.example.sessions.SessionAnalyticsController");
++        assertTrue(ctrl.isAnnotationPresent(org.springframework.web.bind.annotation.RequestMapping.class));
++        org.springframework.web.bind.annotation.RequestMapping rm = ctrl.getAnnotation(org.springframework.web.bind.annotation.RequestMapping.class);
++        assertArrayEquals(new String[]{"/api/sessions"}, rm.value());
++
++        Method analyze = ctrl.getDeclaredMethod("analyze", List.class);
++        assertTrue(analyze.isAnnotationPresent(org.springframework.web.bind.annotation.PostMapping.class));
++        org.springframework.web.bind.annotation.PostMapping pm = analyze.getAnnotation(org.springframework.web.bind.annotation.PostMapping.class);
++        assertArrayEquals(new String[]{"/analyze"}, pm.value());
++
++        // Verify response keys
++        Object ctrlInst = ctrl.getDeclaredConstructor().newInstance();
++        List<Session> sessions = Arrays.asList(new Session(0L, 10L));
++        @SuppressWarnings("unchecked")
++        Map<String,Object> res = (Map<String,Object>) analyze.invoke(ctrlInst, sessions);
++        assertTrue(res.containsKey("count"));
++        assertTrue(res.containsKey("averageDuration"));
++        assertTrue(res.containsKey("longestSession"));
++    }
++
++    @Test
++    void repositoryAfterContainsNoMutableCacheOrNestedLoops() throws Exception {
++        // locate the source file anywhere under the current working directory
++        Path start = Path.of(System.getProperty("user.dir"));
++        Optional<Path> found = Files.walk(start)
++            .filter(p -> p.getFileName().toString().equals("SessionAnalyticsController.java"))
++            .filter(p -> p.toString().contains("repository_after"))
++            .findFirst();
++        assertTrue(found.isPresent(), "Could not locate SessionAnalyticsController.java under project workspace");
++        String src = Files.readString(found.get());
++        assertFalse(src.contains("cachedSessions"), "repository_after must not introduce shared mutable cache");
++        boolean hasI = src.contains("for (int i = 0; i < sessions.size(); i++)");
++        boolean hasJ = src.contains("for (int j = 0; j < sessions.size(); j++)");
++        assertFalse(hasI && hasJ, "repository_after must not use nested loops over sessions (O(n^2))");
++    }
++
++    @Test
++    void controllerIsStatelessAndValidatorIsStaticFinal() throws Exception {
++        Class<?> ctrl = Class.forName("com.example.sessions.SessionAnalyticsController");
++        for (Field f : ctrl.getDeclaredFields()) {
++            if (!Modifier.isStatic(f.getModifiers())) {
++                fail("Controller contains mutable instance field: " + f.getName());
++            }
++        }
++
++        Field validator = ctrl.getDeclaredField("validator");
++        int mods = validator.getModifiers();
++        assertTrue(Modifier.isStatic(mods), "validator must be static");
++        assertTrue(Modifier.isFinal(mods), "validator must be final");
++    }
++}
+diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/SessionAnalyticsControllerTest.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/SessionAnalyticsControllerTest.java
+new file mode 100644
+index 0000000..4b2625a
+--- /dev/null
++++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/SessionAnalyticsControllerTest.java
+@@ -0,0 +1,39 @@
++package com.example.sessions;
++
++import org.junit.jupiter.api.Test;
++import javax.validation.ConstraintViolationException;
++import java.lang.reflect.Field;
++import java.util.*;
++import static org.junit.jupiter.api.Assertions.*;
++
++public class SessionAnalyticsControllerTest {
++
++    @Test
++    void durationCalculatedAsEndMinusStart() {
++        SessionAnalyticsController ctrl = new SessionAnalyticsController();
++        List<Session> sessions = Arrays.asList(new Session(1000L, 2000L), new Session(2000L, 3000L));
++        Map<String, Object> res = ctrl.analyze(sessions);
++        assertEquals(2, res.get("count"));
++        assertEquals(1000L, ((Number) res.get("averageDuration")).longValue());
++        assertNotNull(res.get("longestSession"));
++    }
++
++    @Test
++    void rejectsSessionsWhereEndBeforeStart() {
++        SessionAnalyticsController ctrl = new SessionAnalyticsController();
++        List<Session> sessions = Collections.singletonList(new Session(2000L, 1000L));
++        assertThrows(ConstraintViolationException.class, () -> ctrl.analyze(sessions));
++    }
++
++    @Test
++    void controllerIsStateless() {
++        Field[] fields = SessionAnalyticsController.class.getDeclaredFields();
++        for (Field f : fields) {
++            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
++                if (!java.lang.reflect.Modifier.isFinal(f.getModifiers())) {
++                    fail("Controller contains mutable instance field: " + f.getName());
++                }
++            }
++        }
++    }
++}

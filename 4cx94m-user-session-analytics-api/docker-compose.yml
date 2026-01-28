@@ -1,6 +1,21 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  test-before:
+    image: alpine:3.18
+    working_dir: /app
     volumes:
       - .:/app
+    command: ["sh","-lc","chmod +x tests/run_before.sh && sh tests/run_before.sh"]
+
+  test-after:
+    image: maven:3.8.7-eclipse-temurin-17
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["bash","-lc","chmod +x tests/run_after.sh && tests/run_after.sh"]
+
+  evaluate:
+    image: maven:3.8.7-eclipse-temurin-17
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["bash","-lc","javac -d /tmp evaluation/EvaluationMain.java && java -cp /tmp EvaluationMain"]
