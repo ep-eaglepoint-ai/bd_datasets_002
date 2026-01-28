@@ -42,7 +42,11 @@ public class EvaluationMain {
         double duration = (finished.toEpochMilli() - started.toEpochMilli())/1000.0;
         report.put("duration_seconds", duration);
 
-        boolean success = before.exitCode == 0 && after.exitCode == 0;
+        // Consider overall job success based on the "after" results only.
+        // Many CI environments expect the fixed branch to determine job success;
+        // keep `before` results in the report for visibility but don't fail the
+        // container when the pre-fix checks (expected to fail) do.
+        boolean success = after.exitCode == 0;
         report.put("success", success);
         report.put("error", null);
 
