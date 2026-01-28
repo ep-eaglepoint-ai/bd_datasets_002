@@ -1,6 +1,63 @@
+version: "3.9"
+
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  db:
+    image: postgres:15-alpine
+    container_name: notes_db
+    environment:
+      POSTGRES_USER: notes_user
+      POSTGRES_PASSWORD: notes_password
+      POSTGRES_DB: notes_app
+    ports:
+      - "5432:5432"
     volumes:
-      - .:/app
+      - notes_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notes_user -d notes_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./repository_after/server
+    container_name: notes_api
+    environment:
+      PORT: 3001
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: notes_user
+      DB_PASSWORD: notes_password
+      DB_NAME: notes_app
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npm run migrate && npm start"
+
+  client:
+    build: ./repository_after/client
+    container_name: notes_client
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    command: npm run dev -- --host
+  tests:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    volumes:
+      - ./evaluations:/app/evaluations
+      - ./repository_after/client:/app/client
+      - ./repository_after/server:/app/server
+    command: node /app/evaluations/evaluation.js
+    environment:
+      - SERVER_URL=http://api:3001
+    depends_on:
+      - api
+      - client
+volumes:
+  notes_db_data:
