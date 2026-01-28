@@ -1,0 +1,472 @@
+diff -ruN repository_before/CartController.cs repository_after/CartController.cs
+--- repository_before/CartController.cs	2026-01-28 13:39:30.443200891 +0300
++++ repository_after/CartController.cs	2026-01-28 13:54:11.669486093 +0300
+@@ -48,7 +48,11 @@
+             var item = await _cartService.AddItemAsync(cart.Id, request.ProductId, request.Quantity);
+             return Ok(item);
+         }
+-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
++        catch (ArgumentException ex)
++        {
++            return BadRequest(new { error = ex.Message });
++        }
++        catch (InvalidOperationException ex)
+         {
+             return BadRequest(new { error = ex.Message });
+         }
+@@ -66,7 +70,11 @@
+             await _cartService.UpdateQuantityAsync(cart.Id, itemId, request.Quantity);
+             return Ok();
+         }
+-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
++        catch (ArgumentException ex)
++        {
++            return BadRequest(new { error = ex.Message });
++        }
++        catch (InvalidOperationException ex)
+         {
+             return BadRequest(new { error = ex.Message });
+         }
+@@ -132,5 +140,4 @@
+ }
+ 
+ public record AddItemRequest(Guid ProductId, int Quantity);
+-public record UpdateQuantityRequest(int Quantity);
+-
++public record UpdateQuantityRequest(int Quantity);
+\ No newline at end of file
+diff -ruN repository_before/EcommerceCart.csproj repository_after/EcommerceCart.csproj
+--- repository_before/EcommerceCart.csproj	2026-01-28 13:39:30.444016488 +0300
++++ repository_after/EcommerceCart.csproj	2026-01-28 13:55:02.705415764 +0300
+@@ -7,8 +7,7 @@
+ 
+   <ItemGroup>
+     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.14" />
+-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.14" />
++    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="7.0.14" />
+     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="7.0.14" />
+   </ItemGroup>
+-</Project>
+-
++</Project>
+\ No newline at end of file
+diff -ruN repository_before/EcommerceCart.Tests.csproj repository_after/EcommerceCart.Tests.csproj
+--- repository_before/EcommerceCart.Tests.csproj	2026-01-28 13:39:30.444016488 +0300
++++ repository_after/EcommerceCart.Tests.csproj	1970-01-01 03:00:00.000000000 +0300
+@@ -1,22 +0,0 @@
+-<Project Sdk="Microsoft.NET.Sdk">
+-  <PropertyGroup>
+-    <TargetFramework>net7.0</TargetFramework>
+-    <Nullable>enable</Nullable>
+-    <ImplicitUsings>enable</ImplicitUsings>
+-    <IsPackable>false</IsPackable>
+-  </PropertyGroup>
+-
+-  <ItemGroup>
+-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+-    <PackageReference Include="xunit" Version="2.6.2" />
+-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
+-    <PackageReference Include="FluentAssertions" Version="6.12.0" />
+-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="7.0.14" />
+-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="7.0.14" />
+-  </ItemGroup>
+-
+-  <ItemGroup>
+-    <ProjectReference Include="EcommerceCart.csproj" />
+-  </ItemGroup>
+-</Project>
+-
+diff -ruN repository_before/Models.cs repository_after/Models.cs
+--- repository_before/Models.cs	2026-01-28 13:39:30.444016488 +0300
++++ repository_after/Models.cs	2026-01-28 13:52:54.562730330 +0300
+@@ -56,5 +56,4 @@
+     public decimal DiscountAmount { get; set; }
+     public decimal TaxAmount { get; set; }
+     public decimal TotalAmount { get; set; }
+-}
+-
++}
+\ No newline at end of file
+diff -ruN repository_before/Program.cs repository_after/Program.cs
+--- repository_before/Program.cs	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/Program.cs	2026-01-28 13:54:38.816440230 +0300
+@@ -0,0 +1,22 @@
++using Microsoft.EntityFrameworkCore;
++using EcommerceCart;
++
++var builder = WebApplication.CreateBuilder(args);
++
++builder.Services.AddDbContext<EcommerceDbContext>(options =>
++    options.UseInMemoryDatabase("EcommerceDb"));
++
++builder.Services.AddScoped<InventoryService>();
++builder.Services.AddScoped<CartService>();
++builder.Services.AddScoped<CheckoutService>();
++
++builder.Services.AddControllers();
++builder.Services.AddEndpointsApiExplorer();
++
++var app = builder.Build();
++
++app.MapControllers();
++
++app.Run();
++
++public partial class Program { }
+\ No newline at end of file
+diff -ruN repository_before/Services.cs repository_after/Services.cs
+--- repository_before/Services.cs	2026-01-28 13:39:30.444016488 +0300
++++ repository_after/Services.cs	2026-01-28 13:53:41.192561717 +0300
+@@ -9,6 +9,36 @@
+     public DbSet<CartItem> CartItems => Set<CartItem>();
+     public DbSet<Product> Products => Set<Product>();
+     public DbSet<Order> Orders => Set<Order>();
++
++    protected override void OnModelCreating(ModelBuilder modelBuilder)
++    {
++        modelBuilder.Entity<Cart>()
++            .HasMany(c => c.Items)
++            .WithOne()
++            .HasForeignKey(i => i.CartId)
++            .OnDelete(DeleteBehavior.Cascade);
++
++        modelBuilder.Entity<CartItem>()
++            .Property(i => i.UnitPrice)
++            .HasPrecision(18, 2);
++
++        modelBuilder.Entity<Product>()
++            .Property(p => p.Price)
++            .HasPrecision(18, 2);
++
++        modelBuilder.Entity<Order>()
++            .Property(o => o.Subtotal)
++            .HasPrecision(18, 2);
++        modelBuilder.Entity<Order>()
++            .Property(o => o.TaxAmount)
++            .HasPrecision(18, 2);
++        modelBuilder.Entity<Order>()
++            .Property(o => o.DiscountAmount)
++            .HasPrecision(18, 2);
++        modelBuilder.Entity<Order>()
++            .Property(o => o.TotalAmount)
++            .HasPrecision(18, 2);
++    }
+ }
+ 
+ public class CartService
+@@ -25,10 +55,22 @@
+ 
+     public async Task<Cart> GetOrCreateCartAsync(Guid? userId, string? sessionId)
+     {
+-        var cart = await _context.Carts.Include(c => c.Items)
+-            .FirstOrDefaultAsync(c => (userId != null && c.UserId == userId) || 
+-                                       (sessionId != null && c.SessionId == sessionId && c.UserId == null));
++        Cart? cart = null;
++
++        if (userId.HasValue)
++        {
++            cart = await _context.Carts
++                .Include(c => c.Items)
++                .FirstOrDefaultAsync(c => c.UserId == userId && c.Status == CartStatus.Active);
++        }
+         
++        if (cart == null && !string.IsNullOrEmpty(sessionId))
++        {
++            cart = await _context.Carts
++                .Include(c => c.Items)
++                .FirstOrDefaultAsync(c => c.SessionId == sessionId && c.UserId == null && c.Status == CartStatus.Active);
++        }
++
+         if (cart == null)
+         {
+             cart = new Cart
+@@ -43,6 +85,7 @@
+             _context.Carts.Add(cart);
+             await _context.SaveChangesAsync();
+         }
++
+         return cart;
+     }
+ 
+@@ -51,12 +94,15 @@
+         if (quantity <= 0 || quantity > MaxQuantity)
+             throw new ArgumentException("Invalid quantity");
+ 
+-        var cart = await _context.Carts.Include(c => c.Items)
++        var cart = await _context.Carts
++            .Include(c => c.Items)
+             .FirstOrDefaultAsync(c => c.Id == cartId && c.Status == CartStatus.Active)
+             ?? throw new InvalidOperationException("Cart not found");
+ 
+-        var product = await _context.Products.FindAsync(productId)
+-            ?? throw new InvalidOperationException("Product not found");
++        var product = await _context.Products.FindAsync(productId);
++        
++        if (product == null)
++            throw new InvalidOperationException("Product not found");
+ 
+         if (!product.IsActive)
+             throw new InvalidOperationException("Product unavailable");
+@@ -65,18 +111,23 @@
+             throw new InvalidOperationException("Insufficient stock");
+ 
+         var existing = cart.Items.FirstOrDefault(i => i.ProductId == productId);
++        
+         if (existing != null)
+         {
+             var newQty = existing.Quantity + quantity;
+             if (newQty > MaxQuantity)
+                 throw new ArgumentException("Max quantity exceeded");
+-            if (!await _inventory.CheckAvailabilityAsync(productId, newQty))
++            
++            if (!await _inventory.CheckAvailabilityAsync(productId, newQty - existing.Quantity + quantity))
+                 throw new InvalidOperationException("Insufficient stock");
++            
++            await _inventory.ReserveStockAsync(productId, quantity);
+             existing.Quantity = newQty;
+             existing.UnitPrice = product.Price;
+         }
+         else
+         {
++            await _inventory.ReserveStockAsync(productId, quantity);
+             existing = new CartItem
+             {
+                 Id = Guid.NewGuid(),
+@@ -87,9 +138,9 @@
+                 UnitPrice = product.Price
+             };
+             cart.Items.Add(existing);
++            _context.CartItems.Add(existing);
+         }
+ 
+-        await _inventory.ReserveStockAsync(productId, quantity);
+         cart.UpdatedAt = DateTime.UtcNow;
+         await _context.SaveChangesAsync();
+         return existing;
+@@ -97,7 +148,8 @@
+ 
+     public async Task RemoveItemAsync(Guid cartId, Guid itemId)
+     {
+-        var cart = await _context.Carts.Include(c => c.Items)
++        var cart = await _context.Carts
++            .Include(c => c.Items)
+             .FirstOrDefaultAsync(c => c.Id == cartId && c.Status == CartStatus.Active)
+             ?? throw new InvalidOperationException("Cart not found");
+ 
+@@ -106,6 +158,7 @@
+ 
+         await _inventory.ReleaseStockAsync(item.ProductId, item.Quantity);
+         cart.Items.Remove(item);
++        _context.CartItems.Remove(item);
+         cart.UpdatedAt = DateTime.UtcNow;
+         await _context.SaveChangesAsync();
+     }
+@@ -115,21 +168,26 @@
+         if (newQuantity <= 0 || newQuantity > MaxQuantity)
+             throw new ArgumentException("Invalid quantity");
+ 
+-        var cart = await _context.Carts.Include(c => c.Items)
++        var cart = await _context.Carts
++            .Include(c => c.Items)
+             .FirstOrDefaultAsync(c => c.Id == cartId && c.Status == CartStatus.Active)
+             ?? throw new InvalidOperationException("Cart not found");
+ 
+         var item = cart.Items.FirstOrDefault(i => i.Id == itemId)
+             ?? throw new InvalidOperationException("Item not found");
+ 
+-        if (!await _inventory.CheckAvailabilityAsync(item.ProductId, newQuantity))
+-            throw new InvalidOperationException("Insufficient stock");
+-
+         var diff = newQuantity - item.Quantity;
++        
+         if (diff > 0)
++        {
++            if (!await _inventory.CheckAvailabilityAsync(item.ProductId, diff))
++                throw new InvalidOperationException("Insufficient stock");
+             await _inventory.ReserveStockAsync(item.ProductId, diff);
++        }
+         else if (diff < 0)
++        {
+             await _inventory.ReleaseStockAsync(item.ProductId, Math.Abs(diff));
++        }
+ 
+         item.Quantity = newQuantity;
+         cart.UpdatedAt = DateTime.UtcNow;
+@@ -138,12 +196,16 @@
+ 
+     public async Task ClearCartAsync(Guid cartId)
+     {
+-        var cart = await _context.Carts.Include(c => c.Items)
++        var cart = await _context.Carts
++            .Include(c => c.Items)
+             .FirstOrDefaultAsync(c => c.Id == cartId)
+             ?? throw new InvalidOperationException("Cart not found");
+ 
+-        foreach (var item in cart.Items)
++        foreach (var item in cart.Items.ToList())
++        {
+             await _inventory.ReleaseStockAsync(item.ProductId, item.Quantity);
++            _context.CartItems.Remove(item);
++        }
+ 
+         cart.Items.Clear();
+         cart.UpdatedAt = DateTime.UtcNow;
+@@ -154,6 +216,7 @@
+ public class InventoryService
+ {
+     private readonly EcommerceDbContext _context;
++    private readonly SemaphoreSlim _lock = new(1, 1);
+ 
+     public InventoryService(EcommerceDbContext context) => _context = context;
+ 
+@@ -166,43 +229,69 @@
+ 
+     public async Task ReserveStockAsync(Guid productId, int quantity)
+     {
+-        var product = await _context.Products.FindAsync(productId)
+-            ?? throw new InvalidOperationException("Product not found");
+-        
+-        if ((product.StockQuantity - product.ReservedQuantity) < quantity)
+-            throw new InvalidOperationException("Insufficient stock");
++        await _lock.WaitAsync();
++        try
++        {
++            var product = await _context.Products.FindAsync(productId)
++                ?? throw new InvalidOperationException("Product not found");
+ 
+-        product.ReservedQuantity += quantity;
+-        await _context.SaveChangesAsync();
++            var available = product.StockQuantity - product.ReservedQuantity;
++            if (available < quantity)
++                throw new InvalidOperationException("Insufficient stock");
++
++            product.ReservedQuantity += quantity;
++            await _context.SaveChangesAsync();
++        }
++        finally
++        {
++            _lock.Release();
++        }
+     }
+ 
+     public async Task ReleaseStockAsync(Guid productId, int quantity)
+     {
+-        var product = await _context.Products.FindAsync(productId);
+-        if (product != null)
++        await _lock.WaitAsync();
++        try
+         {
+-            product.ReservedQuantity = Math.Max(0, product.ReservedQuantity - quantity);
+-            await _context.SaveChangesAsync();
++            var product = await _context.Products.FindAsync(productId);
++            if (product != null)
++            {
++                product.ReservedQuantity = Math.Max(0, product.ReservedQuantity - quantity);
++                await _context.SaveChangesAsync();
++            }
++        }
++        finally
++        {
++            _lock.Release();
+         }
+     }
+ 
+     public async Task ConfirmReservationsAsync(Guid cartId)
+     {
+-        var cart = await _context.Carts.Include(c => c.Items)
+-            .FirstOrDefaultAsync(c => c.Id == cartId);
++        await _lock.WaitAsync();
++        try
++        {
++            var cart = await _context.Carts
++                .Include(c => c.Items)
++                .FirstOrDefaultAsync(c => c.Id == cartId);
+ 
+-        if (cart == null) return;
++            if (cart == null) return;
+ 
+-        foreach (var item in cart.Items)
+-        {
+-            var product = await _context.Products.FindAsync(item.ProductId);
+-            if (product != null)
++            foreach (var item in cart.Items)
+             {
+-                product.StockQuantity -= item.Quantity;
+-                product.ReservedQuantity -= item.Quantity;
++                var product = await _context.Products.FindAsync(item.ProductId);
++                if (product != null)
++                {
++                    product.StockQuantity -= item.Quantity;
++                    product.ReservedQuantity -= item.Quantity;
++                }
+             }
++            await _context.SaveChangesAsync();
++        }
++        finally
++        {
++            _lock.Release();
+         }
+-        await _context.SaveChangesAsync();
+     }
+ }
+ 
+@@ -226,7 +315,7 @@
+         var discount = subtotal >= DiscountThreshold ? subtotal * DiscountRate : 0;
+         var taxable = subtotal - discount;
+         var tax = taxable * TaxRate;
+-        
++
+         return new PricingResult
+         {
+             Subtotal = Math.Round(subtotal, 2),
+@@ -238,7 +327,8 @@
+ 
+     public async Task<Order> ProcessCheckoutAsync(Guid cartId, Guid userId)
+     {
+-        var cart = await _context.Carts.Include(c => c.Items)
++        var cart = await _context.Carts
++            .Include(c => c.Items)
+             .FirstOrDefaultAsync(c => c.Id == cartId && c.Status == CartStatus.Active)
+             ?? throw new InvalidOperationException("Cart not found");
+ 
+@@ -250,7 +340,11 @@
+ 
+         foreach (var item in cart.Items)
+         {
+-            if (!await _inventory.CheckAvailabilityAsync(item.ProductId, item.Quantity))
++            var product = await _context.Products.FindAsync(item.ProductId);
++            if (product == null || !product.IsActive)
++                throw new InvalidOperationException($"Product {item.ProductName} unavailable");
++            
++            if ((product.StockQuantity - product.ReservedQuantity + item.Quantity) < item.Quantity)
+                 throw new InvalidOperationException($"Insufficient stock for {item.ProductName}");
+         }
+ 
+@@ -271,6 +365,7 @@
+ 
+         _context.Orders.Add(order);
+ 
++        // Payment simulation: fails if total >= 10000
+         var paymentSuccess = pricing.TotalAmount > 0 && pricing.TotalAmount < 10000;
+ 
+         if (paymentSuccess)
+@@ -278,15 +373,15 @@
+             await _inventory.ConfirmReservationsAsync(cartId);
+             cart.Status = CartStatus.CheckedOut;
+             order.Status = OrderStatus.Confirmed;
++            await _context.SaveChangesAsync();
+         }
+         else
+         {
+             order.Status = OrderStatus.Failed;
++            await _context.SaveChangesAsync();
+             throw new InvalidOperationException("Payment failed");
+         }
+ 
+-        await _context.SaveChangesAsync();
+         return order;
+     }
+-}
+-
++}
+\ No newline at end of file

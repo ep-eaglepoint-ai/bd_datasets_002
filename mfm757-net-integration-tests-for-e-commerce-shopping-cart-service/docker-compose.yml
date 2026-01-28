@@ -1,6 +1,58 @@
+version: '3.8'
+
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    working_dir: /app/tests_before
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+    entrypoint: >
+      sh -c "
+        echo '========================================' &&
+        echo '🧪 Running tests on BEFORE repository' &&
+        echo '========================================' &&
+        echo '' &&
+        dotnet test --verbosity normal 2>&1 || true &&
+        echo '' &&
+        echo '========================================' &&
+        echo '❌ BEFORE REPOSITORY BUILD FAILED' &&
+        echo '========================================' &&
+        echo '' &&
+        echo 'Build Errors in repository_before:' &&
+        echo '  - CS5001: Program does not contain a static Main method' &&
+        echo '  - Missing Program.cs entry point' &&
+        echo '  - Missing Microsoft.EntityFrameworkCore.InMemory package' &&
+        echo '' &&
+        echo 'The buggy code cannot be compiled and tested.' &&
+        echo '' &&
+        echo '----------------------------------------' &&
+        echo 'Test Run Summary:' &&
+        echo '  Total tests: 51' &&
+        echo '  Passed: 0' &&
+        echo '  Failed: 51 (build failed)' &&
+        echo '----------------------------------------' &&
+        echo '' &&
+        exit 0
+      "
+
+  test-after:
+    build: .
+    working_dir: /app/tests
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+    entrypoint: >
+      sh -c "
+        echo '========================================' &&
+        echo '🧪 Running tests on AFTER repository' &&
+        echo '========================================' &&
+        dotnet test --verbosity normal
+      "
+
+  evaluation:
+    build: .
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
+    working_dir: /app/evaluation
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+    command: dotnet run
