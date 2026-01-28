@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY . /app
+
+# Install Go
+RUN apt-get update \
+&& apt-get install -y --no-install-recommends wget curl ca-certificates git \
+&& wget -O go.tar.gz https://go.dev/dl/go1.22.0.linux-amd64.tar.gz \
+&& tar -C /usr/local -xzf go.tar.gz \
+&& rm go.tar.gz \
+&& rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["python3", "-m", "evaluation.evaluation"]

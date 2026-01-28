@@ -1,0 +1,28 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Using custom Docker image, Python and Go installed"
+
+  pre_build:
+    commands:
+      - echo "Running repository_before tests"
+      - go version
+      - cd repository_before
+      - go test -v ./...
+      - cd ..
+
+  build:
+    commands:
+      - echo "Running evaluation"
+      - python3 -m evaluation.evaluation
+
+  post_build:
+    commands:
+      - echo "Running repository_after tests"
+      - cd repository_after
+      - go test -v ./...
+      - cd ..
