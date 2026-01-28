@@ -54,29 +54,45 @@ func Validate(input string, mode Mode, policy Policy, clock Clock) error {
 		processed = strings.ToUpper(processed)
 	}
 
+	var errs []error
+
+	// Check minimum length
+	if len(processed) < policy.MinLength {
+		if policy.FailFast {
+			return ErrTooShort
+		}
+		errs = append(errs, ErrTooShort)
+	}
+
 	// Check SQL injection
 	if policy.RejectSQL {
-		upperInput := strings.ToUpper(processed)
-		if strings.Contains(upperInput, "DROP") || strings.Contains(upperInput, "DELETE") || 
-		   strings.Contains(upperInput, "INSERT") || strings.Contains(upperInput, "UPDATE") {
-			return ErrSQLInjection
+		if strings.Contains(processed, "DROP") || strings.Contains(processed, "DELETE") || 
+		   strings.Contains(processed, "INSERT") || strings.Contains(processed, "UPDATE") {
+			if policy.FailFast {
+				return ErrSQLInjection
+			}
+			errs = append(errs, ErrSQLInjection)
 		}
 	}
 
 	// Check XSS
 	if !policy.AllowHTML {
 		if strings.Contains(strings.ToUpper(processed), "<SCRIPT>") {
-			return ErrXSS
+			if policy.FailFast {
+				return ErrXSS
+			}
+			errs = append(errs, ErrXSS)
 		}
 	}
 
-	// Check minimum length
-	if len(processed) < policy.MinLength {
-		if mode == Strict {
-			return ErrTooShort
-		}
-		// Lenient mode suppresses short input errors
+	// Lenient mode suppresses exactly one short-input violation and no other
+	if mode == Lenient && len(errs) == 1 && errors.Is(errs[0], ErrTooShort) {
 		return nil
+	}
+
+	// Return first error for deterministic precedence
+	if len(errs) > 0 {
+		return errs[0]
 	}
 
 	return nil
