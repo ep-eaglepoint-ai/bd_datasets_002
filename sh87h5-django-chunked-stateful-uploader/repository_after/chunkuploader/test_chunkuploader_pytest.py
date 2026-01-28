@@ -2,10 +2,10 @@ import hashlib
 import os
 
 import pytest
+from django.apps import apps
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.utils import timezone
 
-from .models import FileSession
+DEFAULT_CHUNK_SIZE = 512 * 1024
 
 
 def _make_payload(size: int) -> bytes:
@@ -35,6 +35,10 @@ def _post_chunk(client, file_hash, index, total_size, chunk_size, data, final=Fa
     )
 
 
+def _get_filesession_model():
+    return apps.get_model("chunkuploader", "FileSession")
+
+
 @pytest.fixture(autouse=True)
 def _override_chunk_dirs(settings, tmp_path):
     settings.CHUNK_UPLOAD_DIR = str(tmp_path / "chunks")
@@ -45,7 +49,7 @@ def _override_chunk_dirs(settings, tmp_path):
 
 @pytest.mark.django_db
 def test_handshake_new_incomplete_and_exists(client):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = chunk_size * 3
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)
@@ -72,7 +76,7 @@ def test_handshake_new_incomplete_and_exists(client):
 
 @pytest.mark.django_db
 def test_reassembly_integrity_and_final_file(client, settings):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = chunk_size * 3
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)
@@ -90,6 +94,7 @@ def test_reassembly_integrity_and_final_file(client, settings):
             final=(index == 2),
         )
 
+    FileSession = _get_filesession_model()
     session = FileSession.objects.get(file_hash=file_hash)
     assert session.is_complete is True
 
@@ -101,7 +106,7 @@ def test_reassembly_integrity_and_final_file(client, settings):
 
 @pytest.mark.django_db
 def test_invalid_chunk_size_does_not_mutate_state(client):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = chunk_size * 3
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)
@@ -110,6 +115,7 @@ def test_invalid_chunk_size_does_not_mutate_state(client):
     response = _post_chunk(client, file_hash, 0, total_size, chunk_size, bad_chunk, final=False)
     assert response.status_code == 400
 
+    FileSession = _get_filesession_model()
     session = FileSession.objects.get(file_hash=file_hash)
     session.ensure_chunk_map()
     assert session.chunks_uploaded_map == "000"
@@ -117,7 +123,7 @@ def test_invalid_chunk_size_does_not_mutate_state(client):
 
 @pytest.mark.django_db
 def test_out_of_range_chunk_is_rejected(client):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = chunk_size * 3
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)
@@ -125,6 +131,7 @@ def test_out_of_range_chunk_is_rejected(client):
     response = _post_chunk(client, file_hash, 3, total_size, chunk_size, data[:chunk_size])
     assert response.status_code == 400
 
+    FileSession = _get_filesession_model()
     session = FileSession.objects.get(file_hash=file_hash)
     session.ensure_chunk_map()
     assert session.chunks_uploaded_map == "000"
@@ -132,13 +139,14 @@ def test_out_of_range_chunk_is_rejected(client):
 
 @pytest.mark.django_db
 def test_out_of_order_upload_does_not_corrupt_map(client):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = chunk_size * 3
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)
 
     _post_chunk(client, file_hash, 2, total_size, chunk_size, data[chunk_size * 2:], final=False)
 
+    FileSession = _get_filesession_model()
     session = FileSession.objects.get(file_hash=file_hash)
     session.ensure_chunk_map()
     assert session.chunks_uploaded_map == "001"
@@ -152,7 +160,7 @@ def test_out_of_order_upload_does_not_corrupt_map(client):
 
 @pytest.mark.django_db
 def test_duplicate_chunk_upload_is_idempotent(client):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = chunk_size * 2
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)
@@ -160,6 +168,7 @@ def test_duplicate_chunk_upload_is_idempotent(client):
     _post_chunk(client, file_hash, 0, total_size, chunk_size, data[:chunk_size])
     _post_chunk(client, file_hash, 0, total_size, chunk_size, data[:chunk_size])
 
+    FileSession = _get_filesession_model()
     session = FileSession.objects.get(file_hash=file_hash)
     session.ensure_chunk_map()
     assert session.chunks_uploaded_map == "10"
@@ -167,7 +176,7 @@ def test_duplicate_chunk_upload_is_idempotent(client):
 
 @pytest.mark.django_db
 def test_mismatched_session_parameters_are_rejected(client):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = chunk_size * 2
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)
@@ -187,7 +196,7 @@ def test_mismatched_session_parameters_are_rejected(client):
 
 @pytest.mark.django_db
 def test_last_chunk_size_validation(client):
-    chunk_size = 5 * 1024 * 1024
+    chunk_size = DEFAULT_CHUNK_SIZE
     total_size = (chunk_size * 2) + 123
     data = _make_payload(total_size)
     file_hash = _hash_bytes(data)

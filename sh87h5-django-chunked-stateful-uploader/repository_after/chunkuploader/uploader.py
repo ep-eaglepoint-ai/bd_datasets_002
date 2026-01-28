@@ -41,7 +41,15 @@ def assemble_file(session, src_dir):
             session.save(update_fields=["is_complete"])
             for f in chunk_files:
                 os.remove(f)
-            os.rmdir(src_dir)
+            try:
+                if os.path.exists(lock_path):
+                    os.remove(lock_path)
+            except Exception:
+                pass
+            try:
+                os.rmdir(src_dir)
+            except OSError:
+                return True
             return True
 
         if os.path.exists(tmp_path):
