@@ -220,6 +220,120 @@ describe("JWT Authentication — security-critical flows", () => {
       expect(tokenData.isRevoked).toBe(true);
     }
   });
+
+  test("refresh failure clears tokens and surfaces session expired error", async () => {
+    jest.useFakeTimers();
+    const { __testExports } = loadFreshAppModule();
+    const { mockBackend, httpClient } = __testExports;
+
+    // Arrange: Login and set tokens near expiry to trigger proactive refresh
+    const loginRes = await mockBackend.login(
+      "admin@fintech.com",
+      "Admin123!",
+      "ip-ef"
+    );
+    httpClient.setTokens({
+      accessToken: loginRes.accessToken,
+      expiresAt: Date.now() + 30000, // < 60s
+    });
+    (httpClient as any).getStoredRefreshToken = () => "mock-rt";
+
+    // Mock refresh to fail
+    jest
+      .spyOn(mockBackend, "refreshAccessToken")
+      .mockRejectedValue(new Error("Refresh failed"));
+
+    // Act
+    const req = httpClient.request({ endpoint: "/api/protected" });
+    await advance(200);
+
+    // Assert
+    await expect(req).rejects.toThrow("Session expired. Please login again.");
+    expect((httpClient as any).tokens).toBeNull();
+  });
+
+  test("multiple concurrent 401 requests are queued and retried after single refresh", async () => {
+    jest.useFakeTimers();
+    const { __testExports } = loadFreshAppModule();
+    const { mockBackend, httpClient } = __testExports;
+
+    await mockBackend.login("admin@fintech.com", "Admin123!", "ip-mq");
+    const refreshTokensMap: Map<string, any> = (mockBackend as any)
+      .refreshTokens;
+    const issuedRefreshToken = Array.from(refreshTokensMap.keys())[0];
+    (httpClient as any).getStoredRefreshToken = () => issuedRefreshToken;
+
+    httpClient.setTokens(null); // Force 401
+
+    const refreshSpy = jest.spyOn(mockBackend, "refreshAccessToken");
+
+    // Act: Fire 3 concurrent requests
+    const p1 = httpClient.request({ endpoint: "/api/protected" });
+    const p2 = httpClient.request({ endpoint: "/api/protected" });
+    const p3 = httpClient.request({ endpoint: "/api/protected" });
+
+    await advance(200);
+    const results = await Promise.all([p1, p2, p3]);
+
+    // Assert
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
+    results.forEach((res) => {
+      expect(res.data).toBe("Protected data accessed successfully");
+    });
+  });
+
+  test("request queue prevents infinite retry loops via _retry flag", async () => {
+    jest.useFakeTimers();
+    const { __testExports } = loadFreshAppModule();
+    const { mockBackend, httpClient } = __testExports;
+
+    (httpClient as any).getStoredRefreshToken = () => "rt";
+    jest.spyOn(mockBackend, "refreshAccessToken").mockResolvedValue({
+      accessToken: "new_at",
+    });
+
+    // Mock validateAccessToken to FAIL even with new token
+    jest.spyOn(mockBackend, "validateAccessToken").mockRejectedValue({
+      status: 401,
+      message: "Persistent 401",
+    });
+
+    httpClient.setTokens(null);
+    const queueSpy = jest.spyOn((httpClient as any).requestQueue, "push");
+
+    // Act
+    const req = httpClient.request({ endpoint: "/api/protected" });
+    await advance(200);
+
+    // Assert
+    await expect(req).rejects.toEqual({
+      status: 401,
+      message: "Persistent 401",
+    });
+    expect(queueSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("proactive refresh does not occur when >= 60 seconds remain", async () => {
+    jest.useFakeTimers();
+    const { __testExports } = loadFreshAppModule();
+    const { mockBackend, httpClient } = __testExports;
+
+    const loginRes = await mockBackend.login(
+      "admin@fintech.com",
+      "Admin123!",
+      "ip-bound"
+    );
+    httpClient.setTokens({
+      accessToken: loginRes.accessToken,
+      expiresAt: Date.now() + 60000, // Exactly 60s
+    });
+
+    const refreshSpy = jest.spyOn(mockBackend, "refreshAccessToken");
+
+    await httpClient.request({ endpoint: "/api/protected" });
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("JWT Authentication — UI + state management", () => {
@@ -446,5 +560,129 @@ describe("JWT Authentication — UI + state management", () => {
     // Assert
     const error = await screen.findByText(/invalid credentials/i);
     expect(error).toBeInTheDocument();
+  });
+
+  test("loading state displays during authentication", async () => {
+    jest.useFakeTimers();
+    const { default: App } = loadFreshAppModule();
+    const { fireEvent } = require("@testing-library/react");
+    render(<App />);
+
+    const emailInput = screen.getByPlaceholderText(/you@company\.com/i);
+    const passInput = screen.getByPlaceholderText("••••••••");
+
+    // Use userEvent for typing
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    await user.type(emailInput, "admin@fintech.com");
+    await user.type(passInput, "Admin123!");
+
+    const submitBtn = screen.getByRole("button", { name: /sign in/i });
+
+    // Manually fire click to check intermediate state without awaiting full resolution
+    fireEvent.click(submitBtn);
+
+    // Assert loading state (button text changes)
+    expect(screen.getByText(/authenticating.../i)).toBeInTheDocument();
+    expect(submitBtn).toBeDisabled();
+
+    // Finish
+    await advance(300);
+    expect(await screen.findByText(/secure dashboard/i)).toBeInTheDocument();
+  });
+
+  test("session expiration (refresh failure) shows error to user", async () => {
+    jest.useFakeTimers();
+    const { default: App } = loadFreshAppModule();
+    const { __testExports } = require(defaultAppModulePath);
+    const { mockBackend, httpClient } = __testExports;
+
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<App />);
+
+    // Login
+    await user.type(
+      screen.getByPlaceholderText(/you@company\.com/i),
+      "admin@fintech.com"
+    );
+    await user.type(screen.getByPlaceholderText("••••••••"), "Admin123!");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await advance(300);
+
+    // Force expiration state
+    const loginRes = await mockBackend.login(
+      "admin@fintech.com",
+      "Admin123!",
+      "ip-temp"
+    );
+    httpClient.setTokens({
+      accessToken: loginRes.accessToken,
+      expiresAt: Date.now() + 30000,
+    });
+
+    // Mock refresh failure
+    jest
+      .spyOn(mockBackend, "refreshAccessToken")
+      .mockRejectedValue(new Error("Refresh failed"));
+
+    // Act
+    await user.click(
+      screen.getByRole("button", { name: /fetch protected data/i })
+    );
+    await advance(200);
+
+    // Assert
+    expect(
+      await screen.findByText(/failed: session expired. please login again/i)
+    ).toBeInTheDocument();
+  });
+
+  test("token theft invalidates session preventing further access", async () => {
+    jest.useFakeTimers();
+    const { default: App } = loadFreshAppModule();
+    const { __testExports } = require(defaultAppModulePath);
+    const { mockBackend, httpClient } = __testExports;
+
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<App />);
+
+    // Login
+    await user.type(
+      screen.getByPlaceholderText(/you@company\.com/i),
+      "admin@fintech.com"
+    );
+    await user.type(screen.getByPlaceholderText("••••••••"), "Admin123!");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await advance(300);
+
+    // Simulate theft: Get the current refresh token and reuse it
+    const refreshTokensMap: Map<string, any> = (mockBackend as any)
+      .refreshTokens;
+    const originalRefreshToken = Array.from(refreshTokensMap.keys())[0];
+
+    // First use: Valid refresh
+    await mockBackend.refreshAccessToken(originalRefreshToken);
+
+    // Second use: Theft!
+    await expect(
+      mockBackend.refreshAccessToken(originalRefreshToken)
+    ).rejects.toThrow("Token reuse detected");
+
+    // Force access token expiry to trigger refresh on next request
+    httpClient.setTokens({
+      accessToken: "expired_token",
+      expiresAt: Date.now() - 1000,
+    });
+    (httpClient as any).getStoredRefreshToken = () => originalRefreshToken;
+
+    // Act
+    await user.click(
+      screen.getByRole("button", { name: /fetch protected data/i })
+    );
+    await advance(200);
+
+    // Assert
+    expect(
+      await screen.findByText(/failed: session expired. please login again/i)
+    ).toBeInTheDocument();
   });
 });
