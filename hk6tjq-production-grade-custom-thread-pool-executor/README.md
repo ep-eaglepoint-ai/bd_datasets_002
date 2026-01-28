@@ -1,48 +1,9 @@
 # HK6TJQ - production-grade-custom-thread-pool-executor
 
-**Category:** sft
+```bash
+docker compose run test
+```
 
-## Overview
-- Task ID: HK6TJQ
-- Title: production-grade-custom-thread-pool-executor
-- Category: sft
-- Repository: ep-eaglepoint-ai/bd_datasets_002
-- Branch: hk6tjq-production-grade-custom-thread-pool-executor
-
-## Requirements
-- The implementation must define a public class CustomThreadPoolExecutor that implements java.util.concurrent.ExecutorService. All interface methods must be implemented: execute(Runnable), submit(Runnable), submit(Callable<T>), submit(Runnable, T), invokeAll(Collection<Callable<T>>), invokeAll with timeout, invokeAny(Collection<Callable<T>>), invokeAny with timeout, shutdown(), shutdownNow(), isShutdown(), isTerminated(), and awaitTermination(long, TimeUnit). The execute method must be the core task submission path, with submit methods wrapping tasks in FutureTask and delegating to execute. The invokeAll method must submit all callables, then block until all complete or timeout expires, returning a list of Futures in submission order. The invokeAny method must return the result of any successfully completed task, cancelling remaining tasks upon first success. Each method must properly handle null arguments by throwing NullPointerException, and must throw RejectedExecutionException after shutdown when appropriate. The class must be thread-safe for concurrent method invocations from multiple threads.
-- The constructor must accept corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit, and BlockingQueue<Runnable> parameters matching ThreadPoolExecutor's signature. Core threads (up to corePoolSize) must be kept alive indefinitely waiting for tasks, using queue.take() which blocks without timeout. Non-core threads (between corePoolSize and maximumPoolSize) must use queue.poll(keepAliveTime, unit) and terminate themselves when poll returns null due to timeout. Thread creation must follow this priority: if fewer than corePoolSize threads exist, create a new core thread; if core threads are all busy, queue the task; if the queue is full and fewer than maximumPoolSize threads exist, create a non-core thread; if maximumPoolSize threads exist and queue is full, invoke the rejection policy. The current pool size, active thread count (threads executing tasks), and completed task count must be tracked and exposed via getPoolSize(), getActiveCount(), and getCompletedTaskCount() methods. The allowCoreThreadTimeOut(boolean) method must enable timeout for core threads when set to true. Worker threads must be implemented as an inner class that loops fetching and executing tasks until terminated.
-- The implementation must accept a BlockingQueue<Runnable> in the constructor, allowing users to provide ArrayBlockingQueue, LinkedBlockingQueue with capacity, or custom implementations. The queue's offer() method must be used for non-blocking task submission attempts (returning false when full), and take()/poll(timeout, unit) for blocking task retrieval by workers. The getQueue() method must return the work queue for monitoring. The queue's size() must be used by getQueueSize() to report current queue depth. The implementation must handle the case where the queue becomes full: first attempt to create a non-core worker thread, and only invoke rejection policy if maximumPoolSize is reached. The purge() method must remove cancelled Future tasks from the queue to prevent memory waste. The prestartCoreThread() method must start one core thread if fewer than corePoolSize exist, and prestartAllCoreThreads() must start corePoolSize threads. The queue must be drained during shutdownNow(), with all unexecuted tasks returned to the caller as a List<Runnable>.
-- Implement an inner class CustomFutureTask<V> implementing RunnableFuture<V> (extends both Runnable and Future<V>). Internal state must track: NEW (initial), RUNNING (task started), COMPLETED (finished normally), FAILED (threw exception), CANCELLED (cancelled before or during execution). The get() method must block until the task completes, then return the result or throw ExecutionException wrapping any exception from the task. The get(long timeout, TimeUnit unit) method must throw TimeoutException if the result is not available within the specified time. The cancel(boolean mayInterruptIfRunning) method must transition state to CANCELLED if still NEW, and if mayInterruptIfRunning is true and state is RUNNING, interrupt the executing thread. The isCancelled() and isDone() methods must report state accurately. State transitions must be atomic using volatile state variable with compareAndSet operations or synchronized blocks. A Condition variable must be used to signal waiters when the task completes. The FutureTask must store the result, exception, and runner thread reference. After completion or cancellation, the callable reference must be nulled to allow garbage collection.
-- Define an interface RejectedExecutionHandler with method void rejectedExecution(Runnable task, CustomThreadPoolExecutor executor). Implement four policy classes: AbortPolicy must throw new RejectedExecutionException("Task rejected: " + task.toString()) including the executor's state in the message. CallerRunsPolicy must execute the task directly in the calling thread via task.run() unless the executor is shutdown, providing natural backpressure. DiscardPolicy must silently do nothing, dropping the task. DiscardOldestPolicy must call executor.getQueue().poll() to remove the oldest waiting task, then retry executor.execute(task) unless shutdown. The default policy must be AbortPolicy. The setRejectedExecutionHandler(RejectedExecutionHandler) method must allow runtime policy changes. Each policy's behavior must be documented with clear Javadoc explaining use cases and trade-offs. A rejection counter must track total rejections accessible via getRejectedCount().
-- The shutdown() method must set a SHUTDOWN state that prevents new task submissions (execute throws RejectedExecutionException) while allowing queued tasks to complete. Workers must check the shutdown state after each task and terminate when the queue is empty and shutdown is true. The shutdownNow() method must set a STOP state, interrupt all worker threads via Thread.interrupt(), drain the work queue into a list, and return that list to the caller. The awaitTermination(long timeout, TimeUnit unit) method must block until all workers have terminated or the timeout expires, returning true if terminated or false if timeout elapsed. The isShutdown() method must return true after shutdown() or shutdownNow() is called. The isTerminated() method must return true only when isShutdown() is true AND all workers have exited AND the queue is empty. A termination Condition variable must be signaled when the last worker exits, waking threads blocked in awaitTermination. The finalize() method or a try-with-resources pattern with AutoCloseable must ensure shutdown is called to prevent thread leaks.
-- Define an interface ThreadFactory (or use java.util.concurrent.ThreadFactory) with method Thread newThread(Runnable r). Implement a DefaultThreadFactory that creates threads with names following the pattern "pool-{poolNumber}-thread-{threadNumber}" for debugging. The factory must set threads as non-daemon by default (so JVM waits for completion), with configurable daemon status. Thread priority must be Thread.NORM_PRIORITY by default but configurable. The setThreadFactory(ThreadFactory) method must allow changing the factory. Worker threads must handle uncaught exceptions by logging the error and terminating cleanly without crashing the entire pool. An UncaughtExceptionHandler can be set via the thread factory or setUncaughtExceptionHandler method. Thread creation failures (OutOfMemoryError from new Thread()) must be handled gracefully: the task should be rejected rather than losing it silently. The thread count must be decremented atomically if thread creation fails after incrementing.
-- In addition to standard FIFO queuing, the implementation must support priority-based scheduling when constructed with a PriorityBlockingQueue. Define a PriorityTask<V> class that wraps a Callable<V> with an integer priority level (higher values = higher priority) and implements Comparable<PriorityTask>. The compareTo method must order by priority descending, then by submission timestamp ascending for equal priorities (FIFO within same priority). When the work queue is a PriorityBlockingQueue<Runnable>, tasks must be dequeued in priority order. A convenience submit(Callable<V>, int priority) method must wrap the callable in PriorityTask and submit it. The getPendingTasksByPriority() method must return a Map<Integer, Integer> showing count of pending tasks at each priority level. Priority scheduling must not affect thread management semantics - core/max pool sizing and keep-alive behavior must work identically regardless of queue type. Document that PriorityBlockingQueue is unbounded by default, so maximumPoolSize effectively becomes meaningless unless a bounded custom comparator-based queue is used.
-
-## Metadata
-- Programming Languages: Java
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
-
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
-
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
-
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+```bash
+docker compose run evaluation
+```
