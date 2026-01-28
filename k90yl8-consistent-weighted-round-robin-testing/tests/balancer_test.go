@@ -64,15 +64,19 @@ func (sa *SequenceAuditor) VerifyExactSequence(t *testing.T, expected []string) 
 	t.Helper()
 
 	if len(sa.sequence) != len(expected) {
-		t.Errorf("Sequence length mismatch: expected %d, got %d", len(expected), len(sa.sequence))
+		t.Errorf("Sequence length mismatch: expected %d, got %d\nExpected: %v\nActual: %v",
+			len(expected), len(sa.sequence), expected, sa.sequence)
 		return
 	}
 
 	for i, exp := range expected {
 		if sa.sequence[i] != exp {
-			t.Errorf("Sequence mismatch at position %d: expected '%s', got '%s'", i, exp, sa.sequence[i])
+			t.Errorf("Sequence mismatch at position %d: expected '%s', got '%s'\nFull Expected: %v\nFull Actual: %v",
+				i, exp, sa.sequence[i], expected, sa.sequence)
+			return
 		}
 	}
+	t.Logf("✓ Exact sequence verified: %v", sa.sequence)
 }
 
 func (sa *SequenceAuditor) RunAudit(b *balancer.DynamicWeightedBalancer, n int) {
@@ -205,7 +209,6 @@ func TestStaticDistribution(t *testing.T) {
 		auditor := NewSequenceAuditor()
 		auditor.RunAudit(b, 1010)
 
-		// Heavy should get ~99%, Light ~1%
 		heavyRatio := float64(auditor.GetCounts()["Heavy"]) / float64(auditor.totalCalls)
 		if heavyRatio < 0.98 {
 			t.Errorf("Heavy node should get ~99%% of traffic, got %.2f%%", heavyRatio*100)
@@ -218,7 +221,9 @@ func TestStaticDistribution(t *testing.T) {
 func TestDynamicTransitions(t *testing.T) {
 
 	// Requirement 2: Sequence Continuity Test - EXACT sequence verification
-	t.Run("SequenceContinuity_WeightTransition", func(t *testing.T) {
+	// HARDCODED expected sequence comparison as per requirement
+	t.Run("SequenceContinuity_ExactSequenceVerification", func(t *testing.T) {
+		// Start with weights [A:2, B:2] as specified in requirement
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 2, Healthy: true},
 			{ID: "B", Weight: 2, Healthy: true},
@@ -226,42 +231,58 @@ func TestDynamicTransitions(t *testing.T) {
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
 		// Call GetNextNode twice with equal weights
+		// Algorithm trace:
+		// Initial: currentIndex=-1, currentWeight=0, maxWeight=2, gcdWeight=2
+		// Call 1: index→0, weight=0-2=-2→reset to 2, A(2>=2)→"A"
+		// Call 2: index→1, B(2>=2)→"B"
 		result1 := b.GetNextNode()
 		result2 := b.GetNextNode()
-		t.Logf("First two calls: %v, %v", result1, result2)
 
-		// Verify initial behavior - with equal weights, should be A, B
 		if result1 != "A" {
 			t.Errorf("First call should return 'A', got '%s'", result1)
 		}
 		if result2 != "B" {
 			t.Errorf("Second call should return 'B', got '%s'", result2)
 		}
+		t.Logf("Initial calls with [A:2, B:2]: %s, %s", result1, result2)
 
-		// Update to [A:10, B:2]
+		// State after 2 calls: currentIndex=1, currentWeight=2
+
+		// UpdateWeights to [A:10, B:2] as specified in requirement
 		newNodes := []*balancer.Node{
 			{ID: "A", Weight: 10, Healthy: true},
 			{ID: "B", Weight: 2, Healthy: true},
 		}
 		b.UpdateWeights(newNodes)
+		// New state: maxWeight=10, gcdWeight=2, currentIndex=1, currentWeight=2
 
 		// Record next 12 calls
 		auditor := NewSequenceAuditor()
 		auditor.RunAudit(b, 12)
 
-		next12 := auditor.GetSequence()
-		t.Logf("Next 12 calls sequence: %v", next12)
-
-		// EXACT SEQUENCE VERIFICATION (Requirement 2)
-		// With weights A:10, B:2 (GCD=2, Max=10), starting after state [index=1, weight=2]
-		// Expected sequence: A, A, A, A, A, B, A, A, A, A, A, B
+		// HARDCODED EXPECTED SEQUENCE based on IWRR algorithm trace:
+		// Call 1: index=1→0, weight=2-2=0→reset to 10, A(10>=10)→A
+		// Call 2: index→1, B(2>=10)?NO, →0, weight=10-2=8, A(10>=8)→A
+		// Call 3: index→1, B(2>=8)?NO, →0, weight=8-2=6, A(10>=6)→A
+		// Call 4: index→1, B(2>=6)?NO, →0, weight=6-2=4, A(10>=4)→A
+		// Call 5: index→1, B(2>=4)?NO, →0, weight=4-2=2, A(10>=2)→A
+		// Call 6: index→1, B(2>=2)?YES→B
+		// Call 7: index→0, weight=2-2=0→reset to 10, A(10>=10)→A
+		// Call 8: index→1, B(2>=10)?NO, →0, weight=8, A→A
+		// Call 9: index→1, B(2>=8)?NO, →0, weight=6, A→A
+		// Call 10: index→1, B(2>=6)?NO, →0, weight=4, A→A
+		// Call 11: index→1, B(2>=4)?NO, →0, weight=2, A→A
+		// Call 12: index→1, B(2>=2)?YES→B
 		expectedSequence := []string{"A", "A", "A", "A", "A", "B", "A", "A", "A", "A", "A", "B"}
+
+		t.Logf("Expected sequence: %v", expectedSequence)
+		t.Logf("Actual sequence:   %v", auditor.GetSequence())
+
+		// EXACT SEQUENCE VERIFICATION (Requirement 2 - hardcoded comparison)
 		auditor.VerifyExactSequence(t, expectedSequence)
 
+		// Also verify counts: 10 A's and 2 B's (matching 10:2 weight ratio)
 		counts := auditor.GetCounts()
-		t.Logf("Distribution: A=%d, B=%d", counts["A"], counts["B"])
-
-		// Also verify counts: A should have 10, B should have 2
 		if counts["A"] != 10 {
 			t.Errorf("A should be selected exactly 10 times, got %d", counts["A"])
 		}
@@ -270,7 +291,7 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 	})
 
-	// Requirement 2 - Additional: Verify no skipped turns
+	// Requirement 2 - Additional: Verify no skipped turns after weight change
 	t.Run("SequenceContinuity_NoSkippedTurns", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 2, Healthy: true},
@@ -278,7 +299,7 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
-		// Exhaust one full cycle (4 calls for weights 2:2)
+		// Exhaust one full cycle
 		for i := 0; i < 4; i++ {
 			b.GetNextNode()
 		}
@@ -290,7 +311,7 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b.UpdateWeights(newNodes)
 
-		// Verify balancer continues working
+		// Verify balancer continues working without skipping
 		auditor := NewSequenceAuditor()
 		auditor.RunAudit(b, 24)
 
@@ -298,18 +319,17 @@ func TestDynamicTransitions(t *testing.T) {
 			t.Errorf("Expected 24 calls, got %d", auditor.totalCalls)
 		}
 
-		// Verify distribution approximately matches weight ratio (10:2 = 5:1)
 		aCount := auditor.GetCounts()["A"]
 		bCount := auditor.GetCounts()["B"]
 
-		// With weights 10:2, A should get ~83%, B should get ~17%
+		// With weights 10:2, expect ratio ~83%:17%
 		aRatio := float64(aCount) / float64(auditor.totalCalls)
 		if aRatio < 0.7 || aRatio > 0.95 {
 			t.Errorf("A ratio should be ~83%%, got %.1f%% (A=%d, B=%d)", aRatio*100, aCount, bCount)
 		}
 	})
 
-	// Requirement 3: GCD Flux Test
+	// Requirement 3: GCD Flux Test - High to Low GCD transition
 	t.Run("GCDFlux_TransitionFromHighToLowGCD", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "X", Weight: 10, Healthy: true},
@@ -330,6 +350,7 @@ func TestDynamicTransitions(t *testing.T) {
 			if maxW1 != 20 {
 				t.Errorf("Initial maxWeight should be 20, got %d", maxW1)
 			}
+			t.Logf("Initial state: maxWeight=%d, GCD=%d", maxW1, gcd1)
 		} else {
 			t.Fatal("GetCurrentState not implemented - required for GCD Flux test")
 		}
@@ -342,7 +363,7 @@ func TestDynamicTransitions(t *testing.T) {
 			}
 		}
 
-		// Update to weights with GCD = 1
+		// Update to weights with GCD = 1 (coprime)
 		newNodes := []*balancer.Node{
 			{ID: "X", Weight: 7, Healthy: true},
 			{ID: "Y", Weight: 13, Healthy: true},
@@ -358,6 +379,7 @@ func TestDynamicTransitions(t *testing.T) {
 			if maxW2 != 13 {
 				t.Errorf("After update maxWeight should be 13, got %d", maxW2)
 			}
+			t.Logf("After update: maxWeight=%d, GCD=%d", maxW2, gcd2)
 		}
 
 		// Verify no infinite loop or out-of-bounds - make many calls
@@ -369,7 +391,7 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 	})
 
-	// Requirement 3 - Additional: GCD changes in both directions
+	// Requirement 3 - Additional: GCD changes from low to high
 	t.Run("GCDFlux_LowToHighGCD", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 7, Healthy: true},
@@ -434,7 +456,7 @@ func TestDynamicTransitions(t *testing.T) {
 				phase1Heavy, phase1Light)
 		}
 
-		// Phase 2: Heavy unhealthy
+		// Phase 2: Heavy unhealthy - toggle Healthy:false
 		nodes[0].Healthy = false
 		b.UpdateWeights(nodes)
 
@@ -449,7 +471,7 @@ func TestDynamicTransitions(t *testing.T) {
 			t.Errorf("Phase 2: Light should get all traffic, got %d", phase2Auditor.GetCounts()["Light"])
 		}
 
-		// Phase 3: Heavy healthy again
+		// Phase 3: Heavy healthy again - toggle Healthy:true
 		nodes[0].Healthy = true
 		b.UpdateWeights(nodes)
 
@@ -466,12 +488,54 @@ func TestDynamicTransitions(t *testing.T) {
 				phase3Heavy, phase3Light)
 		}
 
-		// Verify approximate ratio
+		// Verify approximate ratio matches algorithm specification
 		expectedRatio := 10.0 / 12.0 // ~83%
 		actualRatio := float64(phase3Heavy) / float64(phase3Heavy+phase3Light)
 		if math.Abs(actualRatio-expectedRatio) > 0.1 {
 			t.Errorf("Phase 3: Heavy ratio should be ~%.1f%%, got %.1f%%",
 				expectedRatio*100, actualRatio*100)
+		}
+	})
+
+	// Requirement 6: Adversarial Case - Zero Weights
+	t.Run("AdversarialCase_ZeroWeights", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 0, Healthy: true},
+			{ID: "B", Weight: 0, Healthy: true},
+			{ID: "C", Weight: 0, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		// Should not hang and should return empty string
+		result := b.GetNextNode()
+		if result != "" {
+			t.Errorf("Expected empty string for zero weights, got '%s'", result)
+		}
+
+		// Multiple calls should also work without hanging
+		for i := 0; i < 10; i++ {
+			result := b.GetNextNode()
+			if result != "" {
+				t.Errorf("Call %d: Expected empty string for zero weights, got '%s'", i, result)
+			}
+		}
+	})
+
+	// Requirement 6 - Additional: Mix of zero and non-zero weights
+	t.Run("AdversarialCase_MixedZeroWeights", func(t *testing.T) {
+		nodes := []*balancer.Node{
+			{ID: "A", Weight: 0, Healthy: true},
+			{ID: "B", Weight: 5, Healthy: true},
+			{ID: "C", Weight: 0, Healthy: true},
+		}
+		b := balancer.NewDynamicWeightedBalancer(nodes)
+
+		// Only B should be selected
+		for i := 0; i < 20; i++ {
+			result := b.GetNextNode()
+			if result != "B" {
+				t.Errorf("Only B should be selected, got '%s'", result)
+			}
 		}
 	})
 
@@ -486,7 +550,7 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 		b := balancer.NewDynamicWeightedBalancer(nodes)
 
-		// Advance to near end of slice
+		// Advance to near end of slice (currentIndex will be at high value)
 		for i := 0; i < 10; i++ {
 			b.GetNextNode()
 		}
@@ -507,7 +571,7 @@ func TestDynamicTransitions(t *testing.T) {
 		}
 	})
 
-	// Requirement 7 - Additional: Boundary at exact end
+	// Requirement 7 - Additional: Boundary at exact end of slice
 	t.Run("BoundaryTest_ExactEndOfSlice", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 1, Healthy: true},
@@ -535,54 +599,14 @@ func TestDynamicTransitions(t *testing.T) {
 			}
 		}
 	})
-
-	// Requirement 6: Adversarial Case - Zero Weights
-	t.Run("AdversarialCase_ZeroWeights", func(t *testing.T) {
-		nodes := []*balancer.Node{
-			{ID: "A", Weight: 0, Healthy: true},
-			{ID: "B", Weight: 0, Healthy: true},
-			{ID: "C", Weight: 0, Healthy: true},
-		}
-		b := balancer.NewDynamicWeightedBalancer(nodes)
-
-		// Should not hang and should return empty string
-		result := b.GetNextNode()
-		if result != "" {
-			t.Errorf("Expected empty string for zero weights, got '%s'", result)
-		}
-
-		// Multiple calls should also work
-		for i := 0; i < 10; i++ {
-			result := b.GetNextNode()
-			if result != "" {
-				t.Errorf("Call %d: Expected empty string for zero weights, got '%s'", i, result)
-			}
-		}
-	})
-
-	// Requirement 6 - Additional: Mix of zero and non-zero weights
-	t.Run("AdversarialCase_MixedZeroWeights", func(t *testing.T) {
-		nodes := []*balancer.Node{
-			{ID: "A", Weight: 0, Healthy: true},
-			{ID: "B", Weight: 5, Healthy: true},
-			{ID: "C", Weight: 0, Healthy: true},
-		}
-		b := balancer.NewDynamicWeightedBalancer(nodes)
-
-		// Only B should be selected
-		for i := 0; i < 20; i++ {
-			result := b.GetNextNode()
-			if result != "B" {
-				t.Errorf("Only B should be selected, got '%s'", result)
-			}
-		}
-	})
 }
 
 // ==================== CONCURRENCY TESTS (Requirement 5) ====================
+// These tests run with -race flag to detect data races
 
 func TestConcurrency(t *testing.T) {
 
+	// 1000 concurrent GetNextNode + 50 concurrent UpdateWeights
 	t.Run("ConcurrentGetNextNode_WithUpdates", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 5, Healthy: true},
@@ -599,7 +623,6 @@ func TestConcurrency(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				result := b.GetNextNode()
-				// Just verify it doesn't crash and returns valid result
 				if result != "A" && result != "B" && result != "C" && result != "" {
 					t.Errorf("Unexpected result: '%s'", result)
 				}
@@ -668,6 +691,7 @@ func TestConcurrency(t *testing.T) {
 }
 
 // ==================== COVERAGE TESTS (Requirement 1) ====================
+// Tests to ensure 100% statement and branch coverage
 
 func TestCoverage(t *testing.T) {
 
@@ -676,6 +700,15 @@ func TestCoverage(t *testing.T) {
 		emptyB := balancer.NewDynamicWeightedBalancer([]*balancer.Node{})
 		if emptyB.GetNextNode() != "" {
 			t.Error("Empty nodes should return empty string")
+		}
+
+		// Branch: maxWeight == 0
+		zeroWeightNodes := []*balancer.Node{
+			{ID: "A", Weight: 0, Healthy: true},
+		}
+		b0 := balancer.NewDynamicWeightedBalancer(zeroWeightNodes)
+		if b0.GetNextNode() != "" {
+			t.Error("Zero weight nodes should return empty string")
 		}
 
 		// Branch: node.Healthy == false
@@ -699,7 +732,6 @@ func TestCoverage(t *testing.T) {
 		b2 := balancer.NewDynamicWeightedBalancer(lowWeightNodes)
 		auditor := NewSequenceAuditor()
 		auditor.RunAudit(b2, 22)
-		// B should be selected more often due to higher weight
 		if auditor.GetCounts()["B"] < auditor.GetCounts()["A"] {
 			t.Error("B should be selected more than A")
 		}
@@ -716,14 +748,14 @@ func TestCoverage(t *testing.T) {
 			}
 		}
 
-		// Branch: maxWeight == 0
-		zeroWeightNodes := []*balancer.Node{
-			{ID: "A", Weight: 0, Healthy: true},
+		// Branch: loop exhaustion (all nodes skipped)
+		allUnhealthy := []*balancer.Node{
+			{ID: "A", Weight: 5, Healthy: false},
+			{ID: "B", Weight: 5, Healthy: false},
 		}
-		b4 := balancer.NewDynamicWeightedBalancer(zeroWeightNodes)
-		result := b4.GetNextNode()
-		if result != "" {
-			t.Errorf("Zero weight nodes should return empty, got '%s'", result)
+		b4 := balancer.NewDynamicWeightedBalancer(allUnhealthy)
+		if b4.GetNextNode() != "" {
+			t.Error("All unhealthy should return empty string")
 		}
 	})
 
@@ -750,7 +782,7 @@ func TestCoverage(t *testing.T) {
 			t.Error("Both nodes should be selected after update")
 		}
 
-		// Update with fewer nodes
+		// Update with fewer nodes (tests index bounds check)
 		fewerNodes := []*balancer.Node{
 			{ID: "A", Weight: 5, Healthy: true},
 		}
@@ -830,6 +862,20 @@ func TestCoverage(t *testing.T) {
 				t.Errorf("GCD of 7,11 should be 1, got %d", gcd)
 			}
 		}
+
+		// Zero weights - GCD defaults to 1
+		zeroNodes := []*balancer.Node{
+			{ID: "A", Weight: 0, Healthy: true},
+			{ID: "B", Weight: 0, Healthy: true},
+		}
+		b4 := balancer.NewDynamicWeightedBalancer(zeroNodes)
+
+		if s, ok := interface{}(b4).(Stater); ok {
+			_, _, _, gcd := s.GetCurrentState()
+			if gcd != 1 {
+				t.Errorf("GCD of zero weights should default to 1, got %d", gcd)
+			}
+		}
 	})
 
 	t.Run("GCD_EdgeCases", func(t *testing.T) {
@@ -873,7 +919,6 @@ func TestCoverage(t *testing.T) {
 	})
 
 	t.Run("LoopExhaustion_AllNodesSkipped", func(t *testing.T) {
-		// All unhealthy - tests the loop exhaustion return ""
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 5, Healthy: false},
 			{ID: "B", Weight: 5, Healthy: false},
@@ -891,7 +936,7 @@ func TestCoverage(t *testing.T) {
 
 func TestSequenceAuditor(t *testing.T) {
 
-	t.Run("AuditorRecords1000Calls", func(t *testing.T) {
+	t.Run("AuditorRecords1000Calls_1PercentTolerance", func(t *testing.T) {
 		nodes := []*balancer.Node{
 			{ID: "A", Weight: 3, Healthy: true},
 			{ID: "B", Weight: 1, Healthy: true},
@@ -905,7 +950,7 @@ func TestSequenceAuditor(t *testing.T) {
 			t.Errorf("Expected 1000 calls, got %d", auditor.totalCalls)
 		}
 
-		// Verify 1% tolerance
+		// Verify 1% tolerance as per Requirement 9
 		auditor.VerifyDistribution(t, map[string]float64{
 			"A": 0.75,
 			"B": 0.25,
@@ -981,8 +1026,7 @@ func TestSequenceAuditor(t *testing.T) {
 		auditor.RunAudit(b, 6)
 
 		// With weights A:2, B:1, GCD=1, Max=2
-		// Expected: at weight level 2, only A qualifies; at level 1, both qualify
-		// Sequence should be: A, A, B, A, A, B (pattern)
+		// Trace: A(2>=2), A(2>=1), B(1>=1), A(2>=2), A(2>=1), B(1>=1)
 		expected := []string{"A", "A", "B", "A", "A", "B"}
 		auditor.VerifyExactSequence(t, expected)
 	})

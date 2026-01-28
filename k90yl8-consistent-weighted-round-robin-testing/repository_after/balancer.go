@@ -18,7 +18,7 @@ type DynamicWeightedBalancer struct {
 	currentWeight int
 	maxWeight     int
 	gcdWeight     int
-	mu            sync.RWMutex
+	mu            sync.Mutex
 }
 
 // NewDynamicWeightedBalancer initializes the balancer for a given set of nodes.
@@ -47,7 +47,6 @@ func (b *DynamicWeightedBalancer) recalculateGains() {
 	}
 	b.maxWeight = maxW
 	b.gcdWeight = g
-	// FIX: Handle zero GCD
 	if b.gcdWeight == 0 {
 		b.gcdWeight = 1
 	}
@@ -66,7 +65,6 @@ func (b *DynamicWeightedBalancer) UpdateWeights(newNodes []*Node) {
 	defer b.mu.Unlock()
 	b.nodes = newNodes
 	b.recalculateGains()
-	// FIX: Ensure currentIndex is within bounds after slice reduction
 	if len(b.nodes) > 0 && b.currentIndex >= len(b.nodes) {
 		b.currentIndex = b.currentIndex % len(b.nodes)
 	}
@@ -82,7 +80,6 @@ func (b *DynamicWeightedBalancer) GetNextNode() string {
 		return ""
 	}
 
-	// FIX: Handle case where all weights are zero
 	if b.maxWeight == 0 {
 		return ""
 	}
@@ -109,7 +106,7 @@ func (b *DynamicWeightedBalancer) GetNextNode() string {
 
 // GetCurrentState returns internal state for testing purposes
 func (b *DynamicWeightedBalancer) GetCurrentState() (int, int, int, int) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.currentIndex, b.currentWeight, b.maxWeight, b.gcdWeight
 }

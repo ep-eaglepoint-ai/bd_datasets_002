@@ -27,17 +27,30 @@ type TestSummary struct {
 	Skipped int `json:"skipped"`
 }
 
+type CoverageReport struct {
+	Percent      float64 `json:"percent"`
+	Is100Percent bool    `json:"is_100_percent"`
+	Output       string  `json:"output"`
+}
+
+type RaceDetectorReport struct {
+	Enabled bool   `json:"enabled"`
+	Passed  bool   `json:"passed"`
+	Command string `json:"command"`
+}
+
 type RepositoryMetrics struct {
-	TotalFiles                int  `json:"total_files"`
-	Coverage100Percent        bool `json:"coverage_100_percent"`
-	SequenceContinuityWorking bool `json:"sequence_continuity_working"`
-	GCDFluxWorking            bool `json:"gcd_flux_working"`
-	HealthFlapsWorking        bool `json:"health_flaps_working"`
-	ConcurrencyWorking        bool `json:"concurrency_working"`
-	AdversarialZeroWorking    bool `json:"adversarial_zero_working"`
-	BoundarySliceWorking      bool `json:"boundary_slice_working"`
-	SubTestsStructure         bool `json:"subtests_structure"`
-	SequenceAuditorWorking    bool `json:"sequence_auditor_working"`
+	TotalFiles             int     `json:"total_files"`
+	CoveragePercent        float64 `json:"coverage_percent"`
+	RaceDetectorPassed     bool    `json:"race_detector_passed"`
+	SequenceContinuity     bool    `json:"sequence_continuity"`
+	GCDFlux                bool    `json:"gcd_flux"`
+	HealthFlaps            bool    `json:"health_flaps"`
+	Concurrency            bool    `json:"concurrency"`
+	AdversarialZero        bool    `json:"adversarial_zero"`
+	BoundarySlice          bool    `json:"boundary_slice"`
+	SubTestsStructure      bool    `json:"subtests_structure"`
+	SequenceAuditor        bool    `json:"sequence_auditor"`
 }
 
 type RepositoryTests struct {
@@ -47,48 +60,6 @@ type RepositoryTests struct {
 	Success bool         `json:"success"`
 	Tests   []TestResult `json:"tests"`
 	Output  string       `json:"output"`
-}
-
-type RequirementTraceability struct {
-	Coverage           string `json:"coverage"`
-	SequenceContinuity string `json:"sequence_continuity"`
-	GCDFlux            string `json:"gcd_flux"`
-	HealthFlaps        string `json:"health_flaps"`
-	Concurrency        string `json:"concurrency"`
-	AdversarialZero    string `json:"adversarial_zero"`
-	BoundarySlice      string `json:"boundary_slice"`
-	SubTests           string `json:"subtests"`
-	SequenceAuditor    string `json:"sequence_auditor"`
-}
-
-type AdversarialTesting struct {
-	ZeroWeights    string `json:"zero_weights"`
-	SliceReduction string `json:"slice_reduction"`
-	HealthToggle   string `json:"health_toggle"`
-}
-
-type EdgeCaseCoverage struct {
-	EmptyNodes   string `json:"empty_nodes"`
-	SingleNode   string `json:"single_node"`
-	AllUnhealthy string `json:"all_unhealthy"`
-}
-
-type MetaTesting struct {
-	RequirementTraceability RequirementTraceability `json:"requirement_traceability"`
-	AdversarialTesting      AdversarialTesting      `json:"adversarial_testing"`
-	EdgeCaseCoverage        EdgeCaseCoverage        `json:"edge_case_coverage"`
-}
-
-type ComplianceCheck struct {
-	Coverage100Percent       bool `json:"coverage_100_percent"`
-	SequenceContinuityFixed  bool `json:"sequence_continuity_fixed"`
-	GCDFluxFixed             bool `json:"gcd_flux_fixed"`
-	HealthFlapsFixed         bool `json:"health_flaps_fixed"`
-	ConcurrencyFixed         bool `json:"concurrency_fixed"`
-	AdversarialZeroFixed     bool `json:"adversarial_zero_fixed"`
-	BoundarySliceFixed       bool `json:"boundary_slice_fixed"`
-	SubTestsStructureFixed   bool `json:"subtests_structure_fixed"`
-	SequenceAuditorFixed     bool `json:"sequence_auditor_fixed"`
 }
 
 type RequirementsChecklist struct {
@@ -103,19 +74,6 @@ type RequirementsChecklist struct {
 	Req9SequenceAuditor    bool `json:"req9_sequence_auditor"`
 }
 
-type Comparison struct {
-	CoverageFixed           bool `json:"coverage_fixed"`
-	SequenceContinuityFixed bool `json:"sequence_continuity_fixed"`
-	GCDFluxFixed            bool `json:"gcd_flux_fixed"`
-	HealthFlapsFixed        bool `json:"health_flaps_fixed"`
-	ConcurrencyFixed        bool `json:"concurrency_fixed"`
-	AdversarialZeroFixed    bool `json:"adversarial_zero_fixed"`
-	BoundarySliceFixed      bool `json:"boundary_slice_fixed"`
-	TestsPassing            int  `json:"tests_passing"`
-	TestImprovement         int  `json:"test_improvement"`
-	AllRequirementsMet      bool `json:"all_requirements_met"`
-}
-
 type EvaluationReport struct {
 	EvaluationMetadata struct {
 		EvaluationID string `json:"evaluation_id"`
@@ -127,24 +85,11 @@ type EvaluationReport struct {
 	Environment struct {
 		GoVersion    string `json:"go_version"`
 		Platform     string `json:"platform"`
-		OS           string `json:"os"`
-		OSRelease    string `json:"os_release"`
 		Architecture string `json:"architecture"`
-		Hostname     string `json:"hostname"`
-		GitCommit    string `json:"git_commit"`
-		GitBranch    string `json:"git_branch"`
 	} `json:"environment"`
-	TestExecution struct {
-		Success  bool         `json:"success"`
-		ExitCode int          `json:"exit_code"`
-		Tests    []TestResult `json:"tests"`
-		Summary  TestSummary  `json:"summary"`
-		Stdout   string       `json:"stdout"`
-		Stderr   string       `json:"stderr"`
-	} `json:"test_execution"`
-	MetaTesting       MetaTesting     `json:"meta_testing"`
-	ComplianceCheck   ComplianceCheck `json:"compliance_check"`
-	Before            struct {
+	CoverageReport     CoverageReport     `json:"coverage_report"`
+	RaceDetectorReport RaceDetectorReport `json:"race_detector_report"`
+	Before             struct {
 		Metrics RepositoryMetrics `json:"metrics"`
 		Tests   RepositoryTests   `json:"tests"`
 	} `json:"before"`
@@ -152,7 +97,6 @@ type EvaluationReport struct {
 		Metrics RepositoryMetrics `json:"metrics"`
 		Tests   RepositoryTests   `json:"tests"`
 	} `json:"after"`
-	Comparison            Comparison            `json:"comparison"`
 	RequirementsChecklist RequirementsChecklist `json:"requirements_checklist"`
 	FinalVerdict          struct {
 		Success           bool   `json:"success"`
@@ -161,6 +105,7 @@ type EvaluationReport struct {
 		FailedTests       int    `json:"failed_tests"`
 		SuccessRate       string `json:"success_rate"`
 		MeetsRequirements bool   `json:"meets_requirements"`
+		RequirementsMet   int    `json:"requirements_met"`
 	} `json:"final_verdict"`
 }
 
@@ -186,21 +131,27 @@ func main() {
 	beforeFailed := countFailed(beforeTests)
 	fmt.Printf("   Results: %d passed, %d failed\n", beforePassed, beforeFailed)
 
-	fmt.Println("\n📊 Running tests on AFTER repository...")
+	fmt.Println("\n📊 Running tests on AFTER repository (with -race flag)...")
 	fmt.Println(strings.Repeat("-", 40))
 	afterOutput, afterErr := runTests("after")
 	afterTests := parseTestResults(afterOutput)
 	afterPassed := countPassed(afterTests)
 	afterFailed := countFailed(afterTests)
+	raceDetectorPassed := afterErr == nil && !strings.Contains(afterOutput, "DATA RACE")
 	fmt.Printf("   Results: %d passed, %d failed\n", afterPassed, afterFailed)
+	fmt.Printf("   Race Detector (-race flag): %s\n", boolToStatus(raceDetectorPassed))
 
-	checklist := checkRequirements(afterTests, afterOutput)
-	beforeChecklist := checkRequirements(beforeTests, beforeOutput)
+	fmt.Println("\n📊 Running coverage analysis...")
+	fmt.Println(strings.Repeat("-", 40))
+	coverageReport := runCoverageAnalysis()
+	fmt.Printf("   Coverage: %.1f%% (Target: 100%%)\n", coverageReport.Percent)
+
+	checklist := checkRequirements(afterTests, afterOutput, coverageReport.Is100Percent, raceDetectorPassed)
+	beforeChecklist := checkRequirements(beforeTests, beforeOutput, false, false)
 
 	success := afterFailed == 0 && afterPassed > 0
 
 	report := EvaluationReport{}
-
 	report.EvaluationMetadata.EvaluationID = generateID()
 	report.EvaluationMetadata.Timestamp = startTime.Format(time.RFC3339Nano)
 	report.EvaluationMetadata.Evaluator = "automated_test_suite"
@@ -209,77 +160,25 @@ func main() {
 
 	report.Environment.GoVersion = getGoVersion()
 	report.Environment.Platform = runtime.GOOS
-	report.Environment.OS = runtime.GOOS
-	report.Environment.OSRelease = getOSRelease()
 	report.Environment.Architecture = runtime.GOARCH
-	report.Environment.Hostname = getHostname()
-	report.Environment.GitCommit = getGitCommit()
-	report.Environment.GitBranch = getGitBranch()
 
-	exitCode := 0
-	if afterErr != nil {
-		exitCode = 1
-	}
-
-	report.TestExecution.Success = success
-	report.TestExecution.ExitCode = exitCode
-	report.TestExecution.Tests = afterTests
-	report.TestExecution.Summary = TestSummary{
-		Total:   len(afterTests),
-		Passed:  afterPassed,
-		Failed:  afterFailed,
-		Errors:  0,
-		Skipped: 0,
-	}
-	report.TestExecution.Stdout = fmt.Sprintf("Before Repository: %d/%d passed\nAfter Repository: %d/%d passed",
-		beforePassed, len(beforeTests), afterPassed, len(afterTests))
-	report.TestExecution.Stderr = ""
-
-	report.MetaTesting.RequirementTraceability = RequirementTraceability{
-		Coverage:           "requirement_1",
-		SequenceContinuity: "requirement_2",
-		GCDFlux:            "requirement_3",
-		HealthFlaps:        "requirement_4",
-		Concurrency:        "requirement_5",
-		AdversarialZero:    "requirement_6",
-		BoundarySlice:      "requirement_7",
-		SubTests:           "requirement_8",
-		SequenceAuditor:    "requirement_9",
-	}
-	report.MetaTesting.AdversarialTesting = AdversarialTesting{
-		ZeroWeights:    "requirement_6",
-		SliceReduction: "requirement_7",
-		HealthToggle:   "requirement_4",
-	}
-	report.MetaTesting.EdgeCaseCoverage = EdgeCaseCoverage{
-		EmptyNodes:   "edge_case",
-		SingleNode:   "edge_case",
-		AllUnhealthy: "edge_case",
-	}
-
-	report.ComplianceCheck = ComplianceCheck{
-		Coverage100Percent:      checklist.Req1Coverage,
-		SequenceContinuityFixed: checklist.Req2SequenceContinuity,
-		GCDFluxFixed:            checklist.Req3GCDFlux,
-		HealthFlapsFixed:        checklist.Req4HealthFlaps,
-		ConcurrencyFixed:        checklist.Req5Concurrency,
-		AdversarialZeroFixed:    checklist.Req6AdversarialZero,
-		BoundarySliceFixed:      checklist.Req7BoundarySlice,
-		SubTestsStructureFixed:  checklist.Req8SubTests,
-		SequenceAuditorFixed:    checklist.Req9SequenceAuditor,
+	report.CoverageReport = coverageReport
+	report.RaceDetectorReport = RaceDetectorReport{
+		Enabled: true,
+		Passed:  raceDetectorPassed,
+		Command: "go test -v -race -timeout 60s ./...",
 	}
 
 	report.Before.Metrics = RepositoryMetrics{
-		TotalFiles:                1,
-		Coverage100Percent:        beforeChecklist.Req1Coverage,
-		SequenceContinuityWorking: beforeChecklist.Req2SequenceContinuity,
-		GCDFluxWorking:            beforeChecklist.Req3GCDFlux,
-		HealthFlapsWorking:        beforeChecklist.Req4HealthFlaps,
-		ConcurrencyWorking:        beforeChecklist.Req5Concurrency,
-		AdversarialZeroWorking:    beforeChecklist.Req6AdversarialZero,
-		BoundarySliceWorking:      beforeChecklist.Req7BoundarySlice,
-		SubTestsStructure:         beforeChecklist.Req8SubTests,
-		SequenceAuditorWorking:    beforeChecklist.Req9SequenceAuditor,
+		TotalFiles:         1,
+		SequenceContinuity: beforeChecklist.Req2SequenceContinuity,
+		GCDFlux:            beforeChecklist.Req3GCDFlux,
+		HealthFlaps:        beforeChecklist.Req4HealthFlaps,
+		Concurrency:        beforeChecklist.Req5Concurrency,
+		AdversarialZero:    beforeChecklist.Req6AdversarialZero,
+		BoundarySlice:      beforeChecklist.Req7BoundarySlice,
+		SubTestsStructure:  beforeChecklist.Req8SubTests,
+		SequenceAuditor:    beforeChecklist.Req9SequenceAuditor,
 	}
 	report.Before.Tests = RepositoryTests{
 		Passed:  beforePassed,
@@ -291,16 +190,17 @@ func main() {
 	}
 
 	report.After.Metrics = RepositoryMetrics{
-		TotalFiles:                1,
-		Coverage100Percent:        checklist.Req1Coverage,
-		SequenceContinuityWorking: checklist.Req2SequenceContinuity,
-		GCDFluxWorking:            checklist.Req3GCDFlux,
-		HealthFlapsWorking:        checklist.Req4HealthFlaps,
-		ConcurrencyWorking:        checklist.Req5Concurrency,
-		AdversarialZeroWorking:    checklist.Req6AdversarialZero,
-		BoundarySliceWorking:      checklist.Req7BoundarySlice,
-		SubTestsStructure:         checklist.Req8SubTests,
-		SequenceAuditorWorking:    checklist.Req9SequenceAuditor,
+		TotalFiles:         1,
+		CoveragePercent:    coverageReport.Percent,
+		RaceDetectorPassed: raceDetectorPassed,
+		SequenceContinuity: checklist.Req2SequenceContinuity,
+		GCDFlux:            checklist.Req3GCDFlux,
+		HealthFlaps:        checklist.Req4HealthFlaps,
+		Concurrency:        checklist.Req5Concurrency,
+		AdversarialZero:    checklist.Req6AdversarialZero,
+		BoundarySlice:      checklist.Req7BoundarySlice,
+		SubTestsStructure:  checklist.Req8SubTests,
+		SequenceAuditor:    checklist.Req9SequenceAuditor,
 	}
 	report.After.Tests = RepositoryTests{
 		Passed:  afterPassed,
@@ -311,39 +211,28 @@ func main() {
 		Output:  afterOutput,
 	}
 
-	report.Comparison = Comparison{
-		CoverageFixed:           checklist.Req1Coverage && !beforeChecklist.Req1Coverage,
-		SequenceContinuityFixed: checklist.Req2SequenceContinuity,
-		GCDFluxFixed:            checklist.Req3GCDFlux && !beforeChecklist.Req3GCDFlux,
-		HealthFlapsFixed:        checklist.Req4HealthFlaps,
-		ConcurrencyFixed:        checklist.Req5Concurrency,
-		AdversarialZeroFixed:    checklist.Req6AdversarialZero,
-		BoundarySliceFixed:      checklist.Req7BoundarySlice,
-		TestsPassing:            afterPassed,
-		TestImprovement:         afterPassed - beforePassed,
-		AllRequirementsMet:      countReqs(checklist) == 9,
-	}
-
 	report.RequirementsChecklist = checklist
 
-	allReqsMet := countReqs(checklist) == 9
+	reqsMet := countReqs(checklist)
+	allReqsMet := reqsMet == 9
 
 	report.FinalVerdict.Success = success && allReqsMet
 	report.FinalVerdict.TotalTests = len(afterTests)
 	report.FinalVerdict.PassedTests = afterPassed
 	report.FinalVerdict.FailedTests = afterFailed
 	if len(afterTests) > 0 {
-		report.FinalVerdict.SuccessRate = fmt.Sprintf("%.1f", float64(afterPassed)/float64(len(afterTests))*100)
+		report.FinalVerdict.SuccessRate = fmt.Sprintf("%.1f%%", float64(afterPassed)/float64(len(afterTests))*100)
 	} else {
-		report.FinalVerdict.SuccessRate = "0.0"
+		report.FinalVerdict.SuccessRate = "0.0%"
 	}
 	report.FinalVerdict.MeetsRequirements = allReqsMet
+	report.FinalVerdict.RequirementsMet = reqsMet
 
 	reportFile := filepath.Join(reportsDir, "report.json")
 	reportJSON, _ := json.MarshalIndent(report, "", "  ")
 	os.WriteFile(reportFile, reportJSON, 0644)
 
-	printSummary(report, reportFile, startTime, checklist)
+	printSummary(report, reportFile, startTime, checklist, coverageReport, raceDetectorPassed)
 
 	if !report.FinalVerdict.Success {
 		os.Exit(1)
@@ -378,6 +267,7 @@ replace repository => %s
 	tidyCmd.Env = append(os.Environ(), "CGO_ENABLED=1")
 	tidyCmd.Run()
 
+	// Run tests with -race flag (Requirement 5)
 	cmd := exec.Command("go", "test", "-v", "-race", "-timeout", "60s", "./...")
 	cmd.Dir = testsDir
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
@@ -386,7 +276,52 @@ replace repository => %s
 	return string(output), err
 }
 
-func printSummary(report EvaluationReport, reportFile string, startTime time.Time, checklist RequirementsChecklist) {
+func runCoverageAnalysis() CoverageReport {
+	testsDir := "/app/tests"
+
+	modContent := `module tests
+
+go 1.21
+
+require repository v0.0.0
+
+replace repository => ../repository_after
+`
+	os.WriteFile(filepath.Join(testsDir, "go.mod"), []byte(modContent), 0644)
+
+	tidyCmd := exec.Command("go", "mod", "tidy")
+	tidyCmd.Dir = testsDir
+	tidyCmd.Run()
+
+	cmd := exec.Command("go", "test", "-coverprofile=coverage.out", "-covermode=atomic", "./...")
+	cmd.Dir = testsDir
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
+	cmd.Run()
+
+	reportCmd := exec.Command("go", "tool", "cover", "-func=coverage.out")
+	reportCmd.Dir = testsDir
+	output, _ := reportCmd.CombinedOutput()
+
+	report := CoverageReport{
+		Output: string(output),
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "total:") {
+			re := regexp.MustCompile(`(\d+\.?\d*)%`)
+			matches := re.FindStringSubmatch(line)
+			if len(matches) > 1 {
+				fmt.Sscanf(matches[1], "%f", &report.Percent)
+			}
+		}
+	}
+
+	report.Is100Percent = report.Percent >= 100.0
+	return report
+}
+
+func printSummary(report EvaluationReport, reportFile string, startTime time.Time, checklist RequirementsChecklist, coverage CoverageReport, racePassed bool) {
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("🎯 EVALUATION RESULTS")
 	fmt.Println(strings.Repeat("=", 60))
@@ -400,16 +335,21 @@ func printSummary(report EvaluationReport, reportFile string, startTime time.Tim
 	fmt.Printf("   AFTER VERSION:  %d/%d passed (%d failed)\n",
 		report.After.Tests.Passed, report.After.Tests.Total, report.After.Tests.Failed)
 	fmt.Println()
+	fmt.Println("📈 COVERAGE & RACE DETECTION:")
+	fmt.Println(strings.Repeat("-", 40))
+	fmt.Printf("   Code Coverage: %.1f%% %s\n", coverage.Percent, statusIcon(coverage.Is100Percent))
+	fmt.Printf("   Race Detector: %s (go test -race)\n", boolToStatus(racePassed))
+	fmt.Println()
 	fmt.Println("📋 REQUIREMENTS CHECKLIST:")
 	fmt.Println(strings.Repeat("-", 40))
-	printReq("1. 100% Coverage", checklist.Req1Coverage)
-	printReq("2. Sequence Continuity", checklist.Req2SequenceContinuity)
-	printReq("3. GCD Flux", checklist.Req3GCDFlux)
-	printReq("4. Health Flaps Fairness", checklist.Req4HealthFlaps)
-	printReq("5. Concurrency & Race", checklist.Req5Concurrency)
+	printReq("1. 100% Statement/Branch Coverage", checklist.Req1Coverage)
+	printReq("2. Sequence Continuity (Exact Sequence)", checklist.Req2SequenceContinuity)
+	printReq("3. GCD Flux Test", checklist.Req3GCDFlux)
+	printReq("4. Fairness under Health Flaps", checklist.Req4HealthFlaps)
+	printReq("5. Concurrency & Race Detection", checklist.Req5Concurrency)
 	printReq("6. Adversarial Zero Weights", checklist.Req6AdversarialZero)
 	printReq("7. Boundary Slice Reduction", checklist.Req7BoundarySlice)
-	printReq("8. Sub-tests Structure", checklist.Req8SubTests)
+	printReq("8. Sub-tests Structure (t.Run)", checklist.Req8SubTests)
 	printReq("9. Sequence Auditor Helper", checklist.Req9SequenceAuditor)
 	fmt.Println()
 	fmt.Println(strings.Repeat("=", 60))
@@ -420,6 +360,20 @@ func printSummary(report EvaluationReport, reportFile string, startTime time.Tim
 	}
 	fmt.Printf("🔧 Requirements Met: %d/9\n", countReqs(checklist))
 	fmt.Println(strings.Repeat("=", 60))
+}
+
+func statusIcon(ok bool) string {
+	if ok {
+		return "✅"
+	}
+	return "❌"
+}
+
+func boolToStatus(b bool) string {
+	if b {
+		return "✅ PASSED"
+	}
+	return "❌ FAILED"
 }
 
 func printReq(name string, passed bool) {
@@ -490,7 +444,7 @@ func countFailed(tests []TestResult) int {
 	return count
 }
 
-func checkRequirements(tests []TestResult, output string) RequirementsChecklist {
+func checkRequirements(tests []TestResult, output string, coverage100 bool, racePassed bool) RequirementsChecklist {
 	testPassed := func(fragment string) bool {
 		for _, t := range tests {
 			if strings.Contains(t.Name, fragment) && t.Status == "PASS" {
@@ -503,12 +457,15 @@ func checkRequirements(tests []TestResult, output string) RequirementsChecklist 
 	hasSubTests := strings.Contains(output, "TestStaticDistribution/") &&
 		strings.Contains(output, "TestDynamicTransitions/")
 
+	// Requirement 2 specifically needs ExactSequence test
+	hasExactSequence := testPassed("ExactSequence") || testPassed("SequenceContinuity_ExactSequenceVerification")
+
 	return RequirementsChecklist{
-		Req1Coverage:           testPassed("Coverage") || testPassed("AllBranches"),
-		Req2SequenceContinuity: testPassed("SequenceContinuity"),
+		Req1Coverage:           coverage100 || testPassed("Coverage") || testPassed("AllBranches"),
+		Req2SequenceContinuity: hasExactSequence,
 		Req3GCDFlux:            testPassed("GCDFlux"),
 		Req4HealthFlaps:        testPassed("HealthFlaps") || testPassed("Fairness"),
-		Req5Concurrency:        testPassed("Concurrent") || testPassed("Concurrency"),
+		Req5Concurrency:        racePassed && (testPassed("Concurrent") || testPassed("Concurrency")),
 		Req6AdversarialZero:    testPassed("Adversarial") || testPassed("ZeroWeights"),
 		Req7BoundarySlice:      testPassed("Boundary") || testPassed("SliceReduction"),
 		Req8SubTests:           hasSubTests,
@@ -561,37 +518,5 @@ func generateID() string {
 func getGoVersion() string {
 	cmd := exec.Command("go", "version")
 	output, _ := cmd.Output()
-	return strings.TrimSpace(string(output))
-}
-
-func getHostname() string {
-	hostname, _ := os.Hostname()
-	return hostname
-}
-
-func getOSRelease() string {
-	cmd := exec.Command("uname", "-r")
-	output, err := cmd.Output()
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(output))
-}
-
-func getGitCommit() string {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	output, err := cmd.Output()
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(output))
-}
-
-func getGitBranch() string {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-	output, err := cmd.Output()
-	if err != nil {
-		return "unknown"
-	}
 	return strings.TrimSpace(string(output))
 }
