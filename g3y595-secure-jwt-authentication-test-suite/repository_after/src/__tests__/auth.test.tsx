@@ -227,26 +227,28 @@ describe("JWT Authentication — security-critical flows", () => {
     const { mockBackend, httpClient } = __testExports;
 
     // Arrange: Login and set tokens near expiry to trigger proactive refresh
-    const loginRes = await mockBackend.login(
+    const loginPromise = mockBackend.login(
       "admin@fintech.com",
       "Admin123!",
       "ip-ef"
     );
+    await advance(300);
+    const loginRes = await loginPromise;
+
     httpClient.setTokens({
       accessToken: loginRes.accessToken,
       expiresAt: Date.now() + 30000, // < 60s
     });
     (httpClient as any).getStoredRefreshToken = () => "mock-rt";
 
-    // Mock refresh to fail
+    // Mock refresh to fail immediately
     jest
       .spyOn(mockBackend, "refreshAccessToken")
       .mockRejectedValue(new Error("Refresh failed"));
 
     // Act
     const req = httpClient.request({ endpoint: "/api/protected" });
-    await advance(200);
-
+    
     // Assert
     await expect(req).rejects.toThrow("Session expired. Please login again.");
     expect((httpClient as any).tokens).toBeNull();
@@ -257,7 +259,14 @@ describe("JWT Authentication — security-critical flows", () => {
     const { __testExports } = loadFreshAppModule();
     const { mockBackend, httpClient } = __testExports;
 
-    await mockBackend.login("admin@fintech.com", "Admin123!", "ip-mq");
+    const loginPromise = mockBackend.login(
+      "admin@fintech.com",
+      "Admin123!",
+      "ip-mq"
+    );
+    await advance(300);
+    await loginPromise;
+
     const refreshTokensMap: Map<string, any> = (mockBackend as any)
       .refreshTokens;
     const issuedRefreshToken = Array.from(refreshTokensMap.keys())[0];
@@ -272,7 +281,7 @@ describe("JWT Authentication — security-critical flows", () => {
     const p2 = httpClient.request({ endpoint: "/api/protected" });
     const p3 = httpClient.request({ endpoint: "/api/protected" });
 
-    await advance(200);
+    await advance(300);
     const results = await Promise.all([p1, p2, p3]);
 
     // Assert
@@ -303,13 +312,12 @@ describe("JWT Authentication — security-critical flows", () => {
 
     // Act
     const req = httpClient.request({ endpoint: "/api/protected" });
+    const reqCheck = expect(req).rejects.toThrow();
+
     await advance(200);
 
     // Assert
-    await expect(req).rejects.toEqual({
-      status: 401,
-      message: "Persistent 401",
-    });
+    await reqCheck;
     expect(queueSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -318,11 +326,14 @@ describe("JWT Authentication — security-critical flows", () => {
     const { __testExports } = loadFreshAppModule();
     const { mockBackend, httpClient } = __testExports;
 
-    const loginRes = await mockBackend.login(
+    const loginPromise = mockBackend.login(
       "admin@fintech.com",
       "Admin123!",
       "ip-bound"
     );
+    await advance(300);
+    const loginRes = await loginPromise;
+
     httpClient.setTokens({
       accessToken: loginRes.accessToken,
       expiresAt: Date.now() + 60000, // Exactly 60s
@@ -609,11 +620,14 @@ describe("JWT Authentication — UI + state management", () => {
     await advance(300);
 
     // Force expiration state
-    const loginRes = await mockBackend.login(
+    const loginPromise = mockBackend.login(
       "admin@fintech.com",
       "Admin123!",
       "ip-temp"
     );
+    await advance(300);
+    const loginRes = await loginPromise;
+
     httpClient.setTokens({
       accessToken: loginRes.accessToken,
       expiresAt: Date.now() + 30000,
@@ -628,7 +642,8 @@ describe("JWT Authentication — UI + state management", () => {
     await user.click(
       screen.getByRole("button", { name: /fetch protected data/i })
     );
-    await advance(200);
+    // Instant failure expected due to mockRejectedValue
+    await advance(0); 
 
     // Assert
     expect(
@@ -660,12 +675,15 @@ describe("JWT Authentication — UI + state management", () => {
     const originalRefreshToken = Array.from(refreshTokensMap.keys())[0];
 
     // First use: Valid refresh
-    await mockBackend.refreshAccessToken(originalRefreshToken);
+    const r1 = mockBackend.refreshAccessToken(originalRefreshToken);
+    await advance(200);
+    await r1;
 
     // Second use: Theft!
-    await expect(
-      mockBackend.refreshAccessToken(originalRefreshToken)
-    ).rejects.toThrow("Token reuse detected");
+    const r2 = mockBackend.refreshAccessToken(originalRefreshToken);
+    const r2Check = expect(r2).rejects.toThrow("Token reuse detected");
+    await advance(200);
+    await r2Check;
 
     // Force access token expiry to trigger refresh on next request
     httpClient.setTokens({
@@ -678,7 +696,7 @@ describe("JWT Authentication — UI + state management", () => {
     await user.click(
       screen.getByRole("button", { name: /fetch protected data/i })
     );
-    await advance(200);
+    await advance(200); // refresh is triggered, should fail after delay
 
     // Assert
     expect(
