@@ -8,28 +8,46 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const ROOT = resolve(__dirname, "..");
-const REPORTS_DIR = join(ROOT, "evaluations", "reports");
+const REPORTS_DIR = join(ROOT, "evaluation", "reports");
+const TESTS_DIR = join(ROOT, "tests");
 
 const runId = Math.random().toString(36).substring(2, 10);
 const startedAt = new Date().toISOString();
 
+const log = (message, data = null) => {
+  const ts = new Date().toISOString();
+  if (data !== null) {
+    console.log(`[evaluation:${ts}] ${message}`, data);
+  } else {
+    console.log(`[evaluation:${ts}] ${message}`);
+  }
+};
+
 const ensureReportsDir = () => {
   if (!existsSync(REPORTS_DIR)) {
     mkdirSync(REPORTS_DIR, { recursive: true });
+    log(`Created reports directory: ${REPORTS_DIR}`);
+  } else {
+    log(`Reports directory exists: ${REPORTS_DIR}`);
   }
 };
 
 const runCommand = (cwd, command) => {
+  log(`Running command in ${cwd}`, command);
   try {
     const output = execSync(command, { cwd, stdio: "pipe" });
-    return { passed: true, return_code: 0, output: output.toString() };
+    const out = output.toString();
+    log(`Command succeeded`, out.slice(0, 500));
+    return { passed: true, return_code: 0, output: out };
   } catch (error) {
     const stdout = error.stdout ? error.stdout.toString() : "";
     const stderr = error.stderr ? error.stderr.toString() : "";
+    const combined = (stdout + stderr).slice(0, 8000);
+    log(`Command failed with status ${error.status ?? 1}`, combined.slice(0, 500));
     return {
       passed: false,
       return_code: error.status ?? 1,
-      output: (stdout + stderr).slice(0, 8000),
+      output: combined,
     };
   }
 };
@@ -65,24 +83,36 @@ const formatJestResults = (results) => {
 };
 
 const runRepoTests = (repoName) => {
-  const repoPath = join(ROOT, repoName);
-
   const frontendReportPath = join(REPORTS_DIR, `${repoName}_frontend_results.json`);
   const backendReportPath = join(REPORTS_DIR, `${repoName}_backend_results.json`);
+
+  log(`Starting tests for repo: ${repoName}`);
+  log(`Frontend report path: ${frontendReportPath}`);
+  log(`Backend report path: ${backendReportPath}`);
 
   const frontendCmd = `npm run test:frontend -- --json --outputFile=${frontendReportPath}`;
   const backendCmd = `npm run test:backend -- --json --outputFile=${backendReportPath}`;
 
-  const frontend = runCommand(repoPath, frontendCmd);
-  const backend = runCommand(repoPath, backendCmd);
+  const frontend = runCommand(TESTS_DIR, frontendCmd);
+  const backend = runCommand(TESTS_DIR, backendCmd);
 
   const frontendResults = existsSync(frontendReportPath) ? JSON.parse(readFileSync(frontendReportPath, "utf-8")) : null;
   const backendResults = existsSync(backendReportPath) ? JSON.parse(readFileSync(backendReportPath, "utf-8")) : null;
 
-  if (existsSync(frontendReportPath)) unlinkSync(frontendReportPath);
-  if (existsSync(backendReportPath)) unlinkSync(backendReportPath);
+  log(`Frontend results loaded: ${frontendResults ? "yes" : "no"}`);
+  log(`Backend results loaded: ${backendResults ? "yes" : "no"}`);
+
+  if (existsSync(frontendReportPath)) {
+    unlinkSync(frontendReportPath);
+    log(`Deleted frontend report: ${frontendReportPath}`);
+  }
+  if (existsSync(backendReportPath)) {
+    unlinkSync(backendReportPath);
+    log(`Deleted backend report: ${backendReportPath}`);
+  }
 
   const passed = frontend.passed && backend.passed;
+  log(`Test run completed`, { passed, frontendPassed: frontend.passed, backendPassed: backend.passed });
 
   return {
     tests: {
@@ -105,9 +135,9 @@ const runRepoTests = (repoName) => {
 };
 
 const runEvaluation = () => {
+  log(`Evaluation started`, { runId, startedAt });
   ensureReportsDir();
 
-  const before = runRepoTests("repository_before");
   const after = runRepoTests("repository_after");
 
   const finishedAt = new Date().toISOString();
@@ -132,7 +162,7 @@ const runEvaluation = () => {
       os_release: release(),
       architecture: arch(),
     },
-    before,
+    before: null,
     after,
     comparison,
     success: comparison.passed_gate,
@@ -141,6 +171,8 @@ const runEvaluation = () => {
 
   const reportPath = join(REPORTS_DIR, "report.json");
   writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  log(`Report written`, reportPath);
+  log(`Evaluation finished`, { success: report.success, durationSeconds });
 
   return report;
 };
@@ -148,8 +180,10 @@ const runEvaluation = () => {
 const main = () => {
   const report = runEvaluation();
   if (!report.success) {
+    log(`Evaluation failed`, { return_code: 1 });
     process.exit(1);
   }
+  log(`Evaluation succeeded`, { return_code: 0 });
   process.exit(0);
 };
 

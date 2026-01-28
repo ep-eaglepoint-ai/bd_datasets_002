@@ -7,9 +7,9 @@ module.exports = {
   },
   setupFilesAfterEnv: ["<rootDir>/setupTests.cjs"],
   moduleNameMapper: {
-    "^@/client/(.*)$": "<rootDir>/../repository_after/client/$1",
-    "^react$": "<rootDir>/../repository_after/client/node_modules/react",
-    "^react-dom$": "<rootDir>/../repository_after/client/node_modules/react-dom",
+    "^@/client/(.*)$": "/app/repository_after/client/$1",
+    "^react$": "/app/repository_after/client/node_modules/react",
+    "^react-dom$": "/app/repository_after/client/node_modules/react-dom",
   },
-  moduleDirectories: ["node_modules", "<rootDir>/../repository_after/client/node_modules"],
+  moduleDirectories: ["node_modules", "/app/repository_after/client/node_modules"],
 };

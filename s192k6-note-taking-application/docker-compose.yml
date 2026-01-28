@@ -45,6 +45,7 @@ services:
     depends_on:
       - api
     command: npm run dev -- --host
+
   tests:
     build:
       context: ./tests
@@ -59,28 +60,31 @@ services:
     depends_on:
       - api
     command: sh -c "cd /app/repository_after/client && npm install && cd /app/repository_after/server && npm install && cd /app/tests && npm run test:frontend && npm run test:backend"
+
   evaluation:
     build:
       context: ./tests
       dockerfile: Dockerfile
     container_name: notes_evaluation
     volumes:
-      - ./evaluations:/app/evaluations
-      - ./repository_after/client:/app/client
-      - ./repository_after/server:/app/server
+      - ./evaluation:/app/evaluation
+      - ./repository_after:/app/repository_after
+      - ./tests:/app/tests
     environment:
       - API_BASE_URL=http://api:3001
       - API_PREFIX=/api
     command: >
       sh -c "
-      apk add --no-cache curl >/dev/null &&
-      until curl -s -S http://api:3001/api/health >/dev/null; do
+      until wget -qO- http://api:3001/api/health >/dev/null; do
         echo 'waiting for api...';
         sleep 2;
       done &&
-      node /app/evaluations/evaluation.js
+      cd /app/repository_after/client && npm install &&
+      cd /app/repository_after/server && npm install &&
+      node /app/evaluation/evaluation.js
       "
     depends_on:
       - api
+
 volumes:
   notes_db_data:
