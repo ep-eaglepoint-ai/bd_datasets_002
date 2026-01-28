@@ -1,0 +1,11 @@
+{
+            "instance_id": "XXNH66",
+            "problem_statement": "The Task Manager API suffers from critical production issues including crashes, race conditions, and memory leaks under concurrent load. Data integrity is compromised, with duplicate tasks, ghost tasks, missing updates, and invalid fields. Asynchronous background updates and multiple storage layers cause delayed or lost updates and inconsistent query results. API responses often violate the contract, returning incomplete objects or stale data. The system requires a refactor to a concurrency-safe, single-source-of-truth in-memory storage that ensures immediate, consistent, and validated task operations.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xxnh66-task-manager-api-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
