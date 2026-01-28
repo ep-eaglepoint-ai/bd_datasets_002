@@ -2,6 +2,7 @@
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import uuid
@@ -102,17 +103,18 @@ def parse_pytest_summary_counts(output: str):
     lines = output.split("\n")
     for line in lines:
         line_stripped = line.strip().lower()
-        if " passed" in line_stripped or " failed" in line_stripped or " error" in line_stripped:
-            parts = [p.strip() for p in line_stripped.split(",")]
-            for part in parts:
-                if part.endswith(" passed"):
-                    summary["passed"] = int(part.split()[0])
-                elif part.endswith(" failed"):
-                    summary["failed"] = int(part.split()[0])
-                elif part.endswith(" error") or part.endswith(" errors"):
-                    summary["errors"] = int(part.split()[0])
-                elif part.endswith(" skipped"):
-                    summary["skipped"] = int(part.split()[0])
+        if "passed" in line_stripped or "failed" in line_stripped or "error" in line_stripped:
+            matches = re.findall(r"(\d+)\s+(passed|failed|errors?|skipped)", line_stripped)
+            for count_str, label in matches:
+                count = int(count_str)
+                if label == "passed":
+                    summary["passed"] = count
+                elif label == "failed":
+                    summary["failed"] = count
+                elif label.startswith("error"):
+                    summary["errors"] = count
+                elif label == "skipped":
+                    summary["skipped"] = count
     summary["total"] = sum(
         summary[key] for key in ["passed", "failed", "errors", "skipped"]
     )

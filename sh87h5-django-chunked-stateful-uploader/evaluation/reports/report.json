@@ -1,15 +1,15 @@
 {
-  "run_id": "98a3a83a",
-  "started_at": "2026-01-28T00:32:10.504620Z",
-  "finished_at": "2026-01-28T00:32:13.216350Z",
-  "duration_seconds": 2.71173,
+  "run_id": "d96b750b",
+  "started_at": "2026-01-28T00:49:30.324018Z",
+  "finished_at": "2026-01-28T00:49:31.916963Z",
+  "duration_seconds": 1.592945,
   "environment": {
     "python_version": "3.11.14",
     "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
     "os": "Linux",
     "os_release": "6.6.87.2-microsoft-standard-WSL2",
     "architecture": "x86_64",
-    "hostname": "76cfae2f79ad",
+    "hostname": "d7af9d3516c7",
     "git_commit": "unknown",
     "git_branch": "unknown"
   },
@@ -38,13 +38,13 @@
       "exit_code": 0,
       "tests": [],
       "summary": {
-        "total": 0,
-        "passed": 0,
+        "total": 8,
+        "passed": 8,
         "failed": 0,
         "errors": 0,
         "skipped": 0
       },
-      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.14, pytest-8.4.2, pluggy-1.6.0\ndjango: version: 4.2.27, settings: resumable_uploads.settings (from env)\nrootdir: /app\nconfigfile: pytest.ini\nplugins: django-4.11.1\ncollected 8 items\n\nrepository_after/chunkuploader/test_chunkuploader_pytest.py ........     [100%]\n\n============================== 8 passed in 0.67s ===============================\n",
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.14, pytest-8.4.2, pluggy-1.6.0\ndjango: version: 4.2.27, settings: resumable_uploads.settings (from env)\nrootdir: /app\nconfigfile: pytest.ini\nplugins: django-4.11.1\ncollected 8 items\n\nrepository_after/chunkuploader/test_chunkuploader_pytest.py ........     [100%]\n\n============================== 8 passed in 0.51s ===============================\n",
       "stderr": ""
     },
     "metrics": {}
@@ -52,8 +52,8 @@
   "comparison": {
     "passed_gate": true,
     "improvement_summary": "After implementation passed correctness gate.",
-    "after_total": 0,
-    "after_passed": 0,
+    "after_total": 8,
+    "after_passed": 8,
     "after_failed": 0
   },
   "success": true,
