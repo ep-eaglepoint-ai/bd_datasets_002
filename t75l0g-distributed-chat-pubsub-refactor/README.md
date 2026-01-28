@@ -10,7 +10,7 @@ Builds the Node.js container and installs dependencies.
 
 ```bash
 
-docker compose run --rm -e REPO_PATH=repository_before app bash -c "npm test || true"
+docker compose run --rm -e REPO_PATH=repository_before app bash -c 'npm test || true'
 
 docker compose run --rm -e REPO_PATH=repository_after app npm test
 
