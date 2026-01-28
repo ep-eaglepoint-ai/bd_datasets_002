@@ -1,0 +1,14 @@
+{
+            "instance_id": "9QQGB3",
+            "problem_statement": "The distributed cache implementation is exhibiting unreliable behavior in load testing.  Entries occasionally persist beyond their TTL, concurrent increment operations sometimes  lose counts, and pattern deletion removes more entries than expected. Statistics show  mismatched hit/miss ratios under concurrent access, and save/load cycles occasionally 
+corrupt data structures. 
+
+The cache uses threading locks for synchronization, OrderedDict  for LRU tracking, and pickle for persistence. Core logic is in cache.py with background  cleanup running every 60 seconds.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9qqgb3-integration-tests-for-python-distributed-cache",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
