@@ -1,4 +1,4 @@
-package com.example.sensormetrics;
+package com.eaglepoint.iot;
 
 public record SensorMetricsRequestReading(
     String sensorId,

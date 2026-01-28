@@ -10,11 +10,11 @@ COPY pom.xml .
 RUN mvn dependency:go-offline
 
 # Create directory structure for code
-RUN mkdir -p src/main/java/com/example/sensormetrics
-RUN mkdir -p src/test/java/com/example/sensormetrics
+RUN mkdir -p src/main/java/com/eaglepoint/iot
+RUN mkdir -p src/test/java/com/eaglepoint/iot
 
 # Copy the Test file into the image
-COPY tests/SensorMetricsControllerTest.java src/test/java/com/example/sensormetrics/
+COPY tests/SensorMetricsControllerTest.java src/test/java/com/eaglepoint/iot/
 
 # Copy the evaluation script
 COPY evaluation/Evaluation.java Evaluation.java

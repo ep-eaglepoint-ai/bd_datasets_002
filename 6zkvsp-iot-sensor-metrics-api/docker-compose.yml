@@ -3,21 +3,39 @@ volumes:
   maven_data:
 
 services:
+
   test-before:
     build: .
     volumes:
       # Mount Maven Cache
       - maven_data:/root/.m2
       
-      # Mount the Controller (The Code being tested)
-      - ./repository_before/SensorMetricsController.java:/app/src/main/java/com/example/sensormetrics/SensorMetricsController.java
+      - ./repository_before/SensorMetricsController.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsController.java
       
       # Mount the Main App (Required for Spring to start)
-      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/example/sensormetrics/SensorMetricsTestApplication.java
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsTestApplication.java
       
       # Mount the Test
-      - ./tests/SensorMetricsControllerTest.java:/app/src/test/java/com/example/sensormetrics/SensorMetricsControllerTest.java
+      - ./tests/SensorMetricsControllerTest.java:/app/src/test/java/com/eaglepoint/iot/SensorMetricsControllerTest.java
     command: mvn test -Dmaven.test.failure.ignore=true
+
+  test-after:
+    build: .
+    volumes:
+      # Mount Maven Cache
+      - maven_data:/root/.m2
+      
+      # Mount the Controller (The Code being tested)
+      - ./repository_after/SensorMetricsController.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsController.java
+      - ./repository_after/SensorMetricsRequest.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsRequestReading.java
+      - ./repository_after/SensorMetricsResponse.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsResponse.java
+      
+      # Mount the Main App (Required for Spring to start)
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsTestApplication.java
+      
+      # Mount the Test
+      - ./tests/SensorMetricsControllerTest.java:/app/src/test/java/com/eaglepoint/iot/SensorMetricsControllerTest.java
+    command: mvn test
 
   evaluation:
     build: .
@@ -27,5 +45,5 @@ services:
       - ./evaluation:/app/evaluation
 
       # Ensure the Main App is available for the evaluation script logic
-      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/example/sensormetrics/SensorMetricsTestApplication.java
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsTestApplication.java
     command: java -cp evaluation Evaluation

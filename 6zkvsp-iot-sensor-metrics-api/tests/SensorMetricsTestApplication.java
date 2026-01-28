@@ -1,4 +1,4 @@
-package com.example.sensormetrics;
+package com.eaglepoint.iot;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
