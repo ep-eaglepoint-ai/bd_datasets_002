@@ -3,6 +3,7 @@ package lease
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -111,7 +112,15 @@ func (lo *LeaseOrchestrator) AcquireAndHold(ctx context.Context, resourceID stri
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-watchCh:
-			// Event received, retry immediately
+			// Event received. Add random jitter to avoid thundering herd
+			// when multiple watchers are notified simultaneously.
+			// Range: 5ms - 50ms (enough to spread out requests)
+			jitter := time.Duration(rand.Int63n(45)+5) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(jitter):
+			}
 			continue
 		}
 	}
