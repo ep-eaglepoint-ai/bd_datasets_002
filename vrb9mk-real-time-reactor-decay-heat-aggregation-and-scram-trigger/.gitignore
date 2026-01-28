@@ -28,3 +28,5 @@ dist/
 # Evaluation reports (keep placeholder only)
 evaluation/reports/**
 !evaluation/reports/.gitkeep
+*.json
+reports/

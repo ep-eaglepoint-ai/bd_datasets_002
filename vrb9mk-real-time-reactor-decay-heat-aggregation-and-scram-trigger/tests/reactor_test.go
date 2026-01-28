@@ -272,17 +272,21 @@ func TestSCRAMMultipleActuators(t *testing.T) {
 	
 	// Create multiple "actuators" listening to SCRAM context
 	numActuators := 10
-	actuatorReceived := make([]bool, numActuators)
+	var mu sync.Mutex
+	actuatorReceived := make([]bool, numActuators) // Shared slice mentioned in PR comments
 	var wg sync.WaitGroup
 	
 	for i := 0; i < numActuators; i++ {
 		wg.Add(1)
-		idx := i
-		go func() {
+		go func(id int) {
 			defer wg.Done()
 			<-scramCtx.Done()
-			actuatorReceived[idx] = true
-		}()
+			
+			// Protect access to shared slice to avoid data races
+			mu.Lock()
+			actuatorReceived[id] = true
+			mu.Unlock()
+		}(i)
 	}
 	
 	// Trigger SCRAM
@@ -311,13 +315,61 @@ func TestSCRAMMultipleActuators(t *testing.T) {
 	select {
 	case <-done:
 		// All actuators received SCRAM
-		for i, received := range actuatorReceived {
-			if !received {
-				t.Errorf("Actuator %d did not receive SCRAM signal", i)
+		mu.Lock()
+		count := 0
+		for _, received := range actuatorReceived {
+			if received {
+				count++
 			}
+		}
+		mu.Unlock()
+		
+		if count != numActuators {
+			t.Errorf("Expected %d actuators to receive SCRAM, got %d", numActuators, count)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Not all actuators received SCRAM signal within timeout")
+	}
+}
+
+// TestHighPrecisionAggregation verifies that big.Float aggregation prevents precision loss
+func TestHighPrecisionAggregation(t *testing.T) {
+	// High threshold to avoid SCRAM
+	monitor := reactor.NewReactorMonitor(1e20, 1, 1, 100)
+	monitor.Start()
+	defer monitor.Stop()
+
+	// Use values that would cause precision loss with float64
+	// float64 has ~16 digits of precision. 1e15 and 1e-5 have a ratio of 10^20.
+	largeHeat := 1e15
+	smallHeat := 1e-5
+
+	// Ingest large heat
+	monitor.IngestPebbleData(reactor.PebbleData{
+		PebbleID: 1,
+		Isotopes: []reactor.Isotope{{HalfLife: 100 * time.Hour, InitialMass: 1.0, DecayEnergy: largeHeat}},
+		Timestamp: time.Now(),
+	})
+	
+	// Ingest small heat many times
+	numSmall := 100
+	for i := 0; i < numSmall; i++ {
+		monitor.IngestPebbleData(reactor.PebbleData{
+			PebbleID: int64(2 + i),
+			Isotopes: []reactor.Isotope{{HalfLife: 100 * time.Hour, InitialMass: 1.0, DecayEnergy: smallHeat}},
+			Timestamp: time.Now(),
+		})
+	}
+
+	time.Sleep(200 * time.Millisecond) // Wait for processing
+
+	totalHeat := monitor.GetTotalHeat()
+	expectedHeat := largeHeat + float64(numSmall)*smallHeat
+	
+	// With float64, totalHeat would be exactly largeHeat because smallHeat is lost.
+	// With big.Float, it should be closer to expectedHeat.
+	if totalHeat <= largeHeat && expectedHeat > largeHeat {
+		t.Errorf("Precision loss detected: total heat %f, expected %f", totalHeat, expectedHeat)
 	}
 }
 

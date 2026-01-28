@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"math"
+	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -52,7 +53,7 @@ type ReactorMonitor struct {
 	scramChan        chan SCRAMSignal
 	
 	// Lock-free aggregation using atomic operations
-	totalHeat        atomic.Uint64 // Using uint64 to store float64 bits
+	totalHeat        atomic.Value // Stores *big.Float
 	pebbleCount      atomic.Int64
 	lastStateUpdate  atomic.Value // Stores *ReactorState
 	
@@ -63,6 +64,7 @@ type ReactorMonitor struct {
 	// Worker pools
 	ingestionWg      sync.WaitGroup
 	processingWg     sync.WaitGroup
+	aggregatorWg     sync.WaitGroup
 	
 	// State management
 	scramTriggered   atomic.Bool
@@ -86,6 +88,9 @@ func NewReactorMonitor(maxCoolantTemp float64, ingestionWorkers, processingWorke
 		scramCancel:       scramCancel,
 	}
 	
+	// Initialize high-precision total heat
+	rm.totalHeat.Store(new(big.Float).SetPrec(256).SetFloat64(0.0))
+	
 	return rm
 }
 
@@ -106,6 +111,7 @@ func (rm *ReactorMonitor) Start() {
 	}
 	
 	// Start state aggregator
+	rm.aggregatorWg.Add(1)
 	go rm.stateAggregator()
 	
 	// Start SCRAM monitor
@@ -114,19 +120,23 @@ func (rm *ReactorMonitor) Start() {
 
 // Stop gracefully shuts down the reactor monitoring system
 func (rm *ReactorMonitor) Stop() {
-	rm.running.Store(false)
+	if !rm.running.CompareAndSwap(true, false) {
+		return
+	}
 
 	// First, stop ingestion workers by closing the ingestion channel.
-	// They only receive from this channel, so this is safe and will unblock them.
 	close(rm.ingestionChan)
 	rm.ingestionWg.Wait()
 
 	// At this point, no more data will be sent to processingChan.
-	// It is now safe to close it and wait for processing workers to drain and exit.
 	close(rm.processingChan)
 	rm.processingWg.Wait()
 
+	// Stop aggregator
 	close(rm.stateChan)
+	rm.aggregatorWg.Wait()
+
+	// Finally close scram channel
 	close(rm.scramChan)
 }
 
@@ -161,16 +171,11 @@ func (rm *ReactorMonitor) ingestionWorker() {
 	defer rm.ingestionWg.Done()
 	
 	for data := range rm.ingestionChan {
-		if !rm.running.Load() {
-			return
-		}
-		
 		// Forward to processing channel (non-blocking)
 		select {
 		case rm.processingChan <- data:
 		default:
 			// Processing is backed up, drop this packet
-			// In production, might want to log this
 		}
 	}
 }
@@ -180,20 +185,16 @@ func (rm *ReactorMonitor) processingWorker() {
 	defer rm.processingWg.Done()
 	
 	for data := range rm.processingChan {
-		if !rm.running.Load() {
-			return
-		}
-		
-		// Calculate total decay heat for this pebble
+		// Calculate total decay heat for this pebble using high precision
 		pebbleHeat := rm.calculatePebbleDecayHeat(data)
 		
-		// Atomically update total heat using lock-free accumulation
+		// Atomically update total heat using lock-free accumulation with big.Float
 		rm.accumulateHeat(pebbleHeat)
 		
 		// Update pebble count
 		rm.pebbleCount.Add(1)
 		
-		// Send state update
+		// Send state update for fine-grained monitoring if needed
 		select {
 		case rm.stateChan <- ReactorState{
 			TotalDecayHeat: pebbleHeat,
@@ -201,7 +202,7 @@ func (rm *ReactorMonitor) processingWorker() {
 			PebbleCount:    1,
 		}:
 		default:
-			// State channel full, drop this update
+			// State channel full, skip individual update
 		}
 	}
 }
@@ -213,7 +214,10 @@ func (rm *ReactorMonitor) CalculatePebbleDecayHeat(data PebbleData) float64 {
 
 // calculatePebbleDecayHeat computes decay heat using robust numerical methods
 func (rm *ReactorMonitor) calculatePebbleDecayHeat(data PebbleData) float64 {
-	totalHeat := 0.0
+	// Use big.Float for high-precision accumulation of isotope contributions
+	// and to prevent precision loss when summing disparate magnitudes.
+	// 256 bits is significantly more than float64 (53 bits).
+	totalHeat := new(big.Float).SetPrec(256).SetFloat64(0.0)
 	now := time.Now()
 	
 	for _, isotope := range data.Isotopes {
@@ -229,43 +233,42 @@ func (rm *ReactorMonitor) calculatePebbleDecayHeat(data PebbleData) float64 {
 		// Handle very small values to avoid underflow
 		var remainingFraction float64
 		if exponent < -700 {
-			// Extremely small value, effectively zero
+			// math.Exp underflows to zero around -745 for float64.
+			// Clamping at -700 is a safe threshold for numerical stability.
 			remainingFraction = 0.0
 		} else {
 			remainingFraction = math.Exp(exponent)
 		}
 		
-		// Calculate instantaneous heat contribution.
-		// We model DecayEnergy as the power contribution per unit of remaining activity.
-		// This avoids the \"all zero at t=0\" problem when timestamps are recent while
-		// still letting long-lived isotopes contribute over extended periods.
-		heatContribution := isotope.InitialMass * remainingFraction * isotope.DecayEnergy
+		// heatContribution = InitialMass * remainingFraction * DecayEnergy
+		// We use big.Float for the multiplication and addition to maintain precision
+		mass := new(big.Float).SetPrec(256).SetFloat64(isotope.InitialMass)
+		frac := new(big.Float).SetPrec(256).SetFloat64(remainingFraction)
+		energy := new(big.Float).SetPrec(256).SetFloat64(isotope.DecayEnergy)
 		
-		// Use Kahan summation for numerical stability when adding disparate magnitudes
-		totalHeat = kahanSum(totalHeat, heatContribution)
+		contribution := new(big.Float).SetPrec(256).Mul(mass, frac)
+		contribution.Mul(contribution, energy)
+		
+		// Add to total using high-precision summation
+		totalHeat.Add(totalHeat, contribution)
 	}
 	
-	return totalHeat
-}
-
-// kahanSum performs Kahan summation algorithm for numerical stability
-func kahanSum(sum, value float64) float64 {
-	// For simplicity, using direct addition
-	// In production, might want full Kahan algorithm
-	// But this handles most cases where values are not extremely disparate
-	return sum + value
+	f, _ := totalHeat.Float64()
+	return f
 }
 
 // accumulateHeat atomically accumulates heat using lock-free operations
 func (rm *ReactorMonitor) accumulateHeat(heat float64) {
-	// Use compare-and-swap loop for lock-free accumulation
+	// Use compare-and-swap loop for lock-free accumulation with big.Float
+	newContribution := new(big.Float).SetPrec(256).SetFloat64(heat)
 	for {
-		oldBits := rm.totalHeat.Load()
-		oldHeat := math.Float64frombits(oldBits)
-		newHeat := oldHeat + heat
-		newBits := math.Float64bits(newHeat)
+		oldHeatVal := rm.totalHeat.Load()
+		oldHeat := oldHeatVal.(*big.Float)
 		
-		if rm.totalHeat.CompareAndSwap(oldBits, newBits) {
+		// Create a new big.Float for the updated value to maintain immutability for CAS
+		updatedHeat := new(big.Float).SetPrec(256).Add(oldHeat, newContribution)
+		
+		if rm.totalHeat.CompareAndSwap(oldHeat, updatedHeat) {
 			break
 		}
 	}
@@ -273,25 +276,33 @@ func (rm *ReactorMonitor) accumulateHeat(heat float64) {
 
 // GetTotalHeat returns the current total decay heat (thread-safe)
 func (rm *ReactorMonitor) GetTotalHeat() float64 {
-	bits := rm.totalHeat.Load()
-	return math.Float64frombits(bits)
+	val := rm.totalHeat.Load()
+	if val == nil {
+		return 0.0
+	}
+	f, _ := val.(*big.Float).Float64()
+	return f
 }
 
 // stateAggregator aggregates state updates and calculates coolant temperature
 func (rm *ReactorMonitor) stateAggregator() {
+	defer rm.aggregatorWg.Done()
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	
 	for {
 		select {
 		case <-ticker.C:
+			if !rm.running.Load() {
+				return
+			}
+			
 			// Periodic state update
 			totalHeat := rm.GetTotalHeat()
 			pebbleCount := rm.pebbleCount.Load()
 			
 			// Simple model: coolant temp proportional to total heat
-			// In reality, this would involve complex thermal hydraulics
-			coolantTemp := totalHeat * 0.001 // Simplified conversion
+			coolantTemp := totalHeat * 0.001
 			
 			state := ReactorState{
 				TotalDecayHeat: totalHeat,
@@ -307,28 +318,29 @@ func (rm *ReactorMonitor) stateAggregator() {
 				rm.triggerSCRAM("Coolant temperature exceeded safety limit")
 			}
 			
-		case state := <-rm.stateChan:
-			// Process individual state updates if needed
-			_ = state
+		case _, ok := <-rm.stateChan:
+			if !ok {
+				return
+			}
 		}
 	}
 }
 
 // scramMonitor monitors for SCRAM signals
 func (rm *ReactorMonitor) scramMonitor() {
-	for signal := range rm.scramChan {
-		if signal.Triggered {
-			// SCRAM triggered - broadcast via context cancellation
-			rm.scramCancel()
-		}
+	for range rm.scramChan {
+		// Signal received from channel
 	}
 }
 
 // triggerSCRAM triggers the SCRAM signal
 func (rm *ReactorMonitor) triggerSCRAM(reason string) {
-	// Use atomic operation to ensure only one SCRAM
+	// Use atomic operation to ensure only one SCRAM trigger logic runs
 	if rm.scramTriggered.CompareAndSwap(false, true) {
-		// Broadcast SCRAM via channel (non-blocking)
+		// Broadcast SCRAM via context cancellation (immediate and robust)
+		rm.scramCancel()
+		
+		// Also send to channel if monitor is still running
 		select {
 		case rm.scramChan <- SCRAMSignal{
 			Triggered: true,
@@ -336,11 +348,8 @@ func (rm *ReactorMonitor) triggerSCRAM(reason string) {
 			Timestamp: time.Now(),
 		}:
 		default:
-			// Channel full, but SCRAM already triggered via context
+			// Channel full or closed
 		}
-		
-		// Also trigger context cancellation for immediate broadcast
-		rm.scramCancel()
 	}
 }
 
