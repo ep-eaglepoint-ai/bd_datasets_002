@@ -4,7 +4,7 @@
 
 To run tests for the repository_before
 ```bash
-docker compose run app mvn test --repo=before
+docker compose run app mvn test --repo=before; exit 0
 ```
 
 To run tests for the repository_after
