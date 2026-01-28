@@ -1,0 +1,11 @@
+{
+            "instance_id": "608JH9",
+            "problem_statement": "We need a fully self-contained Python training script that enables supervised fine-tuning (SFT) of a causal large language model using LoRA adapters. The solution must run entirely locally without integrating with any external APIs, cloud services, or experiment tracking platforms. The script should support modern memory-efficient training techniques (quantization, gradient accumulation, checkpointing) and be flexible enough to work with common open-source base models such as Mistral, LLaMA, or Falcon. The goal is to provide a reproducible, offline-capable training pipeline that can be executed with minimal setup and clear configuration via command-line arguments.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/608jh9-develop-a-stand-alone-lora-supervised-fine-tuning-script-for-causal-llms",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
