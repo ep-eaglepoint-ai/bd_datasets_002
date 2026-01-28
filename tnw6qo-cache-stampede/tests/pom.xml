@@ -20,6 +20,12 @@
     </properties>
 
     <dependencies>
+        <!-- Cache implementation under test (from repository_after) -->
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>single-flight-cache</artifactId>
+            <version>1.0.0</version>
+        </dependency>
         <!-- JUnit 5 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

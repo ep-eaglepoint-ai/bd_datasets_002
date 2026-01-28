@@ -177,13 +177,14 @@ public class Evaluation {
         Map<String, Object> result = new LinkedHashMap<>();
 
         try {
-            // Copy source files to tests directory
-            prepareTestEnvironment(repoName);
+            // Install repo under test so tests can import it as dependency
+            installRepoUnderTest(repoName);
 
-            Path testsDir = Paths.get(TESTS_DIR);
+            Path testsDir = Paths.get(TESTS_DIR).toAbsolutePath().normalize();
             
             ProcessBuilder pb = new ProcessBuilder();
-            String mvnCommand = System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd" : "mvn";
+            String mvnCommand = System.getenv("MVN_CMD");
+            if (mvnCommand == null || mvnCommand.isEmpty()) mvnCommand = System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd" : "mvn";
             pb.command(mvnCommand, "test", "-q");
             pb.directory(testsDir.toFile());
             pb.redirectErrorStream(true);
@@ -237,25 +238,34 @@ public class Evaluation {
         return result;
     }
 
-    private static void prepareTestEnvironment(String repoName) throws IOException {
-        Path sourceDir = Paths.get(repoName, "src/main/java/cache");
-        Path targetDir = Paths.get(TESTS_DIR, "src/main/java/cache");
-
-        Files.createDirectories(targetDir);
-
-        if (Files.exists(sourceDir)) {
-            try (var stream = Files.list(sourceDir)) {
-                stream.filter(p -> p.toString().endsWith(".java"))
-                      .forEach(p -> {
-                          try {
-                              Files.copy(p, targetDir.resolve(p.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-                          } catch (IOException e) {
-                              throw new UncheckedIOException(e);
-                          }
-                      });
-            }
+    private static void installRepoUnderTest(String repoName) throws IOException, InterruptedException {
+        Path repoDir = Paths.get(repoName).toAbsolutePath().normalize();
+        Path pom = repoDir.resolve("pom.xml");
+        if (!Files.exists(pom)) {
+            System.out.println("No pom.xml in " + repoName + ", skipping install");
+            return;
         }
-        System.out.println("Prepared test environment from: " + repoName);
+        String mvnCommand = System.getenv("MVN_CMD");
+        if (mvnCommand == null || mvnCommand.isEmpty()) mvnCommand = System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd" : "mvn";
+        ProcessBuilder pb = new ProcessBuilder(mvnCommand, "install", "-q");
+        pb.directory(repoDir.toFile());
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        StringBuilder out = new StringBuilder();
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = r.readLine()) != null) out.append(line).append("\n");
+        }
+        boolean done = process.waitFor(120, TimeUnit.SECONDS);
+        if (!done) {
+            process.destroyForcibly();
+            process.waitFor(10, TimeUnit.SECONDS);
+        }
+        int code = process.exitValue();
+        if (code != 0) {
+            throw new RuntimeException("mvn install failed for " + repoName + " (exit " + code + "): " + out);
+        }
+        System.out.println("Installed repo under test: " + repoName);
     }
 
     private static List<Map<String, Object>> parseTestResults(String output, String repoName) {
@@ -434,8 +444,11 @@ public class Evaluation {
         String timeStr = DateTimeFormatter.ofPattern("HH-mm-ss")
                 .format(startedAt.atZone(java.time.ZoneOffset.UTC));
 
-        // Save to current directory (evaluation/) with date/time structure
-        Path evaluationDir = Paths.get(dateStr, timeStr);
+        String reportBase = System.getenv("REPORT_DIR");
+        if (reportBase == null || reportBase.isEmpty()) reportBase = "reports";
+        Path baseDir = Paths.get(reportBase);
+
+        Path evaluationDir = baseDir.resolve(dateStr).resolve(timeStr);
         Files.createDirectories(evaluationDir);
 
         Path reportPath = evaluationDir.resolve("report.json");
@@ -443,12 +456,10 @@ public class Evaluation {
         String json = toJson(report, 0);
         Files.writeString(reportPath, json);
 
-        // Also save as latest_report.json
-        Path latestPath = Paths.get("latest_report.json");
+        Path latestPath = baseDir.resolve("latest_report.json");
         Files.writeString(latestPath, json);
 
-        // Also save as report.json directly in evaluation folder (for CI systems)
-        Path directPath = Paths.get("report.json");
+        Path directPath = baseDir.resolve("report.json");
         Files.writeString(directPath, json);
 
         return reportPath.toString();

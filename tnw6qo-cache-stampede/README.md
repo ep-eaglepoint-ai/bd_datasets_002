@@ -1,11 +1,12 @@
 # Single Flight Cache - Cache Stampede Prevention
 
-## Run Tests
+
+### Run tests only
 ```bash
-docker-compose up test
+docker compose run --rm test
 ```
 
-## Run Evaluation
+### Generate report
 ```bash
-docker-compose up evaluate
+docker compose run --rm evaluation
 ```

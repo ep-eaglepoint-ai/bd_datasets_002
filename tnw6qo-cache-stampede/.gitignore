@@ -39,6 +39,7 @@ evaluation/report.txt
 evaluation/latest_report.json
 evaluation/**/report.json
 evaluation/**/latest_report.json
+reports/
 
 # Logs
 *.log
