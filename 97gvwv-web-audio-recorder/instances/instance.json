@@ -1,0 +1,11 @@
+{
+            "instance_id": "97GVWV",
+            "problem_statement": "The existing web-based audio recorder allows users to capture audio and download WAV files, but it suffers from critical usability and workflow issues. Users cannot verify recordings before download, have no feedback on microphone quality, and cannot manage multiple recordings in a session. Goal: Transform the basic recorder into a lightweight, professional-grade, in-browser audio workstation that enables immediate playback, live input monitoring, and session-based recording management, all while maintaining the minimal dark aesthetic and mobile responsiveness.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/97gvwv-web-audio-recorder",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
