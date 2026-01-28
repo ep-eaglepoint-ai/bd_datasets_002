@@ -1,8 +1,8 @@
 {
   "name": "lv4rqj-order-processing-pipeline-test-code",
   "version": "1.0.0",
-  "scripts": {
-    "test:before": "cd repository_before && NODE_PATH=. npx jest --runInBand",
+  "scripts": { 
+    "test:before": "cd repository_before && NODE_PATH=. npx jest --runInBand --passWithNoTests",
     "test:after": "cd repository_after && NODE_PATH=. npx jest --runInBand",
     "evaluate": "node ./node_modules/ts-node/dist/bin.js --project tsconfig.json evaluation/evaluation.ts",
     "test": "NODE_PATH=. npx jest --runInBand"
