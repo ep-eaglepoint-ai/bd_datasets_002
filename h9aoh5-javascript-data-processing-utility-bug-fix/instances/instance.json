@@ -1,0 +1,13 @@
+{
+            "instance_id": "H9AOH5",
+            "problem_statement": "Noticed unexpected data corruption when testing an ETL pipeline built with a JavaScript data processing utility. The issue appeared while working on the dedupe and merge functions in dataProcessor.js, where the goal is to clean and transform arrays of records from various data sources. The utility needs to remove duplicates without modifying source data, merge datasets by key without creating duplicate entries, and filter records by date ranges correctly — all while handling JavaScript edge cases like NaN values and type coercion. 
+
+QA reported that Dataset A was corrupted after running dedupe, Dataset B still had duplicates after processing, and Dataset E showed wrong aggregation totals for certain regions. The pipeline processes thousands of records so performance and data integrity are critical.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/h9aoh5-javascript-data-processing-utility-bug-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
