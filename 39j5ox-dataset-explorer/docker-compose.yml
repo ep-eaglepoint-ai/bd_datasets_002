@@ -1,6 +1,69 @@
 services:
+  # Development server
   app:
+    container_name: app
     build: .
-    command: pytest -q tests
+    ports:
+      - "3000:3000"
     volumes:
-      - .:/app
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./jest.config.js:/app/jest.config.js
+      - ./jest.setup.js:/app/jest.setup.js
+      - ./eslint.config.mjs:/app/eslint.config.mjs
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - ./next-env.d.ts:/app/next-env.d.ts
+      - /app/node_modules
+    command: npm run dev
+
+  # Run tests
+  test:
+    container_name: test
+    build: .
+    volumes:
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./jest.config.js:/app/jest.config.js
+      - ./jest.setup.js:/app/jest.setup.js
+      - ./eslint.config.mjs:/app/eslint.config.mjs
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - ./next-env.d.ts:/app/next-env.d.ts
+      - /app/node_modules
+    command: npm test
+
+  # Production build
+  prod:
+    build: .
+    ports:
+      - "3000:3000"
+    command: sh -c "npm run build && npm start"
+
+  # Run evaluation
+  evaluate:
+    build: .
+    volumes:
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./jest.config.js:/app/jest.config.js
+      - ./jest.setup.js:/app/jest.setup.js
+      - ./eslint.config.mjs:/app/eslint.config.mjs
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - ./next-env.d.ts:/app/next-env.d.ts
+      - ./evaluation/reports:/app/evaluation/reports
+      - /app/node_modules
+    command: npm run evaluate

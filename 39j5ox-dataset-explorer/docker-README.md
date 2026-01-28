@@ -1,5 +1,3 @@
-# bd_datasets_002
-
 # Docker Setup
 
 Simple Docker configuration for the CSV Dataset Explorer.
