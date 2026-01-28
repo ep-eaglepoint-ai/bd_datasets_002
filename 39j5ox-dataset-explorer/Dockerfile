@@ -18,7 +18,10 @@ COPY jest.config.js ./
 COPY jest.setup.js ./
 COPY eslint.config.mjs ./
 COPY postcss.config.mjs ./
-# COPY next-env.d.ts ./
+
+# Create next-env.d.ts (Next.js will regenerate it anyway)
+RUN echo '/// <reference types="next" />' > next-env.d.ts && \
+    echo '/// <reference types="next/image-types/global" />' >> next-env.d.ts
 
 # Expose port
 EXPOSE 3000
