@@ -4,3 +4,6 @@ services:
     command: pytest -q tests
     volumes:
       - .:/app
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1

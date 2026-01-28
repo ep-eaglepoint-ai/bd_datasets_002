@@ -1,11 +1,34 @@
 {
             "instance_id": "RYWXIV",
-            "problem_statement": "A mission-critical data ingestion script is written in a procedural, blocking style using global state and mutable default arguments. This causes "State Bleed" (data from previous runs polluting current runs) and unacceptable latency due to sequential synchronous HTTP requests. The code needs to be modernized to use asynchronous I/O and proper encapsulation without altering the business logic formulas.",
+            "problem_statement": "A mission-critical data ingestion script is written in a procedural, blocking style using global state and mutable default arguments. This causes 'State Bleed' (data from previous runs polluting current runs) and unacceptable latency due to sequential synchronous HTTP requests. The code needs to be modernized to use asynchronous I/O and proper encapsulation without altering the business logic formulas.",
             "base_commit": "repository_before/",
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/rywxiv-legacy-monolith-to-async-micro-library-refactoring",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
+            "FAIL_TO_PASS": [
+                "TestMutableDefaultArgument::test_no_mutable_default_argument",
+                "TestMutableDefaultArgument::test_function_signature_simple",
+                "TestGlobalState::test_no_global_cache",
+                "TestTypeSafety::test_has_type_hints",
+                "TestTypeSafety::test_uses_pydantic_models",
+                "TestBusinessLogic::test_score_formula_pydantic",
+                "TestBusinessLogic::test_average_calculation_pydantic",
+                "TestBusinessLogic::test_empty_articles_handled_pydantic",
+                "TestAsyncBehavior::test_async_batch_process",
+                "TestAsyncBehavior::test_uses_asyncio",
+                "TestAsyncBehavior::test_uses_aiohttp",
+                "TestCacheManagement::test_cache_isolated_per_instance",
+                "TestCacheManagement::test_cache_operations",
+                "TestContextManager::test_context_manager",
+                "TestErrorHandling::test_http_error_handling",
+                "TestOutputFormat::test_batch_returns_pydantic_models",
+                "TestStateLeakage::test_no_state_leakage",
+                "TestFullPipeline::test_full_pipeline"
+            ],
+            "PASS_TO_PASS": [
+                "TestBusinessLogicPreserved::test_score_formula_basic",
+                "TestBusinessLogicPreserved::test_average_calculation",
+                "TestBusinessLogicPreserved::test_complete_score_calculation",
+                "TestBusinessLogicPreserved::test_empty_handling"
+            ]
         }
-        
