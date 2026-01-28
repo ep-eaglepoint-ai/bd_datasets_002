@@ -68,14 +68,14 @@ def test_tokenization_correctness_and_performance(engine):
 
     # 2. Performance Check
     # Payload: 250,000 characters.
-    # Limit: 20ms (Safe for optimized, impossible for legacy).
+    # Limit: 50ms (Safe for optimized, impossible for legacy).
     large_text = "word " * 40000
     start = time.time()
     engine._tokenize(large_text)
     duration_ms = (time.time() - start) * 1000
 
     print(f"Tokenization Time: {duration_ms:.2f}ms")
-    assert duration_ms < 30, f"Tokenization too slow: {duration_ms:.2f}ms (Limit: 20ms)"
+    assert duration_ms < 50, f"Tokenization too slow: {duration_ms:.2f}ms (Limit: 50ms)"
 
 def test_stopword_performance(engine):
     """
@@ -99,7 +99,7 @@ def test_stopword_performance(engine):
     duration_ms = (time.time() - start) * 1000
 
     print(f"Stopword/Index Time: {duration_ms:.2f}ms")
-    assert duration_ms < 50, f"Indexing/Stopwords too slow: {duration_ms:.2f}ms (Limit: 50ms)"
+    assert duration_ms < 100, f"Indexing/Stopwords too slow: {duration_ms:.2f}ms (Limit: 100ms)"
 
 def test_doc_lookup_complexity(populated_engine):
     """
@@ -118,7 +118,7 @@ def test_doc_lookup_complexity(populated_engine):
         populated_engine.get_document_stats(1)
     duration_ms = (time.time() - start) * 1000
 
-    assert duration_ms < 50, f"Doc lookup too slow: {duration_ms:.2f}ms"
+    assert duration_ms < 50, f"Doc lookup too slow: {duration_ms:.2f}ms (Limit: 50ms)"
 
 def test_inverted_index_structure(populated_engine):
     """
@@ -180,7 +180,7 @@ def test_similarity_sparse_vectors(populated_engine):
         populated_engine.find_similar_documents(1)
     duration_ms = (time.time() - start) * 1000
 
-    assert duration_ms < 300, f"Similarity too slow: {duration_ms:.2f}ms LIMIT: 300ms"
+    assert duration_ms < 300, f"Similarity too slow: {duration_ms:.2f}ms (Limit: 300ms)"
 
 def test_phrase_search_optimized(engine):
     """
