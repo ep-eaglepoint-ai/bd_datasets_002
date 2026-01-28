@@ -1,0 +1,12 @@
+{
+            "instance_id": "70P4Z0",
+            "problem_statement": "Build an offline‑first bookmark manager web app using Next.js and TailwindCSS that allows users to save, tag, organize, and search links locally with rich metadata, collections, and favorites without external APIs. Use Zod for validation and Zustand for state management with IndexedDB persistence to ensure data integrity and fast retrieval across large libraries. The application must provide advanced filtering, usage analytics, export capabilities, and reliable handling of malformed URLs and duplicates while maintaining responsive performance for long‑term productivity use.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/70p4z0-bookmark-manager",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
