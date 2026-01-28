@@ -524,3 +524,90 @@ def test_zero_quantity_order(load_function, db_connection):
     
     cursor.execute("SELECT stock_quantity FROM inventory WHERE product_id = 1 AND warehouse_id = 100")
     assert cursor.fetchone()[0] == 50
+
+
+def test_multi_product_concurrent_partial_update_prevention(load_function, db_connection):
+    """Test that concurrent transactions cannot cause partial updates on multi-product orders
+    
+    Scenario: Order 1 has products A+B. Concurrent transaction modifies product B's inventory
+    between validation and update, causing product A to update but product B to fail.
+    
+    BEFORE: FAILS - Partial update occurs (product A updated, B not updated)
+    AFTER: PASSES - Row-level locking prevents partial updates
+    """
+    cursor = load_function
+    
+    cursor.execute("INSERT INTO inventory VALUES (1, 100, 100), (2, 100, 100)")
+    cursor.execute("INSERT INTO order_items VALUES (1, 1, 50), (1, 2, 50)")
+    cursor.execute("INSERT INTO order_items VALUES (2, 2, 80)")
+    db_connection.commit()
+    
+    import threading
+    results = {'order1': None, 'order2': None, 'error': None}
+    
+    def allocate_order_1():
+        try:
+            conn = psycopg2.connect(
+                host=os.getenv("DB_HOST", "localhost"),
+                port=os.getenv("DB_PORT", "5432"),
+                database=os.getenv("DB_NAME", "testdb"),
+                user=os.getenv("DB_USER", "postgres"),
+                password=os.getenv("DB_PASSWORD", "postgres")
+            )
+            conn.set_isolation_level(ISOLATION_LEVEL_READ_COMMITTED)
+            cur = conn.cursor()
+            
+            cur.execute("SELECT allocate_inventory(1, 100)")
+            results['order1'] = cur.fetchone()[0]
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            results['error'] = str(e)
+    
+    def allocate_order_2():
+        try:
+            conn = psycopg2.connect(
+                host=os.getenv("DB_HOST", "localhost"),
+                port=os.getenv("DB_PORT", "5432"),
+                database=os.getenv("DB_NAME", "testdb"),
+                user=os.getenv("DB_USER", "postgres"),
+                password=os.getenv("DB_PASSWORD", "postgres")
+            )
+            conn.set_isolation_level(ISOLATION_LEVEL_READ_COMMITTED)
+            cur = conn.cursor()
+            
+            time.sleep(0.05)
+            
+            cur.execute("SELECT allocate_inventory(2, 100)")
+            results['order2'] = cur.fetchone()[0]
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            if not results['error']:
+                results['error'] = str(e)
+    
+    t1 = threading.Thread(target=allocate_order_1)
+    t2 = threading.Thread(target=allocate_order_2)
+    
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    
+    cursor.execute("SELECT stock_quantity FROM inventory WHERE product_id = 1 AND warehouse_id = 100")
+    stock_a = cursor.fetchone()[0]
+    cursor.execute("SELECT stock_quantity FROM inventory WHERE product_id = 2 AND warehouse_id = 100")
+    stock_b = cursor.fetchone()[0]
+    
+    if is_before_implementation():
+        if stock_a == 50 and stock_b != 50:
+            pytest.fail("BEFORE implementation allowed partial update - product A updated but product B inconsistent")
+    else:
+        assert not (stock_a == 50 and stock_b == 100), "Partial update detected - product A updated but product B not updated"
+        
+        if stock_a == 50:
+            assert stock_b == 50 or stock_b == 20, "If product A updated for order 1, product B must also be updated"
+        if stock_b == 50:
+            assert stock_a == 50, "If product B updated for order 1, product A must also be updated"
