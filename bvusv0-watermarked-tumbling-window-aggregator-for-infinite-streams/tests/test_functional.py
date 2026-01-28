@@ -1,5 +1,4 @@
-import sys
-import os
+
 from repository_after.app.stream_aggregator import StreamWindowAggregator
 
 """

@@ -67,20 +67,18 @@ def main():
     # Determine output path
     if args.output:
         output_path = args.output
+        parent = os.path.dirname(output_path)
+        if parent:
+            try:
+                os.makedirs(parent, exist_ok=True)
+            except Exception as e:
+                print(f"Failed to create output directory {parent}: {e}")
+                return 1
     else:
         timestamp = datetime.now().strftime('%Y-%m-%d/%H-%M-%S')
         output_dir = os.path.join(os.path.dirname(__file__), timestamp)
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, 'report.json')
-    
-    # Ensure parent directory exists for output_path
-    parent = os.path.dirname(output_path)
-    if parent:
-        try:
-            os.makedirs(parent, exist_ok=True)
-        except Exception as e:
-            print(f"Failed to create output directory {parent}: {e}")
-            return 1
 
     # Write report
     try:

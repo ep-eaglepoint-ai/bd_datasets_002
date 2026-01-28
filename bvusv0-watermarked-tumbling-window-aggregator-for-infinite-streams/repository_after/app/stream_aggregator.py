@@ -1,4 +1,5 @@
 import json
+import heapq
 from collections import defaultdict
 
 
@@ -17,7 +18,8 @@ class StreamWindowAggregator:
         self.input_stream = input_stream
         self.allowed_lateness = allowed_lateness
         self.max_timestamp = None
-        self.windows = defaultdict(list)
+        self.windows = defaultdict(lambda: {'sum': 0.0, 'count': 0})
+        self.window_heap = []
         self.WINDOW_SIZE = 60
     
     def process(self):
@@ -42,43 +44,42 @@ class StreamWindowAggregator:
             
             # Update watermark and emit completed windows
             if timestamp > self.max_timestamp:
-                old_watermark = self.max_timestamp
                 self.max_timestamp = timestamp
-                yield from self._emit_completed_windows(old_watermark, self.max_timestamp)
+                yield from self._emit_completed_windows(self.max_timestamp)
             
             # Assign to tumbling window
             window_start = (timestamp // self.WINDOW_SIZE) * self.WINDOW_SIZE
-            self.windows[window_start].append(value)
+            
+            if window_start not in self.windows or self.windows[window_start]['count'] == 0:
+                window_completion_time = window_start + self.WINDOW_SIZE + self.allowed_lateness
+                heapq.heappush(self.window_heap, (window_completion_time, window_start))
+            
+            self.windows[window_start]['sum'] += value
+            self.windows[window_start]['count'] += 1
         
         # Emit remaining windows
         if self.max_timestamp is not None:
             yield from self._emit_all_remaining_windows()
     
-    def _emit_completed_windows(self, old_watermark, new_watermark):
+    def _emit_completed_windows(self, new_watermark):
         """Emit and delete windows completed by watermark advancement."""
-        windows_to_emit = []
-        
-        for window_start in list(self.windows.keys()):
-            window_end = window_start + self.WINDOW_SIZE
-            if window_end <= new_watermark:
-                windows_to_emit.append(window_start)
-        
-        windows_to_emit.sort()
-        
-        for window_start in windows_to_emit:
-            values = self.windows[window_start]
-            if values:
-                average_value = sum(values) / len(values)
-                yield (window_start, average_value)
-            del self.windows[window_start]
+        while self.window_heap and self.window_heap[0][0] <= new_watermark:
+            _, window_start = heapq.heappop(self.window_heap)
+            
+            if window_start in self.windows:
+                window_data = self.windows[window_start]
+                if window_data['count'] > 0:
+                    average_value = window_data['sum'] / window_data['count']
+                    yield (window_start, average_value)
+                del self.windows[window_start]
     
     def _emit_all_remaining_windows(self):
         """Flush remaining windows when stream ends."""
         sorted_windows = sorted(self.windows.keys())
         
         for window_start in sorted_windows:
-            values = self.windows[window_start]
-            if values:
-                average_value = sum(values) / len(values)
+            window_data = self.windows[window_start]
+            if window_data['count'] > 0:
+                average_value = window_data['sum'] / window_data['count']
                 yield (window_start, average_value)
             del self.windows[window_start]

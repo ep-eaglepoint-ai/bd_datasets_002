@@ -1,5 +1,3 @@
-import sys
-import os
 from repository_after.app.stream_aggregator import StreamWindowAggregator
 
 """
@@ -15,7 +13,7 @@ def test_memory_cleanup():
         yield '{"timestamp": 10000, "value": 5.0}'
     
     aggregator = StreamWindowAggregator(stream(), allowed_lateness=30)
-    results = list(aggregator.process())
+    list(aggregator.process())
     
     assert len(aggregator.windows) <= 1
 

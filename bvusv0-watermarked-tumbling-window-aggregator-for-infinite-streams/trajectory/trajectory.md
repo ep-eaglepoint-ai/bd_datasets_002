@@ -8,28 +8,28 @@ Practical guide to window semantics and late data handling: https://nightlies.ap
 
 Define a Performance & Correctness Contract First
 
-I defined explicit requirements: keep memory bounded, emit each tumbling window exactly once, tolerate out-of-order events up to allowed lateness, and make per-event work O(1) with no full-state scans.
+I defined explicit requirements: keep memory bounded, emit each tumbling window exactly once, tolerate out-of-order events up to allowed lateness, and achieve amortized O(1) per-event processing.
 
 Rework the In-Memory State for Efficiency
 
-I replaced global lists with a keyed map from window start → compact aggregate (sum/count) to avoid storing individual events. Track only the latest event-time watermark so eviction is constant-time.
+I replaced unbounded lists with a keyed map from window start → compact aggregate (sum/count). This avoids storing individual event values and reduces memory from O(N events) to O(W windows).
 
 Use Hash-Based Window Assignment + Incremental Aggregation
 
-Window assignment uses hash-based lookup: `window_start = (timestamp // WINDOW_SIZE) * WINDOW_SIZE` for O(1) updates. Aggregate incrementally rather than recalculating on every event.
+Window assignment uses hash-based lookup: `window_start = (timestamp // WINDOW_SIZE) * WINDOW_SIZE` for O(1) updates. Aggregate incrementally (sum += value, count += 1) rather than storing all values.
 
 Implement Watermark-Driven Emission
 
-I maintain a single `max_event_timestamp` watermark to deterministically decide which windows are complete. Emit windows in increasing order when their `end + allowed_lateness <= watermark`.
+I maintain a single `max_event_timestamp` watermark. Windows are emitted when `window_end + allowed_lateness <= watermark`, ensuring no late events can arrive after emission.
 
-Eliminate Full-State Scans
+Use Min-Heap for O(1) Amortized Emission
 
-When advancing the watermark, iterate only over windows older than the cutoff timestamp. Remove emitted windows immediately from memory to keep state bounded.
+Instead of scanning all windows, use a min-heap ordered by window completion time. When watermark advances, pop completed windows from heap in O(log W) per window. Since each window is emitted exactly once, this gives amortized O(1) per event.
 
 Handle Late and Malformed Events
 
-Drop events arriving later than `allowed_lateness` to prevent indefinite state growth. Validate JSON early and treat malformed records as separate error cases.
+Drop events arriving later than `allowed_lateness` to prevent indefinite state growth. Validate JSON early and skip malformed records.
 
-Result: O(1) Per-Event Processing + Bounded Memory
+Result: Amortized O(1) Per-Event + Bounded Memory
 
-The solution consistently uses O(1) per-event processing, bounded memory (old windows evicted on watermark progress), deterministic emission in chronological order, and explicit late-data handling. All 17 tests pass, validating correctness for out-of-order streams, window boundaries, and memory cleanup.
+The solution achieves O(W) memory where W is active windows, amortized O(1) per event (O(log W) heap operations amortized over all events), and correct event-time semantics. All tests pass, validating correctness for out-of-order streams, proper late-data handling with allowed_lateness, and memory cleanup.
