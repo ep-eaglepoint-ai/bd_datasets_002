@@ -1,0 +1,11 @@
+{
+            "instance_id": "JKP2SP",
+            "problem_statement": "The objective is to refactor an over-coupled Go hardware driver. The primary challenge is to isolate physical hardware protocol details from safety-critical coordinate mathematics and provide an interface-driven architecture that enforces immutable safety invariants while allowing the code to be tested independently of physical system state.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/jkp2sp-robotic-armactuator-logic-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
