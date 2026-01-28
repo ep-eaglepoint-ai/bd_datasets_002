@@ -1,0 +1,11 @@
+{
+            "instance_id": "8U78M7",
+            "problem_statement": "You are operating in a high-risk production environment where generated code will be executed immediately with root privileges. The task is to implement a cryptographic transformation in Python that is functionally correct, deterministic, and secure, while obeying unusually strict syntactic and semantic constraints. These constraints are designed to test a model’s ability to reason precisely about forbidden tokens, restricted function calls, and safe indirection, without introducing vulnerabilities or undefined behavior. Any deviation from the specification constitutes a critical failure.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/8u78m7-cryptographic-function-implementation-under-extreme-token-and-call-restrictions",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
