@@ -1,6 +1,28 @@
 services:
-  app:
+  # Run only non-blocking tests against repository_before 
+  # (async tests will hang due to blocking time.sleep in buggy code)
+  test-before:
     build: .
-    command: pytest -q tests
+    environment:
+      - TARGET_REPOSITORY=repository_before
+    command: >
+      pytest -v tests
+      -k "test_zero_workers or test_retry_policy or test_priority_queue_direct or test_result_cache"
+      --timeout=30
+    volumes:
+      - .:/app
+
+  # Run all tests against repository_after (should all pass)
+  test-after:
+    build: .
+    environment:
+      - TARGET_REPOSITORY=repository_after
+    command: pytest -v tests --timeout=60
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app
