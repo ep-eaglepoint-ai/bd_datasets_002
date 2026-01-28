@@ -1,6 +1,18 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
+    command: npm test
     volumes:
       - .:/app
+      - /app/node_modules
+      - /app/repository_after/server/node_modules
+      - /app/repository_after/client/node_modules
+
+  evaluation:
+    build: .
+    command: node evaluation/evaluation.js
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/repository_after/server/node_modules
+      - /app/repository_after/client/node_modules
