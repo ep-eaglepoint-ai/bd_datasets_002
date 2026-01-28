@@ -1,0 +1,11 @@
+{
+            "instance_id": "JR2PZV",
+            "problem_statement": "Ensure the Validate function behaves deterministically and correctly across modes, policies, boundaries, normalization, and time-dependent rules using exhaustive, production-quality Go tests.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/jr2pzv-production-grade-validation-test-suite-for-validate-function",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
