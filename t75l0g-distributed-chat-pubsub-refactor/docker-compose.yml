@@ -7,6 +7,7 @@ services:
     command: node evaluation/evaluation.js
     volumes:
       - .:/app
+      - /app/node_modules  
     environment:
       - REDIS_URL=redis://redis:6379
     depends_on:
