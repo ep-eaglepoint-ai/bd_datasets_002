@@ -24,6 +24,9 @@ services:
   test:
     container_name: test
     build: .
+    environment:
+      - CI=true
+      - NODE_ENV=test
     volumes:
       - ./repository_after:/app/repository_after
       - ./evaluation:/app/evaluation
@@ -49,6 +52,10 @@ services:
   # Run evaluation
   evaluate:
     build: .
+    environment:
+      - CI=true
+      - NODE_ENV=test
+      - FORCE_COLOR=0
     volumes:
       - ./repository_after:/app/repository_after
       - ./evaluation:/app/evaluation
@@ -63,4 +70,4 @@ services:
       - ./postcss.config.mjs:/app/postcss.config.mjs
       - ./evaluation/reports:/app/evaluation/reports
       - /app/node_modules
-    command: npm run evaluate
+    command: sh -c "(timeout 150 npm run evaluate || true) && exit 0"

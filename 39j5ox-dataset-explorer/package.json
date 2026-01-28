@@ -7,9 +7,10 @@
     "build": "next build ./repository_after",
     "start": "next start ./repository_after",
     "lint": "eslint ./repository_after/src",
-    "test": "jest",
+    "test": "jest --passWithNoTests --forceExit --detectOpenHandles --maxWorkers=1",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "jest --coverage --passWithNoTests --forceExit --detectOpenHandles",
+    "test:ci": "jest --ci --passWithNoTests --forceExit --detectOpenHandles --maxWorkers=2",
     "evaluate": "npx ts-node evaluation/evaluation.ts"
   },
   "dependencies": {

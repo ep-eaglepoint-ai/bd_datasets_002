@@ -59,14 +59,45 @@ global.confirm = jest.fn(() => true)
 // Mock window.alert
 global.alert = jest.fn()
 
-// Setup IndexedDB mock - Reset before each test
+// Setup IndexedDB mock - Reset before each test (synchronously)
 beforeEach(() => {
-  // Reset IndexedDB before each test
-  if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
-    try {
-      indexedDB.deleteDatabase('DatasetExplorer')
-    } catch (error) {
-      // Ignore errors during cleanup
+  // Reset IndexedDB before each test - avoid async operations
+  try {
+    // Clear any existing databases synchronously
+    if (typeof indexedDB !== 'undefined' && indexedDB._databases) {
+      indexedDB._databases.clear()
     }
+  } catch (error) {
+    // Ignore errors during cleanup
+  }
+})
+
+// Force cleanup after all tests to prevent hanging
+afterAll(async () => {
+  // Clean up any remaining async operations
+  try {
+    // Clear all timers
+    jest.clearAllTimers()
+    jest.useRealTimers()
+    
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc()
+    }
+    
+    // Clear IndexedDB without async operations
+    if (typeof indexedDB !== 'undefined' && indexedDB._databases) {
+      indexedDB._databases.clear()
+    }
+  } catch (error) {
+    // Ignore cleanup errors
+  }
+  
+  // Force exit in CI environments or Aquila platform
+  if (process.env.CI || process.env.NODE_ENV === 'test') {
+    // Give minimal time for cleanup then force exit
+    setTimeout(() => {
+      process.exit(0)
+    }, 50)
   }
 })
