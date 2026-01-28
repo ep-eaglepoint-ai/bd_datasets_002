@@ -43,6 +43,34 @@
 - With Docker: `docker compose up --build --abort-on-container-exit`
 - Add dependencies to `requirements.txt`
 
+## Usage Commands
+
+### Evaluation
+- Run full evaluation (Before vs After):
+  ```bash
+  docker compose run --rm app python evaluation/evaluation.py
+  ```
+- Run evaluation with custom report output:
+  ```bash
+  docker compose run --rm app python evaluation/evaluation.py --output evaluation/report.json
+  ```
+
+### Testing
+- Run 'Before' Package Tester:
+  ```bash
+  docker compose run --rm test-before
+  ```
+- Run 'After' Package Tester:
+  ```bash
+  docker compose run --rm tests
+  ```
+
+### Analysis
+- View changes between implementations:
+  ```bash
+  git diff --no-index repository_before repository_after > patches/task_001.patch
+  ```
+
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
