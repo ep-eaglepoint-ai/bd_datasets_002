@@ -11,7 +11,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --passWithNoTests --forceExit --detectOpenHandles",
     "test:ci": "jest --ci --passWithNoTests --forceExit --detectOpenHandles --maxWorkers=2",
-    "evaluate": "npx ts-node evaluation/evaluation.ts"
+    "evaluate": "npx ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" evaluation/evaluation.ts"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",
