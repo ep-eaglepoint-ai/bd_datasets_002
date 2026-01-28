@@ -1,0 +1,24 @@
+{
+  "name": "iot-sensor-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "pinia": "^2.1.7",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.2",
+    "@vue/test-utils": "^2.4.3",
+    "happy-dom": "^12.10.3",
+    "vite": "^5.0.10",
+    "vitest": "^1.1.3"
+  }
+}
