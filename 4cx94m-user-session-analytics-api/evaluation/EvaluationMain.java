@@ -261,7 +261,7 @@ public class EvaluationMain {
         sb.append("{");
         boolean first = true;
         for (Map.Entry<?,?> e : m.entrySet()) {
-            if (!first) sb.append(",\n");
+            if (!first) sb.append(",");
             sb.append("\n").append(indent(level+1)).append(quote(e.getKey().toString())).append(": ");
             sb.append(valueToJson(e.getValue(), level+1));
             first = false;
@@ -275,7 +275,7 @@ public class EvaluationMain {
         sb.append("[");
         boolean first = true;
         for (Object o : list) {
-            if (!first) sb.append(",\n");
+            if (!first) sb.append(",");
             sb.append("\n").append(indent(level+1)).append(valueToJson(o, level+1));
             first = false;
         }
