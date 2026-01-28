@@ -9,4 +9,3 @@ bin/
 
 # Evaluation reports (dated directories)
 /evaluation/**/*.json
-
