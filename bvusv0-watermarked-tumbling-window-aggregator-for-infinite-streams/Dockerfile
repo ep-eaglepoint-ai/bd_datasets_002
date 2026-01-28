@@ -3,4 +3,4 @@ COPY . /app
 WORKDIR /app
 RUN pip install --no-cache-dir -r requirements.txt
 ENV PYTHONPATH=/app:/app/repository_after
-CMD ["python3", "pytest", "-q", "tests/"]
+CMD ["python", "-m", "pytest", "-q", "tests/"]
