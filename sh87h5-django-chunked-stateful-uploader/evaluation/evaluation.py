@@ -97,6 +97,28 @@ def parse_pytest_verbose_output(output: str):
     return tests
 
 
+def parse_pytest_summary_counts(output: str):
+    summary = {"total": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0}
+    lines = output.split("\n")
+    for line in lines:
+        line_stripped = line.strip().lower()
+        if " passed" in line_stripped or " failed" in line_stripped or " error" in line_stripped:
+            parts = [p.strip() for p in line_stripped.split(",")]
+            for part in parts:
+                if part.endswith(" passed"):
+                    summary["passed"] = int(part.split()[0])
+                elif part.endswith(" failed"):
+                    summary["failed"] = int(part.split()[0])
+                elif part.endswith(" error") or part.endswith(" errors"):
+                    summary["errors"] = int(part.split()[0])
+                elif part.endswith(" skipped"):
+                    summary["skipped"] = int(part.split()[0])
+    summary["total"] = sum(
+        summary[key] for key in ["passed", "failed", "errors", "skipped"]
+    )
+    return summary
+
+
 def run_pytest_with_pythonpath(pythonpath: str, tests_path: Path, label: str):
     cmd = [
         sys.executable,
@@ -123,25 +145,30 @@ def run_pytest_with_pythonpath(pythonpath: str, tests_path: Path, label: str):
 
         stdout = result.stdout
         stderr = result.stderr
+        combined_output = f"{stdout}\n{stderr}"
 
-        tests = parse_pytest_verbose_output(stdout)
+        tests = parse_pytest_verbose_output(combined_output)
         passed = sum(1 for t in tests if t.get("outcome") == "passed")
         failed = sum(1 for t in tests if t.get("outcome") == "failed")
         errors = sum(1 for t in tests if t.get("outcome") == "error")
         skipped = sum(1 for t in tests if t.get("outcome") == "skipped")
+
+        summary = {
+            "total": len(tests),
+            "passed": passed,
+            "failed": failed,
+            "errors": errors,
+            "skipped": skipped,
+        }
+        if summary["total"] == 0:
+            summary = parse_pytest_summary_counts(combined_output)
 
         return {
             "label": label,
             "success": result.returncode == 0,
             "exit_code": result.returncode,
             "tests": tests,
-            "summary": {
-                "total": len(tests),
-                "passed": passed,
-                "failed": failed,
-                "errors": errors,
-                "skipped": skipped,
-            },
+            "summary": summary,
             "stdout": stdout[-3000:] if len(stdout) > 3000 else stdout,
             "stderr": stderr[-1000:] if len(stderr) > 1000 else stderr,
         }
