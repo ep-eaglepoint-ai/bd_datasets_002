@@ -21,8 +21,8 @@
 ## Metadata
 - Programming Languages: Python
 - Frameworks: (none)
-- Libraries: (none)
-- Databases: PostgresSQL
+- Libraries: SQLAlchemy, Alembic, psycopg2
+- Databases: PostgreSQL
 - Tools: (none)
 - Best Practices: (none)
 - Performance Metrics: (none)
@@ -41,6 +41,7 @@
 - Run tests locally: `python -m pytest -q tests`
 - With Docker: `docker compose up --build --abort-on-container-exit`
 - Add dependencies to `requirements.txt`
+- Database migrations: `alembic init alembic` (first time), then `alembic revision --autogenerate -m "Initial migration"`, `alembic upgrade head`
 
 ## Notes
 - Keep commits focused and small.
