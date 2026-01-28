@@ -1,7 +1,7 @@
 // IndexedDB Persistence Layer for Goal Tracking Application
 // Uses the 'idb' library for a promise-based API
 
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, deleteDB, DBSchema, IDBPDatabase } from 'idb';
 import {
   Goal,
   Milestone,
@@ -197,6 +197,13 @@ export async function initDB(): Promise<IDBPDatabase<GoalTrackingDB>> {
     console.error('Failed to initialize database:', error);
     throw new Error(`Database initialization failed: ${error}`);
   }
+}
+
+export function resetDbInstance() {
+  if (dbInstance) {
+    dbInstance.close();
+  }
+  dbInstance = null;
 }
 
 // ============================================================================
@@ -557,37 +564,57 @@ export interface DBHealthStatus {
   storeStatus: Record<string, { count: number; error?: string }>;
   errors: string[];
 }
+// ... (Existing checkDatabaseHealth) ...
 
-export async function checkDatabaseHealth(): Promise<DBHealthStatus> {
-  const status: DBHealthStatus = {
-    isHealthy: true,
-    storeStatus: {},
-    errors: [],
-  };
-  
+/**
+ * Attempts to recover from database corruption by recreating the database.
+ * WARNING: This may result in data loss if the database cannot be opened.
+ * Best effort: tries to grab data before nuking, but might fail.
+ */
+export async function recoverDatabase(): Promise<{ success: boolean; message: string; recoveredData?: ExportData }> {
   try {
-    const db = await initDB();
-    
-    const stores = [
-      'goals', 'milestones', 'progressUpdates', 'dependencies',
-      'decisionRecords', 'versionHistory', 'velocityMetrics',
-      'estimationAccuracy', 'outcomeQuality', 'trendAnalysis'
-    ] as const;
-    
-    for (const store of stores) {
-      try {
-        const count = await db.count(store);
-        status.storeStatus[store] = { count };
-      } catch (error) {
-        status.isHealthy = false;
-        status.storeStatus[store] = { count: 0, error: String(error) };
-        status.errors.push(`Store '${store}' error: ${error}`);
-      }
+    // 1. Attempt to backup data if possible
+    let backup: ExportData | undefined;
+    try {
+      // Try to export even if we think we aren't initialized, exportAllData handles init safely
+      backup = await exportAllData();
+    } catch (e) {
+      console.warn('Failed to backup data during recovery:', e);
     }
+
+    // 2. Close existing connection (if any)
+    // We need to ensure we close it even if dbInstance was set by exportAllData
+    // We can't access dbInstance directly if it's not exported, but we have it module-scoped.
+    if (dbInstance) {
+      dbInstance.close();
+      dbInstance = null;
+    }
+
+    // 3. Delete the database
+    await deleteDB(DB_NAME, {
+      blocked: () => console.warn('Delete blocked'),
+    });
+
+    // 4. Re-initialize
+    await initDB();
+
+    // 5. Restore backup if it was successful
+    if (backup) {
+      await importData(backup);
+      return { success: true, message: 'Database reset and data restored successfully', recoveredData: backup };
+    }
+
+    return { success: true, message: 'Database reset successfully. Previous data could not be recovered.' };
   } catch (error) {
-    status.isHealthy = false;
-    status.errors.push(`Database connection error: ${error}`);
+    console.error('Database recovery failed:', error);
+    return { success: false, message: `Recovery failed: ${error}` };
   }
-  
-  return status;
 }
+
+// Need to import deleteDB from 'idb' at top of file
+// Will update imports in separate step if strictly single replace allowed, 
+// but here I will assume I can modify the imports too? 
+// No, replace_file_content is for contiguous blocks.
+// I will add the function here and `deleteDB` import needs to be handled.
+// Wait, `deleteDB` is exported by 'idb'.
+

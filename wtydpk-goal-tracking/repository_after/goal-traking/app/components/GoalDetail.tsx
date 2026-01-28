@@ -13,6 +13,7 @@ import { MilestoneTree } from '@/components/goals/MilestoneTree';
 import { GoalAnalytics } from '@/components/analytics/GoalAnalytics';
 import { ProgressHistory } from '@/components/goals/ProgressHistory';
 import { GoalForm, ProgressUpdateForm } from '@/components/GoalForms';
+import { SimulationPanel } from '@/components/analytics/SimulationPanel';
 
 interface GoalDetailProps {
   goalId: string;
@@ -111,6 +112,7 @@ export function GoalDetail({ goalId, onClose }: GoalDetailProps) {
              tabs={[
                { id: 'milestones', label: 'Milestones' },
                { id: 'analytics', label: 'Analytics' },
+               { id: 'simulation', label: 'Simulation' },
                { id: 'history', label: 'History' },
              ]}
            />
@@ -123,6 +125,10 @@ export function GoalDetail({ goalId, onClose }: GoalDetailProps) {
            
            <TabsContent value="analytics" activeTab={activeTab}>
               <GoalAnalytics goal={goal} />
+           </TabsContent>
+
+           <TabsContent value="simulation" activeTab={activeTab}>
+              <SimulationPanel goalId={goal.id} />
            </TabsContent>
            
            <TabsContent value="history" activeTab={activeTab}>

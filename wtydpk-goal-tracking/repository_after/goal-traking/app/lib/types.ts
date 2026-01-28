@@ -289,6 +289,10 @@ export const GoalFilterSchema = z.object({
   startDateTo: TimestampSchema.optional(),
   targetDateFrom: TimestampSchema.optional(),
   targetDateTo: TimestampSchema.optional(),
+  
+  // Advanced Filters
+  riskLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  motivationTrend: z.enum(['improving', 'declining', 'stable', 'volatile']).optional(),
 });
 
 export type GoalFilter = z.infer<typeof GoalFilterSchema>;

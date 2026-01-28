@@ -29,6 +29,9 @@ export interface VelocityComputationResult {
 /**
  * Computes velocity metrics for a goal or milestone based on progress history
  */
+/**
+ * Computes velocity metrics for a goal or milestone based on progress history
+ */
 export function computeVelocity(
   entityId: string,
   progressUpdates: ProgressUpdate[],
@@ -55,9 +58,27 @@ export function computeVelocity(
   const lastActiveDate = lastUpdate.createdAt;
   const stagnationDays = differenceInDays(now, parseISO(lastActiveDate));
   
-  // Calculate overall velocity
+  // Calculate overall velocity (Average)
   const currentProgress = lastUpdate.percentage;
-  const progressPerDay = currentProgress / totalDays;
+  
+  // Enhanced: Filter out significant gaps (> 2 weeks without updates) to avoid underestimating velocity during active periods
+  let activeDays = totalDays;
+  if (updates.length > 1) {
+    let gapDays = 0;
+    for (let i = 1; i < updates.length; i++) {
+        const diff = differenceInDays(parseISO(updates[i].createdAt), parseISO(updates[i-1].createdAt));
+        if (diff > 14) {
+            gapDays += (diff - 14); // Only count days beyond the 2-week threshold as separate gap
+        }
+    }
+    // Also check gap from last update to now if > 14 days
+    if (stagnationDays > 14) {
+        gapDays += (stagnationDays - 14);
+    }
+    activeDays = Math.max(1, totalDays - gapDays);
+  }
+
+  const progressPerDay = currentProgress / activeDays;
   const progressPerWeek = progressPerDay * 7;
   
   // Calculate acceleration trend by comparing recent vs earlier velocity
@@ -634,11 +655,13 @@ export function predictCompletionProbability(
   
   // Confidence level based on data availability
   const dataPoints = goalUpdates.length + goalMilestones.length;
-  if (dataPoints >= 10) {
+  // Enhanced confidence calculation
+  if (dataPoints >= 10 && velocity.accelerationTrend !== 'stagnant') {
     prediction.confidence = 'high';
   } else if (dataPoints >= 5) {
     prediction.confidence = 'medium';
-  } else if (dataPoints >= 2) {
+  } else {
+    // Fewer than 5 points or stagnant is low confidence
     prediction.confidence = 'low';
   }
   
@@ -753,6 +776,74 @@ export function simulateChanges(
 // Batch Analytics Computation
 // ============================================================================
 
+// ... (Existing computeAllAnalytics) ...
+
+// ============================================================================
+// Priority Alignment
+// ============================================================================
+
+export interface PriorityAlignmentResult {
+  alignmentScore: number; // 0-100
+  timeAllocatedToHighPriority: number; // Percentage
+  misalignedEntities: string[]; // IDs of high priority items with low progress
+  driftWarning?: string;
+}
+
+export function computePriorityAlignment(
+  goals: Goal[],
+  progressUpdates: ProgressUpdate[]
+): PriorityAlignmentResult {
+  const result: PriorityAlignmentResult = {
+    alignmentScore: 100,
+    timeAllocatedToHighPriority: 0,
+    misalignedEntities: [],
+  };
+
+  if (goals.length === 0) return result;
+
+  const activeGoals = goals.filter(g => g.state === 'active');
+  const now = new Date();
+  const recentUpdates = progressUpdates.filter(u => differenceInDays(now, parseISO(u.createdAt)) <= 30);
+  
+  if (recentUpdates.length === 0) return result;
+
+  // Calculate weighted time/effort
+  let totalTime = 0;
+  let highPriorityTime = 0;
+  
+  const goalEffort = new Map<string, number>();
+
+  recentUpdates.forEach(u => {
+    const time = u.timeSpentMinutes || 30; // Default to 30m if not set
+    totalTime += time;
+    goalEffort.set(u.entityId, (goalEffort.get(u.entityId) || 0) + time);
+  });
+
+  const highPriorityGoals = activeGoals.filter(g => g.priority === 'critical' || g.priority === 'high');
+  
+  highPriorityGoals.forEach(g => {
+    const effort = goalEffort.get(g.id) || 0;
+    highPriorityTime += effort;
+    
+    // Check for neglected high priority goals (active but < 5% of effort)
+    if (activeGoals.length > 3 && (effort / totalTime) < 0.05) {
+      result.misalignedEntities.push(g.title);
+    }
+  });
+
+  if (totalTime > 0) {
+    result.timeAllocatedToHighPriority = Math.round((highPriorityTime / totalTime) * 100);
+    
+    // Alignment score penalizes if high priority items get < 50% of attention
+    if (result.timeAllocatedToHighPriority < 50 && highPriorityGoals.length > 0) {
+      result.alignmentScore = Math.max(0, 100 - (50 - result.timeAllocatedToHighPriority) * 2);
+      result.driftWarning = 'High priority goals are receiving insufficient attention.';
+    }
+  }
+
+  return result;
+}
+
 /**
  * Computes and saves all analytics for a goal
  */
@@ -764,6 +855,7 @@ export async function computeAllAnalytics(
   velocity: VelocityMetrics;
   estimationAccuracy?: EstimationAccuracy;
   outcomeQuality?: OutcomeQualityScore;
+  priorityAlignment?: PriorityAlignmentResult;
 }> {
   // Velocity
   const velocityResult = computeVelocity(goal.id, progressUpdates, goal.createdAt);

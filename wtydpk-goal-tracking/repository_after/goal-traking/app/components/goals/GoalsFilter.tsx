@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, Filter as FilterIcon, X } from 'lucide-react';
-import { GoalState, PriorityLevel, GoalStates, PriorityLevels } from '@/lib/types';
+import { GoalState, PriorityLevel, GoalStates, PriorityLevels, GoalFilter } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -18,6 +18,8 @@ export function GoalsFilter({ isOpen, onClose }: GoalsFilterProps) {
   const [localStates, setLocalStates] = React.useState<GoalState[]>(filter.states || []);
   const [localPriorities, setLocalPriorities] = React.useState<PriorityLevel[]>(filter.priorities || []);
   const [localSearch, setLocalSearch] = React.useState(filter.searchQuery || '');
+  const [localRisk, setLocalRisk] = React.useState<GoalFilter['riskLevel']>(filter.riskLevel);
+  const [localMotivation, setLocalMotivation] = React.useState<GoalFilter['motivationTrend']>(filter.motivationTrend);
   
   const toggleState = (state: GoalState) => {
     setLocalStates(prev => 
@@ -36,6 +38,8 @@ export function GoalsFilter({ isOpen, onClose }: GoalsFilterProps) {
       states: localStates.length > 0 ? localStates : undefined,
       priorities: localPriorities.length > 0 ? localPriorities : undefined,
       searchQuery: localSearch || undefined,
+      riskLevel: localRisk,
+      motivationTrend: localMotivation,
     });
     onClose();
   };
@@ -44,6 +48,8 @@ export function GoalsFilter({ isOpen, onClose }: GoalsFilterProps) {
     setLocalStates([]);
     setLocalPriorities([]);
     setLocalSearch('');
+    setLocalRisk(undefined);
+    setLocalMotivation(undefined);
     clearFilter();
     onClose();
   };
@@ -118,6 +124,48 @@ export function GoalsFilter({ isOpen, onClose }: GoalsFilterProps) {
                 `}
               >
                 {priority.charAt(0).toUpperCase() + priority.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Risk Level */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-muted-foreground">Risk Level</label>
+          <div className="flex flex-wrap gap-2">
+            {['low', 'medium', 'high', 'critical'].map(risk => (
+              <button
+                key={risk}
+                onClick={() => setLocalRisk(prev => prev === risk ? undefined : risk as any)}
+                className={`
+                  px-3 py-1.5 rounded-full text-sm font-medium transition-all border
+                  ${localRisk === risk
+                    ? 'bg-destructive/20 text-destructive border-destructive/30'
+                    : 'bg-secondary/30 text-muted-foreground border-transparent hover:bg-secondary/50 hover:text-foreground'}
+                `}
+              >
+                {risk.charAt(0).toUpperCase() + risk.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Motivation Trend */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-muted-foreground">Motivation Trend</label>
+          <div className="flex flex-wrap gap-2">
+            {['improving', 'stable', 'declining', 'volatile'].map(trend => (
+              <button
+                key={trend}
+                onClick={() => setLocalMotivation(prev => prev === trend ? undefined : trend as any)}
+                className={`
+                  px-3 py-1.5 rounded-full text-sm font-medium transition-all border
+                  ${localMotivation === trend
+                    ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
+                    : 'bg-secondary/30 text-muted-foreground border-transparent hover:bg-secondary/50 hover:text-foreground'}
+                `}
+              >
+                {trend.charAt(0).toUpperCase() + trend.slice(1)}
               </button>
             ))}
           </div>

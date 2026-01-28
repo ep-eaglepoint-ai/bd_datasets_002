@@ -311,7 +311,7 @@ describe('Completion Prediction', () => {
     
     expect(result.probability).toBeGreaterThanOrEqual(0);
     expect(result.probability).toBeLessThanOrEqual(100);
-    expect(result.confidence).toBe('insufficient_data');
+    expect(result.confidence).toBe('low');
   });
 
   test('should increase probability with higher progress', () => {
