@@ -39,7 +39,7 @@ public class ChatAnalyticsController {
             // Find longest message: max length, if tie, smallest timestamp
             Message longest = msgs.stream()
                     .max(Comparator.comparingInt((Message m) -> m.getContent().length())
-                            .thenComparing(Comparator.comparingLong(Message::getTimestamp).reversed()))
+                            .thenComparingLong(Message::getTimestamp))
                     .orElse(null);
 
             Map<String, Object> stats = new HashMap<>();
