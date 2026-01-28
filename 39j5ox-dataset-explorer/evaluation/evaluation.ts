@@ -421,27 +421,7 @@ async function main(): Promise<number> {
   // Write report
   fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
   
-  // Create a very obvious test report for the platform in the same reports directory
-  const reportsDir = path.dirname(outputPath);
-  const platformReportFiles = [
-    'TEST-REPORT.json',
-    'test-report.json',
-    'report.json', 
-    'test-results.json',
-    'junit-results.json',
-    'evaluation-report.json',
-    'EVALUATION-RESULTS.json'
-  ];
-  
-  platformReportFiles.forEach(filename => {
-    fs.writeFileSync(path.join(reportsDir, filename), JSON.stringify(report, null, 2));
-  });
-  
   console.log(`\n✅ Report saved to: ${outputPath}`);
-  console.log(`✅ Platform reports saved in evaluation reports directory:`);
-  platformReportFiles.forEach(filename => {
-    console.log(`   - ${path.join(reportsDir, filename)}`);
-  });
   console.log('\n' + '='.repeat(60));
   console.log('EVALUATION COMPLETE');
   console.log('='.repeat(60));
