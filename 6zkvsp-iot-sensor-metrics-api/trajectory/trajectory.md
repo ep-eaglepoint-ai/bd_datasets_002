@@ -1,17 +1,40 @@
 # Trajectory
 
-### Audit the Original Code (Identify Scaling Problems)
+### Audit the Original Code (Problems Found)
 
-I audited the original SensorMetricsController. It relied on a class-level variable (cachedReadings) which causes race conditions in a singleton environment, 
-used raw Map types that obscured the data contract for the return, and had loops that were not 
-needed and nested and some were really inefficent to get the data for a single sensor, out the request body was done in a static class which causes two problems first it will cause problems because more than
+- The original `SensorMetricsController` used a **class-level mutable field** (`cachedReadings`). In Spring MVC controllers (singleton by default) this is unsafe under concurrent requests and can leak state across calls.
+- The endpoint returned a **raw `Map<String, Object>`**, which hid the API contract and made it easy to accidentally break response shape/field names.
+- The implementation did extra work (including an empty nested loop), and did not guard against malformed inputs like `null` list elements (causing NPEs).
 
-### 1.Define a Performance Contract First
+### Define the Contract (Typed Request/Response)
 
-I introduced strongly typed Data Transfer Objects (DTOs), SensorMetricRequest and SensorMetricResponse, to explicitly define the input/output shape. This replaces the unstructured Map<String, String> and allows for compile-time safety and clearer API contracts and the static class with in the Sensor Metrics Controller.
+- Introduced **strongly typed DTOs** using Java records:
+  - `SensorMetricsRequestReading(sensorId, value, timestamp)`
+  - `SensorMetricsResponse(perSensor, cacheSize)` with nested `PerSensorMetrics(count, averageValue, maxReading)` and `MaxReading(sensorId, value, timestamp)`
+- This preserves the existing JSON field names expected by tests (`perSensor`, `cacheSize`, `averageValue`, `maxReading`) while making the contract explicit and maintainable.
 
-### 3.Changed how sensor specific data is extracted from the reading list
+### Make Analytics Per-Request + Linear Time
 
-I eliminated O(n`2) by removing the nested loop that was not doing anything and just got the data by using 2 O(N) loops and an accumilator class
+- Removed shared mutable state (`cachedReadings`) so analytics are computed **only from the current request** and are safe under concurrent requests.
+- Replaced the multi-map approach with a single per-sensor **`Accumulator`** stored in a `Map<String, Accumulator>` and computed in **one pass** over the input list (\(O(n)\)).
 
-## Added validation on the inputs to check if it is valid
+### Validate / Skip Invalid Readings (Graceful Handling)
+
+- Added `isValidReading(...)` to gracefully handle malformed or partially invalid input:
+  - skips `null` elements
+  - skips missing/blank `sensorId`
+  - skips `null` `value` / `timestamp`
+  - skips non-finite values (NaN / Infinity)
+- Only sensors with at least one valid reading are included in `perSensor`.
+
+### Deterministic Max Tie-Break
+
+- Implemented deterministic tie-breaking in `Accumulator.maybeUpdateMax(...)`:
+  - choose higher `value`
+  - if values are equal, choose the reading with the **higher timestamp**
+
+### Edge Cases
+
+- If the request body is missing or empty (`readings == null` or `readings.isEmpty()`), return:
+  - `perSensor = {}`
+  - `cacheSize = 0` (or the list size if non-null)
