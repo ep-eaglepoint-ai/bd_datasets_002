@@ -1,25 +1,35 @@
 import time
+import threading
 
 class IdempotencyStore:
-    """Handles idempotency key storage and retrieval for 24-hour expiry."""
+    """
+    In-memory idempotency store with TTL and transactional semantics.
+    In real systems this would be backed by a database table.
+    """
+
+    TTL_SECONDS = 24 * 60 * 60  # 24 hours
 
     def __init__(self, db_session):
         self.db = db_session
-        self.expiry_seconds = 24 * 60 * 60  # 24 hours
+        self._store = {}
+        self._lock = threading.Lock()
+
+    def _cleanup_expired(self):
+        now = time.time()
+        expired = [k for k, v in self._store.items() if now - v[2] > self.TTL_SECONDS]
+        for k in expired:
+            del self._store[k]
 
     def get(self, key):
-        """Retrieve the status and result for the given idempotency key."""
-        data = self.db.get_idempotency(key)
-        if data is None:
-            return None
-        status, result, timestamp = data
-        if time.time() - timestamp > self.expiry_seconds:
-            # Expired, remove it
-            self.db.delete_idempotency(key)
-            return None
-        return (status, result)
+        with self._lock:
+            self._cleanup_expired()
+            return self._store.get(key)
 
     def set(self, key, status, result=None):
-        """Store the status and result for the given idempotency key."""
-        timestamp = time.time()
-        self.db.set_idempotency(key, status, result, timestamp)
+        with self._lock:
+            self._store[key] = (status, result, time.time())
+
+    def delete(self, key):
+        with self._lock:
+            if key in self._store:
+                del self._store[key]
