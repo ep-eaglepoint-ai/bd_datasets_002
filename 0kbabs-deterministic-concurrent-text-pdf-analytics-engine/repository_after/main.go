@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode"
 )
 
@@ -18,8 +19,8 @@ type Config struct {
 
 // Analyzer encapsulates the state and logic for processing documents.
 type Analyzer struct {
-	registry map[string]int
-	mu       sync.Mutex
+	registry map[string]*uint64
+	mu       sync.RWMutex
 
 	config Config
 }
@@ -27,7 +28,7 @@ type Analyzer struct {
 // NewAnalyzer creates a new Analyzer instance.
 func NewAnalyzer() *Analyzer {
 	return &Analyzer{
-		registry: make(map[string]int),
+		registry: make(map[string]*uint64),
 		config: Config{
 			MaxWorkers: 8, // Default worker count
 		},
@@ -123,7 +124,7 @@ func (a *Analyzer) ProcessText(r io.Reader) error {
 func (a *Analyzer) normalizeAndCount(text string) {
 	var wordBuilder strings.Builder
 	runes := []rune(text)
-	
+
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '\'' {
@@ -142,9 +143,26 @@ func (a *Analyzer) normalizeAndCount(text string) {
 }
 
 func (a *Analyzer) addWord(w string) {
+	a.mu.RLock()
+	ptr, ok := a.registry[w]
+	a.mu.RUnlock()
+
+	if ok {
+		atomic.AddUint64(ptr, 1)
+		return
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.registry[w]++
+
+	// Double check
+	ptr, ok = a.registry[w]
+	if ok {
+		atomic.AddUint64(ptr, 1)
+	} else {
+		val := uint64(1)
+		a.registry[w] = &val
+	}
 }
 
 func (a *Analyzer) ProcessPDF(r io.Reader) error {
@@ -152,16 +170,32 @@ func (a *Analyzer) ProcessPDF(r io.Reader) error {
 
 	// State definitions
 	const (
-		StateNone        = iota
+		StateNone = iota
 		StateInBT
 		StateInString
 		StateEscape
+		StateInComment
+		StateInDict
+		StateInName
 	)
 
 	state := StateNone
-	
+	prevState := StateNone // To return to from comments or names, or to track context
+
+	parenDepth := 0
+	angleDepth := 0
+
 	// Buffer for capturing text content inside strings
 	var stringContent strings.Builder
+
+	isDelimiter := func(b byte) bool {
+		switch b {
+		case '(', ')', '<', '>', '[', ']', '{', '}', '/', '%':
+			return true
+		default:
+			return unicode.IsSpace(rune(b))
+		}
+	}
 
 	for {
 		b, err := reader.ReadByte()
@@ -173,47 +207,128 @@ func (a *Analyzer) ProcessPDF(r io.Reader) error {
 		}
 
 		switch state {
-		case StateNone:
-			if b == 'B' {
-				// Simple lookahead for 'T'
+		case StateNone, StateInBT, StateInDict:
+			// Common handling for things that start in these states
+			if b == '%' {
+				// Comment
+				// Save current state to return to
+				prevState = state
+				state = StateInComment
+				continue
+			}
+			if b == '(' {
+				// String start
+				// Save context to know if we capture
+				prevState = state
+				state = StateInString
+				parenDepth = 1
+				if prevState == StateInBT {
+					stringContent.Reset()
+				}
+				continue
+			}
+			if b == '<' {
 				next, err := reader.Peek(1)
-				if err == nil && next[0] == 'T' {
-					reader.ReadByte() // consume 'T'
-					state = StateInBT
+				if err == nil && next[0] == '<' {
+					reader.ReadByte()
+					if state == StateInDict {
+						angleDepth++
+					} else {
+						// Enter Dict mode
+						prevState = state // Return to this
+						state = StateInDict
+						angleDepth = 1
+					}
+				}
+				continue
+			}
+			if b == '>' {
+				// Check for >>
+				if state == StateInDict {
+					next, err := reader.Peek(1)
+					if err == nil && next[0] == '>' {
+						reader.ReadByte()
+						angleDepth--
+						if angleDepth == 0 {
+							state = prevState
+						}
+					}
+				}
+				continue
+			}
+			if b == '/' {
+				prevState = state
+				state = StateInName
+				continue
+			}
+
+			// Specific Logic
+			if state == StateNone {
+				if b == 'B' {
+					next, err := reader.Peek(1)
+					if err == nil && next[0] == 'T' {
+						reader.ReadByte()
+						state = StateInBT
+					}
+				}
+			} else if state == StateInBT {
+				if b == 'E' {
+					next, err := reader.Peek(1)
+					if err == nil && next[0] == 'T' {
+						reader.ReadByte()
+						state = StateNone
+					}
 				}
 			}
 
-		case StateInBT:
-			if b == '(' {
-				state = StateInString
-				stringContent.Reset()
-			} else if b == 'E' {
-				next, err := reader.Peek(1)
-				if err == nil && next[0] == 'T' {
-					reader.ReadByte() // consume 'T'
-					state = StateNone
-				}
-			}
-		
 		case StateInString:
 			if b == '\\' {
 				state = StateEscape
+				continue
+			}
+			if b == '(' {
+				parenDepth++
+				if prevState == StateInBT {
+					stringContent.WriteByte(b)
+				}
 			} else if b == ')' {
-				// End of string object. Process the text.
-				a.normalizeAndCount(stringContent.String())
-				state = StateInBT
+				parenDepth--
+				if parenDepth == 0 {
+					// End string
+					if prevState == StateInBT {
+						a.normalizeAndCount(stringContent.String())
+						state = StateInBT
+					} else {
+						state = prevState // Return to None or Dict
+					}
+				} else {
+					if prevState == StateInBT {
+						stringContent.WriteByte(b)
+					}
+				}
 			} else {
-				if b > 31 && b < 127 {
+				if prevState == StateInBT {
 					stringContent.WriteByte(b)
 				}
 			}
 
 		case StateEscape:
-			if b > 31 && b < 127 {
+			if prevState == StateInBT {
 				stringContent.WriteByte(b)
 			}
 			state = StateInString
-	}
+
+		case StateInComment:
+			if b == '\r' || b == '\n' {
+				state = prevState
+			}
+
+		case StateInName:
+			if isDelimiter(b) {
+				reader.UnreadByte()
+				state = prevState
+			}
+		}
 	}
 
 	return nil
@@ -227,12 +342,12 @@ func (a *Analyzer) PrintReport() {
 	// Convert map to slice for sorting
 	type pair struct {
 		word  string
-		count int
+		count uint64
 	}
 	results := make([]pair, 0, len(a.registry))
 
 	for k, v := range a.registry {
-		results = append(results, pair{k, v})
+		results = append(results, pair{k, atomic.LoadUint64(v)})
 	}
 
 	sort.SliceStable(results, func(i, j int) bool {
