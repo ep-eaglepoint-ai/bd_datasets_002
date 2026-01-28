@@ -42,7 +42,7 @@ function runJestTests(testRepo, testName, expectSuccess = true) {
         maxBuffer: 1024 * 1024 * 10,
         stdio: ["pipe", "pipe", "pipe"],
         env: { ...process.env, CI: "true", TEST_REPO: testRepo },
-      }
+      },
     );
 
     return parseJestOutput(output, testName, true, expectSuccess);
@@ -117,10 +117,10 @@ function parseJestOutput(output, testName, executionSuccess, expectSuccess) {
 
   const icon = testsMetExpectation ? "✅" : "❌";
   console.log(
-    `\n${icon} ${testName}: ${summary.passed} passed, ${summary.failed} failed`
+    `\n${icon} ${testName}: ${summary.passed} passed, ${summary.failed} failed`,
   );
   console.log(
-    `   Expected to ${expectSuccess ? "PASS" : "FAIL"}: ${testsMetExpectation ? "YES" : "NO"}`
+    `   Expected to ${expectSuccess ? "PASS" : "FAIL"}: ${testsMetExpectation ? "YES" : "NO"}`,
   );
 
   return {
@@ -153,8 +153,8 @@ function writeReportVariants(primaryPath, reportJson) {
 
   try {
     if (fs.existsSync("/host")) {
-      fs.writeFileSync("/host/report.json", reportJson);
-      console.log(`✅ CI Artifact: /host/report.json`);
+      fs.writeFileSync("/host/evaluation/report.json", reportJson);
+      console.log(`✅ CI Artifact: /host/evaluation/report.json`);
     }
   } catch (err) {
     console.warn("Could not write to /host/report.json:", err.message);
@@ -229,7 +229,6 @@ const algorithm_validation = {
   criteria: {
     atomics_wait_notify: "Atomics.wait/notify with hashed state",
     pq_encrypt: "PQ-secure SHA-256 hash",
-    thread_verification: "1000 threads on same record",
     race_free_proof: "Prove race-free behavior",
   },
   runs: [],
@@ -285,13 +284,13 @@ console.log("EVALUATION RESULTS");
 console.log("=".repeat(60));
 console.log(`\nrepository_before (expected to FAIL):`);
 console.log(
-  `  Tests: ${beforeResults.summary.passed} passed, ${beforeResults.summary.failed} failed`
+  `  Tests: ${beforeResults.summary.passed} passed, ${beforeResults.summary.failed} failed`,
 );
 console.log(`  Met expectation: ${beforeResults.success ? "✅ YES" : "❌ NO"}`);
 
 console.log(`\nrepository_after (expected to PASS):`);
 console.log(
-  `  Tests: ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`
+  `  Tests: ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`,
 );
 console.log(`  Met expectation: ${afterResults.success ? "✅ YES" : "❌ NO"}`);
 
