@@ -3,15 +3,38 @@ import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { username } from "better-auth/plugins";
 import clientPromise from "./mongodb";
 
-const client = await clientPromise;
-const db = client.db();
+let _auth: any;
+let _initPromise: Promise<any> | null = null;
 
-export const auth = betterAuth({
-    database: mongodbAdapter(db),
-    emailAndPassword: {
-        enabled: true
-    },
-    plugins: [
-        username()
-    ]
-});
+export const getAuth = async () => {
+    // First check (without lock)
+    if (_auth) {
+        return _auth;
+    }
+
+    // Lock acquisition (simulated by checking/setting the promise)
+    if (!_initPromise) {
+        _initPromise = (async () => {
+            const client = await clientPromise;
+            const db = client.db();
+            return betterAuth({
+                database: mongodbAdapter(db),
+                emailAndPassword: {
+                    enabled: true
+                },
+                plugins: [
+                    username()
+                ]
+            });
+        })();
+    }
+
+    const authInstance = await _initPromise;
+
+    // Second check (inside "lock" / after critical section)
+    if (!_auth) {
+        _auth = authInstance;
+    }
+
+    return _auth;
+};

@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -7,6 +7,7 @@ import "../auth.css";
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
+    const auth = await getAuth();
     const session = await auth.api.getSession({
         headers: await headers()
     });
@@ -60,7 +61,7 @@ export default async function Dashboard() {
                             <div className="formbg-inner padding-horizontal--48">
                                 <div className="flex justify-between items-center padding-bottom--24" style={{ marginBottom: '24px', borderBottom: '1px solid #e3e8ee' }}>
                                     <div className="flex items-center space-x-3">
-                                        
+
                                         <span className="text-lg font-semibold text-[#1a1f36]">@{session.user.username}</span>
                                     </div>
                                     <SignOutButton />

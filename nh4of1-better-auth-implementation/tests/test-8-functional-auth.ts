@@ -1,9 +1,10 @@
-import { auth } from '../repository_after/src/lib/auth';
+import { getAuth } from '../repository_after/src/lib/auth';
 import { assert } from './utils';
 
 console.log('Running Test 8: Functional Auth Registration and Login (Direct API)');
 
 async function testFunctionalAuth() {
+    const auth = await getAuth();
     const email = `test-${Date.now()}@example.com`;
     const password = 'Password321!';
     const username = `user_${Date.now()}`;
