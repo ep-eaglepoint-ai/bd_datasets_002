@@ -15,6 +15,7 @@ export default function Events() {
     page: 1,
   })
   const [loading, setLoading] = useState(true)
+  const [selectedEvent, setSelectedEvent] = useState<any>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -123,7 +124,11 @@ export default function Events() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {events.map((event) => (
-                <tr key={event.id}>
+                <tr 
+                  key={event.id}
+                  onClick={() => setSelectedEvent(event)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {new Date(event.timestamp).toLocaleString()}
                   </td>
@@ -173,6 +178,92 @@ export default function Events() {
           </div>
         )}
       </main>
+
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Event Details</h2>
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Request ID</label>
+                  <p className="text-sm font-mono">{selectedEvent.requestId}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Timestamp</label>
+                  <p className="text-sm">{new Date(selectedEvent.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Endpoint</label>
+                  <p className="text-sm font-mono">{selectedEvent.endpoint}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Method</label>
+                  <p className="text-sm">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
+                      {selectedEvent.method}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status Code</label>
+                  <p className="text-sm">
+                    <span
+                      className={`px-2 py-1 text-xs rounded font-semibold ${
+                        selectedEvent.statusCode < 300
+                          ? 'bg-green-100 text-green-800'
+                          : selectedEvent.statusCode < 500
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {selectedEvent.statusCode}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Latency</label>
+                  <p className="text-sm font-semibold">{selectedEvent.latencyMs}ms</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-500">Tenant ID</label>
+                <p className="text-sm font-mono">{selectedEvent.tenantId}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-500">Event ID</label>
+                <p className="text-sm font-mono text-gray-600">{selectedEvent.id}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
