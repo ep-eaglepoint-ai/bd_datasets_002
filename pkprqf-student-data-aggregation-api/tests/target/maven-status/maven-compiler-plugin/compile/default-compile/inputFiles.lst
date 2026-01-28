@@ -1,0 +1,5 @@
+/app/tests/src/main/java/com/example/studentapi/StudentApiApplication.java
+/app/tests/src/main/java/com/example/studentapi/controller/StudentAggregationController.java
+/app/tests/src/main/java/com/example/studentapi/dto/Student.java
+/app/tests/src/main/java/com/example/studentapi/service/StudentAggregationService.java
+/app/tests/src/main/java/com/example/studentapi/dto/AggregationResult.java

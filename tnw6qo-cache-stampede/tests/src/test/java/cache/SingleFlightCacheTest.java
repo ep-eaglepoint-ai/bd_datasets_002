@@ -19,22 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Comprehensive test suite for SingleFlightCache.
- * 
- * Tests verify all requirements:
- * - REQ-01: The expensive computation must run only once per key
- * - REQ-02: Concurrent callers must wait and receive the same result
- * - REQ-03: Failures must be propagated consistently to all callers
- * - REQ-04: Different keys must not block each other
- * - REQ-05: The solution must support high concurrency
- * - REQ-06: Failure must not trigger repeated computation
- * - REQ-07: Internal state must be cleaned up after completion
- * - REQ-08: No busy waiting (verified by design)
- * - REQ-09: No background threads or thread pools (verified by design)
- * - REQ-10: No global synchronization (verified by design)
- * - REQ-11: Only Java standard library (verified by inspection)
- */
+
 @DisplayName("SingleFlightCache Tests")
 public class SingleFlightCacheTest {
     
@@ -52,7 +37,6 @@ public class SingleFlightCacheTest {
     @Test
     @DisplayName("REQ-01: Computation executes only once for single thread")
     void testSingleThreadComputesOnce() throws InterruptedException {
-        // Tracks how many times the computation is called
         AtomicInteger computationCount = new AtomicInteger(0);
         
         String result = cache.get("key1", key -> {
@@ -82,12 +66,10 @@ public class SingleFlightCacheTest {
             for (int i = 0; i < threadCount; i++) {
                 futures.add(executor.submit(() -> {
                     try {
-                        // Wait for all threads to be ready
                         barrier.await();
                         
                         String result = cache.get("sameKey", key -> {
                             computationCount.incrementAndGet();
-                            // Simulate expensive computation
                             Thread.sleep(100);
                             return "computedValue";
                         });
@@ -99,19 +81,15 @@ public class SingleFlightCacheTest {
                 }));
             }
             
-            // Wait for all threads to complete
             for (Future<?> future : futures) {
                 future.get(10, TimeUnit.SECONDS);
             }
             
-            // Verify no errors occurred
             assertTrue(errors.isEmpty(), "No errors should occur: " + errors);
             
             // REQ-01: Computation should execute exactly once
             assertEquals(1, computationCount.get(), 
                 "Computation must execute only once per key under concurrent access");
-            
-            // All threads should receive the same result
             assertEquals(threadCount, results.size());
             for (String result : results) {
                 assertEquals("computedValue", result);
@@ -210,7 +188,6 @@ public class SingleFlightCacheTest {
                         exceptionCount.incrementAndGet();
                         caughtExceptions.add(e);
                     } catch (Exception e) {
-                        // Other exceptions (like InterruptedException from barrier)
                     }
                 }));
             }
@@ -223,7 +200,6 @@ public class SingleFlightCacheTest {
             assertEquals(threadCount, exceptionCount.get(), 
                 "All concurrent callers must receive the failure");
             
-            // Verify all exceptions have the same root cause
             for (Throwable t : caughtExceptions) {
                 assertInstanceOf(ComputationException.class, t);
                 assertNotNull(t.getCause());
@@ -273,13 +249,9 @@ public class SingleFlightCacheTest {
                 futures.add(executor.submit(() -> {
                     return cache.get(key, k -> {
                         int current = simultaneousComputations.incrementAndGet();
-                        // Track maximum simultaneous computations
                         maxSimultaneous.updateAndGet(max -> Math.max(max, current));
-                        
-                        // Signal that this computation has started
                         startLatch.countDown();
                         
-                        // Wait for all computations to start
                         try {
                             proceedLatch.await(5, TimeUnit.SECONDS);
                         } catch (InterruptedException e) {
@@ -292,13 +264,10 @@ public class SingleFlightCacheTest {
                 }));
             }
             
-            // Wait for all computations to start
             boolean allStarted = startLatch.await(5, TimeUnit.SECONDS);
             
-            // Allow computations to complete
             proceedLatch.countDown();
             
-            // Wait for all to complete
             for (Future<String> future : futures) {
                 future.get(5, TimeUnit.SECONDS);
             }
@@ -404,9 +373,7 @@ public class SingleFlightCacheTest {
                             throw new RuntimeException("Intentional failure");
                         });
                     } catch (ComputationException e) {
-                        // Expected
                     } catch (Exception e) {
-                        // Barrier exception, etc.
                     }
                 }));
             }
@@ -418,6 +385,72 @@ public class SingleFlightCacheTest {
             // REQ-06: Even on failure, computation should happen only once
             assertEquals(1, computationCount.get(), 
                 "Failed computation must not be repeated for concurrent callers");
+            
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+    
+    @Test
+    @DisplayName("REQ-06: Late arrivals during failure do not trigger repeated computation")
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    void testLateArrivalsDuringFailureDoNotRecompute() throws Exception {
+        final AtomicInteger computationCount = new AtomicInteger(0);
+        final CountDownLatch computationStarted = new CountDownLatch(1);
+        final CountDownLatch lateArrivalsReady = new CountDownLatch(1);
+        final List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());
+        
+        final int lateThreadCount = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(lateThreadCount + 1);
+        
+        try {
+            // Thread 1: Start computation, signal when started, wait for late arrivals, then fail
+            Future<?> computeFuture = executor.submit(() -> {
+                try {
+                    cache.get("key", k -> {
+                        computationCount.incrementAndGet();
+                        computationStarted.countDown();  
+                        lateArrivalsReady.await(5, TimeUnit.SECONDS);  
+                        Thread.sleep(50);  
+                        throw new RuntimeException("Intentional failure");
+                    });
+                } catch (ComputationException e) {
+                    exceptions.add(e);
+                } catch (Exception e) {
+                    exceptions.add(e);
+                }
+            });
+            
+            assertTrue(computationStarted.await(5, TimeUnit.SECONDS), "Computation should have started");
+            
+            List<Future<?>> lateFutures = new ArrayList<>();
+            for (int i = 0; i < lateThreadCount; i++) {
+                lateFutures.add(executor.submit(() -> {
+                    try {
+                        cache.get("key", k -> {
+                            computationCount.incrementAndGet();
+                            return "should not compute";
+                        });
+                    } catch (ComputationException e) {
+                        exceptions.add(e);
+                    } catch (Exception e) {
+                        exceptions.add(e);
+                    }
+                }));
+            }
+            
+            lateArrivalsReady.countDown();
+            
+            computeFuture.get(10, TimeUnit.SECONDS);
+            for (Future<?> f : lateFutures) {
+                f.get(10, TimeUnit.SECONDS);
+            }
+            
+            assertEquals(lateThreadCount + 1, exceptions.size(), 
+                "All threads should have gotten exceptions");
+            
+            assertEquals(1, computationCount.get(), 
+                "Computation must run only once even with late arrivals during failure");
             
         } finally {
             executor.shutdownNow();
@@ -441,49 +474,52 @@ public class SingleFlightCacheTest {
     
     @Test
     @DisplayName("REQ-07: Internal state is cleaned up after failure")
-    void testCleanupAfterFailure() {
+    void testCleanupAfterFailure() throws InterruptedException {
         try {
             cache.get("key", k -> {
                 throw new RuntimeException("Failure");
             });
-        } catch (ComputationException | InterruptedException e) {
+        } catch (ComputationException e) {
             // Expected
         }
-        
-        // REQ-07: After failure, the in-flight entry should be removed
-        assertEquals(0, cache.getInflightCount(), 
-            "Internal state must be cleaned up after failed completion");
+
+        // REQ-07: In-flight entry must be removed after failure (cleanup on success OR failure)
+        assertEquals(0, cache.getInflightCount(),
+            "Internal state must be cleaned up after failure");
         assertFalse(cache.isInflight("key"));
+
+        // Failure is cached; no automatic retry. Explicit invalidate allows recomputation.
+        cache.invalidate("key");
+        String result = cache.get("key", k -> "success");
+        assertEquals("success", result);
     }
     
     @Test
-    @DisplayName("REQ-07: Cleanup allows subsequent computations")
+    @DisplayName("REQ-07: Invalidate allows subsequent computations")
     @Timeout(value = 10, unit = TimeUnit.SECONDS)
     void testCleanupAllowsRetry() throws Exception {
         AtomicInteger computationCount = new AtomicInteger(0);
-        
-        // First computation fails
+
         try {
             cache.get("key", k -> {
                 computationCount.incrementAndGet();
                 throw new RuntimeException("First failure");
             });
         } catch (ComputationException e) {
-            // Expected
         }
-        
+
         assertEquals(1, computationCount.get());
-        assertEquals(0, cache.getInflightCount());
-        
-        // Second computation should be allowed (new request after cleanup)
+        // Failure is cached; no automatic retry. Explicit invalidate allows new computation.
+        cache.invalidate("key");
+
         String result = cache.get("key", k -> {
             computationCount.incrementAndGet();
             return "success";
         });
-        
+
         assertEquals("success", result);
-        assertEquals(2, computationCount.get(), 
-            "After cleanup, a new computation should be allowed");
+        assertEquals(2, computationCount.get(),
+            "After invalidate, a new computation should be allowed");
         assertEquals(0, cache.getInflightCount());
     }
     
@@ -569,13 +605,10 @@ public class SingleFlightCacheTest {
         
         computeThread.start();
         
-        // Wait for computation to start
         computationStarted.await(5, TimeUnit.SECONDS);
         
-        // Interrupt the thread
         computeThread.interrupt();
         
-        // Verify the thread was interrupted
         assertTrue(interrupted.await(5, TimeUnit.SECONDS), 
             "Computation should have been interrupted");
         
@@ -583,26 +616,33 @@ public class SingleFlightCacheTest {
     }
     
     @Test
-    @DisplayName("Sequential requests trigger separate computations")
+    @DisplayName("Sequential requests with invalidate trigger separate computations")
     void testSequentialRequestsAreSeparate() throws InterruptedException {
         AtomicInteger computationCount = new AtomicInteger(0);
-        
-        // First request
+
         String result1 = cache.get("key", k -> {
             computationCount.incrementAndGet();
             return "value1";
         });
-        
-        // Second request (after first completes)
+        assertEquals("value1", result1);
+        assertEquals(1, computationCount.get());
+
+        // Cached outcome: second get() returns same result without recomputing
+        String cached = cache.get("key", k -> {
+            computationCount.incrementAndGet();
+            return "value2";
+        });
+        assertEquals("value1", cached);
+        assertEquals(1, computationCount.get(), "No recomputation without invalidate");
+
+        // Explicit invalidate allows a new computation
+        cache.invalidate("key");
         String result2 = cache.get("key", k -> {
             computationCount.incrementAndGet();
             return "value2";
         });
-        
-        // Both computations should execute because this is single-flight (not a persistent cache)
-        assertEquals("value1", result1);
         assertEquals("value2", result2);
-        assertEquals(2, computationCount.get(), 
-            "Sequential requests should trigger separate computations");
+        assertEquals(2, computationCount.get(),
+            "After invalidate, a new computation runs");
     }
 }

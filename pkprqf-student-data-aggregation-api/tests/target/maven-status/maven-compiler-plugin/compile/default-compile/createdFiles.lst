@@ -1,0 +1,5 @@
+com/example/studentapi/dto/AggregationResult.class
+com/example/studentapi/service/StudentAggregationService.class
+com/example/studentapi/dto/Student.class
+com/example/studentapi/controller/StudentAggregationController.class
+com/example/studentapi/StudentApiApplication.class
