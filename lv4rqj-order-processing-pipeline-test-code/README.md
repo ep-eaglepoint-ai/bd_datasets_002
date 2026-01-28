@@ -29,24 +29,45 @@
 - repository_before/: baseline code (`__init__.py`)
 - repository_after/: optimized code (`__init__.py`)
 - tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
+- evaluation/: evaluation scripts (`evaluation.ts`)
 - instances/: sample/problem instances (JSON)
 - patches/: patches for diffing
 - trajectory/: notes or write-up (Markdown)
 
 ## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
+- Install deps: `npm install`
+- Run harness tests (meta + before/after): `npm test`
+- Run after repo unit tests only: `npm run test:after`
+- Run before repo baseline (expected "No tests found"): `npm run test:before`
 
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+### Run tests (before – expected some failures)
 
+```bash
+docker compose run --rm -e NODE_PATH=/app/repository_before app npm run test:before
+```
 
+**Expected behavior:**
+- **Unit tests**: ❌ FAIL (expected - no `*.test.ts` files in `repository_before/`)
 
-# Run tests against "after" implementation
-docker compose build --no-cache; docker compose run --rm -e NODE_PATH=/app/repository_after app npm test -- --runInBand
+### Run tests (after – expected all pass)
 
-<!-- # Example evaluation script (Node/TS) comparing both -->
-<!-- docker compose run --rm app node evaluation/evaluation.js -->
+```bash
+docker compose run --rm -e NODE_PATH=/app/repository_after app npm run test:after
+```
+
+**Expected behavior:**
+- **Unit tests**: ✅ PASS
+
+#### Run evaluation (compares both implementations)
+
+```bash
+docker compose run --rm --build app npm run evaluate
+```
+
+This will:
+- Run tests for both before and after implementations
+- Compare results and write a report under `evaluation/reports/YYYY-MM-DD/HH-MM-SS/report.json`
+
+```bash
+git diff --no-index repository_before repository_after > patches/task_001.patch
+```

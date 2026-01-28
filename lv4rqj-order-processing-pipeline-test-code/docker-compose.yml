@@ -1,3 +1,5 @@
 services:
   app:
     build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
