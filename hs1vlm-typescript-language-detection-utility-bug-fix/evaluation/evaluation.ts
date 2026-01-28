@@ -149,6 +149,11 @@ export function main(): number {
     const reportPath = path.join(reportDir, 'report.json');
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
 
+    // Also write a stable copy for CI/post-build collectors that look for a JSON
+    // directly under the `evaluation/` directory.
+    const stableReportPath = path.join(ROOT, 'evaluation', 'report.json');
+    fs.writeFileSync(stableReportPath, JSON.stringify(report, null, 2), 'utf8');
+
     console.log(`Report written to ${reportPath}`);
     console.log('\n=== Evaluation Summary ===');
     console.log(`Before tests passed: ${report.before.tests.passed}`);
