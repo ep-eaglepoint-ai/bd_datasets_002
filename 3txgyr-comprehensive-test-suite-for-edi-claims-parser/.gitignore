@@ -1,11 +1,12 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-.env
+# Go build / test artifacts
+bin/
+*.test
+*.out
 
-# Node
-node_modules/
+# IDE / editor config
+.vscode/
+.idea/
 
-# OS
-.DS_Store
+# Evaluation reports (dated directories)
+/evaluation/**/*.json
+
