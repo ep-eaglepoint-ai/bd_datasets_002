@@ -1,5 +1,17 @@
-FROM python:3.11-slim
+FROM golang:1.21-alpine AS builder
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+COPY repository_after/go.mod repository_after/go.sum ./
+RUN go mod download
+
+COPY repository_after/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -o claims-processor .
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+
+COPY --from=builder /app/claims-processor .
+COPY tests/ ./tests/
+
+CMD ["./claims-processor"]
