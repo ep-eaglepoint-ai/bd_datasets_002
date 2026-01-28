@@ -1,0 +1,11 @@
+{
+            "instance_id": "NBG4OC",
+            "problem_statement": "We need a stand-alone command-line tool that converts chunked text documents into vector embeddings and stores them in a FAISS index for fast semantic search. The tool must preserve document metadata, support configurable embedding models, and be easy to run outside of an application framework. This will serve as foundational infrastructure for semantic search and Retrieval-Augmented Generation (RAG) workflows.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/nbg4oc-build-stand-alone-semantic-search-index-builder-using-faiss",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
