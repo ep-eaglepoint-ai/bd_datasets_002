@@ -1,5 +1,11 @@
-FROM python:3.11-slim
+FROM node:22-slim
+
 WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+ENV NODE_ENV=development
+ENV NODE_PATH=/app/repository_before

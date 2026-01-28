@@ -42,3 +42,11 @@
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
+
+
+
+# Run tests against "after" implementation
+docker compose build --no-cache; docker compose run --rm -e NODE_PATH=/app/repository_after app npm test -- --runInBand
+
+<!-- # Example evaluation script (Node/TS) comparing both -->
+<!-- docker compose run --rm app node evaluation/evaluation.js -->
