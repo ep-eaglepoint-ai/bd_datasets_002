@@ -74,6 +74,11 @@ type BloomFilter struct {
 	numHashes int
 }
 
+// GetBitset returns the internal bitset (for testing)
+func (bf *BloomFilter) GetBitset() []byte {
+	return bf.bitset
+}
+
 // NewBloomFilter creates a new Bloom Filter with specified size and number of hash functions
 func NewBloomFilter(size uint64, numHashes int) *BloomFilter {
 	// Calculate number of bytes needed (round up)
@@ -127,6 +132,10 @@ func (bf *BloomFilter) Serialize(w io.Writer) error {
 	if err := binary.Write(w, binary.LittleEndian, bf.size); err != nil {
 		return err
 	}
+	// Write number of hash functions (uint32)
+	if err := binary.Write(w, binary.LittleEndian, uint32(bf.numHashes)); err != nil {
+		return err
+	}
 	// Write size of bitset in bytes (uint64)
 	if err := binary.Write(w, binary.LittleEndian, uint64(len(bf.bitset))); err != nil {
 		return err
@@ -146,6 +155,10 @@ type SparseIndexEntry struct {
 
 // FlushToSSTable serializes the MemTable to disk as an SSTable
 func (mt *MemTable) FlushToSSTable(filename string, sparseIndexInterval int) error {
+	if sparseIndexInterval <= 0 {
+		return fmt.Errorf("sparseIndexInterval must be greater than 0")
+	}
+
 	// Acquire read lock to freeze the MemTable for reading
 	mt.mu.RLock()
 	defer mt.mu.RUnlock()

@@ -31,3 +31,4 @@ coverage.*
 # Ignore evaluation reports contents, but keep the placeholder
 evaluation/reports/**
 !evaluation/reports/.gitkeep
+report.json

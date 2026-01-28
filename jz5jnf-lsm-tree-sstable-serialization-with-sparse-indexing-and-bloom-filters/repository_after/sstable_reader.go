@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
 // SSTableReader provides functionality to read and query SSTable files
 type SSTableReader struct {
+	mu                sync.Mutex
 	file              *os.File
 	bloomFilterOffset uint64
 	sparseIndexOffset uint64
@@ -105,6 +107,12 @@ func (r *SSTableReader) readBloomFilter() error {
 		return err
 	}
 
+	// Read number of hash functions (uint32)
+	var numHashes uint32
+	if err := binary.Read(r.file, binary.LittleEndian, &numHashes); err != nil {
+		return err
+	}
+
 	// Read bitset size in bytes (uint64)
 	var bitsetSize uint64
 	if err := binary.Read(r.file, binary.LittleEndian, &bitsetSize); err != nil {
@@ -121,7 +129,7 @@ func (r *SSTableReader) readBloomFilter() error {
 	r.bloomFilter = &BloomFilter{
 		bitset:    bitset,
 		size:      sizeInBits,
-		numHashes: 3,
+		numHashes: int(numHashes),
 	}
 
 	return nil
@@ -167,8 +175,26 @@ func (r *SSTableReader) readSparseIndex() error {
 	return nil
 }
 
+// GetSparseIndex returns the sparse index entries (for testing)
+func (r *SSTableReader) GetSparseIndex() []SparseIndexEntry {
+	return r.sparseIndex
+}
+
+// GetBloomFilter returns the Bloom Filter (for testing)
+func (r *SSTableReader) GetBloomFilter() *BloomFilter {
+	return r.bloomFilter
+}
+
+// GetFooterOffsets returns the offsets from the footer (for testing)
+func (r *SSTableReader) GetFooterOffsets() (uint64, uint64) {
+	return r.bloomFilterOffset, r.sparseIndexOffset
+}
+
 // Get retrieves a value by key using the Bloom Filter and Sparse Index
 func (r *SSTableReader) Get(key string) ([]byte, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	keyBytes := []byte(key)
 
 	// First check Bloom Filter (may have false positives, but not false negatives for existing keys)
@@ -268,6 +294,9 @@ func (r *SSTableReader) Get(key string) ([]byte, bool) {
 
 // GetAllEntries reads all entries from the SSTable (for testing)
 func (r *SSTableReader) GetAllEntries() (map[string][]byte, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	result := make(map[string][]byte)
 
 	// Seek to start of data
