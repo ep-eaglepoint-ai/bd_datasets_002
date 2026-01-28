@@ -1,0 +1,38 @@
+class AlertDispatcher {
+  constructor() {
+    this.stock = {};
+    this.thresholds = {};
+    this.lastAlerted = {};
+    this.queue = [];
+  }
+
+  initializeChemical(name, quantity, threshold) {
+    this.stock[name] = quantity;
+    this.thresholds[name] = threshold;
+  }
+
+  notifyUsage(name, amount) {
+    if (this.stock[name] === undefined) return;
+    
+    this.stock[name] -= amount;
+    if (this.stock[name] < 0) this.stock[name] = 0;
+
+    if (this.stock[name] < this.thresholds[name]) {
+      const now = Date.now();
+      const lastAlert = this.lastAlerted[name] || 0;
+      
+      if (now - lastAlert >= 60000) {
+        this.queue.push({ chemical: name, level: this.stock[name] });
+        this.lastAlerted[name] = now;
+      }
+    }
+  }
+
+  getQueue() {
+    const alerts = [...this.queue];
+    this.queue = [];
+    return alerts;
+  }
+}
+
+export default AlertDispatcher;
