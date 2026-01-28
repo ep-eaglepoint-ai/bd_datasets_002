@@ -59,14 +59,18 @@ Instead of "canvas manipulation" (Traditional approach), we should use **Browser
 **Guiding Question**: "How will we prove the solution is correct and complete?"
 
 **Test Strategy**:
-We implemented comprehensive tests covering format handling, orientation preservation, transparency maintenance, and performance metrics.
+Comprehensive Jest tests in root `tests/` directory covering all requirements with actual worker integrity verification.
 
 **Traceability Matrix**:
 
-- **REQ-01 (EXIF Support)**: `src/utils/compressor.test.ts` verifies proper orientation handling via mocked image bitmaps.
-- **REQ-02 (Transparency Preservation)**: Tests validate that alpha channels are maintained in PNG output.
-- **REQ-03 (Performance)**: Worker-based processing verified through messaging patterns and termination checks.
-- **REQ-04 (Format Compatibility)**: Tests cover JPEG, PNG, and WebP inputs with appropriate handling.
+- **REQ-01 (Transparency)**: `tests/compressor.test.js` validates alpha channel preservation in PNG output.
+- **REQ-02 (EXIF Support)**: Tests verify createImageBitmap respects orientation metadata.
+- **REQ-03 (UI Stats)**: `tests/integration.test.js` validates display format (Original | Compressed | Saved).
+- **REQ-04 (Performance)**: `tests/worker.test.js` verifies actual Web Worker usage and main thread non-blocking.
+- **REQ-05 (Client-Side)**: Tests confirm no external API calls.
+- **REQ-06 (Formats)**: Tests validate JPEG, PNG, WebP input handling.
+- **REQ-07 (PNG Export)**: Tests enforce all outputs are image/png.
+- **REQ-08 (50% Reduction)**: Tests verify strict 50% compression target enforcement.
 
 ---
 
@@ -75,17 +79,17 @@ We implemented comprehensive tests covering format handling, orientation preserv
 **Guiding Question**: "What is the smallest edit that achieves the goal?"
 
 **Change Surface**:
-The refactor focuses entirely on `src/utils/compressor.ts` and `src/utils/compressor.worker.ts`.
+Core compression logic in `repository_after/src/utils/compressor.worker.ts` with progressive retry algorithm.
 
 **Impact Assessment**:
 
-- **Deletions**: Removal of synchronous canvas operations that blocked the main thread.
-- **Additions**: Introduction of Web Worker architecture, OffscreenCanvas, and createImageBitmap for proper EXIF handling.
+- **Deletions**: Fixed retry loops that ignored 50% target.
+- **Additions**: Progressive quality/scale reduction algorithm that enforces 50% compression or throws error.
 
 **Preserved**:
 
-- Function signature `compressImage` remains compatible for consumers.
-- WebP conversion for aggressive compression remains in worker thread.
+- API contract in `compressor.ts` unchanged.
+- Web Worker architecture maintained.
 
 ---
 
@@ -158,12 +162,16 @@ The control flow shifts from "blocking synchronous processing" to "non-blocking 
 2. **Worker Architecture**:
    Used Web Workers to offload image processing from the main thread, preventing UI blocking.
 
-3. **Multi-Stage Compression**:
+3. **Progressive Compression Algorithm**:
    ```typescript
-   // First: Scale to max dimensions respecting aspect ratio
-   // Second: Apply WebP roundtrip for lossy compression
-   // Third: Convert back to PNG for final output
-   // Fourth: Fallback to aggressive resize if targets not met
+   // Progressive retry with fine-grained steps (0.05)
+   while (currentQuality >= minQuality || currentScale >= minScale) {
+     // Try compression at current quality/scale
+     // If successful and meets 50% target, return
+     // Otherwise, reduce quality by 0.05
+     // When quality exhausted, reduce scale by 0.05
+   }
+   // Final fallback: Aggressive scaling until 50% met or throw error
    ```
 
 ---
@@ -175,11 +183,11 @@ The control flow shifts from "blocking synchronous processing" to "non-blocking 
 **Metric Breakdown**:
 
 - **Compression Ratio**:
-  - Previous approaches: ~20-30% reduction.
-  - Current implementation: >50% reduction consistently achieved.
-- **EXIF Support**:
-  - Previously: Manual EXIF parsing required.
-  - Now: Automatic orientation handling via createImageBitmap().
-- **UI Responsiveness**:
-  - Before: Main thread blocked during processing.
-  - After: Fully non-blocking via Web Worker architecture.
+  - Requirement: Minimum 50% reduction.
+  - Implementation: Progressive algorithm ensures 50% or throws error.
+- **Test Coverage**:
+  - 3 test files with 9+ test cases in `tests/` directory.
+  - All 8 requirements validated with Jest.
+- **Worker Integrity**:
+  - Tests verify actual Worker instantiation and message passing.
+  - Confirms non-blocking main thread operation.

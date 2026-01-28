@@ -12,7 +12,7 @@ function getGitInfo() {
   return gitInfo;
 }
 
-function runVitestTests(testProject, testName, expectSuccess = true) {
+function runJestTests(testProject, testName, expectSuccess = true) {
   console.log("\n" + "=".repeat(60));
   console.log(`RUNNING TESTS: ${testName}`);
   console.log(`Expected outcome: ${expectSuccess ? "PASS" : "FAIL"}`);
@@ -21,7 +21,6 @@ function runVitestTests(testProject, testName, expectSuccess = true) {
   const projectDir = path.join(__dirname, "..", testProject);
 
   try {
-    // Install dependencies first
     console.log("Installing dependencies...");
     try {
       execSync("rm -rf node_modules package-lock.json && npm install", {
@@ -34,11 +33,9 @@ function runVitestTests(testProject, testName, expectSuccess = true) {
       throw err;
     }
 
-    // Run Vitest with JSON reporter
-    // npx vitest run --reporter=json --outputFile=test-results.json
     try {
       execSync(
-        `npx vitest run --reporter=json --outputFile=test-results.json`,
+        `npm test -- --json --outputFile=test-results.json`,
         {
           cwd: projectDir,
           encoding: "utf8",
@@ -47,8 +44,7 @@ function runVitestTests(testProject, testName, expectSuccess = true) {
         },
       );
     } catch (err) {
-      // Vitest exits with non-zero when tests fail.
-      // We catch this to process the output file regardless.
+      // Jest exits with non-zero when tests fail
     }
 
     const resultsPath = path.join(projectDir, "test-results.json");
@@ -56,7 +52,7 @@ function runVitestTests(testProject, testName, expectSuccess = true) {
       throw new Error("Test results file not found at " + resultsPath);
     }
     const output = fs.readFileSync(resultsPath, "utf8");
-    return parseVitestOutput(output, testName, expectSuccess);
+    return parseJestOutput(output, testName, expectSuccess);
   } catch (err) {
     console.error("\nERROR:", err.message);
     if (err.stderr) console.error("STDERR:", err.stderr);
@@ -73,18 +69,18 @@ function runVitestTests(testProject, testName, expectSuccess = true) {
   }
 }
 
-function parseVitestOutput(output, testName, expectSuccess) {
+function parseJestOutput(output, testName, expectSuccess) {
   let parsed = null;
   let tests = [];
   let passed = 0;
   let failed = 0;
   let total = 0;
-  let ignored = 0;
+  let skipped = 0;
 
   try {
     parsed = JSON.parse(output);
   } catch (e) {
-    console.error("Failed to parse Vitest JSON output:", e.message);
+    console.error("Failed to parse Jest JSON output:", e.message);
   }
 
   if (parsed && parsed.testResults) {
@@ -99,13 +95,12 @@ function parseVitestOutput(output, testName, expectSuccess) {
 
           if (assertion.status === "passed") passed++;
           else if (assertion.status === "failed") failed++;
-          else ignored++;
+          else skipped++;
           total++;
         });
       }
     });
 
-    // Vitest JSON sometimes summarizes at the top level
     if (parsed.numPassedTests !== undefined) passed = parsed.numPassedTests;
     if (parsed.numFailedTests !== undefined) failed = parsed.numFailedTests;
     if (parsed.numTotalTests !== undefined) total = parsed.numTotalTests;
@@ -116,13 +111,9 @@ function parseVitestOutput(output, testName, expectSuccess) {
     passed: passed,
     failed: failed,
     errors: 0,
-    skipped: ignored,
+    skipped: skipped,
   };
 
-  // Determine if test met expectations
-  // For this task, we mainly care about AFTER passing.
-  // We don't have a BEFORE repo to test failures against for this specific task,
-  // but the template logic handles "expect failure" if needed.
   const testsMetExpectation = expectSuccess
     ? failed === 0 && passed > 0
     : failed > 0;
@@ -137,10 +128,10 @@ function parseVitestOutput(output, testName, expectSuccess) {
 
   return {
     success: testsMetExpectation,
-    exit_code: testsMetExpectation ? 0 : 1, // Logic aligned with "did it meet expectation"
+    exit_code: testsMetExpectation ? 0 : 1,
     tests,
     summary,
-    stdout: output, // Saving the full JSON as stdout for record
+    stdout: output,
     stderr: "",
   };
 }
@@ -205,10 +196,9 @@ console.log("  6. Formats: Handles jpeg, png, webp");
 console.log("  7. Exports: All exports as PNG");
 console.log("  8. Compression: 50% size reduction target");
 
-// For this task, we only have repository_after tests to verify requirements are met.
-const afterResults = runVitestTests(
-  "repository_after",
-  "repository_after",
+const afterResults = runJestTests(
+  "tests",
+  "tests",
   true,
 );
 
@@ -225,7 +215,7 @@ function mapTestsToPythonic(tests, repoName) {
 }
 
 const allTests = [
-  ...mapTestsToPythonic(afterResults.tests, "repository_after"),
+  ...mapTestsToPythonic(afterResults.tests, "tests"),
 ];
 
 const unit_tests = {
@@ -309,7 +299,7 @@ console.log("\n" + "=".repeat(60));
 console.log("EVALUATION RESULTS");
 console.log("=".repeat(60));
 
-console.log(`\nrepository_after (expected to PASS):`);
+console.log(`\ntests/ (expected to PASS):`);
 console.log(
   `  Tests: ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`,
 );

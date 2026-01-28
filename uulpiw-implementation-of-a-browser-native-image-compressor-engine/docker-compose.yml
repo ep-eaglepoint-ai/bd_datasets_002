@@ -7,5 +7,5 @@ services:
       - .:/host:rw
   test-after:
     build: .
-    working_dir: /app/repository_after
-    command: sh -c "rm -rf node_modules package-lock.json && npm install && npx vitest run"
+    working_dir: /app/tests
+    command: sh -c "rm -rf node_modules package-lock.json && npm install && npm test"

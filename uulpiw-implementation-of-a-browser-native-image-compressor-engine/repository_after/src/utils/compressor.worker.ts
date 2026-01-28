@@ -117,50 +117,72 @@ async function compressImage(
 
   img.close(); // Release original
 
-  const qualities = [0.6, 0.5, 0.4, 0.3];
-  const scaleFactors = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
+  // Progressive retry with expanding ranges until 50% target is met
+  let currentScale = 1.0;
+  let currentQuality = 0.6;
+  const qualityStep = 0.05;
+  const scaleStep = 0.05;
+  const minQuality = 0.1;
+  const minScale = MIN_DIMENSION / Math.max(finalWidth, finalHeight);
 
-  for (const quality of qualities) {
-    for (const scale of scaleFactors) {
-      const result = await tryCompress(
-        scaledImg,
-        targetSize,
-        scale,
-        quality * compressionStrength,
-      );
-      if (result) {
-        scaledImg.close();
-        return {
-          blob: result.blob,
-          width: result.width,
-          height: result.height,
-          originalSize,
-          compressedSize: result.blob.size,
-          savings: ((originalSize - result.blob.size) / originalSize) * 100,
-        };
-      }
+  while (currentQuality >= minQuality || currentScale >= minScale) {
+    const result = await tryCompress(
+      scaledImg,
+      targetSize,
+      currentScale,
+      currentQuality * compressionStrength,
+    );
+    
+    if (result) {
+      scaledImg.close();
+      return {
+        blob: result.blob,
+        width: result.width,
+        height: result.height,
+        originalSize,
+        compressedSize: result.blob.size,
+        savings: ((originalSize - result.blob.size) / originalSize) * 100,
+      };
     }
+
+    // Progressively reduce quality and scale
+    currentQuality -= qualityStep;
+    if (currentQuality < minQuality) {
+      currentQuality = 0.6;
+      currentScale -= scaleStep;
+    }
+
+    if (currentScale < minScale) break;
   }
 
-  // Fallback: Aggressive resize
-  const canvas = new OffscreenCanvas(
-    Math.max(MIN_DIMENSION, Math.floor(finalWidth * 0.4)),
-    Math.max(MIN_DIMENSION, Math.floor(finalHeight * 0.4)),
-  );
-  const ctx = canvas.getContext("2d", { alpha: true });
-  if (!ctx) throw new Error("Canvas not supported");
+  // Final fallback: Ensure 50% reduction by aggressive scaling
+  let fallbackScale = 0.4;
+  while (fallbackScale >= minScale) {
+    const canvas = new OffscreenCanvas(
+      Math.max(MIN_DIMENSION, Math.floor(finalWidth * fallbackScale)),
+      Math.max(MIN_DIMENSION, Math.floor(finalHeight * fallbackScale)),
+    );
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) throw new Error("Canvas not supported");
 
-  ctx.drawImage(scaledImg, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(scaledImg, 0, 0, canvas.width, canvas.height);
+    const fallbackBlob = await convertToPNG(canvas);
+
+    if (fallbackBlob.size < targetSize) {
+      scaledImg.close();
+      return {
+        blob: fallbackBlob,
+        width: canvas.width,
+        height: canvas.height,
+        originalSize,
+        compressedSize: fallbackBlob.size,
+        savings: ((originalSize - fallbackBlob.size) / originalSize) * 100,
+      };
+    }
+
+    fallbackScale -= 0.1;
+  }
+
   scaledImg.close();
-
-  const fallbackBlob = await convertToPNG(canvas);
-
-  return {
-    blob: fallbackBlob,
-    width: canvas.width,
-    height: canvas.height,
-    originalSize,
-    compressedSize: fallbackBlob.size,
-    savings: ((originalSize - fallbackBlob.size) / originalSize) * 100,
-  };
+  throw new Error("Unable to achieve 50% compression target");
 }
