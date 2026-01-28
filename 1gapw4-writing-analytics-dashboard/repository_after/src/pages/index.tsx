@@ -9,12 +9,18 @@ import AnnotationManager from '@/components/AnnotationManager';
 import WritingGoals from '@/components/WritingGoals';
 import AdvancedFilters from '@/components/AdvancedFilters';
 import TimeSeriesCharts from '@/components/TimeSeriesCharts';
+import VocabularyGrowthChart from '@/components/VocabularyGrowthChart';
+import ComplexityHistogram from '@/components/ComplexityHistogram';
+import StylisticFingerprintHeatmap from '@/components/StylisticFingerprintHeatmap';
+import TopicEvolutionChart from '@/components/TopicEvolutionChart';
+import SentimentVolatilityChart from '@/components/SentimentVolatilityChart';
+import UncertaintyIndicator from '@/components/UncertaintyIndicator';
 import { useStore } from '@/lib/store';
 import { exportToCSV, downloadCSV } from '@/lib/exportUtils';
 import { WritingGoal, Snapshot, Document } from '@/lib/types';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'write' | 'documents' | 'analytics' | 'compare' | 'trends' | 'goals'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'documents' | 'analytics' | 'compare' | 'trends' | 'visualizations' | 'goals'>('write');
   const { documents, analytics, currentDocument } = useStore();
   const [filteredDocs, setFilteredDocs] = useState<Document[]>([]);
   const [goals, setGoals] = useState<WritingGoal[]>([]);
@@ -133,6 +139,16 @@ export default function Home() {
             📈 Trends
           </button>
           <button
+            onClick={() => setActiveTab('visualizations')}
+            className={`px-6 py-3 rounded-lg font-medium transition ${
+              activeTab === 'visualizations'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            📊 Visualizations
+          </button>
+          <button
             onClick={() => setActiveTab('goals')}
             className={`px-6 py-3 rounded-lg font-medium transition ${
               activeTab === 'goals'
@@ -232,6 +248,28 @@ export default function Home() {
                   <li>• <strong>Readability Evolution:</strong> See how complexity changes</li>
                   <li>• <strong>Vocabulary Growth:</strong> Track unique word accumulation</li>
                   <li>• <strong>Advanced Filters:</strong> Filter by sentiment, readability, word count, and more</li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'visualizations' && (
+            <>
+              <UncertaintyIndicator analytics={currentDocument ? analytics.get(currentDocument.id) : null} />
+              <VocabularyGrowthChart documents={documents} analytics={analytics} />
+              <ComplexityHistogram documents={documents} analytics={analytics} />
+              <StylisticFingerprintHeatmap documents={documents} analytics={analytics} />
+              <TopicEvolutionChart documents={documents} analytics={analytics} />
+              <SentimentVolatilityChart documents={documents} analytics={analytics} />
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                <h3 className="font-semibold text-indigo-900 mb-2">📊 Advanced Visualizations</h3>
+                <ul className="text-sm text-indigo-800 space-y-1">
+                  <li>• <strong>Vocabulary Growth:</strong> Track cumulative unique words and total vocabulary over time</li>
+                  <li>• <strong>Complexity Histogram:</strong> Distribution of sentence complexity across documents</li>
+                  <li>• <strong>Stylistic Fingerprint:</strong> Heatmap of stylistic metrics per document</li>
+                  <li>• <strong>Topic Evolution:</strong> How topics change and evolve over time</li>
+                  <li>• <strong>Sentiment Volatility:</strong> Emotional stability and sentiment fluctuations</li>
+                  <li>• <strong>Uncertainty Indicators:</strong> Confidence scores for analytical results</li>
                 </ul>
               </div>
             </>
