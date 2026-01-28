@@ -7,7 +7,9 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "run-before": "node tests/run-before.js",
+    "run-after": "node tests/run-after.js",
+    "evaluate": "node evaluation/evaluation.js"
   },
   "keywords": [],
   "author": "",

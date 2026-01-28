@@ -3,4 +3,4 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . /app
-CMD ["echo", "Container setup complete."]
+CMD ["npm", "run", "evaluate"]
