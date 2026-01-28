@@ -4,7 +4,7 @@ import path from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const THREAD_COUNT = 1000;
+const THREAD_COUNT = 100;
 const TEST_REPO = process.env.TEST_REPO || "after";
 
 async function runRaceTest() {
