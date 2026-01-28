@@ -21,16 +21,16 @@ public class DataInitializer {
             if (productRepository.count() > 0) return;
 
             // 1. Create Products
-            Product p1 = createProduct("PROD-000001", "Laptop X1", "High performance laptop", "Electronics", new BigDecimal("1200.00"));
-            Product p2 = createProduct("PROD-000002", "Mouse Wireless", "Ergonomic mouse", "Electronics", new BigDecimal("25.00"));
-            Product p3 = createProduct("PROD-000003", "Keyboard Mech", "Mechanical keyboard", "Electronics", new BigDecimal("80.00"));
-            Product p4 = createProduct("PROD-000004", "Monitor 27", "4K Monitor", "Electronics", new BigDecimal("350.00"));
-            Product p5 = createProduct("PROD-000005", "Desk Chair", "Office chair", "Furniture", new BigDecimal("150.00"));
-            Product p6 = createProduct("PROD-000006", "Office Desk", "Wooden desk", "Furniture", new BigDecimal("200.00"));
-            Product p7 = createProduct("PROD-000007", "Notebook A4", "Running notebook", "Stationery", new BigDecimal("5.00"));
-            Product p8 = createProduct("PROD-000008", "Pen Set", "Blue and Black pens", "Stationery", new BigDecimal("3.00"));
-            Product p9 = createProduct("PROD-000009", "Stapler", "Heavy duty stapler", "Stationery", new BigDecimal("10.00"));
-            Product p10 = createProduct("PROD-000010", "USB Hub", "USB C Hub", "Electronics", new BigDecimal("45.00"));
+            Product p1 = createProduct("PRD-000001", "Laptop X1", "High performance laptop", "Electronics", new BigDecimal("1200.00"));
+            Product p2 = createProduct("PRD-000002", "Mouse Wireless", "Ergonomic mouse", "Electronics", new BigDecimal("25.00"));
+            Product p3 = createProduct("PRD-000003", "Keyboard Mech", "Mechanical keyboard", "Electronics", new BigDecimal("80.00"));
+            Product p4 = createProduct("PRD-000004", "Monitor 27", "4K Monitor", "Electronics", new BigDecimal("350.00"));
+            Product p5 = createProduct("PRD-000005", "Desk Chair", "Office chair", "Furniture", new BigDecimal("150.00"));
+            Product p6 = createProduct("PRD-000006", "Office Desk", "Wooden desk", "Furniture", new BigDecimal("200.00"));
+            Product p7 = createProduct("PRD-000007", "Notebook A4", "Running notebook", "Stationery", new BigDecimal("5.00"));
+            Product p8 = createProduct("PRD-000008", "Pen Set", "Blue and Black pens", "Stationery", new BigDecimal("3.00"));
+            Product p9 = createProduct("PRD-000009", "Stapler", "Heavy duty stapler", "Stationery", new BigDecimal("10.00"));
+            Product p10 = createProduct("PRD-000010", "USB Hub", "USB C Hub", "Electronics", new BigDecimal("45.00"));
 
             productRepository.saveAll(Arrays.asList(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10));
 

@@ -33,6 +33,7 @@ public class StockMovementController {
             @RequestParam(required = false) Long productId,
             @RequestParam(required = false) Long locationId,
             @RequestParam(required = false) StockMovement.Type type,
+            @RequestParam(required = false) String reference,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "performedAt") String sortBy,
@@ -40,6 +41,6 @@ public class StockMovementController {
         
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        return ResponseEntity.ok(stockMovementService.getMovements(startDate, endDate, productId, locationId, type, pageable));
+        return ResponseEntity.ok(stockMovementService.getMovements(startDate, endDate, productId, locationId, type, reference, pageable));
     }
 }

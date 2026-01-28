@@ -28,7 +28,7 @@ public class StockMovementService {
     }
 
     @Transactional(readOnly = true)
-    public Page<StockMovementDto> getMovements(LocalDate startDate, LocalDate endDate, Long productId, Long locationId, StockMovement.Type type, Pageable pageable) {
+    public Page<StockMovementDto> getMovements(LocalDate startDate, LocalDate endDate, Long productId, Long locationId, StockMovement.Type type, String reference, Pageable pageable) {
         Specification<StockMovement> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -48,6 +48,9 @@ public class StockMovementService {
             }
             if (type != null) {
                 predicates.add(criteriaBuilder.equal(root.get("type"), type));
+            }
+            if (reference != null) {
+                predicates.add(criteriaBuilder.equal(root.get("reference"), reference));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

@@ -1,6 +1,30 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=test
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://localhost:8080/swagger-ui.html",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  test:
+    image: maven:3.9-eclipse-temurin-17-alpine
+    depends_on:
+      app:
+        condition: service_healthy
     volumes:
-      - .:/app
+      - ./repository_after:/app
+      - ./tests:/tests
+    working_dir: /app
+    command: mvn test -Dtest=TestRequirements
