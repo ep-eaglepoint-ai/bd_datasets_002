@@ -1,6 +1,31 @@
+# 1. This volume caches Maven downloads so builds are fast
+volumes:
+  maven_data:
+
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      # Mount Maven Cache
+      - maven_data:/root/.m2
+      
+      # Mount the Controller (The Code being tested)
+      - ./repository_before/SensorMetricsController.java:/app/src/main/java/com/example/sensormetrics/SensorMetricsController.java
+      
+      # Mount the Main App (Required for Spring to start)
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/example/sensormetrics/SensorMetricsTestApplication.java
+      
+      # Mount the Test
+      - ./tests/SensorMetricsControllerTest.java:/app/src/test/java/com/example/sensormetrics/SensorMetricsControllerTest.java
+    command: mvn test -Dmaven.test.failure.ignore=true
+
+  evaluation:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./repository_before:/app/repository_before
+      - ./evaluation:/app/evaluation
+
+      # Ensure the Main App is available for the evaluation script logic
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/example/sensormetrics/SensorMetricsTestApplication.java
+    command: java -cp evaluation Evaluation
