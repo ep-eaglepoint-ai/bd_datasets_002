@@ -12,7 +12,7 @@ services:
       - DJANGO_SETTINGS_MODULE=test_settings
       - TARGET_REPOSITORY=repository_before
     command: >
-      sh -c "python -m pytest /app/tests/ -v --tb=short --ds=test_settings"
+      sh -c "python -m pytest /app/tests/ -v --tb=short --ds=test_settings || true"
 
   # Run tests against repository_after (expected to pass all tests)
   test-after:
