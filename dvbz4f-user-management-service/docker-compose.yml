@@ -1,6 +1,24 @@
 services:
-  app:
+  test-before:
+    build: .
+    command: sh -c "pytest -q tests || true"
+    environment:
+      - PYTHONPATH=/app/repository_before
+    volumes:
+      - .:/app
+
+  test-after:
     build: .
     command: pytest -q tests
+    environment:
+      - PYTHONPATH=/app/repository_after
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    environment:
+      - PYTHONPATH=/app/repository_after
     volumes:
       - .:/app
