@@ -1,0 +1,15 @@
+{
+    "instance_id": "OIMB1Y",
+    "problem_statement": "Modern web applications often need to accept and process very large files such as documents, images, audio, and video, but traditional file-handling approaches in Django are not optimized for scalability, memory efficiency, or reliable file-type detection. Loading large files into memory can lead to performance degradation, request timeouts, and system instability, while relying on file extensions for type identification introduces security and data integrity risks. Additionally, extracting meaningful metadata (such as MIME type, size, checksum, encoding, dimensions, duration, or page count) and performing long-running processing tasks synchronously blocks user requests and limits system throughput.",
+    "base_commit": "repository_before",
+    "test_patch": "tests/",
+    "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/oimb1y-large-file-processor",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": [
+        "tests/test_processor.py::test_upload_success",
+        "tests/test_processor.py::test_oversized_file_rejection",
+        "tests/test_processor.py::test_disallowed_mime_rejection",
+        "tests/test_processor.py::test_async_processing_failure_handling"
+    ]
+}

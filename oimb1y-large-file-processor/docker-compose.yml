@@ -1,0 +1,46 @@
+services:
+  app:
+    build: .
+    command: [ "true" ]
+    entrypoint: /app/entrypoint.sh
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=True
+      - CELERY_TASK_EAGER_PROPAGATES=True
+      - STORAGE_BACKEND=local
+      - MEDIA_ROOT=/app/media
+      - MEDIA_URL=/media/
+      - SECRET_KEY=django-insecure-test-key
+      - PYTHONPATH=/app/repository_after:/app/repository_before
+      - SQLITE_DB_PATH=/tmp/db.sqlite3
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: celery -A config worker --loglevel=info
+    entrypoint: /app/entrypoint.sh
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - STORAGE_BACKEND=local
+      - MEDIA_ROOT=/app/media
+      - MEDIA_URL=/media/
+      - SECRET_KEY=django-insecure-test-key
+      - PYTHONPATH=/app/repository_after:/app/repository_before
+      - SQLITE_DB_PATH=/tmp/db.sqlite3
+    depends_on:
+      - redis
+      - app
+
+  redis:
+    image: redis:7-alpine

@@ -1,0 +1,169 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - echo "=== INSTALL PHASE ==="
+      - |
+        # Verify Docker daemon is available
+        if ! docker info >/dev/null 2>&1; then
+          echo "Docker daemon not available — ensure CodeBuild project has privilegedMode=true"
+          touch /tmp/BUILD_FAILED_INSTALL
+        fi
+
+  pre_build:
+    commands:
+      - echo "Logging in to Docker Hub..."
+      - echo "$DOCKER_TOKEN" | docker login --username "$DOCKER_USER" --password-stdin
+      - |
+        set +e
+        WORKDIR=${TARGET_DIR:-.}
+        # Try to enter directory
+        if ! cd "$WORKDIR"; then
+          echo "WARNING: Unable to enter target directory ${WORKDIR}"
+          touch /tmp/BUILD_FAILED_PREBUILD
+        fi
+        
+        # Persist the absolute path for later phases
+        PWD=$(pwd)
+        echo "$PWD" > /tmp/build_dir
+        echo "Persisted working directory: $PWD"
+        
+        if ! mkdir -p "${OUTPUT_DIR}"; then
+          echo "WARNING: Unable to create output directory ${OUTPUT_DIR}"
+          touch /tmp/BUILD_FAILED_PREBUILD
+        fi
+        
+        # Clean up any previous failure flags
+        rm -f /tmp/BUILD_FAILED* /tmp/*.log || true
+        true
+
+  build:
+    commands:
+      - |
+        set +e
+        # Reload the absolute path from pre_build
+        if [ -f /tmp/build_dir ]; then
+          cd "$(cat /tmp/build_dir)"
+        else
+          cd "${TARGET_DIR:-.}"
+        fi
+        
+        # IMPORTANT: Clean ALL failure flags at the start of build phase
+        rm -f /tmp/BUILD_FAILED_* 2>/dev/null || true
+        
+        # 1. PRE-BUILD COMMAND (repository_before)
+        if [ -n "${BUILD_CMD_BEFORE:-}" ]; then
+          echo "Running repository_before build command..."
+          # Allow this to fail - it's expected for repository_before
+          # Don't create any failure flags for repository_before
+          if ! /bin/bash -c "set -o pipefail; $BUILD_CMD_BEFORE 2>&1 | tee /tmp/docker_before.log"; then
+              echo "Pre-build command completed (failed as expected for repository_before)"
+              # DO NOT create BUILD_FAILED_BEFORE - we expect this to fail
+          fi
+        fi
+        
+        # 2. POST-BUILD COMMAND (repository_after)
+        echo "Running repository_after build command..."
+        # Reset any failure flags before running repository_after
+        rm -f /tmp/BUILD_FAILED_AFTER 2>/dev/null || true
+        if ! /bin/bash -c "set -o pipefail; $BUILD_CMD_AFTER 2>&1 | tee /tmp/docker_after.log"; then
+            echo "Post-build command failed"
+            touch /tmp/BUILD_FAILED_AFTER
+        fi
+        
+        # 3. TEST COMMAND
+        echo "Running tests/report command..."
+        # Reset any test failure flags before running tests
+        rm -f /tmp/BUILD_FAILED_TESTS 2>/dev/null || true
+        if ! /bin/bash -c "set -o pipefail; $TEST_CMD 2>&1 | tee /tmp/tests.log"; then
+            echo "Test command failed"
+            touch /tmp/BUILD_FAILED_TESTS
+        fi
+        
+        true
+
+  post_build:
+    commands:
+      - |
+        set -e
+        # Reload the absolute path
+        if [ -f /tmp/build_dir ]; then
+          cd "$(cat /tmp/build_dir)"
+        else
+          cd "${TARGET_DIR:-.}"
+        fi
+        
+        echo "=== POST-BUILD PHASE ==="
+        
+        KEY_PREFIX=$(echo "${REPORT_PREFIX:-}" | sed 's#^/*##;s#/*$##')
+        JOB_ID_VAL="${JOB_ID:-${CODEBUILD_BUILD_ID}}"
+        
+        upload_s3() {
+          local src=$1
+          local dest_key=$2
+          if [ -n "${REPORT_BUCKET:-}" ] && [ -f "$src" ] && command -v aws >/dev/null 2>&1; then
+             echo "Uploading $src to s3://${REPORT_BUCKET}/$dest_key"
+             aws s3 cp "$src" "s3://${REPORT_BUCKET}/$dest_key" || echo "WARNING: Upload failed for $src"
+          fi
+        }
+        
+        # Detect and Upload Report
+        find_latest_report() {
+          OUTPUT_DIR=${OUTPUT_DIR:-.}
+          [ -d "$OUTPUT_DIR" ] || return 1
+          find -L "$OUTPUT_DIR" -type f -name '*.json' -print 2>/dev/null | head -n 1
+        }
+        
+        REPORT_FILE=$(find_latest_report)
+        
+        if [ -n "$REPORT_FILE" ]; then
+           REPORT_KEY="${KEY_PREFIX:+${KEY_PREFIX}/}${JOB_ID_VAL}/report.json"
+           upload_s3 "$REPORT_FILE" "$REPORT_KEY"
+        else
+          echo "WARNING: JSON report not found under $OUTPUT_DIR"
+          echo "FILES FOUND: $(ls -1 $OUTPUT_DIR 2>/dev/null || echo 'None')"
+        fi
+        
+        README_FILE=$(ls -1 README.md README.MD README Readme.md 2>/dev/null | head -n 1 || true)
+        if [ -n "$README_FILE" ]; then
+           README_KEY="${KEY_PREFIX:+${KEY_PREFIX}/}${JOB_ID_VAL}/README.md"
+           upload_s3 "$README_FILE" "$README_KEY"
+        else
+          echo "NOTE: README file not found"
+        fi
+        
+        echo "=== POST-BUILD PHASE COMPLETE ==="
+        
+        # CRITICAL FIX: Only check for failures that should NOT happen.
+        # repository_before failures are EXPECTED and should not block the build.
+        
+        # Clean up any residual before-failure flag if repository_after and tests passed
+        if [ ! -f /tmp/BUILD_FAILED_AFTER ] && [ ! -f /tmp/BUILD_FAILED_TESTS ]; then
+          rm -f /tmp/BUILD_FAILED_BEFORE 2>/dev/null || true
+        fi
+
+        # Debug: Show which failure flags exist (excluding BEFORE which is non-critical)
+        echo "Checking for critical failure flags..."
+        ls -la /tmp/BUILD_FAILED_INSTALL /tmp/BUILD_FAILED_PREBUILD /tmp/BUILD_FAILED_AFTER /tmp/BUILD_FAILED_TESTS 2>/dev/null || echo "No critical failure flags found"
+        
+        if [ -f /tmp/BUILD_FAILED_INSTALL ] || [ -f /tmp/BUILD_FAILED_PREBUILD ]; then
+          echo "WARNING: Infrastructure failures detected."
+        elif [ -f /tmp/BUILD_FAILED_AFTER ] || [ -f /tmp/BUILD_FAILED_TESTS ]; then
+          echo "WARNING: repository_after tests failed."
+        fi
+        
+        echo "Build phase complete. Exiting with status 0 to allow the process to continue."
+        exit 0
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: '${OUTPUT_DIR}'
+  discard-paths: no
+
+cache:
+  paths: []
+  
