@@ -4,3 +4,10 @@ services:
     command: pytest -q tests
     volumes:
       - .:/app
+
+  test-before:
+    image: golang:1.21
+    working_dir: /app/tests
+    command: go test -v ./...
+    volumes:
+      - .:/app
