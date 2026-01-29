@@ -7,21 +7,31 @@ const router = Router();
 const OPERATING_HOURS = { start: 9, end: 18 }; // 9 AM - 6 PM
 const MIN_DURATION_MINUTES = 15;
 const MAX_DURATION_HOURS = 4;
+const TIMEZONE_OFFSET = parseInt(process.env.TIMEZONE_OFFSET || '0'); // Hours offset from UTC
+
+function toLocalDate(date) {
+  if (TIMEZONE_OFFSET === 0) return date;
+  const utcTime = date.getTime();
+  const offsetMs = TIMEZONE_OFFSET * 60 * 60 * 1000;
+  return new Date(utcTime + offsetMs);
+}
 
 function isWeekday(date) {
-  const day = date.getUTCDay();
+  const localDate = toLocalDate(date);
+  const day = localDate.getUTCDay();
   return day >= 1 && day <= 5;
 }
 
 function isWithinOperatingHours(startTime, endTime) {
-  const startHour = startTime.getUTCHours() + startTime.getUTCMinutes() / 60;
-  const endHour = endTime.getUTCHours() + endTime.getUTCMinutes() / 60;
+  const localStart = toLocalDate(startTime);
+  const localEnd = toLocalDate(endTime);
+  const startHour = localStart.getUTCHours() + localStart.getUTCMinutes() / 60;
+  const endHour = localEnd.getUTCHours() + localEnd.getUTCMinutes() / 60;
 
-  // Handle midnight case - endHour of 0 means it ends at midnight, not allowed
   if (
     endHour === 0 &&
-    endTime.getUTCMinutes() === 0 &&
-    startTime.getUTCDate() !== endTime.getUTCDate()
+    localEnd.getUTCMinutes() === 0 &&
+    localStart.getUTCDate() !== localEnd.getUTCDate()
   ) {
     return false;
   }
@@ -30,10 +40,12 @@ function isWithinOperatingHours(startTime, endTime) {
 }
 
 function isSameDay(date1, date2) {
+  const local1 = toLocalDate(date1);
+  const local2 = toLocalDate(date2);
   return (
-    date1.getUTCFullYear() === date2.getUTCFullYear() &&
-    date1.getUTCMonth() === date2.getUTCMonth() &&
-    date1.getUTCDate() === date2.getUTCDate()
+    local1.getUTCFullYear() === local2.getUTCFullYear() &&
+    local1.getUTCMonth() === local2.getUTCMonth() &&
+    local1.getUTCDate() === local2.getUTCDate()
   );
 }
 

@@ -48,6 +48,7 @@ services:
       DB_PASSWORD: postgres
       JWT_SECRET: KGMNsyoKIZk24OaJe9hN8Ef5H3v6YQry
       PORT: 3001
+      TIMEZONE_OFFSET: 3
     ports:
       - "3001:3001"
     depends_on:
@@ -60,6 +61,9 @@ services:
   client:
     build: .
     working_dir: /app/repository_after/client
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    environment:
+      API_URL: http://server:3001
     ports:
       - "5173:5173"
     depends_on:

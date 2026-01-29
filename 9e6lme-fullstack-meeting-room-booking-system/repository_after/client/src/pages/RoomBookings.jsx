@@ -3,12 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../components/AuthContext';
 
-const HOURS = Array.from({ length: 10 }, (_, i) => i + 9); // 9 AM to 6 PM
+const TIME_SLOTS = [];
+for (let hour = 9; hour < 18; hour++) {
+  for (let minute = 0; minute < 60; minute += 15) {
+    TIME_SLOTS.push({ hour, minute });
+  }
+}
+TIME_SLOTS.push({ hour: 18, minute: 0 }); // Add 6:00 PM as end time
 
-function formatTime(hour) {
+function formatTime(hour, minute = 0) {
   const suffix = hour >= 12 ? 'PM' : 'AM';
-  const h = hour > 12 ? hour - 12 : hour;
-  return `${h}:00 ${suffix}`;
+  const h = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  const m = minute.toString().padStart(2, '0');
+  return `${h}:${m} ${suffix}`;
 }
 
 function formatDateTime(date, hour) {
@@ -140,18 +147,18 @@ export default function RoomBookings() {
           <h2 className="text-lg font-semibold mb-4">Schedule for {selectedDate}</h2>
           
           <div className="space-y-2">
-            {HOURS.map((hour) => {
+            {TIME_SLOTS.slice(0, -1).map(({ hour, minute }) => {
               const booking = getBookingForHour(bookings, hour);
               return (
                 <div
-                  key={hour}
+                  key={`${hour}-${minute}`}
                   className={`flex items-center p-3 rounded ${
                     booking
                       ? 'bg-red-50 border border-red-200'
                       : 'bg-green-50 border border-green-200'
                   }`}
                 >
-                  <div className="w-24 text-sm font-medium">{formatTime(hour)}</div>
+                  <div className="w-24 text-sm font-medium">{formatTime(hour, minute)}</div>
                   <div className="flex-1">
                     {booking ? (
                       <span className="text-red-700">
@@ -208,11 +215,14 @@ export default function RoomBookings() {
                   disabled={!user}
                 >
                   <option value="">Select start time</option>
-                  {HOURS.map((hour) => (
-                    <option key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
-                      {formatTime(hour)}
-                    </option>
-                  ))}
+                  {TIME_SLOTS.slice(0, -1).map(({ hour, minute }) => {
+                    const value = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    return (
+                      <option key={value} value={value}>
+                        {formatTime(hour, minute)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -226,12 +236,14 @@ export default function RoomBookings() {
                   disabled={!user}
                 >
                   <option value="">Select end time</option>
-                  {HOURS.slice(1).map((hour) => (
-                    <option key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
-                      {formatTime(hour)}
-                    </option>
-                  ))}
-                  <option value="18:00">6:00 PM</option>
+                  {TIME_SLOTS.map(({ hour, minute }) => {
+                    const value = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    return (
+                      <option key={value} value={value}>
+                        {formatTime(hour, minute)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

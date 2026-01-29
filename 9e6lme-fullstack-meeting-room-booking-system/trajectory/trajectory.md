@@ -160,7 +160,11 @@ POST /api/bookings:
 
 - **Counter**: The requirement explicitly specifies PostgreSQL. Temporal features (tsrange, GIST) are PostgreSQL's competitive advantage. Alternative databases would require different approaches (e.g., MySQL's application-level locking).
 
-**Objection 3**: "Complex validation logic in routes makes testing harder."
+**Objection 3**: "UTC validation doesn't match local business hours."
+
+- **Counter**: Timezone handling is now configurable via `TIMEZONE_OFFSET` environment variable. Tests use UTC (offset=0) for consistency, production uses local timezone (Ethiopia=+3). This prevents misclassification of bookings based on deployment location.
+
+**Objection 4**: "Complex validation logic in routes makes testing harder."
 
 - **Counter**: Business rules belong in the application layer for clear error messages. The database constraint is a safety net, not the primary validation mechanism. Tests verify both layers work correctly.
 
@@ -224,22 +228,50 @@ POST /api/bookings:
    await client.query('COMMIT');
    ```
 
-3. **Operating Hours Validation**:
+3. **Timezone-Aware Validation**:
    ```javascript
+   const TIMEZONE_OFFSET = parseInt(process.env.TIMEZONE_OFFSET || '0');
+   
+   function toLocalDate(date) {
+     if (TIMEZONE_OFFSET === 0) return date;
+     return new Date(date.getTime() + TIMEZONE_OFFSET * 60 * 60 * 1000);
+   }
+   
    function isWithinOperatingHours(startTime, endTime) {
-     const startHour = startTime.getUTCHours() + startTime.getUTCMinutes() / 60;
-     const endHour = endTime.getUTCHours() + endTime.getUTCMinutes() / 60;
-     
-     // Handle midnight crossing
-     if (endHour === 0 && startTime.getUTCDate() !== endTime.getUTCDate()) {
-       return false;
-     }
-     
+     const localStart = toLocalDate(startTime);
+     const localEnd = toLocalDate(endTime);
+     const startHour = localStart.getUTCHours() + localStart.getUTCMinutes() / 60;
+     const endHour = localEnd.getUTCHours() + localEnd.getUTCMinutes() / 60;
      return startHour >= 9 && endHour <= 18;
    }
    ```
+   - Configurable timezone offset (default UTC, Ethiopia uses +3)
+   - Validates business hours in local time, not UTC
+   - Prevents misclassification based on deployment timezone
 
-4. **Ownership Enforcement**:
+4. **15-Minute Granularity UI**:
+   ```javascript
+   const TIME_SLOTS = [];
+   for (let hour = 9; hour < 18; hour++) {
+     for (let minute = 0; minute < 60; minute += 15) {
+       TIME_SLOTS.push({ hour, minute });
+     }
+   }
+   ```
+   - Changed from hourly (9:00, 10:00) to 15-minute intervals
+   - Matches backend 15-minute minimum requirement
+   - Enables bookings like 9:15-10:30
+
+5. **Client Container Fix**:
+   ```yaml
+   client:
+     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+   ```
+   - Added explicit Vite dev server command
+   - Installed client dependencies in Dockerfile
+   - Fixed container startup issue
+
+6. **Ownership Enforcement**:
    ```javascript
    if (booking.user_id !== userId) {
      return res.status(403).json({ error: 'You can only cancel your own bookings' });
