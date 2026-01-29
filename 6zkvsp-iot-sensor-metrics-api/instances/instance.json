@@ -5,7 +5,13 @@
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/6zkvsp-iot-sensor-metrics-api",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
+            "FAIL_TO_PASS": [
+                "SensorMetricsControllerTest#testPartiallyInvalidInputDoesNotCorruptAnalytics"
+            ],
+            "PASS_TO_PASS": [
+                "SensorMetricsControllerTest#testMetricsValidAndDeterministicMaxTieBreak", 
+                "SensorMetricsControllerTest#testEmptyInput", 
+                "SensorMetricsControllerTest#testRequestIsolationNoCrossRequestState"
+        ]
         }
         

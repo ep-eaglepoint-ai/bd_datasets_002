@@ -17,4 +17,5 @@ RUN mkdir -p src/test/java/com/eaglepoint/iot
 COPY tests/SensorMetricsControllerTest.java src/test/java/com/eaglepoint/iot/
 
 # Copy the evaluation script
-COPY evaluation/Evaluation.java Evaluation.java
+RUN mkdir -p evaluation
+COPY evaluation/Evaluation.java evaluation/Evaluation.java

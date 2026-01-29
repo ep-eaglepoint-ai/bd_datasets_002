@@ -21,24 +21,39 @@ import java.util.regex.Pattern;
 public class Evaluation {
 
 
-    private static final Path JAVA_PACKAGE_PATH = Paths.get("src/main/java/com/example/sensormetrics");
+    private static final Path JAVA_PACKAGE_PATH = Paths.get("src/main/java/com/eaglepoint/iot");
     @SuppressWarnings("unused")
     private static final String CONTROLLER_FILE = "SensorMetricsController.java";
 
-    private static final int STDOUT_TAIL_LIMIT = 3000;
-    private static final int STDERR_TAIL_LIMIT = 1000;
+    // Keep enough room for stack traces while avoiding giant report files.
+    private static final int STDOUT_TAIL_LIMIT = 30_000;
+    private static final int STDERR_TAIL_LIMIT = 10_000;
     private static final long MVN_TEST_TIMEOUT_MILLIS = 120_000;
+
+    private static final String TEST_CLASS_SIMPLE = "SensorMetricsControllerTest";
+    private static final String TEST_CLASS_FQN = "com.eaglepoint.iot.SensorMetricsControllerTest";
+    private static final List<String> TEST_METHODS = List.of(
+            "testMetricsValidAndDeterministicMaxTieBreak",
+            "testEmptyInput",
+            "testPartiallyInvalidInputDoesNotCorruptAnalytics",
+            "testRequestIsolationNoCrossRequestState"
+    );
 
     private static String generateRunId() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 
     private static Map<String, Object> getEnvironmentInfo() {
+        // Match the Python-style report schema keys exactly.
         Map<String, Object> env = new LinkedHashMap<>();
-        env.put("java_version", System.getProperty("java.version"));
-        env.put("platform", System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch"));
-        env.put("java_version", firstLineOrEmpty(runCommandCaptureAll(List.of("java", "-version"), 10_000).stderr));
-        env.put("maven_version", firstLineOrEmpty(runCommandCaptureAll(List.of("mvn", "-version"), 10_000).stdout));
+        env.put("python_version", firstLineOrEmpty(runCommandCaptureAll(List.of("java", "-version"), 10_000).stderr));
+        env.put("platform", System.getProperty("os.name") + "-" + System.getProperty("os.version") + "-" + System.getProperty("os.arch"));
+        env.put("os", System.getProperty("os.name"));
+        env.put("os_release", System.getProperty("os.version"));
+        env.put("architecture", System.getProperty("os.arch"));
+        env.put("hostname", firstLineOrEmpty(runCommandCaptureAll(List.of("hostname"), 10_000).stdout));
+        env.put("git_commit", "unknown");
+        env.put("git_branch", "unknown");
         return env;
     }
 
@@ -74,44 +89,60 @@ public class Evaluation {
         return summary;
     }
 
-    private static Map<String, Object> runMavenTest(String sourceRepoPath, String label) {
+    private static Map<String, Object> runMavenTestsIndividually(String sourceRepoPath, String label) {
         System.out.println("\n" + "=".repeat(60));
         System.out.println("RUNNING TESTS: " + label.toUpperCase(Locale.ROOT));
         System.out.println("=".repeat(60));
 
         Path sourceDir = Paths.get(sourceRepoPath);
         if (!Files.exists(sourceDir)) {
-            return Map.of(
-                    "success", false,
-                    "summary", Map.of("error", "Source directory not found: " + sourceDir)
-            );
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("success", false);
+            out.put("exit_code", 1);
+            out.put("tests", List.of());
+            out.put("summary", Map.of("total", 0, "passed", 0, "failed", 0, "errors", 0, "skipped", 0));
+            out.put("stdout", "");
+            out.put("stderr", "Source directory not found: " + sourceDir);
+            return out;
         }
 
         List<Path> javaFiles = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(sourceDir, "*.java")) {
             for (Path p : ds) javaFiles.add(p);
         } catch (IOException e) {
-            return Map.of(
-                    "success", false,
-                    "summary", Map.of("error", e.toString())
-            );
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("success", false);
+            out.put("exit_code", 1);
+            out.put("tests", List.of());
+            out.put("summary", Map.of("total", 0, "passed", 0, "failed", 0, "errors", 0, "skipped", 0));
+            out.put("stdout", "");
+            out.put("stderr", String.valueOf(e));
+            return out;
         }
 
         if (javaFiles.isEmpty()) {
-            return Map.of(
-                    "success", false,
-                    "summary", Map.of("error", "No .java files found in: " + sourceDir)
-            );
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("success", false);
+            out.put("exit_code", 1);
+            out.put("tests", List.of());
+            out.put("summary", Map.of("total", 0, "passed", 0, "failed", 0, "errors", 0, "skipped", 0));
+            out.put("stdout", "");
+            out.put("stderr", "No .java files found in: " + sourceDir);
+            return out;
         }
 
         // Ensure package directory exists
         try {
             Files.createDirectories(JAVA_PACKAGE_PATH);
         } catch (IOException e) {
-            return Map.of(
-                    "success", false,
-                    "summary", Map.of("error", e.toString())
-            );
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("success", false);
+            out.put("exit_code", 1);
+            out.put("tests", List.of());
+            out.put("summary", Map.of("total", 0, "passed", 0, "failed", 0, "errors", 0, "skipped", 0));
+            out.put("stdout", "");
+            out.put("stderr", String.valueOf(e));
+            return out;
         }
 
         // Clean up existing .java files (except SensorMetricsTestApplication.java which is mounted from tests/)
@@ -122,10 +153,14 @@ public class Evaluation {
                 }
             }
         } catch (IOException e) {
-            return Map.of(
-                    "success", false,
-                    "summary", Map.of("error", e.toString())
-            );
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("success", false);
+            out.put("exit_code", 1);
+            out.put("tests", List.of());
+            out.put("summary", Map.of("total", 0, "passed", 0, "failed", 0, "errors", 0, "skipped", 0));
+            out.put("stdout", "");
+            out.put("stderr", String.valueOf(e));
+            return out;
         }
 
         for (Path sourceFile : javaFiles) {
@@ -137,35 +172,101 @@ public class Evaluation {
             try {
                 Files.copy(sourceFile, destFile);
             } catch (IOException e) {
-                return Map.of(
-                        "success", false,
-                        "summary", Map.of("error", e.toString())
-                );
+                Map<String, Object> out = new LinkedHashMap<>();
+                out.put("success", false);
+                out.put("exit_code", 1);
+                out.put("tests", List.of());
+                out.put("summary", Map.of("total", 0, "passed", 0, "failed", 0, "errors", 0, "skipped", 0));
+                out.put("stdout", "");
+                out.put("stderr", String.valueOf(e));
+                return out;
             }
         }
 
-        List<String> cmd = List.of("mvn", "test", "-Dtest=SensorMetricsControllerTest");
-        try {
-            ExecResult result = runCommandCaptureAll(cmd, MVN_TEST_TIMEOUT_MILLIS);
-            Map<String, Object> summary = parseMavenOutput(result.stdout);
-            boolean success = (result.exitCode == 0);
+        List<Map<String, Object>> tests = new ArrayList<>();
+        int passed = 0;
+        int failed = 0;
+        int errors = 0;
+        int skipped = 0;
+        boolean allSuccess = true;
+        StringBuilder stdoutAll = new StringBuilder();
+        StringBuilder stderrAll = new StringBuilder();
 
-            System.out.println("Result: " + (success ? "✅ SUCCESS" : "❌ FAILURE"));
+        // Pytest-like per-test progress lines at the top of stdout, to make pass/fail obvious.
+        stdoutAll.append("collecting ... collected ").append(TEST_METHODS.size()).append(" items\n\n");
 
-            Map<String, Object> out = new LinkedHashMap<>();
-            out.put("success", success);
-            out.put("exit_code", result.exitCode);
-            out.put("summary", summary);
-            out.put("stdout", tail(result.stdout, STDOUT_TAIL_LIMIT));
-            out.put("stderr", tail(result.stderr, STDERR_TAIL_LIMIT));
-            return out;
-        } catch (Exception e) {
-            System.out.println("❌ Error: " + e);
-            return Map.of(
-                    "success", false,
-                    "summary", Map.of("error", e.toString())
+        for (String method : TEST_METHODS) {
+            String selector = TEST_CLASS_SIMPLE + "#" + method;
+            System.out.println("\n" + "-".repeat(60));
+            System.out.println("RUNNING: " + selector);
+            System.out.println("-".repeat(60));
+
+            List<String> cmd = List.of(
+                    "mvn",
+                    "test",
+                    "-Dtest=" + selector,
+                    "-Dsurefire.reportFormat=plain",
+                    "-Dsurefire.printSummary=true",
+                    "-DtrimStackTrace=false",
+                    "-Dsurefire.useFile=false"
             );
+
+            try {
+                ExecResult result = runCommandCaptureAll(cmd, MVN_TEST_TIMEOUT_MILLIS);
+                boolean success = (result.exitCode == 0);
+
+                // Match the Python-style tests[] schema exactly: nodeid, name, outcome.
+                Map<String, Object> t = new LinkedHashMap<>();
+                t.put("nodeid", selector);
+                t.put("name", method);
+                t.put("outcome", success ? "passed" : "failed");
+
+                tests.add(t);
+
+                String progressLine = selector + " " + (success ? "PASSED" : "FAILED") + "\n";
+                System.out.print(progressLine);
+                stdoutAll.append(progressLine);
+
+                // Keep detailed logs primarily for failures, otherwise the report becomes noisy.
+                if (!success) {
+                    stdoutAll.append("\n").append(tail(result.stdout, STDOUT_TAIL_LIMIT)).append("\n");
+                    stderrAll.append("\n").append(tail(result.stderr, STDERR_TAIL_LIMIT)).append("\n");
+                }
+
+                if (success) {
+                    passed += 1;
+                } else {
+                    failed += 1;
+                    allSuccess = false;
+                }
+            } catch (Exception e) {
+                allSuccess = false;
+                failed += 1;
+                tests.add(Map.of("nodeid", selector, "name", method, "outcome", "failed"));
+                String progressLine = selector + " FAILED\n";
+                System.out.print(progressLine);
+                stdoutAll.append(progressLine);
+                stderrAll.append(String.valueOf(e)).append("\n");
+            }
         }
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("total", tests.size());
+        summary.put("passed", passed);
+        summary.put("failed", failed);
+        summary.put("errors", errors);
+        summary.put("skipped", skipped);
+
+        System.out.println("\nResult: " + (allSuccess ? "✅ SUCCESS" : "❌ FAILURE"));
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("success", allSuccess);
+        out.put("exit_code", allSuccess ? 0 : 1);
+        out.put("tests", tests);
+        out.put("summary", summary);
+        out.put("stdout", tail(stdoutAll.toString(), STDOUT_TAIL_LIMIT));
+        out.put("stderr", tail(stderrAll.toString(), STDERR_TAIL_LIMIT));
+        return out;
     }
 
     private static Map<String, Object> runEvaluation() {
@@ -180,21 +281,42 @@ public class Evaluation {
             );
         }
 
-        Map<String, Object> beforeResults = runMavenTest("repository_before", "before (repository_before)");
-        Map<String, Object> afterResults = runMavenTest("repository_after", "after (repository_after)");
+        Map<String, Object> beforeResults = runMavenTestsIndividually("repository_before", "before (repository_before)");
+        Map<String, Object> afterResults = runMavenTestsIndividually("repository_after", "after (repository_after)");
 
         boolean beforePassed = Boolean.TRUE.equals(beforeResults.get("success"));
         boolean afterPassed = Boolean.TRUE.equals(afterResults.get("success"));
 
         Map<String, Object> comparison = new LinkedHashMap<>();
-        comparison.put("before_passed", beforePassed);
-        comparison.put("after_passed", afterPassed);
+        // Match the Python-style comparison schema keys exactly.
+        comparison.put("before_tests_passed", beforePassed);
+        comparison.put("after_tests_passed", afterPassed);
+        comparison.put("before_total", getIntSummary(beforeResults, "total"));
+        comparison.put("before_passed", getIntSummary(beforeResults, "passed"));
+        comparison.put("before_failed", getIntSummary(beforeResults, "failed"));
+        comparison.put("after_total", getIntSummary(afterResults, "total"));
+        comparison.put("after_passed", getIntSummary(afterResults, "passed"));
+        comparison.put("after_failed", getIntSummary(afterResults, "failed"));
 
         Map<String, Object> results = new LinkedHashMap<>();
         results.put("before", beforeResults);
         results.put("after", afterResults);
         results.put("comparison", comparison);
         return results;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int getIntSummary(Map<String, Object> result, String key) {
+        if (result == null) return 0;
+        Object s = result.get("summary");
+        if (!(s instanceof Map<?, ?> sm)) return 0;
+        Object v = ((Map<String, Object>) sm).get(key);
+        if (v instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(String.valueOf(v));
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     public static void main(String[] args) throws Exception {
@@ -215,14 +337,15 @@ public class Evaluation {
         report.put("run_id", runId);
         report.put("started_at", startedAt.toString());
         report.put("finished_at", finishedAt.toString());
-        report.put("duration_seconds", Math.round(durationSeconds * 100.0) / 100.0);
+        report.put("duration_seconds", durationSeconds);
         report.put("success", overallSuccess);
+        report.put("error", null);
         report.put("environment", getEnvironmentInfo());
         report.put("results", results);
 
         Path outputPath = generateOutputPath();
         Files.createDirectories(outputPath.getParent());
-        Files.writeString(outputPath, Json.toJson(report), StandardCharsets.UTF_8);
+        Files.writeString(outputPath, Json.toPrettyJson(report) + "\n", StandardCharsets.UTF_8);
 
         System.out.println("\n✅ Report saved to: " + outputPath);
         System.exit(overallSuccess ? 0 : 1);
@@ -293,9 +416,17 @@ public class Evaluation {
      * Uses LinkedHashMap insertion order for stable output.
      */
     private static final class Json {
+        private static final int INDENT_SPACES = 2;
+
         static String toJson(Object v) {
             StringBuilder sb = new StringBuilder();
             writeValue(sb, v);
+            return sb.toString();
+        }
+
+        static String toPrettyJson(Object v) {
+            StringBuilder sb = new StringBuilder();
+            writeValuePretty(sb, v, 0);
             return sb.toString();
         }
 
@@ -328,6 +459,55 @@ public class Evaluation {
                 // Fallback: serialize as string
                 sb.append('"').append(escape(String.valueOf(v))).append('"');
             }
+        }
+
+        private static void writeValuePretty(StringBuilder sb, Object v, int indentLevel) {
+            if (v == null) {
+                sb.append("null");
+            } else if (v instanceof String s) {
+                sb.append('"').append(escape(s)).append('"');
+            } else if (v instanceof Number || v instanceof Boolean) {
+                sb.append(v.toString());
+            } else if (v instanceof Map<?, ?> m) {
+                if (m.isEmpty()) {
+                    sb.append("{}");
+                    return;
+                }
+                sb.append("{\n");
+                boolean first = true;
+                for (Map.Entry<?, ?> e : m.entrySet()) {
+                    if (!first) sb.append(",\n");
+                    first = false;
+                    indent(sb, indentLevel + 1);
+                    sb.append('"').append(escape(String.valueOf(e.getKey()))).append("\": ");
+                    writeValuePretty(sb, e.getValue(), indentLevel + 1);
+                }
+                sb.append('\n');
+                indent(sb, indentLevel);
+                sb.append('}');
+            } else if (v instanceof List<?> list) {
+                if (list.isEmpty()) {
+                    sb.append("[]");
+                    return;
+                }
+                sb.append("[\n");
+                for (int i = 0; i < list.size(); i++) {
+                    if (i > 0) sb.append(",\n");
+                    indent(sb, indentLevel + 1);
+                    writeValuePretty(sb, list.get(i), indentLevel + 1);
+                }
+                sb.append('\n');
+                indent(sb, indentLevel);
+                sb.append(']');
+            } else {
+                // Fallback: serialize as string
+                sb.append('"').append(escape(String.valueOf(v))).append('"');
+            }
+        }
+
+        private static void indent(StringBuilder sb, int indentLevel) {
+            int n = indentLevel * INDENT_SPACES;
+            for (int i = 0; i < n; i++) sb.append(' ');
         }
 
         private static String escape(String s) {

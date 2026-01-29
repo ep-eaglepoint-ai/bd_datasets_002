@@ -16,7 +16,7 @@ public class SensorMetricsController {
 
     @PostMapping("/metrics")
     public SensorMetricsResponse metrics(
-            @RequestBody(required = false) List<SensorMetricsRequestReading> readings
+            @RequestBody(required = false) List<SensorMetricsRequest> readings
     ) {
         int cacheSize = readings == null ? 0 : readings.size();
         if (readings == null || readings.isEmpty()) {
@@ -24,7 +24,7 @@ public class SensorMetricsController {
         }
 
         Map<String, Accumulator> acc = new HashMap<>();
-        for (SensorMetricsRequestReading r : readings) {
+        for (SensorMetricsRequest r : readings) {
             if (!isValidReading(r)) {
                 continue;
             }
@@ -59,7 +59,7 @@ public class SensorMetricsController {
         return new SensorMetricsResponse(perSensor, cacheSize);
     }
 
-    private static boolean isValidReading(SensorMetricsRequestReading r) {
+    private static boolean isValidReading(SensorMetricsRequest r) {
         if (r == null) {
             return false;
         }

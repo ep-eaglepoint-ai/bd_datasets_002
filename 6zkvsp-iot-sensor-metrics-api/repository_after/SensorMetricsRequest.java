@@ -1,6 +1,6 @@
 package com.eaglepoint.iot;
 
-public record SensorMetricsRequestReading(
+public record SensorMetricsRequest(
     String sensorId,
     Double value,
     Long timestamp
