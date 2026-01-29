@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { getContact } from "@/lib/db"
 import { Contact } from "@/types"
 import { Button } from "@/components/ui/button"
-import { Avatar } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Pencil, Trash2, ArrowLeft, Star, Phone, Mail, MapPin, Building2, Calendar, Clock } from "lucide-react"
@@ -81,11 +81,10 @@ export default function ContactDetailsPage() {
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <Card className="md:col-span-1">
                       <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
-                           <Avatar 
-                                src={contact.avatarUrl} 
-                                fallback={`${contact.firstName[0]}${contact.lastName?.[0] || ''}`} 
-                                className="h-32 w-32 text-4xl"
-                            />
+                           <Avatar className="h-32 w-32 text-4xl">
+                                <AvatarImage src={contact.avatarUrl} alt={`${contact.firstName} ${contact.lastName}`} />
+                                <AvatarFallback>{`${contact.firstName[0]}${contact.lastName?.[0] || ''}`}</AvatarFallback>
+                           </Avatar>
                             <div>
                                 <h2 className="text-2xl font-bold">{contact.firstName} {contact.lastName}</h2>
                                 {contact.jobTitle && <p className="text-slate-500">{contact.jobTitle}</p>}

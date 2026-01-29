@@ -39,39 +39,39 @@ describe('filterAndSortContacts', () => {
   ];
 
   it('filters by name', () => {
-    const result = filterAndSortContacts(mockContacts, 'alice', { field: 'updatedAt', order: 'desc' });
+    const result = filterAndSortContacts(mockContacts, { search: 'alice' }, { field: 'updatedAt', order: 'desc' });
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('1');
   });
 
   it('filters by email', () => {
-    const result = filterAndSortContacts(mockContacts, 'factory', { field: 'updatedAt', order: 'desc' });
+    const result = filterAndSortContacts(mockContacts, { search: 'factory' }, { field: 'updatedAt', order: 'desc' });
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('3');
   });
 
   it('filters by tag', () => {
-    const result = filterAndSortContacts(mockContacts, 'work', { field: 'updatedAt', order: 'desc' });
+    const result = filterAndSortContacts(mockContacts, { search: 'work' }, { field: 'updatedAt', order: 'desc' });
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('2');
   });
 
   it('sorts by firstName ASC', () => {
-    const result = filterAndSortContacts(mockContacts, '', { field: 'firstName', order: 'asc' });
+    const result = filterAndSortContacts(mockContacts, { search: '' }, { field: 'firstName', order: 'asc' });
     expect(result[0].firstName).toBe('Alice');
     expect(result[1].firstName).toBe('Bob');
     expect(result[2].firstName).toBe('Charlie');
   });
 
   it('sorts by firstName DESC', () => {
-    const result = filterAndSortContacts(mockContacts, '', { field: 'firstName', order: 'desc' });
+    const result = filterAndSortContacts(mockContacts, { search: '' }, { field: 'firstName', order: 'desc' });
     expect(result[0].firstName).toBe('Charlie');
     expect(result[1].firstName).toBe('Bob');
     expect(result[2].firstName).toBe('Alice');
   });
 
   it('sorts by updatedAt DESC', () => {
-    const result = filterAndSortContacts(mockContacts, '', { field: 'updatedAt', order: 'desc' });
+    const result = filterAndSortContacts(mockContacts, { search: '' }, { field: 'updatedAt', order: 'desc' });
     expect(result[0].id).toBe('3');
     expect(result[1].id).toBe('2');
     expect(result[2].id).toBe('1');

@@ -16,15 +16,21 @@ export const exportContactsJSON = (contacts: Contact[]) => {
 
 export const exportContactsCSV = (contacts: Contact[]) => {
     // Flatten contact data for CSV
+    // Use | as delimiter for multiple values
     const flattened = contacts.map(c => ({
         firstName: c.firstName,
         lastName: c.lastName,
         company: c.company,
         jobTitle: c.jobTitle,
-        email1: c.emails[0]?.value,
-        phone1: c.phones[0]?.value,
-        tags: c.tags.join(', '),
+        email: c.emails.map(e => e.value).join(' | '),
+        phone: c.phones.map(p => p.value).join(' | '),
+        tags: c.tags.join(' | '),
         notes: c.notes,
+        street: c.address?.street,
+        city: c.address?.city,
+        state: c.address?.state,
+        zip: c.address?.zip,
+        country: c.address?.country,
     }))
     const csv = Papa.unparse(flattened)
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
@@ -43,7 +49,6 @@ export const parseContactsJSON = (file: File): Promise<ContactFormData[]> => {
         reader.onload = (e) => {
             try {
                 const json = JSON.parse(e.target?.result as string)
-                // Basic validation/mapping could go here
                 resolve(json)
             } catch (err) {
                 reject(err)
@@ -57,32 +62,79 @@ export const parseContactsCSV = (file: File): Promise<ContactFormData[]> => {
     return new Promise((resolve, reject) => {
         Papa.parse(file, {
             header: true,
+            skipEmptyLines: true,
             complete: (results) => {
-                const contacts: ContactFormData[] = results.data.map((row: any) => ({
-                    firstName: row.firstName || '',
-                    lastName: row.lastName || '',
-                    company: row.company || '',
-                    jobTitle: row.jobTitle || '',
-                    emails: row.email1 ? [{ id: uuidv4(), type: 'work', value: row.email1 }] : [],
-                    phones: row.phone1 ? [{ id: uuidv4(), type: 'mobile', value: row.phone1 }] : [],
-                    tags: row.tags ? row.tags.split(',').map((t: string) => t.trim()) : [],
-                    notes: row.notes || '',
-                    isFavorite: false,
-                } as any)) 
-                
-                // Fix the partial map above
-                const cleanContacts = contacts.filter(c => c.firstName).map((c: any, index: number) => {
-                     const row = results.data[index] as any;
-                     return {
-                        ...c,
-                        emails: c.emails.length ? c.emails : (row.email1 ? [{ id: uuidv4(), type: 'work', value: row.email1 }] : []),
-                        phones: c.phones.length ? c.phones : (row.phone1 ? [{ id: uuidv4(), type: 'mobile', value: row.phone1 }] : []),
-                    }
-                })
+                try {
+                    const contacts: ContactFormData[] = results.data.map((row: any) => {
+                       // Handle multiple emails/phones split by | or ,
+                       const parseMulti = (val: string) => val ? val.split(/[|,]/).map(s => s.trim()).filter(Boolean) : []
+                       
+                       const emails = parseMulti(row.email || row.emails || row.email1).map(val => ({ id: uuidv4(), type: 'work', value: val }))
+                       const phones = parseMulti(row.phone || row.phones || row.phone1).map(val => ({ id: uuidv4(), type: 'mobile', value: val }))
+                       const tags = parseMulti(row.tags)
 
-                resolve(cleanContacts)
+                       return {
+                            firstName: row.firstName || '',
+                            lastName: row.lastName || '',
+                            company: row.company || '',
+                            jobTitle: row.jobTitle || '',
+                            emails,
+                            phones,
+                            tags,
+                            notes: row.notes || '',
+                            address: {
+                                street: row.street || '',
+                                city: row.city || '',
+                                state: row.state || '',
+                                zip: row.zip || '',
+                                country: row.country || ''
+                            },
+                            avatarUrl: '',
+                            isFavorite: false,
+                        }
+                    })
+                    
+                    resolve(contacts.filter(c => c.firstName || c.lastName || c.company)) // Filter completely empty rows
+                } catch (err) {
+                    reject(err)
+                }
             },
             error: (error) => reject(error)
         })
     })
+}
+
+export function findPotentialDuplicates(newContacts: ContactFormData[], existingContacts: Contact[]) {
+    const duplicates: { newIndex: number, existingId: string, reason: string }[] = []
+    
+    newContacts.forEach((newC, index) => {
+        // Check exact email match
+        const emailMatch = existingContacts.find(ex => 
+            ex.emails.some(ee => newC.emails?.some(ne => ne.value === ee.value))
+        )
+        if (emailMatch) {
+            duplicates.push({ newIndex: index, existingId: emailMatch.id, reason: 'Email match' })
+            return
+        }
+
+        // Check phone match
+        const phoneMatch = existingContacts.find(ex => 
+            ex.phones.some(ep => newC.phones?.some(np => np.value === ep.value))
+        )
+        if (phoneMatch) {
+            duplicates.push({ newIndex: index, existingId: phoneMatch.id, reason: 'Phone match' })
+            return
+        }
+        
+        // Check name match
+        const nameMatch = existingContacts.find(ex => 
+             ex.firstName.toLowerCase() === newC.firstName?.toLowerCase() &&
+             ex.lastName.toLowerCase() === newC.lastName?.toLowerCase()
+        )
+        if (nameMatch && (newC.firstName || newC.lastName)) {
+             duplicates.push({ newIndex: index, existingId: nameMatch.id, reason: 'Name match' })
+        }
+    })
+    
+    return duplicates
 }

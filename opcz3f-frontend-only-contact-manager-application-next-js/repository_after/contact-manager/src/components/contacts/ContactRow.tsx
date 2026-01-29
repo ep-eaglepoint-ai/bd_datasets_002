@@ -1,7 +1,7 @@
 "use client"
 
 import { Contact } from "@/types"
-import { Avatar } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Star, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react"
@@ -39,11 +39,10 @@ export function ContactRow({ contact, selected, onSelect }: ContactRowProps) {
              </td>
              <td className="p-4 align-middle">
                  <div className="flex items-center gap-3">
-                    <Avatar 
-                        src={contact.avatarUrl} 
-                        fallback={`${contact.firstName[0]}${contact.lastName?.[0] || ''}`} 
-                        className="h-8 w-8"
-                    />
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={contact.avatarUrl} alt={`${contact.firstName} ${contact.lastName}`} />
+                        <AvatarFallback>{`${contact.firstName[0]}${contact.lastName?.[0] || ''}`}</AvatarFallback>
+                    </Avatar>
                     <div>
                          <div className="font-medium text-slate-900">{contact.firstName} {contact.lastName}</div>
                          {(contact.company || contact.jobTitle) && (

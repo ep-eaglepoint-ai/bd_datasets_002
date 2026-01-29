@@ -2,7 +2,7 @@
 
 import { Contact } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Phone, Mail, Star, Pencil, Trash2, Eye } from "lucide-react"
@@ -21,11 +21,10 @@ export function ContactCard({ contact }: ContactCardProps) {
     return (
         <Card className="overflow-hidden hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center gap-4 p-4 pb-2">
-                <Avatar 
-                    src={contact.avatarUrl} 
-                    fallback={`${contact.firstName[0]}${contact.lastName?.[0] || ''}`} 
-                    className="h-12 w-12"
-                />
+                <Avatar className="h-12 w-12">
+                    <AvatarImage src={contact.avatarUrl} alt={`${contact.firstName} ${contact.lastName}`} />
+                    <AvatarFallback>{`${contact.firstName[0]}${contact.lastName?.[0] || ''}`}</AvatarFallback>
+                </Avatar>
                 <div className="flex-1 min-w-0">
                     <CardTitle className="text-base truncate">
                         {contact.firstName} {contact.lastName}
