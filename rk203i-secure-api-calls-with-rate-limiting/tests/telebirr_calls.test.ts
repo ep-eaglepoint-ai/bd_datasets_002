@@ -1,7 +1,7 @@
 /**
  * Test suite for TeleBirr API Rate Limiting
- * Tests Token Bucket burst behavior and signature generation
- * Note: Tests use rapid calls without time mocking, so refill behavior is not verified
+ * Tests Token Bucket with 100/min refill, burst 10, and signature generation
+ * Uses time mocking to verify refill behavior
  */
 
 import {
@@ -10,13 +10,20 @@ import {
   TokenBucketRateLimiter,
   resetRateLimiter,
   getRateLimiterState,
-  getRemainingTokens
+  getRemainingTokens,
+  setMockTime,
+  advanceMockTime
 } from '@api';
 
 describe('PQ-Secure Rate Limiting', () => {
 
   beforeEach(() => {
+    setMockTime(null); // Use real time by default
     resetRateLimiter();
+  });
+
+  afterEach(() => {
+    setMockTime(null); // Reset to real time after each test
   });
 
   describe('Requirement 1: Token Bucket - Refill 100/min, burst 10', () => {
@@ -111,14 +118,46 @@ describe('PQ-Secure Rate Limiting', () => {
     });
   });
 
-  describe('Burst limit behavior', () => {
+  describe('Requirement 2: Test 110 calls/min denies 10', () => {
 
-    test('Should deny exactly 10 out of 20 calls when burst is 10', async () => {
+    test('Should deny exactly 10 out of 110 calls in one minute (100 allowed, 10 denied)', async () => {
+      // Use mock time for deterministic testing
+      setMockTime(0);
       resetRateLimiter();
-      
+
       let allowedCount = 0;
       let deniedCount = 0;
-      
+
+      // Make 110 calls spread over time
+      // Refill rate is 100/min, burst is 10
+      // For 100 allowed: need 10 (burst) + 90 (refill) = 100 tokens
+      // Time for 90 tokens refill = 90 * 600 = 54000ms
+      // 109 intervals (between 110 calls): 54000/109 ≈ 496ms (rounded up)
+      const intervalMs = 496;
+
+      for (let i = 0; i < 110; i++) {
+        const result = await teleBirrCoreCall({}, 'POST', {});
+        if (result.status === 200) {
+          allowedCount++;
+        } else if (result.status === 429) {
+          deniedCount++;
+        }
+        // Advance time for next call
+        advanceMockTime(intervalMs);
+      }
+
+      // 100 should be allowed (10 burst + 90 refilled), 10 denied
+      expect(allowedCount).toBe(100);
+      expect(deniedCount).toBe(10);
+    });
+
+    test('Should deny exactly 10 out of 20 calls when burst is 10 (rapid calls)', async () => {
+      setMockTime(1000);
+      resetRateLimiter();
+
+      let allowedCount = 0;
+      let deniedCount = 0;
+
       // Make 20 rapid calls (no time for refill)
       for (let i = 0; i < 20; i++) {
         const result = await teleBirrCoreCall({}, 'POST', {});
@@ -128,22 +167,23 @@ describe('PQ-Secure Rate Limiting', () => {
           deniedCount++;
         }
       }
-      
+
       // First 10 should be allowed (burst), next 10 denied
       expect(allowedCount).toBe(10);
       expect(deniedCount).toBe(10);
     });
 
     test('Should deny requests beyond burst without refill time', async () => {
+      setMockTime(1000);
       resetRateLimiter();
-      
+
       // Make 15 rapid calls
       const results: number[] = [];
       for (let i = 0; i < 15; i++) {
         const result = await teleBirrCoreCall({}, 'POST', {});
         results.push(result.status);
       }
-      
+
       // Count 429s (should be 5: 15 calls - 10 burst = 5 denied)
       const denied = results.filter(s => s === 429).length;
       expect(denied).toBe(5);

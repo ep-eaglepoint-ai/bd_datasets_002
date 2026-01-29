@@ -65,4 +65,8 @@ export function getRemainingTokens(): number {
   return 0;
 }
 
+// Time mocking stubs (not implemented in before)
+export function setMockTime(time: number | null): void {}
+export function advanceMockTime(ms: number): void {}
+
 export { DilithiumPQSigner, TokenBucketRateLimiter };

@@ -48,11 +48,33 @@ class DilithiumPQSigner {
   }
 }
 
+// Time provider for testing (allows mocking Date.now())
+let mockTime: number | null = null;
+function getCurrentTime(): number {
+  return mockTime !== null ? mockTime : Date.now();
+}
+
+/**
+ * Set mock time for testing (null to use real time)
+ */
+export function setMockTime(time: number | null): void {
+  mockTime = time;
+}
+
+/**
+ * Advance mock time by milliseconds (for testing)
+ */
+export function advanceMockTime(ms: number): void {
+  if (mockTime !== null) {
+    mockTime += ms;
+  }
+}
+
 /**
  * Token Bucket Rate Limiter
  * - Refill rate: 100 tokens per minute
  * - Burst capacity: 10 tokens max at any time
- * - Uses Date.now() for time tracking (not deterministic for call sequences)
+ * - Supports time mocking for deterministic testing
  * - No atomic operations (not thread-safe under concurrent access)
  */
 class TokenBucketRateLimiter {
@@ -61,7 +83,7 @@ class TokenBucketRateLimiter {
   private readonly maxTokens: number;
   private readonly refillRate: number; // tokens per millisecond
   private readonly burstLimit: number;
-  
+
   // Operation counter (not atomic, just a regular number)
   private operationCounter: number = 0;
 
@@ -73,7 +95,7 @@ class TokenBucketRateLimiter {
     this.burstLimit = burstLimit;
     this.refillRate = maxTokensPerMinute / 60000; // tokens per ms
     this.tokens = burstLimit; // Start with burst capacity
-    this.lastRefillTime = Date.now();
+    this.lastRefillTime = getCurrentTime();
   }
 
   /**
@@ -94,12 +116,12 @@ class TokenBucketRateLimiter {
 
   /**
    * Refill tokens based on elapsed time
-   * Uses Date.now() - time-dependent behavior
+   * Uses getCurrentTime() for testability
    */
   private refill(): void {
-    const now = Date.now();
+    const now = getCurrentTime();
     const elapsed = now - this.lastRefillTime;
-    
+
     // Calculate tokens to add
     const tokensToAdd = elapsed * this.refillRate;
 
@@ -130,7 +152,7 @@ class TokenBucketRateLimiter {
     this.tokens -= 1;
 
     // Generate signed token for this request
-    const timestamp = Date.now();
+    const timestamp = getCurrentTime();
     const signature = this.generateToken(endpoint, timestamp);
     
     return {
@@ -154,7 +176,7 @@ class TokenBucketRateLimiter {
    */
   reset(): void {
     this.tokens = this.burstLimit;
-    this.lastRefillTime = Date.now();
+    this.lastRefillTime = getCurrentTime();
     this.operationCounter = 0;
   }
 
