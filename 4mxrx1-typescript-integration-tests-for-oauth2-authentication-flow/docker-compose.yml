@@ -1,6 +1,14 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
+    working_dir: /app/repository_after
+    command: sh -c "npm install && npm test"
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    working_dir: /app
+    command: node evaluation/evaluation.js
     volumes:
       - .:/app
