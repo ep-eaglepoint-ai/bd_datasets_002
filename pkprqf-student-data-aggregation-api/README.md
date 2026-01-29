@@ -1,20 +1,18 @@
 # Student Data Aggregation API
 
 
-## Run Tests
-
-### Test Before (Buggy Implementation - Should Have Failures)
+### Run tests on repository_before
 ```bash
-docker-compose up test-before
+docker compose run --rm test-before
 ```
 
-### Test After (Fixed Implementation - All Should Pass)
+### Run tests on repository_after
 ```bash
-docker-compose up test-after
+docker compose run --rm test-after
 ```
 
-### Run Evaluation
+### Generate report
 ```bash
-docker-compose up evaluate
+docker compose run --rm evaluation
 ```
 

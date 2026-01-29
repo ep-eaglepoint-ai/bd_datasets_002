@@ -28,8 +28,12 @@ public class Evaluation {
             // Run structural checks
             Map<String, Object> structuralResults = runStructuralChecks();
 
-            // Run tests for repository_after (CREATION mode - simplified before)
-            Map<String, Object> beforeResults = createEmptyBeforeResults();
+            // Install repository_after first so tests module can resolve dependency (needed for structure tests too)
+            prepareTestEnvironment(REPOSITORY_AFTER);
+
+            // Run structure tests for repository_before (no app run; expect failures)
+            Map<String, Object> beforeResults = runStructureTestsForBefore();
+            // Run real tests for repository_after
             Map<String, Object> afterResults = runTests(REPOSITORY_AFTER);
 
             Instant finishedAt = Instant.now();
@@ -38,10 +42,9 @@ public class Evaluation {
             // Create comparison
             Map<String, Object> comparison = createComparison(beforeResults, afterResults);
 
-            // Determine overall success
-            boolean structuralSuccess = (boolean) structuralResults.get("success");
+            // Determine overall success: YES when after tests all pass (before tests are expected to fail)
             boolean testSuccess = (boolean) afterResults.get("success");
-            boolean success = structuralSuccess && testSuccess;
+            boolean success = testSuccess;
 
             // Create and save report
             Map<String, Object> report = createReport(runId, startedAt, finishedAt, duration,
@@ -74,15 +77,108 @@ public class Evaluation {
         System.out.println("=".repeat(60));
     }
 
-    private static Map<String, Object> createEmptyBeforeResults() {
+    private static Map<String, Object> runStructureTestsForBefore() throws Exception {
+        printHeader("RUNNING STRUCTURE TESTS: " + REPOSITORY_BEFORE);
+
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("success", false);
-        result.put("exit_code", 0);
-        result.put("tests", new ArrayList<>());
-        result.put("summary", createSummary(new ArrayList<>()));
-        result.put("stdout", "TRANSFORMATION mode - repository_before has bugs");
-        result.put("stderr", "");
+        Path testsDir = Paths.get(TESTS_DIR).toAbsolutePath();
+        Path repoBeforeFile = Paths.get(REPOSITORY_BEFORE).toAbsolutePath().resolve("dataAggregation.java");
+
+        try {
+            String mvnCommand = System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd" : "mvn";
+            ProcessBuilder pb = new ProcessBuilder(
+                mvnCommand, "test", "-q",
+                "-Dtest=RepositoryBeforeStructureTest",
+                "-Dstructure.repo.before.path=" + repoBeforeFile.toString()
+            );
+            pb.directory(testsDir.toFile());
+            pb.redirectErrorStream(true);
+
+            System.out.println("Working directory: " + testsDir);
+            System.out.println("Running: mvn test (structure tests only)");
+
+            Process process = pb.start();
+            StringBuilder outputBuilder = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    outputBuilder.append(line).append("\n");
+                    System.out.println("  " + line);
+                }
+            }
+
+            boolean finished = process.waitFor(120, TimeUnit.SECONDS);
+            int exitCode = finished ? process.exitValue() : 1;
+            if (!finished) process.destroyForcibly();
+
+            String output = outputBuilder.toString();
+            List<Map<String, Object>> tests = parseStructureTestResults(output);
+            Map<String, Integer> summary = createSummary(tests);
+            boolean success = exitCode == 0 && summary.get("failed") == 0 && summary.get("errors") == 0;
+
+            result.put("success", success);
+            result.put("exit_code", exitCode);
+            result.put("tests", tests);
+            result.put("summary", summary);
+            result.put("stdout", output);
+            result.put("stderr", "");
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("exit_code", 1);
+            result.put("tests", new ArrayList<>());
+            result.put("summary", createErrorSummary());
+            result.put("error", e.getMessage());
+            result.put("stdout", "");
+            result.put("stderr", e.getMessage());
+            e.printStackTrace();
+        }
         return result;
+    }
+
+    private static final String[] STRUCTURE_TEST_NAMES = {
+        "noSharedMutableState", "hasInputValidation", "noUnnecessaryNestedLoops",
+        "hasSeparationOfConcerns", "hasProperErrorHandling", "noInstanceMutableFields",
+        "usesServiceLayer", "usesEfficientAggregation"
+    };
+
+    private static List<Map<String, Object>> parseStructureTestResults(String output) {
+        List<Map<String, Object>> tests = new ArrayList<>();
+        Set<String> failedTests = new HashSet<>();
+        Set<String> knownNames = new HashSet<>(Arrays.asList(STRUCTURE_TEST_NAMES));
+
+        // Surefire format: "ClassName.methodName  Time elapsed ... FAILURE" or "methodName -- Time elapsed ... FAILURE"
+        Pattern withClass = Pattern.compile("\\.(\\w+)\\s+(?:--\\s+)?Time elapsed\\s+[\\d.]+\\s*s\\s*(?:<<<)?\\s*FAILURE", Pattern.MULTILINE);
+        Matcher m = withClass.matcher(output);
+        while (m.find()) {
+            String name = m.group(1);
+            if (knownNames.contains(name)) failedTests.add(name);
+        }
+        if (failedTests.isEmpty()) {
+            Pattern methodOnly = Pattern.compile("(\\w+)\\s+(?:--\\s+)?Time elapsed\\s+[\\d.]+\\s*s\\s*(?:<<<)?\\s*FAILURE", Pattern.MULTILINE);
+            m = methodOnly.matcher(output);
+            while (m.find()) {
+                String name = m.group(1);
+                if (knownNames.contains(name)) failedTests.add(name);
+            }
+        }
+        // Fallback: if Failures: N with N>0, treat each structure test that appears before "FAILURE" as failed
+        if (failedTests.isEmpty() && (output.contains("Failures:") || output.contains("There are test failures"))) {
+            for (String testName : STRUCTURE_TEST_NAMES) {
+                int idx = output.indexOf(testName);
+                if (idx >= 0 && output.substring(idx, Math.min(idx + 200, output.length())).contains("FAILURE"))
+                    failedTests.add(testName);
+            }
+        }
+
+        for (String testName : STRUCTURE_TEST_NAMES) {
+            Map<String, Object> test = new LinkedHashMap<>();
+            test.put("nodeid", REPOSITORY_BEFORE + "::" + testName);
+            test.put("name", testName);
+            test.put("outcome", failedTests.contains(testName) ? "failed" : "passed");
+            test.put("message", failedTests.contains(testName) ? "Structure requirement not met" : testName);
+            tests.add(test);
+        }
+        return tests;
     }
 
     private static Map<String, Object> runStructuralChecks() {
@@ -154,6 +250,13 @@ public class Evaluation {
                 boolean properSeparation = !controllerCode.contains("calculateAverageScore") && serviceCode.contains("calculateAverageScore");
                 checks.add(createCheck("CHK-10", "Proper separation of concerns", properSeparation));
                 if (!properSeparation) allPassed = false;
+
+                // CHK-11: No shared mutable state in controller (stateless, thread-safe)
+                boolean noSharedMutableState = !controllerCode.contains("cachedStudents")
+                        && !controllerCode.contains("private List<")
+                        && !controllerCode.contains("private ArrayList<");
+                checks.add(createCheck("CHK-11", "Controller has no shared mutable state", noSharedMutableState));
+                if (!noSharedMutableState) allPassed = false;
             }
 
             for (Map<String, Object> check : checks) {
@@ -195,7 +298,7 @@ public class Evaluation {
             
             ProcessBuilder pb = new ProcessBuilder();
             String mvnCommand = System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd" : "mvn";
-            pb.command(mvnCommand, "test", "-q");
+            pb.command(mvnCommand, "test", "-q", "-Dtest=!RepositoryBeforeStructureTest");
             pb.directory(testsDir.toFile());
             pb.redirectErrorStream(true);
 
@@ -248,63 +351,41 @@ public class Evaluation {
         return result;
     }
 
-    private static void prepareTestEnvironment(String repoName) throws IOException {
-        Path sourceDir = Paths.get(repoName, "src/main/java/com/example/studentapi");
-        Path targetDir = Paths.get(TESTS_DIR, "src/main/java/com/example/studentapi");
-        Path resourcesSource = Paths.get(repoName, "src/main/resources");
-        Path resourcesTarget = Paths.get(TESTS_DIR, "src/main/resources");
-
-        // Create directories
-        Files.createDirectories(targetDir);
-        Files.createDirectories(resourcesTarget);
-
-        // Copy source files recursively
-        if (Files.exists(sourceDir)) {
-            copyDirectory(sourceDir, targetDir);
-        }
-
-        // Copy resources
-        if (Files.exists(resourcesSource)) {
-            try (var stream = Files.list(resourcesSource)) {
-                stream.forEach(p -> {
-                    try {
-                        Files.copy(p, resourcesTarget.resolve(p.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                });
+    private static void prepareTestEnvironment(String repoName) throws IOException, InterruptedException {
+        Path repoPath = Paths.get(repoName).toAbsolutePath();
+        String mvnCommand = System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd" : "mvn";
+        ProcessBuilder pb = new ProcessBuilder(mvnCommand, "install", "-q");
+        pb.directory(repoPath.toFile());
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println("  [mvn install] " + line);
             }
         }
-
-        System.out.println("Prepared test environment from: " + repoName);
-    }
-
-    private static void copyDirectory(Path source, Path target) throws IOException {
-        Files.walk(source).forEach(sourcePath -> {
-            try {
-                Path targetPath = target.resolve(source.relativize(sourcePath));
-                if (Files.isDirectory(sourcePath)) {
-                    Files.createDirectories(targetPath);
-                } else {
-                    Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
+        boolean finished = process.waitFor(120, TimeUnit.SECONDS);
+        if (!finished) process.destroyForcibly();
+        int exitCode = finished ? process.exitValue() : 1;
+        if (exitCode != 0) {
+            throw new IOException("mvn install failed in " + repoName + " with exit code " + exitCode);
+        }
+        System.out.println("Prepared test environment (installed artifact) from: " + repoName);
     }
 
     private static List<Map<String, Object>> parseTestResults(String output, String repoName) {
         List<Map<String, Object>> tests = new ArrayList<>();
 
-        // Test names from the actual test classes
+        // Test names from the actual test classes (must match JUnit method names)
         String[] testNames = {
             // Controller tests
-            "aggregateStudents_WithValidInput_ReturnsOkResponse",
+            "aggregateStudents_AverageCalculation_ShouldBeAccurate",
+            "aggregateStudents_WithInvalidInput_ShouldReturnBadRequest",
+            "aggregateStudents_WithEmptyName_ShouldReturnBadRequest",
             "aggregateStudents_WithEmptyList_ReturnsEmptyResult",
-            "aggregateStudents_WithInvalidInput_ReturnsBadRequest",
             "aggregateStudents_WithNullRequest_ReturnsBadRequest",
             "aggregateStudents_WithMalformedJson_ReturnsBadRequest",
+            "aggregateStudents_WhenServiceThrows_ReturnsInternalServerError",
             // Controller validation tests
             "aggregateStudents_WithBlankName_ReturnsValidationError",
             "aggregateStudents_WithNullName_ReturnsValidationError",

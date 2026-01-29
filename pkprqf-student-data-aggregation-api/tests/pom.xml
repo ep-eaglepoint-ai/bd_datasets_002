@@ -27,6 +27,14 @@
     </properties>
 
     <dependencies>
+        <!-- Production API under test (installed from repository_after or build_before) -->
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>student-aggregation-api</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -77,6 +85,7 @@
                     <trimStackTrace>true</trimStackTrace>
                     <useFile>false</useFile>
                     <printSummary>false</printSummary>
+                    <argLine>-DDEBUG_LOG_PATH=/app/.cursor/debug.log</argLine>
                 </configuration>
             </plugin>
         </plugins>

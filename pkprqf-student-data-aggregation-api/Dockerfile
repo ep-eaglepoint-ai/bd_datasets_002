@@ -4,14 +4,14 @@ WORKDIR /app
 
 COPY . .
 
-RUN cd repository_after && mvn compile -q
+# Install repository_after so tests can depend on it (no main sources in tests)
+RUN cd repository_after && mvn install -q
 
-RUN mkdir -p tests/src/main/java/com/example/studentapi && \
-    mkdir -p tests/src/main/resources && \
-    cp -r repository_after/src/main/java/com/example/studentapi/* tests/src/main/java/com/example/studentapi/ && \
-    cp repository_after/src/main/resources/*.properties tests/src/main/resources/
+# Tests use dependency only; ensure no in-tree main (avoids stale/copied code)
+RUN rm -rf /app/tests/src/main
+
 RUN cd tests && mvn compile test-compile -q
 
 RUN cd evaluation && mvn compile -q
 
-CMD ["sh", "-c", "cd /app && mvn -f evaluation/pom.xml exec:java -q"]
+CMD ["sh", "-c", "cd /app/evaluation && mvn compile exec:java -e"]
