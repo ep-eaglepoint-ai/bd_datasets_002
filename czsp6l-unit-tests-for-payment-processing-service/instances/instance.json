@@ -1,11 +1,32 @@
 {
-            "instance_id": "CZSP6L",
-            "problem_statement": "In a Python service that processes large newline-delimited JSON event streams to generate per-customer analytics, the current implementation becomes slow and memory-intensive at realistic production scale due to eager parsing, excessive in-memory aggregation, and per-customer sorting. A solution is required that improves runtime efficiency and reduces memory consumption while producing exactly the same output structure, values, and observable behavior. The optimized implementation must correctly handle malformed input, preserve all filtering, aggregation, rounding, and tie-breaking semantics, scale to millions of events and hundreds of thousands of customers, and remain deterministic, thread-safe, and fully compatible with the existing function signature and standard-library-only environment.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/czsp6l-unit-tests-for-payment-processing-service",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "CZSP6L",
+    "problem_statement": "In a Python service that processes large newline-delimited JSON event streams to generate per-customer analytics, the current implementation becomes slow and memory-intensive at realistic production scale due to eager parsing, excessive in-memory aggregation, and per-customer sorting. A solution is required that improves runtime efficiency and reduces memory consumption while producing exactly the same output structure, values, and observable behavior. The optimized implementation must correctly handle malformed input, preserve all filtering, aggregation, rounding, and tie-breaking semantics, scale to millions of events and hundreds of thousands of customers, and remain deterministic, thread-safe, and fully compatible with the existing function signature and standard-library-only environment.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/czsp6l-unit-tests-for-payment-processing-service",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "TestOptimization::test_no_event_dataclass",
+        "TestOptimization::test_handles_invalid_json",
+        "TestOptimization::test_performance_with_large_dataset"
+    ],
+    "PASS_TO_PASS": [
+        "TestOutputStructure::test_all_required_fields_present",
+        "TestOutputStructure::test_by_day_format_correct",
+        "TestFiltering::test_empty_customer_id_excluded",
+        "TestFiltering::test_empty_event_id_excluded",
+        "TestFiltering::test_invalid_timestamps_excluded",
+        "TestFiltering::test_allowed_event_types_filter",
+        "TestCurrencyConversion::test_currency_converts_correctly[USD]",
+        "TestCurrencyConversion::test_currency_converts_correctly[EUR]",
+        "TestCurrencyConversion::test_currency_converts_correctly[GBP]",
+        "TestCurrencyConversion::test_unknown_currency_defaults_to_one",
+        "TestTieBreaking::test_tie_chooses_lexicographically_smallest",
+        "TestTieBreaking::test_highest_count_wins_no_tie",
+        "TestRounding::test_total_spend_rounds_to_6_decimals",
+        "TestRounding::test_avg_ticket_rounds_to_6_decimals",
+        "TestShardDeterminism::test_same_customer_same_shard",
+        "TestShardDeterminism::test_shard_in_valid_range",
+        "TestFunctionSignature::test_all_parameter_combinations"
+    ]
+}
