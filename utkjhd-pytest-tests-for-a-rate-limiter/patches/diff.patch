@@ -1,0 +1,218 @@
+diff --git a/repository_before/__pycache__/__init__.cpython-311.pyc b/repository_after/__pycache__/__init__.cpython-311.pyc
+index 8268ba73..ca6c9eb0 100644
+Binary files a/repository_before/__pycache__/__init__.cpython-311.pyc and b/repository_after/__pycache__/__init__.cpython-311.pyc differ
+diff --git a/repository_before/__pycache__/rate_limiter.cpython-311.pyc b/repository_after/__pycache__/rate_limiter.cpython-311.pyc
+index cf0655e2..e9475648 100644
+Binary files a/repository_before/__pycache__/rate_limiter.cpython-311.pyc and b/repository_after/__pycache__/rate_limiter.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/rate_limiter_test.cpython-311-pytest-9.0.2.pyc b/repository_after/__pycache__/rate_limiter_test.cpython-311-pytest-9.0.2.pyc
+new file mode 100644
+index 00000000..510eb855
+Binary files /dev/null and b/repository_after/__pycache__/rate_limiter_test.cpython-311-pytest-9.0.2.pyc differ
+diff --git a/repository_after/rate_limiter_test.py b/repository_after/rate_limiter_test.py
+new file mode 100644
+index 00000000..362458ff
+--- /dev/null
++++ b/repository_after/rate_limiter_test.py
+@@ -0,0 +1,201 @@
++import sys
++import os
++import pytest
++sys.path.append(os.path.dirname(os.path.abspath(__file__)))
++from rate_limiter import RateLimiter, KeyValueStore, RateLimitResult
++
++
++class FakeKeyValueStore(KeyValueStore):
++    """
++    Requirement 13: Use mocks or fakes for the KeyValueStore.
++    This replaces the mock library. It stores data in memory and tracks calls
++    so we can verify interactions manually.
++    """
++    def __init__(self):
++        self._data = {}
++        # We store the last set call details here to verify them later
++        self.last_set_key = None
++        self.last_set_value = None
++        self.last_set_ttl = None
++        self.set_call_count = 0
++
++    def get(self, key: str):
++        return self._data.get(key)
++
++    def set(self, key: str, value, ttl_seconds: int):
++        self._data[key] = value
++        self.last_set_key = key
++        self.last_set_value = value
++        self.last_set_ttl = ttl_seconds
++        self.set_call_count += 1
++
++    def clear_history(self):
++        """Helper to reset tracking between steps in a single test if needed"""
++        self.last_set_key = None
++        self.last_set_value = None
++        self.last_set_ttl = None
++        self.set_call_count = 0
++
++# --- FIXTURES ---
++
++@pytest.fixture
++def fake_store():
++    return FakeKeyValueStore()
++
++@pytest.fixture
++def limiter(fake_store):
++    """
++    Creates a standard RateLimiter for testing.
++    Config: Limit=5, Window=60s.
++    """
++    return RateLimiter(fake_store, limit=5, window_seconds=60)
++
++# --- TESTS ---
++
++def test_req_1_first_request_no_state(fake_store, limiter):
++    """
++    Requirement 1: Cover the first request for a key with no existing state.
++    Requirement 5: Validate remaining value.
++    Requirement 7: Verify correct interactions with key-value store.
++    Requirement 8: Verify TTL values.
++    """
++    print("\n[Req 1,7,8] Verifying first request initializes state correctly...")
++    
++    # Action: Request at time 1000
++    now = 1000
++    result = limiter.allow("user_1", now=now)
++    
++    # Assertions
++    assert result.allowed is True, "First request should be allowed"
++    assert result.remaining == 4, "Remaining should be limit - 1 (5 - 1 = 4)"
++    assert result.reset_in_seconds == 60
++    
++    # Verify Store Interaction via Fake state
++    assert fake_store.set_call_count == 1
++    assert fake_store.last_set_key == "user_1"
++    assert fake_store.last_set_value == {"count": 1, "window_start": 1000}
++    assert fake_store.last_set_ttl == 60
++    print(" -> Success: Fake store updated with count=1 and full TTL.")
++
++def test_req_2_multiple_requests_increments(fake_store, limiter):
++    """
++    Requirement 2: Cover multiple requests within window and validate increments.
++    Requirement 12: Avoid real-time dependencies by passing 'now' explicitly.
++    """
++    print("\n[Req 2] Verifying increments within the same window...")
++    
++    # Setup: Pre-populate the Fake Store
++    fake_store._data["user_1"] = {"count": 2, "window_start": 1000}
++    
++    # Action: Request 10 seconds later
++    now = 1010  
++    result = limiter.allow("user_1", now=now)
++    
++    # Assertions
++    assert result.allowed is True
++    assert result.remaining == 2, "Limit 5 - (Current 2 + 1) = 2 Remaining"
++    
++    # Verify Store Interaction
++    assert fake_store.last_set_value["count"] == 3
++    # Logic: ttl = max(1, window - elapsed) -> 60 - 10 = 50
++    assert fake_store.last_set_ttl == 50
++    print(" -> Success: Count incremented to 3, TTL adjusted for elapsed time.")
++
++def test_req_3_limit_exceeded(fake_store, limiter):
++    """
++    Requirement 3: Cover behavior when the request limit is exceeded.
++    Requirement 6: Validate reset_in_seconds value.
++    """
++    print("\n[Req 3,6] Verifying behavior when limit is exhausted...")
++    
++    # Setup: Count is already at limit (5)
++    fake_store._data["user_1"] = {"count": 5, "window_start": 1000}
++    fake_store.clear_history() # Clear history to ensure no new writes happen
++    
++    # Action
++    now = 1030
++    result = limiter.allow("user_1", now=now)
++    
++    # Assertions
++    assert result.allowed is False, "Request should be denied at limit"
++    assert result.remaining == 0, "Remaining should be 0"
++    
++    # Verify Reset Calculation: Window (60) - Elapsed (30) = 30
++    assert result.reset_in_seconds == 30
++    
++    # Verify NO write to store (Optimization check)
++    assert fake_store.set_call_count == 0, "Should not write to DB if limit exceeded"
++    print(" -> Success: Request denied, no DB write.")
++
++def test_req_4_window_reset(fake_store, limiter):
++    """
++    Requirement 4: Cover window reset behavior after window elapses.
++    Requirement 8: Verify TTL is reset to full window.
++    """
++    print("\n[Req 4] Verifying window reset logic...")
++    
++    # Setup: Window started at 1000. Now is 1061 (Expired).
++    start_time = 1000
++    now = start_time + 61
++    fake_store._data["user_1"] = {"count": 5, "window_start": start_time}
++    
++    # Action
++    result = limiter.allow("user_1", now=now)
++    
++    # Assertions
++    assert result.allowed is True
++    assert result.remaining == 4
++    
++    # Verify Store Reset
++    assert fake_store.last_set_value == {"count": 1, "window_start": now}
++    assert fake_store.last_set_ttl == 60
++    print(" -> Success: Window reset triggered, count reset to 1.")
++
++def test_req_8_ttl_calculation_mid_window(fake_store, limiter):
++    """
++    Requirement 8: Verify TTL values passed to store are correct (Edge case).
++    Ensures TTL doesn't go below 1.
++    """
++    print("\n[Req 8] Verifying TTL calculation boundary...")
++    
++    # Setup: 59 seconds elapsed (1s remaining)
++    fake_store._data["user_1"] = {"count": 1, "window_start": 1000}
++    
++    now = 1059
++    limiter.allow("user_1", now=now)
++    
++    # Expected TTL: 60 - 59 = 1
++    assert fake_store.last_set_ttl == 1
++    print(" -> Success: TTL calculated correctly near window end.")
++
++def test_req_9_invalid_configuration(fake_store):
++    """
++    Requirement 9: Include tests for invalid limiter configuration values.
++    """
++    print("\n[Req 9] Verifying invalid config handling...")
++    
++    # Test Limit <= 0
++    bad_limit = RateLimiter(fake_store, limit=0, window_seconds=60)
++    with pytest.raises(ValueError, match="invalid limiter config"):
++        bad_limit.allow("key")
++        
++    # Test Window <= 0
++    bad_window = RateLimiter(fake_store, limit=10, window_seconds=0)
++    with pytest.raises(ValueError, match="invalid limiter config"):
++        bad_window.allow("key")
++        
++    print(" -> Success: ValueError raised for invalid configs.")
++
++def test_req_10_missing_keys(fake_store, limiter):
++    """
++    Requirement 10: Include tests for missing or empty keys.
++    """
++    print("\n[Req 10] Verifying missing key handling...")
++    
++    with pytest.raises(ValueError, match="key required"):
++        limiter.allow("")
++        
++    with pytest.raises(ValueError, match="key required"):
++        limiter.allow(None)
++        
++    print(" -> Success: ValueError raised for empty keys.")
+\ No newline at end of file
