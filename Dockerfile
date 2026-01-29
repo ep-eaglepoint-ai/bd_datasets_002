@@ -1,19 +1,20 @@
 FROM node:20-alpine
 
-# Install Python and build tools
+# Leverage layer caching for OS packages
 RUN apk add --no-cache python3 py3-pip make g++ && \
     ln -sf python3 /usr/bin/python
 
 WORKDIR /app
 
-# Install Node dependencies
+# Leverage layer caching for Node dependencies
 COPY package*.json ./
 RUN npm install
 
-# Install Python dependencies
+# Leverage layer caching for Python dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt --break-system-packages
+RUN pip install --no-cache-dir --break-system-packages pytest pytest-json-report
 
+# Copy source code last to maximize cache hits
 COPY . .
 
 CMD ["npm", "test"]

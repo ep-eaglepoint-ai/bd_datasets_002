@@ -107,8 +107,8 @@ async function evaluate() {
             }))
         };
 
-        writeFileSync(join(__dirname, '..', 'report.json'), JSON.stringify(evaluationResults, null, 2));
-        console.log('\n📝 Report generated at report.json');
+        writeFileSync(join(__dirname, 'report.json'), JSON.stringify(evaluationResults, null, 2));
+        console.log('\n📝 Report generated at evaluation/report.json');
         console.log('\n🎉 Evaluation Complete!');
 
     } catch (error) {
