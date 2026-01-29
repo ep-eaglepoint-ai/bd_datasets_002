@@ -1,5 +1,6 @@
 import unittest
 import threading
+import time
 from unittest import mock
 from transaction_service import (
     TransactionService,
@@ -60,8 +61,35 @@ class TestTransactionService(unittest.TestCase):
 
     def test_in_progress_transaction_raises_exception(self):
         key = "tx-inprogress"
-        # (your original mocking logic here – kept as-is, assuming it works)
-        # ... abbreviated for brevity ...
+
+        def slow_transfer():
+            try:
+                self.service.transfer_funds("alice", "bob", 5, idempotency_key=key)
+            except Exception:
+                pass  # swallow exception so thread doesn't crash the test
+
+        original_set = self.service.idempotency_store.set
+
+        def delayed_set(*args, **kwargs):
+            original_set(*args, **kwargs)
+            if args[1] == "IN_PROGRESS":
+                time.sleep(1.2)
+
+        self.service.idempotency_store.set = delayed_set
+
+        t = threading.Thread(target=slow_transfer)
+        t.start()
+
+        time.sleep(0.3)
+
+        with self.assertRaises(ProcessingException) as cm:
+            self.service.transfer_funds("alice", "bob", 10, idempotency_key=key)
+
+        self.assertIn("already in progress", str(cm.exception).lower())
+
+        t.join()
+
+        self.service.idempotency_store.set = original_set
 
     def test_concurrent_withdrawals(self):
         threads = []
