@@ -1,0 +1,11 @@
+{
+            "instance_id": "WF8MUD",
+            "problem_statement": "The goal is to enhance an existing React-based Kanban Board application that currently supports basic drag-and-drop functionality between In-Progress and Completed columns. The enhanced version must introduce advanced task management capabilities such as task creation, inline editing, deletion, priority handling, and data persistence while preserving existing behavior. All new features must integrate seamlessly with the current drag-and-drop implementation without altering the existing data structure or user interactions. The solution must remain lightweight, accessible, and fully compatible with the current UI patterns and React state management. Stability, usability, and backward compatibility are essential to ensure a consistent user experience.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wf8mud-enhancement-of-react-kanban-board",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
