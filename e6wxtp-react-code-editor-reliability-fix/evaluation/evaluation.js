@@ -326,7 +326,7 @@ async function main() {
         overallSuccess = true;
     }
 
-    const shouldGenerateReport = args.includes('--report');
+    const shouldGenerateReport = !args.includes('--no-report');
 
     const report = {
         run_id: runId,

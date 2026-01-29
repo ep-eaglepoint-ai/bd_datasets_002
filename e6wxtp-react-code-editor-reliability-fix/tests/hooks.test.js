@@ -1,5 +1,7 @@
 const puppeteer = require('puppeteer');
 
+jest.setTimeout(60000);
+
 describe('Edge Cases & Stability', () => {
     let browser;
     let page;
@@ -15,7 +17,7 @@ describe('Edge Cases & Stability', () => {
 
     afterAll(async () => {
         await browser.close();
-    });
+    }, 30000);
 
     beforeEach(async () => {
         await page.goto(APP_URL, { waitUntil: 'networkidle0', timeout: 30000 });

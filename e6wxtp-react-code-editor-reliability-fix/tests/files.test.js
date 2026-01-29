@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+
+jest.setTimeout(60000);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -22,7 +24,7 @@ describe('File Operations', () => {
     afterAll(async () => {
         await browser.close();
         if (fs.existsSync(TEST_FILE_PATH)) fs.unlinkSync(TEST_FILE_PATH);
-    });
+    }, 30000);
 
     beforeEach(async () => {
         await page.goto(APP_URL);

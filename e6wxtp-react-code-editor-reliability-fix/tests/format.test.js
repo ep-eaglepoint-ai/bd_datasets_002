@@ -1,5 +1,7 @@
 const puppeteer = require('puppeteer');
 
+jest.setTimeout(60000);
+
 describe('Formatting & Indentation', () => {
     let browser;
     let page;
@@ -15,7 +17,7 @@ describe('Formatting & Indentation', () => {
 
     afterAll(async () => {
         await browser.close();
-    });
+    }, 30000);
 
     beforeEach(async () => {
         await page.goto(APP_URL);

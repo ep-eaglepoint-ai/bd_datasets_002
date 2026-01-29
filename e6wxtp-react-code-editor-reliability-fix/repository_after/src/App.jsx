@@ -18,11 +18,16 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const [replaceMode, setReplaceMode] = useState(false);
   const [replaceTerm, setReplaceTerm] = useState('');
 
-  const [history, setHistory] = useState([DEFAULT_CODE]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  const [history, setHistory] = useState({
+    stack: [DEFAULT_CODE],
+    index: 0
+  });
 
   const [savedVersion, setSavedVersion] = useState(DEFAULT_CODE);
   const [isModified, setIsModified] = useState(false);
+  const [useRegex, setUseRegex] = useState(false);
+  const [regexError, setRegexError] = useState('');
+  const [matchCount, setMatchCount] = useState(0);
   const textareaRef = useRef(null);
   const lastSaveTime = useRef(null);
   const historyTimeout = useRef(null);
@@ -37,12 +42,17 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
     }
-    setHistory(prevHistory => {
-      const currentHistory = prevHistory.slice(0, historyIndex + 1);
-      return [...currentHistory, newCode];
+
+    setHistory(prev => {
+      if (prev.stack[prev.index] === newCode) return prev;
+
+      const newStack = prev.stack.slice(0, prev.index + 1);
+      return {
+        stack: [...newStack, newCode],
+        index: newStack.length
+      };
     });
-    setHistoryIndex(prevIndex => prevIndex + 1);
-  }, [historyIndex]);
+  }, []);
 
   const handleCodeChange = (e) => {
     const newCode = e.target.value;
@@ -62,15 +72,26 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
-      setHistory(prev => [...prev.slice(0, historyIndex + 1), code]);
-      setCode(history[historyIndex]);
+      updateHistory(code);
+      setHistory(prev => {
+        if (prev.index > 0) {
+          const newIndex = prev.index - 1;
+          setCode(prev.stack[newIndex]);
+          return { ...prev, index: newIndex };
+        }
+        return prev;
+      });
       return;
     }
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setCode(history[newIndex]);
-    }
+
+    setHistory(prev => {
+      if (prev.index > 0) {
+        const newIndex = prev.index - 1;
+        setCode(prev.stack[newIndex]);
+        return { ...prev, index: newIndex };
+      }
+      return prev;
+    });
   };
 
   const redo = () => {
@@ -80,26 +101,37 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       updateHistory(code);
       return;
     }
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setCode(history[newIndex]);
-    }
+
+    setHistory(prev => {
+      if (prev.index < prev.stack.length - 1) {
+        const newIndex = prev.index + 1;
+        setCode(prev.stack[newIndex]);
+        return { ...prev, index: newIndex };
+      }
+      return prev;
+    });
   };
 
   const findAndReplace = () => {
     if (!searchTerm) return;
 
     try {
-      const regex = new RegExp(searchTerm, 'g');
+      setRegexError('');
+      let regex;
+      if (useRegex) {
+        regex = new RegExp(searchTerm, 'g');
+      } else {
+        const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(escaped, 'g');
+      }
+
       const newCode = code.replace(regex, replaceTerm);
       if (newCode !== code) {
         setCode(newCode);
         updateHistory(newCode);
       }
     } catch (e) {
-      console.error("Invalid regex", e);
-      if (searchTerm.length === 0) return;
+      setRegexError(e.message);
     }
   };
 
@@ -171,6 +203,9 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const saveCode = () => {
+    if (historyTimeout.current) {
+      updateHistory(code);
+    }
     setSavedVersion(code);
     lastSaveTime.current = Date.now();
   };
@@ -178,11 +213,12 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const resetCode = () => {
     const defaultCode = '// Write your code here\n';
     setCode(defaultCode);
-    updateHistory(defaultCode);
+    setHistory({ stack: [defaultCode], index: 0 });
     setFileName('untitled');
     setSavedVersion(defaultCode);
     setSearchTerm('');
     setReplaceTerm('');
+    setRegexError('');
   };
 
   const copyCode = () => {
@@ -298,15 +334,28 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const wordCount = code.trim() ? code.trim().split(/\s+/).length : 0;
   const charCount = code.length;
 
-  let matchCount = 0;
-  try {
-    if (searchTerm) {
-      const regex = new RegExp(searchTerm, 'g');
-      matchCount = (code.match(regex) || []).length;
+  useEffect(() => {
+    if (!searchTerm) {
+      setMatchCount(0);
+      setRegexError('');
+      return;
     }
-  } catch (e) {
-    matchCount = 0;
-  }
+    try {
+      let regex;
+      if (useRegex) {
+        regex = new RegExp(searchTerm, 'g');
+      } else {
+        const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(escaped, 'g');
+      }
+      const matches = code.match(regex);
+      setMatchCount(matches ? matches.length : 0);
+      setRegexError('');
+    } catch (e) {
+      setMatchCount(0);
+      setRegexError(e.message);
+    }
+  }, [searchTerm, code, useRegex]);
 
   const getTimeSinceLastSave = () => {
     if (!lastSaveTime.current) return 'Never saved';
@@ -355,7 +404,7 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={undo}
-                disabled={historyIndex <= 0}
+                disabled={history.index <= 0}
                 className="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Undo (Ctrl+Z)"
               >
@@ -364,7 +413,7 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
 
               <button
                 onClick={redo}
-                disabled={historyIndex >= history.length - 1}
+                disabled={history.index >= history.stack.length - 1}
                 className="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Redo (Ctrl+Y)"
               >
@@ -425,20 +474,36 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
         <div className="bg-gray-800 p-3 border-b border-gray-700">
           <div className="flex items-center gap-2">
             <Search size={16} className="text-gray-400" />
-            <input
-              id="search-input"
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search... (Ctrl+F)"
-              className="flex-1 px-3 py-1 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500 text-sm"
-            />
+            <div className="flex-1 relative">
+              <input
+                id="search-input"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={useRegex ? "Regex Search... (e.g. ^function)" : "Search... (Ctrl+F)"}
+                className={`w-full px-3 py-1 bg-gray-700 text-white rounded border ${regexError ? 'border-red-500' : 'border-gray-600'} focus:outline-none focus:border-blue-500 text-sm`}
+              />
+              {regexError && (
+                <div className="absolute left-0 -bottom-5 text-[10px] text-red-500 truncate w-full">
+                  {regexError}
+                </div>
+              )}
+            </div>
+            <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer hover:text-white">
+              <input
+                type="checkbox"
+                checked={useRegex}
+                onChange={(e) => setUseRegex(e.target.checked)}
+                className="rounded border-gray-600 bg-gray-700"
+              />
+              .*
+            </label>
             {matchCount > 0 && (
-              <span className="text-gray-400 text-sm">{matchCount} matches</span>
+              <span className="text-blue-400 text-sm font-mono">{matchCount} matches</span>
             )}
             <button
               onClick={() => setReplaceMode(!replaceMode)}
-              className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors text-sm"
+              className={`px-3 py-1 rounded transition-colors text-sm ${replaceMode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
             >
               Replace
             </button>
@@ -456,7 +521,11 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
               />
               <button
                 onClick={findAndReplace}
-                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+                disabled={!!regexError}
+                className={`px-3 py-1 rounded transition-colors text-sm ${regexError
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
               >
                 Replace All
               </button>
@@ -506,10 +575,10 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
               Characters: <span className="text-white font-mono">{charCount}</span>
             </div>
             <div className="text-gray-400">
-              History: <span className="text-white font-mono">{history.length}</span>
+              History: <span className="text-white font-mono">{history.stack.length}</span>
             </div>
             <div className="text-gray-400">
-              Position: <span className="text-white font-mono">{historyIndex + 1}/{history.length}</span>
+              Position: <span className="text-white font-mono">{history.index + 1}/{history.stack.length}</span>
             </div>
           </div>
         </div>
