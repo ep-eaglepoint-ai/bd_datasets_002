@@ -1,17 +1,17 @@
-### Run tests before
+### Run test before
 
 ```bash
-docker compose run --rm -e NODE_PATH=/app/repository_before app npm run test:before
+docker compose run --rm test-before
 ```
-
-### Run tests after
+### Run test after
 
 ```bash
-docker compose run --rm -e NODE_PATH=/app/repository_after app npm run test:after
+docker compose run --rm test-after
 ```
+
 
 #### Run evaluation
 
 ```bash
-docker compose run --rm --build app npm run evaluate
+docker compose run --rm evaluate
 ```

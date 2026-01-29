@@ -25,21 +25,25 @@ function listTestFiles(dir: string): string[] {
 
 describe("repository layout sanity checks", () => {
 
-  test("finds expected .test.ts files in the right places", () => {
+  test("checks for .test.ts files in specified repository state", () => {
+    const state = process.env.TEST_STATE;
+    
+    if (!state) {
+      throw new Error("TEST_STATE environment variable must be set (e.g., 'before' or 'after')");
+    }
+
+    if (state !== "before" && state !== "after") {
+      throw new Error(`TEST_STATE must be either 'before' or 'after', got: ${state}`);
+    }
+
     const root = path.resolve(__dirname, "..");
-    const beforeRoot = path.join(root, "repository_before");
-    const afterRoot = path.join(root, "repository_after");
+    const repositoryRoot = path.join(root, `repository_${state}`);
 
-    mustExist(beforeRoot);
-    mustExist(afterRoot);
+    mustExist(repositoryRoot);
 
-    const beforeTests = listTestFiles(beforeRoot);
-    const afterTests = listTestFiles(afterRoot);
+    const testFiles = listTestFiles(repositoryRoot);
 
-    expect(beforeTests).toHaveLength(0);
-
-    expect(afterTests.length).toBeGreaterThanOrEqual(1);
-    expect(afterTests.some((p) => p.replace(/\\/g, "/").endsWith("src/order_processor.test.ts"))).toBe(true);
+    expect(testFiles.length).toBeGreaterThan(0);
   });
 });
 

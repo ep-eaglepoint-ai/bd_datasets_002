@@ -245,21 +245,14 @@ function runJestCommand(
 function runHarness(mode: "before" | "after", runId: string): TestBlock {
   const nodePath = path.join(ROOT, mode === "before" ? "repository_before" : "repository_after");
 
-  // Evaluate "the tests" in tests/ (like the Python evaluator), but select the subset that
-  // is meaningful for each side.
-  //
-  // - before: structural + baseline expectations
-  // - after: structural + meta + after expectations
-  const testPathPattern =
-    mode === "before"
-      ? "tests/(test_before|test_structure)\\.ts$"
-      : "tests/(test_after|test_structure|test_meta)\\.ts$";
+
+  const testPathPattern = "tests/(test_structure|test_order_processor_meta)\\.test\\.ts$";
 
   return runJestCommand({
     cwd: ROOT,
     outTag: `harness-${mode}`,
     runId,
-    env: { NODE_PATH: nodePath },
+    env: { NODE_PATH: nodePath, TEST_STATE: mode },
     extraArgs: ["--testPathPattern", testPathPattern],
   });
 }

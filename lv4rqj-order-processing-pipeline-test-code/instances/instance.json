@@ -6,11 +6,12 @@
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/lv4rqj-order-processing-pipeline-test-code",
             "environment_setup": "Dockerfile",
             "FAIL_TO_PASS": [
-                "tests/test_before.ts::before/after repository test run runs the correct repo test script",
-                "tests/test_after.ts::before/after repository test run runs the correct repo test script",
-                "tests/test_structure.ts::repository layout sanity checks finds expected .test.ts files in the right places",
-                "tests/test_meta.ts::meta-testing: requirement traceability + test integrity (TypeScript) no obvious integrity anti-patterns (console output, focused/skipped tests)",
-                "tests/test_meta.ts::meta-testing: requirement traceability + test integrity (TypeScript) requirement traceability signals are present in the generated test suite"
+                "tests/test_order_processor_meta.test.ts::test_suite_detects_input_mutation_bug",
+                "tests/test_order_processor_meta.test.ts::test_suite_detects_missing_validation_bug",
+                "tests/test_order_processor_meta.test.ts::test_suite_detects_wrong_priority_sort_bug",
+                "tests/test_order_processor_meta.test.ts::test_suite_detects_missing_enrich_timeout_bug",
+                "tests/test_order_processor_meta.test.ts::test_suite_passes_for_correct_implementation",
+                "tests/test_structure.test.ts::checks_for_test_files_in_specified_repository_state"
            ],
             "PASS_TO_PASS": []
         }
