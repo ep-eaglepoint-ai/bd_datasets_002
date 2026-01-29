@@ -1,9 +1,7 @@
 /**
  * Test suite for TeleBirr API Rate Limiting
- * Tests Token Bucket, PQ Signatures, and rate limit verification
- * 
- * These tests FAIL on repository_before (no proper rate limiting)
- * These tests PASS on repository_after (with Token Bucket + PQ signatures)
+ * Tests Token Bucket burst behavior and signature generation
+ * Note: Tests use rapid calls without time mocking, so refill behavior is not verified
  */
 
 import {
@@ -113,8 +111,8 @@ describe('PQ-Secure Rate Limiting', () => {
     });
   });
 
-  describe('Requirement 2: Test 110 calls/min denies 10', () => {
-    
+  describe('Burst limit behavior', () => {
+
     test('Should deny exactly 10 out of 20 calls when burst is 10', async () => {
       resetRateLimiter();
       
@@ -152,8 +150,8 @@ describe('PQ-Secure Rate Limiting', () => {
     });
   });
 
-  describe('PQ Signature Verification', () => {
-    
+  describe('Mock Signature Verification', () => {
+
     test('DilithiumPQSigner should sign data', () => {
       const signature = DilithiumPQSigner.sign('test data');
       

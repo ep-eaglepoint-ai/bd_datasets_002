@@ -1,18 +1,18 @@
 // telebirr_calls.ts
-// Optimized with PQ-secure Token Bucket rate limiting
+// Token Bucket rate limiting with signature generation
 
 /**
- * Dilithium PQ Signature Implementation
- * Provides quantum-resistant signatures for rate tokens
- * O(1) time complexity with fixed operations
+ * Mock Signature Implementation (Dilithium-inspired)
+ * Note: This is a simplified XOR-based mock, not a real PQ signature scheme
+ * Uses Buffer and loops for signature generation
  */
 class DilithiumPQSigner {
   private static readonly SEED = Buffer.from('dilithium-pq-seed-32bytes!!!!!'); // 32 bytes fixed seed
   private static readonly SIGNATURE_SIZE = 64;
 
   /**
-   * Sign data with PQ-resistant algorithm - O(1) time
-   * Deterministic: same input always produces same signature
+   * Sign data with XOR-based mock algorithm
+   * Deterministic for same input, but not cryptographically secure
    */
   static sign(data: string): string {
     const dataBuffer = Buffer.from(data);
@@ -29,7 +29,7 @@ class DilithiumPQSigner {
   }
 
   /**
-   * Verify signature - O(1) time
+   * Verify signature by re-signing and comparing
    */
   static verify(data: string, signature: string): boolean {
     if (signature.length !== this.SIGNATURE_SIZE * 2) { // hex is 2x size
@@ -49,11 +49,11 @@ class DilithiumPQSigner {
 }
 
 /**
- * Token Bucket Rate Limiter with PQ-secure tokens
- * - Refill: 100 tokens per minute
- * - Burst: 10 tokens max
- * - O(1) time and space per call
- * - Thread-safe with atomic operations
+ * Token Bucket Rate Limiter
+ * - Refill rate: 100 tokens per minute
+ * - Burst capacity: 10 tokens max at any time
+ * - Uses Date.now() for time tracking (not deterministic for call sequences)
+ * - No atomic operations (not thread-safe under concurrent access)
  */
 class TokenBucketRateLimiter {
   private tokens: number;
@@ -62,7 +62,7 @@ class TokenBucketRateLimiter {
   private readonly refillRate: number; // tokens per millisecond
   private readonly burstLimit: number;
   
-  // Atomic operation counter for thread-safety verification
+  // Operation counter (not atomic, just a regular number)
   private operationCounter: number = 0;
 
   constructor(
@@ -77,7 +77,7 @@ class TokenBucketRateLimiter {
   }
 
   /**
-   * Generate PQ-signed rate token - O(1)
+   * Generate signed rate token using mock signer
    */
   private generateToken(endpoint: string, timestamp: number): string {
     const tokenData = `${endpoint}:${timestamp}:${this.operationCounter}`;
@@ -85,7 +85,7 @@ class TokenBucketRateLimiter {
   }
 
   /**
-   * Verify rate token - O(1)
+   * Verify rate token (currently unused)
    */
   private verifyToken(endpoint: string, timestamp: number, token: string): boolean {
     const tokenData = `${endpoint}:${timestamp}:${this.operationCounter}`;
@@ -93,32 +93,32 @@ class TokenBucketRateLimiter {
   }
 
   /**
-   * Refill tokens based on elapsed time - O(1)
-   * No loops, just scalar arithmetic
+   * Refill tokens based on elapsed time
+   * Uses Date.now() - time-dependent behavior
    */
   private refill(): void {
     const now = Date.now();
     const elapsed = now - this.lastRefillTime;
     
-    // Calculate tokens to add (O(1) - single multiplication)
+    // Calculate tokens to add
     const tokensToAdd = elapsed * this.refillRate;
-    
-    // Update tokens, capped at burst limit (O(1) - single min operation)
+
+    // Update tokens, capped at burst limit
     this.tokens = Math.min(this.burstLimit, this.tokens + tokensToAdd);
     this.lastRefillTime = now;
   }
 
   /**
-   * Try to consume a token - O(1) time and space
+   * Try to consume a token
    * Returns: { allowed: boolean, token?: string, remaining: number }
    */
   tryConsume(endpoint: string): { allowed: boolean; token?: string; remaining: number; signature?: string } {
     this.operationCounter++;
     
-    // Refill based on time elapsed - O(1)
+    // Refill based on time elapsed
     this.refill();
-    
-    // Check if tokens available - O(1)
+
+    // Check if tokens available
     if (this.tokens < 1) {
       return { 
         allowed: false, 
@@ -126,10 +126,10 @@ class TokenBucketRateLimiter {
       };
     }
     
-    // Consume token - O(1)
+    // Consume token
     this.tokens -= 1;
-    
-    // Generate PQ-signed token for this request - O(1)
+
+    // Generate signed token for this request
     const timestamp = Date.now();
     const signature = this.generateToken(endpoint, timestamp);
     
@@ -142,7 +142,7 @@ class TokenBucketRateLimiter {
   }
 
   /**
-   * Check remaining tokens without consuming - O(1)
+   * Check remaining tokens without consuming
    */
   getRemaining(): number {
     this.refill();
@@ -171,7 +171,7 @@ class TokenBucketRateLimiter {
   }
 }
 
-// Global rate limiter instance - O(1) space (fixed scalars only)
+// Global rate limiter instance
 const rateLimiter = new TokenBucketRateLimiter(100, 10);
 
 // Mock axios for testing (no external deps)
@@ -182,11 +182,9 @@ const mockAxios = {
 };
 
 /**
- * TeleBirr Core Call with PQ-secure rate limiting
- * - Token Bucket: 100/min refill, burst 10
- * - PQ Signatures: Dilithium for rate tokens
- * - O(1) time per call
- * - Thread-safe
+ * TeleBirr Core Call with rate limiting
+ * - Token Bucket: 100/min refill rate, burst capacity 10
+ * - Returns 429 when rate limit exceeded
  */
 export async function teleBirrCoreCall(
   reqheaders: any, 
@@ -194,7 +192,7 @@ export async function teleBirrCoreCall(
   reqbody: any
 ): Promise<{ status: number; data?: any; message?: string; rateLimit?: { remaining: number; signature?: string } }> {
   
-  // Try to consume a rate token - O(1)
+  // Try to consume a rate token
   const rateResult = rateLimiter.tryConsume('telebirr');
   
   // Rate limit exceeded - return 429
