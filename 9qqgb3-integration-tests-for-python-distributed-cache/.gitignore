@@ -9,3 +9,8 @@ node_modules/
 
 # OS
 .DS_Store
+pytest_cache
+.pytest_cache
+.coverage
+coverage.xml
+evaluation/reports/*

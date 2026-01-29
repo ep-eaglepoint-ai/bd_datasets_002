@@ -1,14 +1,48 @@
 {
-            "instance_id": "9QQGB3",
-            "problem_statement": "The distributed cache implementation is exhibiting unreliable behavior in load testing.  Entries occasionally persist beyond their TTL, concurrent increment operations sometimes  lose counts, and pattern deletion removes more entries than expected. Statistics show  mismatched hit/miss ratios under concurrent access, and save/load cycles occasionally 
-corrupt data structures. 
-
-The cache uses threading locks for synchronization, OrderedDict  for LRU tracking, and pickle for persistence. Core logic is in cache.py with background  cleanup running every 60 seconds.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9qqgb3-integration-tests-for-python-distributed-cache",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "9QQGB3",
+    "problem_statement": "Create comprehensive integration tests for a Python distributed cache implementation. The cache must support TTL expiration with second-level precision, LRU eviction when max_size is reached, atomic concurrent increment operations, accurate statistics tracking under concurrent access, glob-style pattern matching for keys, persistence via save/load methods, background cleanup of expired entries, full thread safety with RLock, and graceful handling of edge cases. All tests must be deterministic, use freezegun for time control, and verify both functional behavior and internal state correctness.",
+    "base_commit": "repository_before/",
+    "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9qqgb3-integration-tests-for-python-distributed-cache",
+    "FAIL_TO_PASS": [
+        "test_ttl_precision_to_the_second",
+        "test_ttl_exactly_at_boundary_expires",
+        "test_ttl_just_before_boundary_returns_value",
+        "test_ttl_zero_expires_immediately",
+        "test_ttl_with_get_removes_from_storage",
+        "test_ttl_with_exists_removes_from_storage",
+        "test_lru_eviction_get_updates_access_order",
+        "test_lru_eviction_set_updates_access_order",
+        "test_lru_eviction_multiple_sequential_evictions",
+        "test_lru_eviction_counter_increments_exactly_one_per_eviction",
+        "test_atomic_increment_multi_thread",
+        "test_increment_non_numeric_raises_value_error",
+        "test_concurrent_increment_with_different_amounts",
+        "test_stats_evictions_counter_accuracy",
+        "test_stats_misses_increment_on_expired_key_access",
+        "test_stats_clear_resets_all_counters",
+        "test_keys_pattern_with_question_mark_edge_cases",
+        "test_keys_pattern_star_matches_all",
+        "test_delete_pattern_with_no_matches_returns_zero",
+        "test_save_uses_pickle_and_excludes_expired_entries",
+        "test_save_preserves_statistics",
+        "test_load_restores_values_and_stats_and_ttl_remaining",
+        "test_load_discards_all_expired_entries",
+        "test_background_cleanup_thread_is_started",
+        "test_manual_cleanup_removes_expired_entries_without_hanging",
+        "test_thread_safety_across_all_public_methods_under_load",
+        "test_thread_safety_with_rlock_reentrancy",
+        "test_thread_safety_all_public_methods_individually",
+        "test_operations_on_empty_cache_do_not_raise",
+        "test_set_get_with_none_value",
+        "test_unicode_and_very_long_keys_work"
+    ],
+    "PASS_TO_PASS": [
+        "test_set_get_roundtrip",
+        "test_get_missing_returns_none_and_increments_miss",
+        "test_delete_existing_returns_true_and_removes_key",
+        "test_delete_missing_returns_false",
+        "test_exists_true_for_present_key",
+        "test_exists_false_for_missing_key",
+        "test_clear_removes_all_keys_and_resets_stats"
+    ]
+}
