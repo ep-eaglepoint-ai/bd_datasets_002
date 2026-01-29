@@ -1,6 +1,54 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/feature_flags
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    depends_on:
+      - db
     volumes:
-      - .:/app
+      - ./repository_after:/app
+      - /app/node_modules
+    command: sh -c "npx prisma generate && npx prisma db push && npm run dev"
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=feature_flags
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/feature_flags_test
+      - JWT_SECRET=test-jwt-secret
+    depends_on:
+      - db
+    volumes:
+      - ./repository_after:/app
+      - ./tests:/app/tests
+      - /app/node_modules
+    working_dir: /app
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sleep 3
+        psql -h db -U postgres -c "CREATE DATABASE feature_flags_test;" || true
+        npx prisma generate
+        npx prisma db push
+        npm test
+
+volumes:
+  postgres_data:

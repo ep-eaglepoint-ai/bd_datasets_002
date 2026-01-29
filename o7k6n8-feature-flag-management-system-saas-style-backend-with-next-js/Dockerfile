@@ -1,5 +1,21 @@
-FROM python:3.11-slim
+FROM node:18-bookworm
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Copy package files first for better caching
+COPY repository_after/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy application code
+COPY repository_after/ .
+
+# Generate Prisma client (this also downloads the required engines)
+RUN npx prisma generate
+
+# Expose the application port
+EXPOSE 3000
+
+# Start the development server
+CMD ["npm", "run", "dev"]
