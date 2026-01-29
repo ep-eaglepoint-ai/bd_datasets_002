@@ -1,18 +1,19 @@
 diff --git a/repository_after/.env.local.example b/repository_after/.env.local.example
 new file mode 100644
-index 0000000..9c35b67
+index 000000000..48ff24803
 --- /dev/null
 +++ b/repository_after/.env.local.example
-@@ -0,0 +1,6 @@
-+# MongoDB Configuration
+@@ -0,0 +1,4 @@
 +MONGODB_URI=mongodb://localhost:27017
 +DB_NAME=study_planner
 +
-+# Next.js Configuration
 +NEXT_PUBLIC_API_URL=http://localhost:3000
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29bb..000000000
 diff --git a/repository_after/next.config.js b/repository_after/next.config.js
 new file mode 100644
-index 0000000..8e8c7c1
+index 000000000..8e8c7c134
 --- /dev/null
 +++ b/repository_after/next.config.js
 @@ -0,0 +1,10 @@
@@ -28,7 +29,7 @@ index 0000000..8e8c7c1
 +module.exports = nextConfig
 diff --git a/repository_after/postcss.config.js b/repository_after/postcss.config.js
 new file mode 100644
-index 0000000..33ad091
+index 000000000..33ad091d2
 --- /dev/null
 +++ b/repository_after/postcss.config.js
 @@ -0,0 +1,6 @@
@@ -40,7 +41,7 @@ index 0000000..33ad091
 +}
 diff --git a/repository_after/src/app/api/analytics/route.ts b/repository_after/src/app/api/analytics/route.ts
 new file mode 100644
-index 0000000..af1d6a3
+index 000000000..af1d6a358
 --- /dev/null
 +++ b/repository_after/src/app/api/analytics/route.ts
 @@ -0,0 +1,47 @@
@@ -91,9 +92,277 @@ index 0000000..af1d6a3
 +    );
 +  }
 +}
+diff --git a/repository_after/src/app/api/reminders/[id]/route.ts b/repository_after/src/app/api/reminders/[id]/route.ts
+new file mode 100644
+index 000000000..79525bb78
+--- /dev/null
++++ b/repository_after/src/app/api/reminders/[id]/route.ts
+@@ -0,0 +1,150 @@
++/**
++ * Individual Reminder API Route
++ *
++ * GET /api/reminders/[id] - Get a reminder
++ * PATCH /api/reminders/[id] - Update a reminder
++ * DELETE /api/reminders/[id] - Delete a reminder
++ */
++
++import { NextRequest, NextResponse } from 'next/server';
++import { ZodError } from 'zod';
++import {
++  getReminderById,
++  updateReminder,
++  deleteReminder,
++} from '@/services/reminderService';
++import { ApiResponse } from '@/types';
++import { createErrorResponse, isValidObjectId } from '@/lib/utils';
++
++interface RouteParams {
++  params: { id: string };
++}
++
++/**
++ * GET /api/reminders/[id]
++ */
++export async function GET(
++  request: NextRequest,
++  { params }: RouteParams
++): Promise<NextResponse<ApiResponse>> {
++  try {
++    const { id } = params;
++
++    if (!isValidObjectId(id)) {
++      return NextResponse.json(
++        { success: false, error: 'Invalid reminder ID format' },
++        { status: 400 }
++      );
++    }
++
++    const reminder = await getReminderById(id);
++
++    if (!reminder) {
++      return NextResponse.json(
++        { success: false, error: 'Reminder not found' },
++        { status: 404 }
++      );
++    }
++
++    return NextResponse.json({ success: true, data: reminder });
++  } catch (error) {
++    console.error('Error fetching reminder:', error);
++    return NextResponse.json(
++      { success: false, ...createErrorResponse(error) },
++      { status: 500 }
++    );
++  }
++}
++
++/**
++ * PATCH /api/reminders/[id]
++ */
++export async function PATCH(
++  request: NextRequest,
++  { params }: RouteParams
++): Promise<NextResponse<ApiResponse>> {
++  try {
++    const { id } = params;
++
++    if (!isValidObjectId(id)) {
++      return NextResponse.json(
++        { success: false, error: 'Invalid reminder ID format' },
++        { status: 400 }
++      );
++    }
++
++    const body = await request.json();
++    const reminder = await updateReminder(id, body);
++
++    return NextResponse.json({
++      success: true,
++      data: reminder,
++      message: 'Reminder updated successfully',
++    });
++  } catch (error) {
++    console.error('Error updating reminder:', error);
++
++    if (error instanceof ZodError) {
++      return NextResponse.json(
++        {
++          success: false,
++          error: 'Validation failed',
++          details: error.flatten().fieldErrors as Record<string, string[]>,
++        },
++        { status: 400 }
++      );
++    }
++
++    if (error instanceof Error && error.message === 'Reminder not found') {
++      return NextResponse.json(
++        { success: false, error: error.message },
++        { status: 404 }
++      );
++    }
++
++    return NextResponse.json(
++      { success: false, ...createErrorResponse(error) },
++      { status: 500 }
++    );
++  }
++}
++
++/**
++ * DELETE /api/reminders/[id]
++ */
++export async function DELETE(
++  request: NextRequest,
++  { params }: RouteParams
++): Promise<NextResponse<ApiResponse>> {
++  try {
++    const { id } = params;
++
++    if (!isValidObjectId(id)) {
++      return NextResponse.json(
++        { success: false, error: 'Invalid reminder ID format' },
++        { status: 400 }
++      );
++    }
++
++    const deleted = await deleteReminder(id);
++
++    if (!deleted) {
++      return NextResponse.json(
++        { success: false, error: 'Reminder not found' },
++        { status: 404 }
++      );
++    }
++
++    return NextResponse.json({
++      success: true,
++      data: { id },
++      message: 'Reminder deleted successfully',
++    });
++  } catch (error) {
++    console.error('Error deleting reminder:', error);
++    return NextResponse.json(
++      { success: false, ...createErrorResponse(error) },
++      { status: 500 }
++    );
++  }
++}
+diff --git a/repository_after/src/app/api/reminders/route.ts b/repository_after/src/app/api/reminders/route.ts
+new file mode 100644
+index 000000000..502917843
+--- /dev/null
++++ b/repository_after/src/app/api/reminders/route.ts
+@@ -0,0 +1,106 @@
++/**
++ * Reminders API Route
++ *
++ * GET /api/reminders - List reminders
++ * POST /api/reminders - Create a reminder
++ */
++
++import { NextRequest, NextResponse } from 'next/server';
++import { ZodError } from 'zod';
++import { createReminder, getAllReminders } from '@/services/reminderService';
++import { ApiResponse } from '@/types';
++import { createErrorResponse } from '@/lib/utils';
++
++/**
++ * GET /api/reminders
++ * List reminders with optional filters
++ */
++export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse>> {
++  try {
++    const searchParams = request.nextUrl.searchParams;
++    const isActive = searchParams.get('isActive');
++    const subjectId = searchParams.get('subjectId') || undefined;
++    const upcoming = searchParams.get('upcoming') === 'true';
++    const page = parseInt(searchParams.get('page') || '1', 10);
++    const limit = parseInt(searchParams.get('limit') || '100', 10);
++    const sortBy = (searchParams.get('sortBy') as 'triggerTime' | 'createdAt') || 'triggerTime';
++    const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'asc';
++
++    const reminders = await getAllReminders({
++      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
++      subjectId,
++      upcoming,
++      page,
++      limit,
++      sortBy,
++      sortOrder,
++    });
++
++    return NextResponse.json({
++      success: true,
++      data: reminders,
++    });
++  } catch (error) {
++    console.error('Error fetching reminders:', error);
++    return NextResponse.json(
++      {
++        success: false,
++        ...createErrorResponse(error),
++      },
++      { status: 500 }
++    );
++  }
++}
++
++/**
++ * POST /api/reminders
++ * Create a new reminder
++ */
++export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
++  try {
++    const body = await request.json();
++    const reminder = await createReminder(body);
++
++    return NextResponse.json(
++      {
++        success: true,
++        data: reminder,
++        message: 'Reminder created successfully',
++      },
++      { status: 201 }
++    );
++  } catch (error) {
++    console.error('Error creating reminder:', error);
++
++    if (error instanceof ZodError) {
++      return NextResponse.json(
++        {
++          success: false,
++          error: 'Validation failed',
++          details: error.flatten().fieldErrors as Record<string, string[]>,
++        },
++        { status: 400 }
++      );
++    }
++
++    if (error instanceof Error) {
++      if (error.message === 'Subject not found') {
++        return NextResponse.json(
++          {
++            success: false,
++            error: error.message,
++          },
++          { status: 404 }
++        );
++      }
++    }
++
++    return NextResponse.json(
++      {
++        success: false,
++        ...createErrorResponse(error),
++      },
++      { status: 500 }
++    );
++  }
++}
 diff --git a/repository_after/src/app/api/sessions/[id]/route.ts b/repository_after/src/app/api/sessions/[id]/route.ts
 new file mode 100644
-index 0000000..ae92926
+index 000000000..ae929269e
 --- /dev/null
 +++ b/repository_after/src/app/api/sessions/[id]/route.ts
 @@ -0,0 +1,185 @@
@@ -284,7 +553,7 @@ index 0000000..ae92926
 +}
 diff --git a/repository_after/src/app/api/sessions/route.ts b/repository_after/src/app/api/sessions/route.ts
 new file mode 100644
-index 0000000..4a6e082
+index 000000000..4a6e082e9
 --- /dev/null
 +++ b/repository_after/src/app/api/sessions/route.ts
 @@ -0,0 +1,120 @@
@@ -410,7 +679,7 @@ index 0000000..4a6e082
 +}
 diff --git a/repository_after/src/app/api/subjects/[id]/route.ts b/repository_after/src/app/api/subjects/[id]/route.ts
 new file mode 100644
-index 0000000..558effb
+index 000000000..558effb67
 --- /dev/null
 +++ b/repository_after/src/app/api/subjects/[id]/route.ts
 @@ -0,0 +1,197 @@
@@ -613,7 +882,7 @@ index 0000000..558effb
 +}
 diff --git a/repository_after/src/app/api/subjects/route.ts b/repository_after/src/app/api/subjects/route.ts
 new file mode 100644
-index 0000000..7316bb2
+index 000000000..7316bb2b8
 --- /dev/null
 +++ b/repository_after/src/app/api/subjects/route.ts
 @@ -0,0 +1,93 @@
@@ -712,7 +981,7 @@ index 0000000..7316bb2
 +}
 diff --git a/repository_after/src/app/globals.css b/repository_after/src/app/globals.css
 new file mode 100644
-index 0000000..6584efe
+index 000000000..6584efe3c
 --- /dev/null
 +++ b/repository_after/src/app/globals.css
 @@ -0,0 +1,247 @@
@@ -965,7 +1234,7 @@ index 0000000..6584efe
 +}
 diff --git a/repository_after/src/app/layout.tsx b/repository_after/src/app/layout.tsx
 new file mode 100644
-index 0000000..22f5747
+index 000000000..22f57474d
 --- /dev/null
 +++ b/repository_after/src/app/layout.tsx
 @@ -0,0 +1,26 @@
@@ -997,7 +1266,7 @@ index 0000000..22f5747
 +}
 diff --git a/repository_after/src/app/page.tsx b/repository_after/src/app/page.tsx
 new file mode 100644
-index 0000000..49715ec
+index 000000000..49715ec72
 --- /dev/null
 +++ b/repository_after/src/app/page.tsx
 @@ -0,0 +1,430 @@
@@ -1433,15 +1702,15 @@ index 0000000..49715ec
 +}
 diff --git a/repository_after/src/lib/db.ts b/repository_after/src/lib/db.ts
 new file mode 100644
-index 0000000..4d59cf2
+index 000000000..22a7677ff
 --- /dev/null
 +++ b/repository_after/src/lib/db.ts
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,126 @@
 +// db.ts / mongo.ts
 +import { MongoClient, Db } from 'mongodb';
 +
-+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-+const DB_NAME = process.env.DB_NAME || 'study_planner';
++const DEFAULT_MONGODB_URI = 'mongodb://localhost:27017';
++const DEFAULT_DB_NAME = 'study_planner';
 +
 +const CLIENT_OPTIONS = {
 +  maxPoolSize: 10,
@@ -1459,7 +1728,8 @@ index 0000000..4d59cf2
 +function getMongoClientPromise(): Promise<MongoClient> {
 +  if (_clientPromise) return _clientPromise;
 +
-+  const client = new MongoClient(MONGODB_URI, CLIENT_OPTIONS);
++  const uri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
++  const client = new MongoClient(uri, CLIENT_OPTIONS);
 +
 +  _clientPromise = client
 +    .connect()
@@ -1485,7 +1755,8 @@ index 0000000..4d59cf2
 +
 +export async function getDatabase(): Promise<Db> {
 +  const client = await getMongoClientPromise();
-+  const db = client.db(DB_NAME);
++  const dbName = process.env.DB_NAME || DEFAULT_DB_NAME;
++  const db = client.db(dbName);
 +
 +  // Run index creation only once (or on first access)
 +  // You can also move this to an init function called at startup
@@ -1564,7 +1835,7 @@ index 0000000..4d59cf2
 \ No newline at end of file
 diff --git a/repository_after/src/lib/offline-manager.ts b/repository_after/src/lib/offline-manager.ts
 new file mode 100644
-index 0000000..3c35d45
+index 000000000..3c35d454b
 --- /dev/null
 +++ b/repository_after/src/lib/offline-manager.ts
 @@ -0,0 +1,128 @@
@@ -1698,7 +1969,7 @@ index 0000000..3c35d45
 +};
 diff --git a/repository_after/src/lib/utils.ts b/repository_after/src/lib/utils.ts
 new file mode 100644
-index 0000000..a61cb08
+index 000000000..a61cb08ca
 --- /dev/null
 +++ b/repository_after/src/lib/utils.ts
 @@ -0,0 +1,310 @@
@@ -2014,7 +2285,7 @@ index 0000000..a61cb08
 +}
 diff --git a/repository_after/src/lib/validations.ts b/repository_after/src/lib/validations.ts
 new file mode 100644
-index 0000000..7ad4647
+index 000000000..7ad464799
 --- /dev/null
 +++ b/repository_after/src/lib/validations.ts
 @@ -0,0 +1,242 @@
@@ -2262,7 +2533,7 @@ index 0000000..7ad4647
 +export type PaginationQuery = z.infer<typeof paginationSchema>;
 diff --git a/repository_after/src/services/analyticsService.ts b/repository_after/src/services/analyticsService.ts
 new file mode 100644
-index 0000000..903f4ec
+index 000000000..903f4ecbd
 --- /dev/null
 +++ b/repository_after/src/services/analyticsService.ts
 @@ -0,0 +1,376 @@
@@ -2644,7 +2915,7 @@ index 0000000..903f4ec
 +}
 diff --git a/repository_after/src/services/reminderService.ts b/repository_after/src/services/reminderService.ts
 new file mode 100644
-index 0000000..8e0a3dc
+index 000000000..8e0a3dcb3
 --- /dev/null
 +++ b/repository_after/src/services/reminderService.ts
 @@ -0,0 +1,387 @@
@@ -3037,7 +3308,7 @@ index 0000000..8e0a3dc
 +}
 diff --git a/repository_after/src/services/studySessionService.ts b/repository_after/src/services/studySessionService.ts
 new file mode 100644
-index 0000000..3e61c93
+index 000000000..009c8949a
 --- /dev/null
 +++ b/repository_after/src/services/studySessionService.ts
 @@ -0,0 +1,358 @@
@@ -3090,13 +3361,13 @@ index 0000000..3e61c93
 +  const collection = db.collection<StudySession>(COLLECTION_NAME);
 +
 +  // Check for duplicate rapid submissions
-+  // Prevent same subject, duration, and timestamp within 5 seconds
++  // Prevent same subject, duration, and timestamp within 5 seconds (strictly less than 5s)
 +  const recentCutoff = new Date(Date.now() - DUPLICATE_SUBMISSION_WINDOW_MS);
 +  const duplicateSession = await collection.findOne({
 +    subjectId: toObjectId(validated.subjectId),
 +    duration: validated.duration,
 +    timestamp: validated.timestamp,
-+    createdAt: { $gte: recentCutoff },
++    createdAt: { $gt: recentCutoff },
 +  });
 +
 +  if (duplicateSession) {
@@ -3401,7 +3672,7 @@ index 0000000..3e61c93
 +}
 diff --git a/repository_after/src/services/subjectService.ts b/repository_after/src/services/subjectService.ts
 new file mode 100644
-index 0000000..942764f
+index 000000000..942764fef
 --- /dev/null
 +++ b/repository_after/src/services/subjectService.ts
 @@ -0,0 +1,265 @@
@@ -3672,7 +3943,7 @@ index 0000000..942764f
 +}
 diff --git a/repository_after/src/types/index.ts b/repository_after/src/types/index.ts
 new file mode 100644
-index 0000000..19cc231
+index 000000000..19cc23146
 --- /dev/null
 +++ b/repository_after/src/types/index.ts
 @@ -0,0 +1,270 @@
@@ -3948,7 +4219,7 @@ index 0000000..19cc231
 +} from '@/lib/validations';
 diff --git a/repository_after/tailwind.config.js b/repository_after/tailwind.config.js
 new file mode 100644
-index 0000000..f1a2b0b
+index 000000000..f1a2b0b7e
 --- /dev/null
 +++ b/repository_after/tailwind.config.js
 @@ -0,0 +1,41 @@
@@ -3995,7 +4266,7 @@ index 0000000..f1a2b0b
 +}
 diff --git a/repository_after/tsconfig.json b/repository_after/tsconfig.json
 new file mode 100644
-index 0000000..404b4a5
+index 000000000..404b4a565
 --- /dev/null
 +++ b/repository_after/tsconfig.json
 @@ -0,0 +1,28 @@
