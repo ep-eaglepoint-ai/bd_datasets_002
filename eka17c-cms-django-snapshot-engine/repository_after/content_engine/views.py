@@ -6,7 +6,7 @@ This module provides views for:
 - Public API (read-only access to live content)
 """
 import json
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -18,6 +18,9 @@ from .models import Document, ContentVersion
 def admin_dashboard(request):
     """Display a list of all documents."""
     documents = Document.objects.all()
+    if request.htmx:
+        # HTMX request - return only the document list
+        return render(request, 'admin/dashboard_list.html', {'documents': documents})
     return render(request, 'admin/dashboard.html', {'documents': documents})
 
 
@@ -43,6 +46,8 @@ def create_document(request):
         initial_content = data.get('content', {})
         
         if not slug:
+            if request.htmx:
+                return HttpResponse('<div class="error">slug is required</div>', status=400)
             return JsonResponse({'error': 'slug is required'}, status=400)
         
         # Create document
@@ -52,6 +57,11 @@ def create_document(request):
         if initial_content:
             version = document.create_version(initial_content)
         
+        if request.htmx:
+            # Return updated document list
+            documents = Document.objects.all()
+            return render(request, 'admin/dashboard_list.html', {'documents': documents})
+        
         return JsonResponse({
             'id': document.id,
             'slug': document.slug,
@@ -59,8 +69,12 @@ def create_document(request):
             'created_at': document.created_at.isoformat()
         }, status=201)
     except json.JSONDecodeError:
+        if request.htmx:
+            return HttpResponse('<div class="error">Invalid JSON</div>', status=400)
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
+        if request.htmx:
+            return HttpResponse(f'<div class="error">{str(e)}</div>', status=500)
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -74,9 +88,19 @@ def create_version(request, document_id):
         content = data.get('content', {})
         
         if not content:
+            if request.htmx:
+                return HttpResponse('<div class="error">content is required</div>', status=400)
             return JsonResponse({'error': 'content is required'}, status=400)
         
         version = document.create_version(content)
+        
+        if request.htmx:
+            # Return updated version list
+            versions = document.get_versions()
+            return render(request, 'admin/version_list.html', {
+                'document': document,
+                'versions': versions
+            })
         
         return JsonResponse({
             'id': version.id,
@@ -85,8 +109,16 @@ def create_version(request, document_id):
             'content_hash': version.content_hash
         }, status=201)
     except json.JSONDecodeError:
+        if request.htmx:
+            return HttpResponse('<div class="error">Invalid JSON</div>', status=400)
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except ValidationError as e:
+        if request.htmx:
+            return HttpResponse(f'<div class="error">{str(e)}</div>', status=400)
+        return JsonResponse({'error': str(e)}, status=400)
     except Exception as e:
+        if request.htmx:
+            return HttpResponse(f'<div class="error">{str(e)}</div>', status=500)
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -96,7 +128,8 @@ def create_version(request, document_id):
 def publish_version(request, document_id, version_id):
     """Atomically publish a specific version."""
     try:
-        document = get_object_or_404(Document, id=document_id)
+        # Use select_for_update to lock the document row
+        document = Document.objects.select_for_update().get(id=document_id)
         
         # Verify version belongs to document
         version = get_object_or_404(ContentVersion, id=version_id, document=document)
@@ -105,6 +138,14 @@ def publish_version(request, document_id, version_id):
         document.live_version = version
         document.save(update_fields=['live_version', 'updated_at'])
         
+        if request.htmx:
+            # Return updated version list
+            versions = document.get_versions()
+            return render(request, 'admin/version_list.html', {
+                'document': document,
+                'versions': versions
+            })
+        
         return JsonResponse({
             'id': version.id,
             'version_number': version.version_number,
@@ -112,7 +153,35 @@ def publish_version(request, document_id, version_id):
             'document_slug': document.slug
         })
     except Exception as e:
+        if request.htmx:
+            return HttpResponse(f'<div class="error">{str(e)}</div>', status=500)
         return JsonResponse({'error': str(e)}, status=500)
+
+
+def compare_versions(request, document_id, version1_id, version2_id):
+    """
+    Compare two versions of a document.
+    
+    Returns a comparison view showing differences between versions.
+    """
+    document = get_object_or_404(Document, id=document_id)
+    
+    version1 = get_object_or_404(ContentVersion, id=version1_id, document=document)
+    version2 = get_object_or_404(ContentVersion, id=version2_id, document=document)
+    
+    # Get the live version for comparison with draft
+    live_version = document.live_version
+    
+    # Calculate differences
+    comparison = version2.compare_with(version1)
+    
+    return render(request, 'admin/compare.html', {
+        'document': document,
+        'version1': version1,
+        'version2': version2,
+        'comparison': comparison,
+        'live_version': live_version
+    })
 
 
 def public_document_content(request, slug):

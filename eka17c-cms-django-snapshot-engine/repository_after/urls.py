@@ -27,6 +27,8 @@ urlpatterns = [
     path('admin/', views.admin_dashboard, name='admin_dashboard'),
     path('admin/documents/', views.admin_dashboard, name='document_list'),
     path('admin/documents/<int:document_id>/', views.document_history, name='document_history'),
+    path('admin/documents/<int:document_id>/compare/<int:version1_id>/<int:version2_id>/', 
+         views.compare_versions, name='compare_versions'),
     path('api/documents/', views.create_document, name='create_document'),
     path('api/documents/<int:document_id>/versions/', views.create_version, name='create_version'),
     path('api/documents/<int:document_id>/versions/<int:version_id>/publish/', 

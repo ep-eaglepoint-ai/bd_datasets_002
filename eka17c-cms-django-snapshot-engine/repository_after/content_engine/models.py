@@ -90,11 +90,16 @@ class Document(models.Model):
             last_version = self.content_versions.order_by('-version_number').first()
             version_number = (last_version.version_number + 1) if last_version else 1
         
-        return ContentVersion.objects.create(
+        # Create version instance and validate before saving
+        version = ContentVersion(
             document=self,
             version_number=version_number,
             content=content
         )
+        version.full_clean()  # Validate schema and constraints
+        version.save()
+        
+        return version
     
     @transaction.atomic
     def publish_version(self, version_id):
@@ -102,7 +107,7 @@ class Document(models.Model):
         Atomically publish a specific version.
         
         This method updates the live_version pointer within a database
-        transaction to ensure consistency.
+        transaction with row-level locking to prevent race conditions.
         
         Args:
             version_id: ID of the ContentVersion to publish
@@ -114,13 +119,20 @@ class Document(models.Model):
             ContentVersion.DoesNotExist: If version doesn't belong to this document
             ValueError: If version_id is invalid
         """
+        # Use select_for_update to lock the document row and prevent race conditions
+        locked_doc = Document.objects.select_for_update().get(pk=self.pk)
+        
         try:
             version = self.content_versions.get(id=version_id)
         except ContentVersion.DoesNotExist:
             raise ValueError(f"Version {version_id} not found for document {self.slug}")
         
-        self.live_version = version
-        self.save(update_fields=['live_version', 'updated_at'])
+        # Update the locked document and refresh self
+        locked_doc.live_version = version
+        locked_doc.save(update_fields=['live_version', 'updated_at'])
+        
+        # Refresh self to reflect the changes
+        self.refresh_from_db()
         
         return version
     
@@ -143,8 +155,8 @@ class ContentVersion(models.Model):
     """
     Immutable snapshot of document content.
     
-    Once created, a ContentVersion cannot be modified. Any attempt to
-    update an existing instance will raise a ValidationError.
+    Once created, a ContentVersion cannot be modified or deleted. Any attempt to
+    update or delete an existing instance will raise a ValidationError.
     """
     document = models.ForeignKey(
         Document,
@@ -199,11 +211,15 @@ class ContentVersion(models.Model):
             content_str = json.dumps(self.content, sort_keys=True, default=str)
             self.content_hash = hashlib.sha256(content_str.encode()).hexdigest()
         
-        # Check immutability before saving
+        # Check immutability before saving (only for existing instances)
         if self.pk is not None:
             raise ValidationError(
                 "ContentVersion is immutable. Create a new version instead of modifying existing ones."
             )
+        
+        # Validate schema and model constraints before saving for new instances
+        if self.pk is None:
+            self.full_clean()
         
         super().save(*args, **kwargs)
     
@@ -236,9 +252,7 @@ class ContentVersion(models.Model):
     
     def delete(self, *args, **kwargs):
         """Override delete to prevent accidental deletion of versions."""
-        # Optionally allow deletion, but in production you might want to
-        # soft-delete or prevent deletion entirely
-        super().delete(*args, **kwargs)
+        raise ValidationError("ContentVersion is immutable and cannot be deleted. Use Document deletion to cascade removal.")
     
     @property
     def is_live(self):
@@ -256,3 +270,53 @@ class ContentVersion(models.Model):
         return self.document.content_versions.filter(
             version_number__gt=self.version_number
         ).order_by('version_number').first()
+    
+    def compare_with(self, other_version):
+        """
+        Compare this version with another version.
+        
+        Args:
+            other_version: Another ContentVersion instance to compare with
+            
+        Returns:
+            Dictionary with 'added', 'removed', 'modified' keys containing differences
+        """
+        if not isinstance(other_version, ContentVersion):
+            raise ValueError("Can only compare with another ContentVersion")
+        
+        if self.document != other_version.document:
+            raise ValueError("Can only compare versions from the same document")
+        
+        def flatten_dict(d, prefix=''):
+            """Flatten a nested dictionary for comparison."""
+            items = {}
+            if isinstance(d, dict):
+                for k, v in d.items():
+                    new_key = f"{prefix}.{k}" if prefix else k
+                    if isinstance(v, dict):
+                        items.update(flatten_dict(v, new_key))
+                    elif isinstance(v, list):
+                        items[new_key] = v
+                    else:
+                        items[new_key] = v
+            return items
+        
+        self_flat = flatten_dict(self.content)
+        other_flat = flatten_dict(other_version.content)
+        
+        added = {k: v for k, v in self_flat.items() if k not in other_flat}
+        removed = {k: v for k, v in other_flat.items() if k not in self_flat}
+        modified = {}
+        
+        for k in set(self_flat.keys()) & set(other_flat.keys()):
+            if self_flat[k] != other_flat[k]:
+                modified[k] = {
+                    'old': other_flat[k],
+                    'new': self_flat[k]
+                }
+        
+        return {
+            'added': added,
+            'removed': removed,
+            'modified': modified
+        }

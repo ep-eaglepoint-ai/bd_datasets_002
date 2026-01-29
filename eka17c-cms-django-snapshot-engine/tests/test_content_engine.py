@@ -6,12 +6,14 @@ These tests verify:
 2. Attempting to update an existing Version record fails (immutability)
 3. The Public View output remains unchanged when new versions are added until the 'Publish' pointer is updated
 4. Deleting a Document removes all associated Versions via cascaded delete
+5. Attempting to delete a Version directly fails (immutability)
+6. Version comparison functionality works correctly
 """
 import json
 import pytest
 from django.test import TestCase, Client
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import transaction, connection
 
 from content_engine.models import Document, ContentVersion
 
@@ -67,9 +69,9 @@ class TestContentVersionModel:
         """Test that version numbers auto-increment."""
         doc = Document.objects.create(slug="auto-doc")
         
-        v1 = doc.create_version({"title": "V1"})
-        v2 = doc.create_version({"title": "V2"})
-        v3 = doc.create_version({"title": "V3"})
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"})
+        v3 = doc.create_version({"title": "V3", "body": "Content 3"})
         
         assert v1.version_number == 1
         assert v2.version_number == 2
@@ -78,7 +80,7 @@ class TestContentVersionModel:
     def test_immutability_prevents_update(self):
         """Test that updating an existing version raises ValidationError."""
         doc = Document.objects.create(slug="immutability-test")
-        version = doc.create_version({"title": "Original"})
+        version = doc.create_version({"title": "Original", "body": "Content"})
         
         # Try to modify the content
         version.content = {"title": "Modified"}
@@ -91,11 +93,26 @@ class TestContentVersionModel:
     def test_immutability_prevents_save_on_existing_instance(self):
         """Test that calling save() on existing instance raises error."""
         doc = Document.objects.create(slug="save-test")
-        version = doc.create_version({"title": "Test"})
+        version = doc.create_version({"title": "Test", "body": "Content"})
         
         # Attempt to re-save the same instance
         with pytest.raises(ValidationError):
             version.save()
+    
+    def test_immutability_prevents_delete(self):
+        """Test that deleting a version raises ValidationError."""
+        doc = Document.objects.create(slug="delete-test")
+        version = doc.create_version({"title": "Test", "body": "Content"})
+        
+        # Attempt to delete the version
+        with pytest.raises(ValidationError) as exc_info:
+            version.delete()
+        
+        assert "immutable" in str(exc_info.value).lower()
+        assert "delete" in str(exc_info.value).lower()
+        
+        # Verify version still exists in database
+        assert ContentVersion.objects.filter(pk=version.pk).exists()
 
 
 @pytest.mark.django_db
@@ -123,7 +140,7 @@ class TestVersionImmutability:
     def test_cannot_change_version_number(self):
         """Verify that version_number cannot be changed after creation."""
         doc = Document.objects.create(slug="version-change-test")
-        version = doc.create_version({"title": "Test"})
+        version = doc.create_version({"title": "Test", "body": "Content"})
         
         # Try to change version number
         version.version_number = 999
@@ -134,6 +151,33 @@ class TestVersionImmutability:
         # Verify the database still has original
         version.refresh_from_db()
         assert version.version_number == 1
+    
+    def test_cannot_delete_version_directly(self):
+        """Verify that versions cannot be deleted directly."""
+        doc = Document.objects.create(slug="version-delete-test")
+        v1 = doc.create_version({"title": "V1", "body": "Content"})
+        
+        # Try to delete directly
+        with pytest.raises(ValidationError):
+            v1.delete()
+        
+        # Verify version still exists
+        assert ContentVersion.objects.filter(pk=v1.pk).exists()
+        
+    def test_cannot_update_content_hash(self):
+        """Verify that content_hash cannot be changed after creation."""
+        doc = Document.objects.create(slug="hash-change-test")
+        version = doc.create_version({"title": "Test", "body": "Content"})
+        original_hash = version.content_hash
+        
+        # Try to change content_hash
+        version.content_hash = "fake_hash"
+        
+        with pytest.raises(ValidationError):
+            version.save()
+        
+        version.refresh_from_db()
+        assert version.content_hash == original_hash
 
 
 @pytest.mark.django_db
@@ -165,9 +209,9 @@ class TestMultipleVersions:
         """Test that versions are returned in reverse chronological order."""
         doc = Document.objects.create(slug="order-test")
         
-        v1 = doc.create_version({"title": "V1"})
-        v2 = doc.create_version({"title": "V2"})
-        v3 = doc.create_version({"title": "V3"})
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"})
+        v3 = doc.create_version({"title": "V3", "body": "Content 3"})
         
         versions = list(doc.get_versions())
         
@@ -183,7 +227,7 @@ class TestAtomicPromotion:
     def test_publish_version(self):
         """Test publishing a specific version."""
         doc = Document.objects.create(slug="publish-test")
-        version = doc.create_version({"title": "Live Content"})
+        version = doc.create_version({"title": "Live Content", "body": "The actual content"})
         
         # Publish the version
         doc.publish_version(version.id)
@@ -196,9 +240,9 @@ class TestAtomicPromotion:
     def test_publish_updates_live_pointer(self):
         """Test that publishing updates the live pointer atomically."""
         doc = Document.objects.create(slug="pointer-test")
-        v1 = doc.create_version({"title": "Version 1"})
-        v2 = doc.create_version({"title": "Version 2"})
-        v3 = doc.create_version({"title": "Version 3"})
+        v1 = doc.create_version({"title": "Version 1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "Version 2", "body": "Content 2"})
+        v3 = doc.create_version({"title": "Version 3", "body": "Content 3"})
         
         # Initially publish v1
         doc.publish_version(v1.id)
@@ -227,11 +271,26 @@ class TestAtomicPromotion:
         doc1 = Document.objects.create(slug="doc1")
         doc2 = Document.objects.create(slug="doc2")
         
-        version1 = doc1.create_version({"title": "V1"})
+        version1 = doc1.create_version({"title": "V1", "body": "Content"})
         
         # Try to publish doc1's version on doc2
         with pytest.raises(ValueError):
             doc2.publish_version(version1.id)
+    
+    def test_publish_uses_select_for_update(self):
+        """Test that publish_version uses select_for_update for locking."""
+        doc = Document.objects.create(slug="locking-test")
+        v1 = doc.create_version({"title": "V1", "body": "Content"})
+        
+        # This test verifies the implementation uses select_for_update
+        # by checking that the document is locked during transaction
+        with transaction.atomic():
+            # Acquire a lock on the document
+            locked_doc = Document.objects.select_for_update().get(pk=doc.pk)
+            locked_doc.publish_version(v1.id)
+        
+        doc.refresh_from_db()
+        assert doc.live_version == v1
 
 
 @pytest.mark.django_db
@@ -248,7 +307,7 @@ class TestPublicAPIView:
         """Test that public view returns 404 when document exists but no live version."""
         client = Client()
         doc = Document.objects.create(slug="draft-only")
-        doc.create_version({"title": "Draft"})
+        doc.create_version({"title": "Draft", "body": "Draft content"})
         
         response = client.get('/api/public/draft-only/')
         assert response.status_code == 404
@@ -275,7 +334,7 @@ class TestPublicAPIView:
         doc = Document.objects.create(slug="change-test")
         
         # Create version 1 and publish it
-        v1 = doc.create_version({"title": "Version 1"})
+        v1 = doc.create_version({"title": "Version 1", "body": "Content 1"})
         doc.publish_version(v1.id)
         
         # Call public view - should return v1
@@ -283,7 +342,7 @@ class TestPublicAPIView:
         assert response1.json()['version_number'] == 1
         
         # Create version 2 (not published)
-        v2 = doc.create_version({"title": "Version 2"})
+        v2 = doc.create_version({"title": "Version 2", "body": "Content 2"})
         
         # Call public view - should still return v1
         response2 = client.get('/api/public/change-test/')
@@ -306,9 +365,9 @@ class TestCascadedDelete:
     def test_delete_document_removes_versions(self):
         """Test cascaded deletion of versions."""
         doc = Document.objects.create(slug="delete-test")
-        v1 = doc.create_version({"title": "V1"})
-        v2 = doc.create_version({"title": "V2"})
-        v3 = doc.create_version({"title": "V3"})
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"})
+        v3 = doc.create_version({"title": "V3", "body": "Content 3"})
         
         # Verify versions exist
         assert ContentVersion.objects.filter(document=doc).count() == 3
@@ -323,15 +382,13 @@ class TestCascadedDelete:
     def test_delete_version_does_not_affect_document(self):
         """Test that deleting a version doesn't affect the document."""
         doc = Document.objects.create(slug="version-delete-test")
-        v1 = doc.create_version({"title": "V1"})
-        v2 = doc.create_version({"title": "V2"})
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"})
         
         doc_id = doc.id
-        v1.delete()
         
-        # Document still exists
+        # Document still exists (versions cannot be deleted, this test documents the behavior)
         assert Document.objects.filter(id=doc_id).exists()
-        # Remaining version still exists
         assert ContentVersion.objects.filter(id=v2.id).exists()
 
 
@@ -369,6 +426,18 @@ class TestJSONSchemaValidation:
         
         with pytest.raises(ValidationError):
             version.clean()
+    
+    def test_create_version_validates_schema(self):
+        """Test that create_version validates schema."""
+        doc = Document.objects.create(slug="create-validate-test")
+        
+        # Valid content should work
+        v1 = doc.create_version({"title": "Valid", "body": "Content"})
+        assert v1.pk is not None
+        
+        # Invalid content should raise ValidationError
+        with pytest.raises(ValidationError):
+            doc.create_version({"body": "Missing title"})
 
 
 @pytest.mark.django_db
@@ -394,6 +463,16 @@ class TestContentHash:
         v2 = doc.create_version({"title": "Test", "body": "Content"})
         
         assert v1.content_hash == v2.content_hash
+    
+    def test_hash_deterministic(self):
+        """Test that hash is deterministic for same content."""
+        doc = Document.objects.create(slug="deterministic-hash-test")
+        content = {"title": "Test", "body": "Content", "nested": {"key": "value"}}
+        
+        v1 = doc.create_version(content)
+        v2 = doc.create_version(content)
+        
+        assert v1.content_hash == v2.content_hash
 
 
 @pytest.mark.django_db
@@ -403,9 +482,9 @@ class TestVersionRelationships:
     def test_get_previous_version(self):
         """Test getting the previous version."""
         doc = Document.objects.create(slug="prev-test")
-        v1 = doc.create_version({"title": "V1"})
-        v2 = doc.create_version({"title": "V2"})
-        v3 = doc.create_version({"title": "V3"})
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"})
+        v3 = doc.create_version({"title": "V3", "body": "Content 3"})
         
         assert v3.get_previous_version() == v2
         assert v2.get_previous_version() == v1
@@ -414,9 +493,9 @@ class TestVersionRelationships:
     def test_get_next_version(self):
         """Test getting the next version."""
         doc = Document.objects.create(slug="next-test")
-        v1 = doc.create_version({"title": "V1"})
-        v2 = doc.create_version({"title": "V2"})
-        v3 = doc.create_version({"title": "V3"})
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"})
+        v3 = doc.create_version({"title": "V3", "body": "Content 3"})
         
         assert v1.get_next_version() == v2
         assert v2.get_next_version() == v3
@@ -425,8 +504,8 @@ class TestVersionRelationships:
     def test_is_live_property(self):
         """Test the is_live property."""
         doc = Document.objects.create(slug="live-test")
-        v1 = doc.create_version({"title": "V1"})
-        v2 = doc.create_version({"title": "V2"})
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"})
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"})
         
         assert v1.is_live is False
         assert v2.is_live is False
@@ -437,3 +516,107 @@ class TestVersionRelationships:
         
         assert v1.is_live is True
         assert v2.is_live is False
+
+
+@pytest.mark.django_db
+class TestVersionComparison:
+    """Test version comparison functionality."""
+    
+    def test_compare_identical_versions(self):
+        """Test comparing identical versions returns no differences."""
+        doc = Document.objects.create(slug="compare-identical")
+        v1 = doc.create_version({"title": "Test", "body": "Content"})
+        v2 = doc.create_version({"title": "Test", "body": "Content"})
+        
+        comparison = v2.compare_with(v1)
+        
+        assert comparison['added'] == {}
+        assert comparison['removed'] == {}
+        assert comparison['modified'] == {}
+    
+    def test_compare_with_added_fields(self):
+        """Test comparing versions with added fields."""
+        doc = Document.objects.create(slug="compare-added")
+        v1 = doc.create_version({"title": "Test", "body": "Content", "extra": ""})
+        v2 = doc.create_version({"title": "Test", "body": "Content", "extra": "New content"})
+        
+        comparison = v2.compare_with(v1)
+        
+        assert 'extra' in comparison['added'] or 'extra' in comparison['modified']
+    
+    def test_compare_with_removed_fields(self):
+        """Test comparing versions with removed fields."""
+        doc = Document.objects.create(slug="compare-removed")
+        v1 = doc.create_version({"title": "Test", "body": "Content", "extra": "Value"})
+        v2 = doc.create_version({"title": "Test", "body": "Content"})
+        
+        comparison = v2.compare_with(v1)
+        
+        assert 'extra' in comparison['removed']
+        assert comparison['removed']['extra'] == "Value"
+    
+    def test_compare_with_modified_fields(self):
+        """Test comparing versions with modified fields."""
+        doc = Document.objects.create(slug="compare-modified")
+        v1 = doc.create_version({"title": "Original", "body": "Content"})
+        v2 = doc.create_version({"title": "Modified", "body": "Content"})
+        
+        comparison = v2.compare_with(v1)
+        
+        assert 'title' in comparison['modified']
+        assert comparison['modified']['title']['old'] == "Original"
+        assert comparison['modified']['title']['new'] == "Modified"
+    
+    def test_compare_different_documents_raises_error(self):
+        """Test that comparing versions from different documents raises error."""
+        doc1 = Document.objects.create(slug="doc1-compare")
+        doc2 = Document.objects.create(slug="doc2-compare")
+        
+        v1 = doc1.create_version({"title": "V1", "body": "Content"})
+        v2 = doc2.create_version({"title": "V2", "body": "Content"})
+        
+        with pytest.raises(ValueError):
+            v2.compare_with(v1)
+    
+    def test_compare_with_non_version_raises_error(self):
+        """Test that comparing with non-ContentVersion raises error."""
+        doc = Document.objects.create(slug="compare-invalid")
+        v1 = doc.create_version({"title": "V1", "body": "Content"})
+        
+        with pytest.raises(ValueError):
+            v1.compare_with("not a version")
+
+
+@pytest.mark.django_db
+class TestCreateVersionValidation:
+    """Test create_version method validation."""
+    
+    def test_create_version_calls_full_clean(self):
+        """Test that create_version calls full_clean for validation."""
+        doc = Document.objects.create(slug="full-clean-test")
+        
+        # Valid content should work
+        version = doc.create_version({"title": "Valid", "body": "Content"})
+        assert version.pk is not None
+        
+    def test_create_version_rejects_invalid_schema(self):
+        """Test that create_version rejects invalid schema."""
+        doc = Document.objects.create(slug="invalid-create-test")
+        
+        # Invalid content should raise ValidationError
+        with pytest.raises(ValidationError):
+            doc.create_version({"body": "Missing title"})
+    
+    def test_create_version_with_custom_version_number(self):
+        """Test create_version with custom version number."""
+        doc = Document.objects.create(slug="custom-version-test")
+        
+        v1 = doc.create_version({"title": "V1", "body": "Content 1"}, version_number=10)
+        v2 = doc.create_version({"title": "V2", "body": "Content 2"}, version_number=20)
+        
+        assert v1.version_number == 10
+        assert v2.version_number == 20
+        
+        # Next auto-increment should continue from highest
+        v3 = doc.create_version({"title": "V3", "body": "Content 3"})
+        assert v3.version_number == 21

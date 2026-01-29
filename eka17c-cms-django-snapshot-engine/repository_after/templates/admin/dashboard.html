@@ -81,14 +81,70 @@
             border-radius: 4px;
             cursor: pointer;
         }
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toast {
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .toast-success {
+            background: #28a745;
+        }
+        .toast-error {
+            background: #dc3545;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
     </style>
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <div class="toast-container" id="toast-container"></div>
+    
+    <script>
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        const response = event.detail.xhr;
+        if (response.status >= 200 && response.status < 300) {
+            showToast('Success!', 'success');
+        } else if (response.status >= 400) {
+            const text = response.responseText;
+            // Extract error message from response
+            const match = text.match(/<div class="error">(.*?)<\/div>/);
+            const errorMsg = match ? match[1] : 'An error occurred';
+            showToast(errorMsg, 'error');
+        }
+    });
+    
+    function showToast(message, type) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    </script>
     <h1>📄 Document Dashboard</h1>
     
     <div class="create-form">
         <h2>Create New Document</h2>
-        <form hx-post="/api/documents/" hx-target="#document-list" hx-swap="innerHTML">
+        <form hx-post="/api/documents/" hx-target="#document-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
             <input type="text" name="slug" placeholder="Document slug (e.g., my-page)" required>
             <input type="text" name="title" placeholder="Document title (optional)">
             <input type="text" name="content" placeholder='Initial content JSON (optional, e.g., {"title": "Hello", "body": "World"})'>

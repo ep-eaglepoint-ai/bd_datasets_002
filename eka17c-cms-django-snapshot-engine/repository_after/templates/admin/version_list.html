@@ -1,0 +1,28 @@
+{% load content_engine_tags %}
+{% for version in versions %}
+<li class="version-item">
+    <div class="version-header">
+        <span class="version-number">Version {{ version.version_number }}</span>
+        {% if version.is_live %}
+            <span class="version-badge badge-live">LIVE</span>
+        {% else %}
+            <span class="version-badge badge-draft">DRAFT</span>
+        {% endif %}
+    </div>
+    <div class="version-meta">
+        Created: {{ version.created_at|date:"Y-m-d H:i:s" }} • 
+        Hash: {{ version.content_hash|truncatechars:16 }}…
+    </div>
+    <div class="content-preview">{{ version.content|pretty_json }}</div>
+    <div class="actions">
+        {% if not version.is_live %}
+        <form hx-post="/api/documents/{{ document.id }}/versions/{{ version.id }}/publish/" 
+              hx-target="#version-list" hx-swap="innerHTML" style="display: inline;">
+            <button type="submit" class="btn btn-publish">Publish This Version</button>
+        </form>
+        {% endif %}
+    </div>
+</li>
+{% empty %}
+<li class="version-item">No versions found. Create one above.</li>
+{% endfor %}
