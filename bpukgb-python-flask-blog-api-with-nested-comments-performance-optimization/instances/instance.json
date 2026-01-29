@@ -1,0 +1,11 @@
+{
+            "instance_id": "BPUKGB",
+            "problem_statement": "The blog API with nested comments has severe performance issues. Loading comment threads for popular posts takes 15+ seconds and sometimes crashes the server with RecursionError. Memory usage spikes to 2GB+ on large threads. The database shows thousands of queries for a single page load. Even simple operations like getting comment counts are slow. Pagination returns inconsistent results when new comments are added. Core logic is in app.py, models.py, schemas.py, services.py, and database.py.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/bpukgb-python-flask-blog-api-with-nested-comments-performance-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
