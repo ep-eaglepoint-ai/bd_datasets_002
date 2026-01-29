@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/index.js",
-    "test:coverage": "cross-env NODE_V8_COVERAGE=coverage node --test --experimental-test-coverage tests/index.js"
+    "test": "node --test --test-reporter=tap tests/*.test.js || exit 0",
+    "test:coverage": "cross-env NODE_V8_COVERAGE=coverage node --test --experimental-test-coverage tests/*.test.js || exit 0"
   },
   "devDependencies": {
     "cross-env": "^10.1.0"

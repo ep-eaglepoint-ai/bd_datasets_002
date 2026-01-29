@@ -23,7 +23,7 @@ async function evaluate() {
 
     const requiredFiles = [
         'repository_before/CircuitBreaker.js',
-        'tests/index.js',
+        'repository_after/CircuitBreaker.after.js',
         'package.json',
         'evaluation/evaluation.js'
     ];

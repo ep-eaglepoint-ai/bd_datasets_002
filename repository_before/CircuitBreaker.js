@@ -1,5 +1,4 @@
 
-// CircuitBreaker.js
 
 /**
  * Manages remote service call resiliency.
@@ -11,53 +10,36 @@
  */
 
 export class CircuitBreaker {
-  constructor(options = {}) {
-    this.failureThreshold = options.failureThreshold || 3;
-    this.resetTimeout = options.resetTimeout || 5000; // ms
-    this.state = 'CLOSED';
-    this.failures = 0;
-    this.lastFailureTime = null;
-  }
-
-  async execute(action) {
-    this.updateState();
-
-    if (this.state === 'OPEN') {
-      throw new Error('CIRCUIT_OPEN');
+    constructor(options = {}) {
+        // TODO: Initialize fields
     }
 
-    try {
-      const result = await action();
-      if (this.state === 'HALF_OPEN') {
-        this.reset();
-      }
-      return result;
-    } catch (error) {
-      this.handleFailure();
-      throw error;
+    async execute(action) {
+        // TODO: Implement state checking and action execution
+        // Missing: updateState() call
+        // Missing: OPEN state check
+        // Missing: HALF_OPEN success handling
+        // Missing: Error handling and failure tracking
+        return await action();
     }
-  }
 
-  updateState() {
-    if (this.state === 'OPEN' && Date.now() - this.lastFailureTime > this.resetTimeout) {
-      this.state = 'HALF_OPEN';
+    updateState() {
+        // TODO: Implement timeout-based state transitions
+        // Missing: OPEN -> HALF_OPEN transition logic
     }
-  }
 
-  handleFailure() {
-    this.failures++;
-    this.lastFailureTime = Date.now();
-
-    if (this.state === 'CLOSED' && this.failures >= this.failureThreshold) {
-      this.state = 'OPEN';
-    } else if (this.state === 'HALF_OPEN') {
-      this.state = 'OPEN';
+    handleFailure() {
+        // TODO: Implement failure tracking and state transitions
+        // Missing: Increment failure counter
+        // Missing: Update lastFailureTime
+        // Missing: CLOSED -> OPEN transition on threshold
+        // Missing: HALF_OPEN -> OPEN transition on failure
     }
-  }
 
-  reset() {
-    this.state = 'CLOSED';
-    this.failures = 0;
-    this.lastFailureTime = null;
-  }
+    reset() {
+        // TODO: Implement state reset logic
+        // Missing: Reset state to CLOSED
+        // Missing: Clear failure counter
+        // Missing: Clear lastFailureTime
+    }
 }

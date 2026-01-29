@@ -1,3 +1,20 @@
-docker compose run --rm -e PYTHONPATH=/app/repository_before app pytest -q
-docker compose run --rm -e PYTHONPATH=/app/repository_after app pytest -q
-docker compose run --rm app python evaluation/evaluation.py
+# Circuit Breaker State Testing
+
+## Verification Commands
+
+### Test repository_before
+```bash
+docker compose run --rm -e NODE_PATH=/app/repository_before app
+```
+
+### Test repository_after
+```bash
+docker compose run --rm -e NODE_PATH=/app/repository_after app
+```
+
+### Run Evaluation
+```bash
+docker compose run --rm app node evaluation/evaluation.js
+```
+
+## Local PowerShell Verification

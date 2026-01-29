@@ -1,4 +1,4 @@
-import { CircuitBreaker } from '../repository_before/CircuitBreaker.js';
+import { CircuitBreaker } from './CircuitBreaker.js';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 

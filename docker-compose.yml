@@ -3,7 +3,7 @@
 services:
   app:
     build: .
-    command: npm test
+    command: sh run-tests.sh
     volumes:
       - .:/app
     working_dir: /app
