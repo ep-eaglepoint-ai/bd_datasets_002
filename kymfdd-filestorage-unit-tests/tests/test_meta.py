@@ -51,7 +51,7 @@ class TestUnittestFilesExist:
         
         test_files = get_test_files()
         assert len(test_files) > 0, (
-            f"Target repsitory must have at least one test file (test_*.py) in: {tests_dir}"
+            f"Target repository must have at least one test file (test_*.py) in: {tests_dir}"
         )
 
     def test_unittest_files_use_unittest_module(self):
@@ -126,6 +126,82 @@ class TestUnittestFilesExist:
                 content = f.read()
             assert "import pytest" not in content, (
                 f"Test file {os.path.basename(test_file)} must not use pytest"
+            )
+
+
+class TestRequirementsMapping:
+    """Meta tests mapping to requirements 1, 3, 4, 5, 6, 7."""
+
+    def test_req1_targets_file_storage_only(self):
+        """Req 1: Unit tests must target only FileStorage; no TestBaseModel, TestUser, etc."""
+        test_files = get_test_files()
+        if not test_files:
+            pytest.fail("No test files found")
+        forbidden_classes = ["TestBaseModel", "TestUser", "TestState", "TestCity",
+                             "TestAmenity", "TestPlace", "TestReview"]
+        for test_file in test_files:
+            with open(test_file, "r") as f:
+                content = f.read()
+            for forbidden in forbidden_classes:
+                assert forbidden not in content, (
+                    f"Req 1: Test file {os.path.basename(test_file)} must not test model "
+                    f"classes; found '{forbidden}'"
+                )
+            assert "FileStorage" in content, (
+                f"Req 1: Test file {os.path.basename(test_file)} must target FileStorage"
+            )
+
+    def test_req3_req4_use_temporary_file_not_file_json(self):
+        """Req 3 & 4: Unit tests must use a temporary/test file; must not set path to file.json."""
+        test_files = get_test_files()
+        if not test_files:
+            pytest.fail("No test files found")
+        temp_patterns = ["test_file", "temp_file", "tempfile", "NamedTemporaryFile",
+                         "TemporaryFile", "mkstemp"]
+        for test_file in test_files:
+            with open(test_file, "r") as f:
+                content = f.read()
+            has_temp = any(p in content for p in temp_patterns)
+            assert has_temp, (
+                f"Req 3/4: Test file {os.path.basename(test_file)} must use a temporary "
+                f"or test file for persistence (e.g. test_file, tempfile)"
+            )
+            bad_assign = re.search(
+                r'(?:__file_path|_FileStorage__file_path|file_path)\s*=\s*["\']file\.json["\']',
+                content
+            )
+            assert not bad_assign, (
+                f"Req 3/4: Test file {os.path.basename(test_file)} must not set "
+                f"storage path to real 'file.json'"
+            )
+
+    def test_req5_reset_internal_storage_between_tests(self):
+        """Req 5: Unit tests must reset __objects between tests (setUp/tearDown)."""
+        test_files = get_test_files()
+        if not test_files:
+            pytest.fail("No test files found")
+        for test_file in test_files:
+            with open(test_file, "r") as f:
+                content = f.read()
+            has_objects_reset = "__objects" in content and (
+                "setUp" in content or "tearDown" in content
+            )
+            assert has_objects_reset, (
+                f"Req 5: Test file {os.path.basename(test_file)} must reset internal "
+                f"storage (__objects) between tests in setUp/tearDown"
+            )
+
+    def test_req6_no_print_for_validation(self):
+        """Req 6 (assertions): Unit tests must not use print() for validation."""
+        test_files = get_test_files()
+        if not test_files:
+            pytest.fail("No test files found")
+        for test_file in test_files:
+            with open(test_file, "r") as f:
+                content = f.read()
+            assert "print(" not in content, (
+                f"Test file {os.path.basename(test_file)} must not use print() for "
+                f"validation; use unittest assertions"
             )
 
 

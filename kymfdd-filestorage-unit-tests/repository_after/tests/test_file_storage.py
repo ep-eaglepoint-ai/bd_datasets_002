@@ -23,14 +23,15 @@ class TestFileStorage(unittest.TestCase):
         if os.path.exists(self.test_file):
             os.remove(self.test_file)
         FileStorage._FileStorage__objects = {}
+        self.assertFalse(os.path.exists("file.json"), "Req 3/4: real file.json must not be used")
 
     def test_all_returns_dict(self):
-        """TC-01: Requirement 1 - test all() returns the __objects dictionary"""
+        """TC-01: Req 1 - all() returns the __objects dictionary"""
         self.assertIsInstance(self.storage.all(), dict)
         self.assertEqual(len(self.storage.all()), 0)
 
     def test_new_adds_object(self):
-        """TC-02: Requirement 1 - test new() adds an object to __objects"""
+        """TC-02: Req 1 - new() adds an object to __objects"""
         bm = BaseModel()
         self.storage.new(bm)
         key = f"BaseModel.{bm.id}"
@@ -38,7 +39,7 @@ class TestFileStorage(unittest.TestCase):
         self.assertEqual(self.storage.all()[key], bm)
 
     def test_new_adds_user(self):
-        """TC-03: Requirement 1 - test new() adds a User object"""
+        """TC-03: Req 1 - new() adds a User object (fixture only)"""
         user = User()
         self.storage.new(user)
         key = f"User.{user.id}"
@@ -46,8 +47,9 @@ class TestFileStorage(unittest.TestCase):
         self.assertEqual(self.storage.all()[key], user)
 
     def test_save_creates_file(self):
-        """TC-04: Requirement 1, 3, 4 - test save() serializes objects to JSON file"""
+        """TC-04: Req 3, 4 - save() serializes objects to temporary JSON file"""
         bm = BaseModel()
+        self.storage.new(bm)
         self.storage.save()
         self.assertTrue(os.path.exists(self.test_file))
         with open(self.test_file, "r") as f:
@@ -58,7 +60,7 @@ class TestFileStorage(unittest.TestCase):
             self.assertEqual(data[key]["__class__"], "BaseModel")
 
     def test_reload_deserializes_objects(self):
-        """TC-05: Requirement 1, 4 - test reload() deserializes objects from JSON file"""
+        """TC-05: Req 4 - reload() deserializes objects from temporary file"""
         bm = BaseModel()
         bm_id = bm.id
         self.storage.save()
@@ -74,14 +76,14 @@ class TestFileStorage(unittest.TestCase):
         self.assertEqual(new_obj.id, bm_id)
 
     def test_reload_no_file(self):
-        """TC-06: Requirement 1, 6 - test reload() handles missing file gracefully"""
+        """TC-06: Req 6 - reload() handles missing file (independent/repeatable)"""
         try:
             self.storage.reload()
         except Exception as e:
             self.fail(f"reload() raised {type(e).__name__} unexpectedly!")
 
     def test_save_reload_multiple_objects(self):
-        """TC-07: Requirement 1, 6 - test save and reload with multiple object types"""
+        """TC-07: Req 6 - save/reload with multiple object types (isolation)"""
         u = User()
         s = State()
         self.storage.save()
@@ -95,11 +97,11 @@ class TestFileStorage(unittest.TestCase):
         self.assertIsInstance(self.storage.all()[f"State.{s.id}"], State)
 
     def test_file_storage_file_path_private(self):
-        """TC-08: Structural check - test __file_path is private and exists"""
+        """TC-08: Req 1 - __file_path is private and exists"""
         self.assertTrue(hasattr(FileStorage, "_FileStorage__file_path"))
 
     def test_file_storage_objects_private(self):
-        """TC-09: Structural check - test __objects is private and exists"""
+        """TC-09: Req 1 - __objects is private and exists"""
         self.assertTrue(hasattr(FileStorage, "_FileStorage__objects"))
 
 if __name__ == "__main__":
