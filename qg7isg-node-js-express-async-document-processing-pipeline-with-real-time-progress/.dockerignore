@@ -1,0 +1,11 @@
+node_modules
+repository_after/node_modules
+.env
+.env.*
+!.env.example
+evaluation/reports
+.git
+*.md
+trajectory
+patches
+instances

@@ -1,0 +1,24 @@
+{
+  "name": "qg7isg-document-processing",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:after": "jest",
+    "test:watch": "jest --watch",
+    "pretest": "cd repository_after && npx prisma generate",
+    "pretest:after": "cd repository_after && npx prisma generate",
+    "test:run": "node repository_after/node_modules/jest/bin/jest.js --config jest.config.js",
+    "evaluate": "npx ts-node evaluation/evaluation.ts"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.10",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
