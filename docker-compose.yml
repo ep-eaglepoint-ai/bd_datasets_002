@@ -1,0 +1,6 @@
+services:
+  app:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app

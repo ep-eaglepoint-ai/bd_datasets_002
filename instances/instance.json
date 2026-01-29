@@ -1,0 +1,11 @@
+{
+            "instance_id": "U0C9BY",
+            "problem_statement": "Users need a simple way to label text messages as spam or non-spam using a lightweight, easy-to-understand web application.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/u0c9by-spam-detection-demo-fastapi-react",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
