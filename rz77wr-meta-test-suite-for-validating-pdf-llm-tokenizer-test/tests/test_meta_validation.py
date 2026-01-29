@@ -309,10 +309,10 @@ def test_requirement_2_meta_tests_target_test_suite():
     meta_content = "".join(lines)
     assert "TEST_FILE" in meta_content, "Meta-tests don't reference test file"
     
-    # Meta-tests should NOT directly import the implementation (check actual import statements)
-    import_lines = [line for line in lines if line.strip().startswith("import ") and not line.strip().startswith("import ast")]
-    has_impl_import = any("pdf_llm_tokenizer" in line for line in import_lines)
-    assert not has_impl_import, "Meta-tests should not directly import implementation"
+    # Meta-tests should NOT directly import the implementation at module level (check actual import statements)
+    # Note: Dynamic imports within test functions (via sys.path.insert) are allowed for mutation testing
+    import_lines = [line for line in lines if line.strip().startswith("import pdf_llm_tokenizer") or line.strip().startswith("from pdf_llm_tokenizer")]
+    assert len(import_lines) == 0, "Meta-tests should not have module-level imports of implementation"
 
 
 def test_requirement_3_no_duplication_of_functional_tests():
@@ -358,20 +358,39 @@ def test_requirement_4_all_major_features_tested():
     assert any("cli" in name for name in test_names), "No CLI execution test"
 
 
-def test_requirement_5_tests_detect_broken_behavior():
+def test_requirement_5_tests_detect_broken_behavior(tmp_path):
     """Requirement 5: Assert that removing or bypassing any major tokenizer behavior would cause at least one test to fail."""
+    # Read original implementation
+    with open(IMPL_FILE, "r", encoding="utf-8") as f:
+        original_impl = f.read()
+    
+    # Read test file
     with open(TEST_FILE, "r", encoding="utf-8") as f:
-        content = f.read()
+        test_code = f.read()
     
-    # Tests must verify actual behavior, not just call functions
-    # Check for specific assertions that would fail if behavior is broken
-    assert "assert" in content, "No assertions in tests"
-    assert "assert " in content and content.count("assert ") >= 20, \
-        "Insufficient assertions to detect broken behavior"
+    def run_mutated_test(mutated_impl: str, test_name: str) -> bool:
+        """Run a specific test with mutated implementation, return True if test FAILS (mutation detected)"""
+        impl_file = tmp_path / "pdf_llm_tokenizer.py"
+        impl_file.write_text(mutated_impl, encoding="utf-8")
+        
+        test_file = tmp_path / "test_mut.py"
+        test_file.write_text(test_code, encoding="utf-8")
+        
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", str(test_file) + f"::{test_name}", "-x", "--tb=no", "-q"],
+            capture_output=True, text=True, cwd=tmp_path,
+            env={**subprocess.os.environ, "PYTHONPATH": str(tmp_path)},
+            timeout=120
+        )
+        return result.returncode != 0
     
-    # Tests should compare against expected values
-    assert "==" in content, "No equality checks in tests"
-    assert "direct_count" in content, "No verification against ground truth"
+    # MUTATION: Break decode roundtrip - this test is fast (no PDF creation needed)
+    mutated = original_impl.replace(
+        "return enc.decode(token_ids)",
+        "return 'BROKEN'  # MUTATED: wrong decode"
+    )
+    mutation_detected = run_mutated_test(mutated, "test_encode_decode_roundtrip")
+    assert mutation_detected, "Test suite should detect when encode/decode roundtrip is broken"
 
 
 def test_requirement_6_edge_cases_covered():
@@ -448,24 +467,47 @@ def test_requirement_10_json_serialization_validated():
     assert "json.loads" in content, "JSON deserialization not tested"
 
 
-def test_requirement_11_simulate_broken_behaviors():
+def test_requirement_11_simulate_broken_behaviors(tmp_path):
     """Requirement 11: Meta-tests intentionally simulate broken or altered tokenizer behaviors and confirm the test suite detects them."""
-    # This meta-test verifies that primary tests have sufficient assertions
-    # to detect broken behavior by checking assertion density
+    # Read original implementation
+    with open(IMPL_FILE, "r", encoding="utf-8") as f:
+        original_impl = f.read()
+    
+    # Read test file
     with open(TEST_FILE, "r", encoding="utf-8") as f:
-        content = f.read()
+        test_code = f.read()
     
-    # Count assertions
-    assertion_count = content.count("assert ")
-    test_count = len(get_test_function_names())
+    def run_mutated_test(mutated_impl: str, test_name: str) -> bool:
+        """Run a specific test with mutated implementation, return True if test FAILS (mutation detected)"""
+        impl_file = tmp_path / "pdf_llm_tokenizer.py"
+        impl_file.write_text(mutated_impl, encoding="utf-8")
+        
+        test_file = tmp_path / "test_mut.py"
+        test_file.write_text(test_code, encoding="utf-8")
+        
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", str(test_file) + f"::{test_name}", "-x", "--tb=no", "-q"],
+            capture_output=True, text=True, cwd=tmp_path,
+            env={**subprocess.os.environ, "PYTHONPATH": str(tmp_path)},
+            timeout=120
+        )
+        return result.returncode != 0
     
-    # Each test should have multiple assertions on average
-    assert assertion_count >= test_count * 2, \
-        f"Insufficient assertions ({assertion_count}) for {test_count} tests to detect broken behavior"
+    # MUTATION 1: Break encode function - return wrong tokens (fast test - no PDF needed)
+    mutated1 = original_impl.replace(
+        "return enc.encode(text)",
+        "return [0, 0, 0]  # MUTATED: wrong tokens"
+    )
+    mutation1_detected = run_mutated_test(mutated1, "test_encode_decode_roundtrip")
+    assert mutation1_detected, "Test suite should detect when encode returns wrong tokens"
     
-    # Tests should verify specific values, not just types
-    assert "assert data" in content or "assert result" in content, \
-        "Tests don't verify specific data values"
+    # MUTATION 2: Break JSON output by adding non-serializable lambda
+    mutated2 = original_impl.replace(
+        '"chunks": [asdict(c) for c in chunks],',
+        '"chunks": [asdict(c) for c in chunks], "broken_field": lambda: None,  # MUTATED'
+    )
+    mutation2_detected = run_mutated_test(mutated2, "test_json_serializable")
+    assert mutation2_detected, "Test suite should detect when JSON structure is broken"
 
 
 def test_requirement_12_no_external_services():
