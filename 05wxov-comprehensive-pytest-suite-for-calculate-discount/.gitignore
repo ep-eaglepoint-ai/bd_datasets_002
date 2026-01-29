@@ -1,12 +1,18 @@
-# Python
-__pycache__/
-*.pyc
+# Python Bytecode
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+
+# Environments
 .venv/
+env/
+venv/
 .env
 
-# Node
-node_modules/
-
-# OS
-.DS_Store
+# Evaluation & Reports
 evaluation/reports/
+.pytest_cache/
+
+# OS files
+.DS_Store

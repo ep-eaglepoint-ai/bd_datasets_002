@@ -1,76 +1,117 @@
 import pytest
-from decimal import Decimal
-from datetime import date
+import re
+from pathlib import Path
 
-from repository_before.src.discount_engine import calculate_discount, Coupon, money
+pytest_plugins = ("pytester",)
 
-def test_meta_traceability_stacking_rule():
+RESOURCES = Path(__file__).parent / "resources"
+
+@pytest.fixture
+def suite_code():
     """
-    ANALYSIS: Requirement 5 (Stackable vs Non-stackable).
-    STRATEGY: Use a manual fake to verify that the logic correctly 
-    blocks non-stackable coupons when bulk discounts exist[cite: 242].
-    PEDAGOGY: Ensures the model's test suite handles 'Interaction of Constraints'[cite: 365, 463].
+    Reads the test suite from repository_after.
+    
+    CRITICAL: It replaces the import path to ensure the test suite checks 
+    the local mutated code ('src.discount_engine') instead of the 
+    static file in 'repository_before'.
     """
-    class ManualFakeRepo:
-        def get(self, code):
-            # Returns a non-stackable coupon
-            return Coupon("NON_STACK", Decimal("10.00"), date(2025, 12, 31), stackable=False)
+    # 1. Find the project root dynamically to avoid FileNotFoundError
+    project_root = Path(__file__).resolve().parents[1]
+    path = project_root / "repository_after" / "src" / "test_discount_engine.py"
+    
+    if not path.exists():
+        pytest.fail(f"Test suite not found at: {path}")
 
-    # Qty 60 triggers the 5% bulk tier
-    result = calculate_discount(
-        price=100.0,
-        quantity=60,
-        coupon_code="NON_STACK",
-        coupon_repo=ManualFakeRepo(),
-        today=date(2025, 6, 1)
+    content = path.read_text()
+    
+    new_content = re.sub(
+        r"from\s+repository_before\.src\.discount_engine\s+import", 
+        "from src.discount_engine import", 
+        content
     )
+    
+    if new_content == content:
+        pytest.fail("Could not rewrite imports! The test suite must import from 'repository_before.src.discount_engine'.")
 
-    # Assert: Bulk discount must be present, Coupon MUST be 0 [cite: 358, 362]
-    assert result.bulk_discount > 0 
-    assert result.coupon_discount == Decimal("0.00")
+    return new_content
 
-def test_meta_boundary_verification_tier_jump():
+def run_meta(pytester, impl_filename, suite_code):
+    """
+    Sets up the sandbox and runs the test suite.
+    """
+    print(f"\n\n>>> [META] Injecting Implementation: {impl_filename}")
+    
+    impl_content = (RESOURCES / impl_filename).read_text()
+    
+    pytester.makepyfile(
+        **{
+            "src/__init__.py": "",
+            "src/discount_engine.py": impl_content,
+            "src/test_discount_engine.py": suite_code,
+        }
+    )
+    
+    return pytester.runpytest("-v", "-rr")
+
+def verify_bug_detection(result, mutant_name):
+    """
+    Helper to assert that the test suite failed (caught the bug).
+    If it passed (missed the bug), it prints the logs for debugging.
+    """
+    outcomes = result.parseoutcomes()
+    failed = outcomes.get("failed", 0)
+    passed = outcomes.get("passed", 0)
+    
+    print(f">>> [META] Results for {mutant_name}: {passed} passed, {failed} failed")
+
+    if failed >= 1:
+        print(f">>> [META] SUCCESS: The test suite correctly detected the bug in {mutant_name}.")
+    else:
+        print(f"\n!!! [META FAILURE] The test suite FAILED to detect the bug in {mutant_name}!")
+        print("!!! DUMPING INNER TEST OUTPUT FOR DEBUGGING:")
+        print(result.stdout.str())
+        pytest.fail(f"Test suite was too weak! It passed against broken code: {mutant_name}")
+
+# --- THE META TESTS ---
+
+def test_meta_baseline_correctness(pytester, suite_code):
+    """
+    ANALYSIS: Baseline Verification.
+    STRATEGY: Validate that the test suite PASSES against the known correct implementation.
+    """
+    result = run_meta(pytester, "correct.py", suite_code)
+    outcomes = result.parseoutcomes()
+    
+    print(f">>> [META] Baseline Results: {outcomes}")
+    
+    # Assert 100% Pass rate
+    if outcomes.get("failed", 0) > 0:
+        print(result.stdout.str())
+        pytest.fail("The test suite fails against the CORRECT implementation. Fix the tests first.")
+    
+    assert outcomes.get("passed", 0) > 0
+    print(">>> [META] SUCCESS: Baseline verified.")
+
+def test_meta_boundary_verification_tier_jump(pytester, suite_code):
     """
     ANALYSIS: Requirement 2 & 3 (Tier Boundaries).
-    STRATEGY: Verify the logic jump exactly at the 100 to 101 threshold[cite: 382].
-    REPRODUCIBILITY: Uses fixed inputs to ensure identical results across executions[cite: 37, 271].
+    STRATEGY: Run the suite against a mutant with an off-by-one threshold (100 vs 101).
     """
-    # Test point: 100 (5% tier)
-    res_100 = calculate_discount(price=10.0, quantity=100)
-    assert res_100.bulk_discount == money(Decimal("1000.00") * Decimal("0.05"))
+    result = run_meta(pytester, "broken_threshold.py", suite_code)
+    verify_bug_detection(result, "broken_threshold.py")
 
-    # Test point: 101 (10% tier)
-    res_101 = calculate_discount(price=10.0, quantity=101)
-    assert res_101.bulk_discount == money(Decimal("1010.00") * Decimal("0.10"))
-
-def test_meta_determinism_expiration_check():
+def test_meta_determinism_expiration_check(pytester, suite_code):
     """
     ANALYSIS: Requirement 5 (Temporal behavior).
-    STRATEGY: Validate the exact expiration boundary without using system clock[cite: 37, 308].
+    STRATEGY: Run the suite against a mutant that allows coupons 1 day after expiration.
     """
-    class ExpiryRepo:
-        def get(self, code):
-            return Coupon("EXPIRE_SOON", Decimal("5.00"), date(2025, 12, 31))
+    result = run_meta(pytester, "broken_expiry.py", suite_code)
+    verify_bug_detection(result, "broken_expiry.py")
 
-    repo = ExpiryRepo()
-    
-    # Valid: Exactly on expiration date
-    res_on = calculate_discount(100.0, 1, "EXPIRE_SOON", coupon_repo=repo, today=date(2025, 12, 31))
-    assert res_on.coupon_discount == Decimal("5.00")
-
-    # Invalid: One day after
-    res_after = calculate_discount(100.0, 1, "EXPIRE_SOON", coupon_repo=repo, today=date(2026, 1, 1))
-    assert res_after.coupon_discount == Decimal("0.00")
-
-def test_meta_invariant_stress_large_scale():
+def test_meta_precision_rounding(pytester, suite_code):
     """
-    ANALYSIS: Requirement 9 (Physical Invariants).
-    STRATEGY: Ensure the total never exceeds subtotal even at high scale[cite: 376, 379].
+    ANALYSIS: Requirement 9 (Financial Precision).
+    STRATEGY: Run the suite against a mutant using ROUND_FLOOR (truncation).
     """
-    # Stress scale: 1M items [cite: 376]
-    result = calculate_discount(price=9999.99, quantity=1_000_000)
-    
-    assert result.total >= 0 
-    assert result.total <= result.subtotal 
-    # Verify bit-level equivalence of the breakdown [cite: 44, 283]
-    assert result.total == money(result.subtotal - result.bulk_discount - result.coupon_discount)
+    result = run_meta(pytester, "broken_rounding.py", suite_code)
+    verify_bug_detection(result, "broken_rounding.py")
