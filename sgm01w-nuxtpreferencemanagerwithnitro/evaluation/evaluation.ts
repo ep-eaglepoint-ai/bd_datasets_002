@@ -142,26 +142,11 @@ const printReport = (report: any, reportPath: string) => {
   console.log(`Duration: ${report.duration_seconds.toFixed(2)} seconds`);
   console.log();
 
-  const beforeStats = parseTestOutput(report.before.tests.output);
-  console.log("BEFORE (repository_before):");
-  console.log(
-    `  Tests execution passed (exit 0): ${report.before.tests.passed}`,
-  );
-  console.log(`  Passed: ${beforeStats.passed}/${beforeStats.total}`);
-  console.log(`  Failed: ${beforeStats.failed}/${beforeStats.total}`);
-
-  const afterStats = parseTestOutput(report.after.tests.output);
-  console.log();
-  console.log("AFTER (repository_after):");
-  console.log(
-    `  Tests execution passed (exit 0): ${report.after.tests.passed}`,
-  );
-  console.log(`  Passed: ${afterStats.passed}/${afterStats.total}`);
-  console.log(`  Failed: ${afterStats.failed}/${afterStats.total}`);
-  console.log();
-  console.log("COMPARISON:");
-  console.log(`  Passed gate: ${report.comparison.passed_gate}`);
-  console.log(`  Summary: ${report.comparison.improvement_summary}`);
+  const testStats = parseTestOutput(report.tests.output);
+  console.log("TEST RESULTS:");
+  console.log(`  Tests execution passed (exit 0): ${report.tests.passed}`);
+  console.log(`  Passed: ${testStats.passed}/${testStats.total}`);
+  console.log(`  Failed: ${testStats.failed}/${testStats.total}`);
   console.log();
   console.log("=".repeat(60));
   console.log(`SUCCESS: ${report.success}`);
@@ -175,18 +160,10 @@ const main = async () => {
   const start = new Date();
 
   console.log("Running evaluation...");
-  const before = await evaluate("repository_before", "before");
-  const after = await evaluate("repository_after", "after");
+  const result = await evaluate("repository_after", "after");
 
-  // Pass logic: After tests must pass
-  const passedGate = after.tests.passed;
-
-  const comparison = {
-    passed_gate: passedGate,
-    improvement_summary: passedGate
-      ? "Refactoring success: requirements met in test-after"
-      : "Refactoring failed",
-  };
+  // Pass logic: Tests must pass
+  const passedGate = result.tests.passed;
 
   const end = new Date();
   const durationSeconds = (end.getTime() - start.getTime()) / 1000;
@@ -197,9 +174,8 @@ const main = async () => {
     finished_at: end.toISOString(),
     duration_seconds: durationSeconds,
     environment: environmentInfo(),
-    before,
-    after,
-    comparison,
+    tests: result.tests,
+    metrics: result.metrics,
     success: passedGate,
     error: null,
   };
@@ -217,4 +193,3 @@ const main = async () => {
 };
 
 main();
-
