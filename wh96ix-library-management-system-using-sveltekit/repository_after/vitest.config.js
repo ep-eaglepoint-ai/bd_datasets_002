@@ -5,7 +5,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['../tests/**/*.test.js'],
-    outputFile: '../evaluation/reports/test-results.json',
-    reporters: ['verbose', 'json']
+    reporters: ['verbose']
   }
 });

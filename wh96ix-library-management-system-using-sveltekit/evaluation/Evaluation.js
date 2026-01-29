@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const REPORTS_DIR = join(process.cwd(), 'evaluation', 'reports');
+const REPORTS_DIR = join(process.cwd(), '..', 'evaluation', 'reports');
 const BASE_URL = process.env.BASE_URL || 'http://app:5173';
 
 // Ensure reports directory exists
@@ -367,7 +367,7 @@ async function main() {
 
   try {
     // Ensure reports directory exists
-    const reportsDir = join(process.cwd(), 'evaluation', 'reports');
+    const reportsDir = join(process.cwd(), '..', 'evaluation', 'reports');
     mkdirSync(reportsDir, { recursive: true });
     
     // Run tests
