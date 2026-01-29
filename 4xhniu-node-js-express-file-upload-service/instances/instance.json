@@ -1,0 +1,13 @@
+{
+            "instance_id": "4XHNIU",
+            "problem_statement": "The file upload service is experiencing severe performance degradation under load. Users report timeouts when uploading files larger than 10MB, and concurrent uploads cause the server to become unresponsive. Memory usage spikes dramatically during uploads, sometimes exceeding 2GB for a single 100MB file, leading to process crashes. 
+
+The service processes approximately 500 uploads per hour during peak times, but response times have degraded from under 2 seconds to over 30 seconds. The upload handling logic is in upload.js, file storage operations are in storage.js, and database metadata tracking is in database.js.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/4xhniu-node-js-express-file-upload-service",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
