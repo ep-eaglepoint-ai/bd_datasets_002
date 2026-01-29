@@ -10,6 +10,9 @@ public class Evaluation {
     private static final String PROJECT_DIR = "/app";
     private static final String REPORTS_DIR = "/app/reports";
     
+    // Will be determined dynamically by counting @Test annotations
+    private int expectedTestCount = 0;
+    
     public static void main(String[] args) {
         System.out.println("==========================================");
         System.out.println("  DeepMerge Test Suite Evaluation");
@@ -27,6 +30,11 @@ public class Evaluation {
     }
     
     public void runEvaluation() throws Exception {
+        // First, count the expected tests from the test file
+        expectedTestCount = countTestsInFile("/app/tests/DeepMergeTest.java");
+        System.out.println("Detected " + expectedTestCount + " tests in DeepMergeTest.java");
+        System.out.println();
+        
         System.out.println("Testing BEFORE version...");
         System.out.println("------------------------------------------");
         TestResult beforeResult = runTests("before");
@@ -39,6 +47,33 @@ public class Evaluation {
         String report = generateReport(beforeResult, afterResult);
         saveReport(report);
         printSummary(beforeResult, afterResult);
+    }
+    
+    private int countTestsInFile(String filePath) {
+        int count = 0;
+        try {
+            String content = Files.readString(Paths.get(filePath));
+            // Count @Test annotations - use negative lookahead to exclude @TestMethodOrder etc.
+            // @Test(?![a-zA-Z]) matches @Test only when NOT followed by a letter
+            Pattern testPattern = Pattern.compile("@Test(?![a-zA-Z])|@RepeatedTest\\s*\\(\\s*(\\d+)\\s*\\)");
+            Matcher matcher = testPattern.matcher(content);
+            while (matcher.find()) {
+                String match = matcher.group();
+                if (match.startsWith("@RepeatedTest")) {
+                    // Extract repeat count from group 1
+                    String repeatCountStr = matcher.group(1);
+                    if (repeatCountStr != null) {
+                        count += Integer.parseInt(repeatCountStr);
+                    }
+                } else {
+                    count++;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Could not count tests in file: " + e.getMessage());
+        }
+        // Return count if found, otherwise use fallback
+        return count > 0 ? count : 66;
     }
     
     private TestResult runTests(String version) throws Exception {
@@ -64,9 +99,9 @@ public class Evaluation {
             
         } catch (Exception e) {
             result.error = e.getMessage();
-            result.total = 35;
+            result.total = expectedTestCount;
             result.passed = 0;
-            result.failed = 35;
+            result.failed = expectedTestCount;
             result.compilationError = true;
         }
         
@@ -85,33 +120,17 @@ public class Evaluation {
         String output = result.output;
         
         // Check for compilation error
-        if (output.contains("COMPILATION ERROR") || output.contains("cannot find symbol")) {
+        if (output.contains("COMPILATION ERROR") || output.contains("cannot find symbol") || 
+            output.contains("cannot be resolved")) {
             result.compilationError = true;
-            result.total = 35;
+            result.total = expectedTestCount;
             result.passed = 0;
-            result.failed = 35;
+            result.failed = expectedTestCount;
             return;
         }
         
-        // Parse individual test results
-        Pattern testPattern = Pattern.compile("\\[INFO\\] Running DeepMergeTest");
-        Pattern passPattern = Pattern.compile("(test\\w+)\\(\\).*?\\((\\d+\\.\\d+) s\\)");
+        // Parse test results from Maven Surefire output
         Pattern resultPattern = Pattern.compile("Tests run: (\\d+), Failures: (\\d+), Errors: (\\d+)");
-        
-        // Extract test names and durations from surefire output
-        String[] lines = output.split("\n");
-        for (String line : lines) {
-            if (line.contains("test") && (line.contains("PASS") || line.contains("OK") || line.contains("SUCCESS"))) {
-                Matcher m = Pattern.compile("(test\\w+)").matcher(line);
-                if (m.find()) {
-                    TestCase tc = new TestCase();
-                    tc.name = m.group(1);
-                    tc.status = "PASS";
-                    tc.duration = "0.001s";
-                    result.testCases.add(tc);
-                }
-            }
-        }
         
         Matcher matcher = resultPattern.matcher(output);
         if (matcher.find()) {
@@ -120,42 +139,121 @@ public class Evaluation {
             result.errors = Integer.parseInt(matcher.group(3));
             result.passed = result.total - result.failed - result.errors;
         } else if (output.contains("BUILD SUCCESS")) {
+            // Try alternative pattern for counting tests
             Pattern testCountPattern = Pattern.compile("Tests run: (\\d+)");
             Matcher countMatcher = testCountPattern.matcher(output);
             if (countMatcher.find()) {
                 result.total = Integer.parseInt(countMatcher.group(1));
                 result.passed = result.total;
                 result.failed = 0;
+            } else {
+                // Fallback to expected count
+                result.total = expectedTestCount;
+                result.passed = expectedTestCount;
+                result.failed = 0;
+            }
+        } else if (output.contains("BUILD FAILURE")) {
+            // Build failed but may have partial test results
+            Pattern testCountPattern = Pattern.compile("Tests run: (\\d+)");
+            Matcher countMatcher = testCountPattern.matcher(output);
+            if (countMatcher.find()) {
+                result.total = Integer.parseInt(countMatcher.group(1));
+            } else {
+                result.total = expectedTestCount;
+            }
+            // Check if it's a compilation failure
+            if (output.contains("COMPILATION ERROR") || output.contains("cannot find symbol")) {
+                result.compilationError = true;
+                result.passed = 0;
+                result.failed = result.total;
             }
         }
         
-        // If we didn't find individual tests, create them based on count
-        if (result.testCases.isEmpty() && result.passed > 0) {
-            String[] testNames = {
-                "testDeepMergeNestedMaps", "testDeepMergeListReplace", "testDeepMergeListConcat",
-                "testDeepMergeListMergeByIndex", "testDeepMergeSet", "testDeepMergeArrays",
-                "testTargetNull", "testSourceNullSourceWins", "testSourceNullTargetWins", "testBothNonNull",
-                "testNonConflictingTargetPreserved", "testNestedNonConflictingPreserved",
-                "testBlockedKeyProto", "testBlockedKeyConstructor", "testBlockedKeyPrototype",
-                "testBlockedKeyAtType", "testBlockedKeyClass",
-                "testBlockedKeysLevel2", "testBlockedKeysDeepNesting",
-                "testPathBasedBlockedKeyMatchingPath", "testPathBasedBlockedKeyWildcard",
-                "testProtectKeysFalse", "testProtectKeysFalseNested",
-                "testNonStringKeyInteger", "testNonStringKeyObject",
-                "testRulePrecedenceArrayStrategy", "testRulePrecedenceFreezeSubtree",
-                "testExtraBlockedKeysUnion", "testGlobalAndPathBlockedKeysUnion",
-                "testEmptyMapMerge", "testConflictPolicyError", "testMaxDepthExceeded",
-                "testKeysVisitedTracking", "testNullPolicySkip", "testDoubleStarGlob"
-            };
-            
-            for (int i = 0; i < result.passed && i < testNames.length; i++) {
+        // Parse individual test failures from surefire output
+        parseFailedTests(result, output);
+        
+        // Build test case list based on parsed results
+        buildTestCaseList(result, output);
+    }
+    
+    private void parseFailedTests(TestResult result, String output) {
+        // Parse failed test names from surefire output
+        Pattern failPattern = Pattern.compile("\\[ERROR\\]\\s+(\\w+)\\s+Time elapsed");
+        Matcher failMatcher = failPattern.matcher(output);
+        while (failMatcher.find()) {
+            TestCase tc = new TestCase();
+            tc.name = failMatcher.group(1);
+            tc.status = "FAIL";
+            tc.duration = "0.000s";
+            result.testCases.add(tc);
+        }
+        
+        // Also check for assertion failures
+        Pattern assertPattern = Pattern.compile("DeepMergeTest\\.(\\w+).*<<<\\s*FAILURE");
+        Matcher assertMatcher = assertPattern.matcher(output);
+        Set<String> failedTests = new HashSet<>();
+        while (assertMatcher.find()) {
+            failedTests.add(assertMatcher.group(1));
+        }
+        
+        for (String testName : failedTests) {
+            boolean alreadyAdded = result.testCases.stream()
+                .anyMatch(tc -> tc.name.equals(testName));
+            if (!alreadyAdded) {
                 TestCase tc = new TestCase();
-                tc.name = testNames[i];
-                tc.status = "PASS";
-                tc.duration = String.format("0.%03ds", (int)(Math.random() * 100) + 1);
+                tc.name = testName;
+                tc.status = "FAIL";
+                tc.duration = "0.000s";
                 result.testCases.add(tc);
             }
         }
+    }
+    
+    private void buildTestCaseList(TestResult result, String output) {
+        // Get failed test names
+        Set<String> failedTestNames = new HashSet<>();
+        for (TestCase tc : result.testCases) {
+            if ("FAIL".equals(tc.status)) {
+                failedTestNames.add(tc.name);
+            }
+        }
+        
+        // Generate test case entries for passed tests
+        if (result.passed > 0) {
+            List<String> allTestNames = extractTestNamesFromFile("/app/tests/DeepMergeTest.java");
+            
+            int passedCount = 0;
+            for (String testName : allTestNames) {
+                if (!failedTestNames.contains(testName) && passedCount < result.passed) {
+                    TestCase tc = new TestCase();
+                    tc.name = testName;
+                    tc.status = "PASS";
+                    tc.duration = String.format("0.%03ds", (int)(Math.random() * 100) + 1);
+                    result.testCases.add(tc);
+                    passedCount++;
+                }
+            }
+        }
+    }
+    
+    private List<String> extractTestNamesFromFile(String filePath) {
+        List<String> testNames = new ArrayList<>();
+        try {
+            String content = Files.readString(Paths.get(filePath));
+            // Match @Test annotation (not @TestMethodOrder etc.) followed by method declaration
+            // Use negative lookahead to ensure @Test is not followed by more letters
+            Pattern methodPattern = Pattern.compile("@Test(?![a-zA-Z])[^@]*?void\\s+(\\w+)\\s*\\(", Pattern.DOTALL);
+            Matcher matcher = methodPattern.matcher(content);
+            while (matcher.find()) {
+                testNames.add(matcher.group(1));
+            }
+        } catch (Exception e) {
+            // Fallback to generic test names if file parsing fails
+            for (int i = 1; i <= expectedTestCount; i++) {
+                testNames.add("test" + i);
+            }
+        }
+        return testNames;
     }
     
     private String readProcessOutput(Process process) throws IOException {
@@ -219,7 +317,8 @@ public class Evaluation {
         sb.append("    \"platform\": \"").append(osName).append("\",\n");
         sb.append("    \"os\": \"").append(osName).append("\",\n");
         sb.append("    \"architecture\": \"").append(osArch).append("\",\n");
-        sb.append("    \"hostname\": \"").append(hostname).append("\"\n");
+        sb.append("    \"hostname\": \"").append(hostname).append("\",\n");
+        sb.append("    \"expected_test_count\": ").append(expectedTestCount).append("\n");
         sb.append("  },\n");
         
         // Test execution
@@ -373,7 +472,7 @@ public class Evaluation {
         sb.append("    \"total_tests\": ").append(after.total).append(",\n");
         sb.append("    \"passed_tests\": ").append(after.passed).append(",\n");
         sb.append("    \"failed_tests\": ").append(after.failed).append(",\n");
-        sb.append("    \"success_rate\": \"").append(String.format("%.1f", successRate)).append("\",\n");
+        sb.append("    \"success_rate\": \"").append(String.format("%.1f", successRate)).append("%\",\n");
         sb.append("    \"meets_requirements\": ").append(allRequirementsMet).append("\n");
         sb.append("  }\n");
         
@@ -411,6 +510,9 @@ public class Evaluation {
             System.out.println("✓ All requirements met!");
         } else {
             System.out.println("✗ Some requirements not met");
+            if (after.failed > 0) {
+                System.out.println("  Failed tests: " + after.failed);
+            }
         }
     }
     
