@@ -1,0 +1,11 @@
+{
+            "instance_id": "E00XMD",
+            "problem_statement": "Implement a clean, reusable Python module that applies power transformations (Yeo–Johnson and Box–Cox) to reduce skew and stabilize variance in non-Gaussian data, while enforcing method constraints, producing measurable diagnostics (skew/kurtosis/normality tests), and guaranteeing reversible transforms via inverse_transform. Include a small demo on synthetic skewed data and keep the design testable and production-safe.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/e00xmd-power-transformer-structural-scaling-yeo-johnson-box-cox-with-diagnostics-and-invertibility",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
