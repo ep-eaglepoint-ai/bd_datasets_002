@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useBookmarkStore } from '../store/bookmarkStore';
 
 export default function BookmarkManager() {
@@ -13,12 +13,22 @@ export default function BookmarkManager() {
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  // Sorting state
+  const [sortField, setSortField] = useState<'dateAdded' | 'lastVisited' | 'title' | 'domain' | 'favorite'>('dateAdded');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   const {
     bookmarks,
     addBookmark,
     deleteBookmark,
     editBookmark,
     getAllBookmarks,
+    searchBookmarksAdvanced,
+    sortBookmarks,
   } = useBookmarkStore();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -28,6 +38,34 @@ export default function BookmarkManager() {
   const [editTags, setEditTags] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editIsFavorite, setEditIsFavorite] = useState(false);
+
+  // Debounced search effect
+  useEffect(() => {
+    try {
+      const timer = setTimeout(() => {
+        setDebouncedSearchQuery(searchQuery);
+      }, 300); // 300ms debounce delay
+
+      return () => clearTimeout(timer);
+    } catch {
+      // Silently handle any errors in debouncing
+    }
+  }, [searchQuery]);
+
+  // Get search results using the store selector
+  const searchResults = debouncedSearchQuery 
+    ? searchBookmarksAdvanced(debouncedSearchQuery, {
+        fields: ['title', 'url', 'description', 'tags'],
+        caseSensitive: false,
+        exactMatch: false,
+      })
+    : bookmarks;
+
+  // Get sorted results for all bookmarks (when not searching)
+  const sortedBookmarks = sortBookmarks({
+    field: sortField,
+    direction: sortDirection,
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,17 +398,85 @@ export default function BookmarkManager() {
           </div>
         )}
 
+        {/* Search Bar */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Search Bookmarks</h2>
+          
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Search bookmarks by title, URL, description, or tags..."
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+          
+          {debouncedSearchQuery && (
+            <div className="mt-2 text-sm text-gray-600">
+              Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{debouncedSearchQuery}"
+            </div>
+          )}
+        </div>
+
         {/* Bookmarks List */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Bookmarks ({bookmarks.length})
-          </h2>
-
-          {bookmarks.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No bookmarks yet. Add your first bookmark above!</p>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">
+              {debouncedSearchQuery ? 'Search Results' : 'All Bookmarks'} ({debouncedSearchQuery ? searchResults.length : sortedBookmarks.length})
+            </h2>
+            
+            {/* Sorting Bar - Only show for All Bookmarks */}
+            {!debouncedSearchQuery && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sort-field" className="text-sm font-medium text-gray-700">
+                    Sort:
+                  </label>
+                  <select
+                    id="sort-field"
+                    value={sortField}
+                    onChange={(e) => setSortField(e.target.value as any)}
+                    className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="dateAdded">Date Added</option>
+                    <option value="lastVisited">Last Visited</option>
+                    <option value="title">Title</option>
+                    <option value="domain">Domain</option>
+                    <option value="favorite">Favorite</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sort-direction" className="text-sm font-medium text-gray-700">
+                    Order:
+                  </label>
+                  <select
+                    id="sort-direction"
+                    value={sortDirection}
+                    onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
+                    className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="desc">↓</option>
+                    <option value="asc">↑</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {(debouncedSearchQuery ? searchResults : sortedBookmarks).length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {debouncedSearchQuery ? 'No bookmarks found matching your search.' : 'No bookmarks yet. Add your first bookmark above!'}
+            </div>
           ) : (
             <div className="space-y-4">
-              {bookmarks.map((bookmark) => (
+              {(debouncedSearchQuery ? searchResults : sortedBookmarks).map((bookmark) => (
                 <div
                   key={bookmark.id}
                   className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"

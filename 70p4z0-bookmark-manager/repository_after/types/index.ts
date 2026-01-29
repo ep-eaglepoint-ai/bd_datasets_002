@@ -9,6 +9,7 @@ export interface Bookmark {
   updatedAt: Date;
   isFavorite: boolean;
   category?: string; // Keep for backward compatibility
+  lastVisited?: Date; // Track when bookmark was last accessed
 }
 
 export interface BookmarkCategory {
@@ -39,16 +40,20 @@ export interface BookmarkTag {
   updatedAt: Date;
 }
 
-export interface BookmarkFilter {
-  category?: string;
+// Filtering functionality types
+export type DateRangeFilter = {
+  from?: Date;
+  to?: Date;
+};
+
+export type BookmarkFilter = {
   tags?: string[];
-  isFavorite?: boolean;
-  searchQuery?: string;
-  dateRange?: {
-    from: Date;
-    to: Date;
-  };
-}
+  favorites?: boolean;
+  dateAdded?: DateRangeFilter;
+  lastVisited?: DateRangeFilter;
+  collectionId?: string;
+  domain?: string;
+};
 
 export interface BookmarkSort {
   field: 'title' | 'createdAt' | 'updatedAt' | 'url';
@@ -131,6 +136,35 @@ export type RenameCollectionResult =
 export type DeleteCollectionResult =
   | { success: true; deletedId: string; movedBookmarks: number }
   | { success: false; error: string[] | 'not_found' | 'has_children' };
+
+// Search functionality types
+export type SearchField = 'title' | 'url' | 'description' | 'tags';
+
+export type SearchOptions = {
+  fields?: SearchField[];
+  caseSensitive?: boolean;
+  exactMatch?: boolean;
+  includeFavorites?: boolean;
+  collectionId?: string;
+  tagNames?: string[];
+};
+
+// Sorting functionality types
+export type SortField = 'dateAdded' | 'lastVisited' | 'title' | 'domain' | 'favorite';
+export type SortDirection = 'asc' | 'desc';
+
+export type SortOptions = {
+  field: SortField;
+  direction?: SortDirection;
+};
+
+// Compound filtering and sorting types
+export type FilterAndSortOptions = {
+  filter?: BookmarkFilter;
+  sort?: SortOptions;
+  limit?: number;
+  offset?: number;
+};
 
 export type DeleteTagResult =
   | { success: true; deletedId: string }

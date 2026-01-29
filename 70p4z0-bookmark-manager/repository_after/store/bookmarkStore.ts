@@ -13,6 +13,10 @@ import {
   CollectionFormData,
   CollectionUpdateData,
   CollectionRenameData,
+  SearchOptions,
+  SortOptions,
+  BookmarkFilter,
+  FilterAndSortOptions,
   CreateTagResult,
   RenameTagResult,
   MergeTagsResult,
@@ -80,6 +84,12 @@ interface BookmarkStore {
   getCollectionUsage: (collectionId: string) => number;
   getRootCollections: () => BookmarkCollection[];
   getChildCollections: (parentId: string) => BookmarkCollection[];
+  searchBookmarksAdvanced: (query: string, options?: SearchOptions) => Bookmark[];
+  
+  // Sorting and filtering methods
+  sortBookmarks: (options: SortOptions) => Bookmark[];
+  filterBookmarks: (filter: BookmarkFilter) => Bookmark[];
+  getFilteredAndSortedBookmarks: (options: FilterAndSortOptions) => Bookmark[];
 }
 
 /* -----------------------------------------------------
@@ -610,6 +620,299 @@ export const useBookmarkStore = create<BookmarkStore>()(
 
       getBookmarksByCollection: (collectionId) =>
         get().bookmarks.filter((b) => b.collectionId === collectionId),
+
+      // Advanced search functionality
+      searchBookmarksAdvanced: (query, options = {}) => {
+        try {
+          if (!query || typeof query !== 'string') {
+            return [];
+          }
+
+          const {
+            fields = ['title', 'url', 'description', 'tags'],
+            caseSensitive = false,
+            exactMatch = false,
+            includeFavorites = false,
+            collectionId = undefined,
+            tagNames = undefined,
+          } = options;
+
+          const bookmarks = get().bookmarks;
+          const tags = get().tags;
+          
+          // Create tag lookup for efficient tag name matching
+          const tagMap = new Map();
+          tags.forEach(tag => {
+            tagMap.set(tag.normalized, tag.name);
+          });
+
+          // Pre-filter by collection if specified
+          let filteredBookmarks = collectionId 
+            ? bookmarks.filter(b => b.collectionId === collectionId)
+            : bookmarks;
+
+          // Pre-filter by favorites if specified
+          if (includeFavorites) {
+            filteredBookmarks = filteredBookmarks.filter(b => b.isFavorite);
+          }
+
+          // Pre-filter by tags if specified
+          if (tagNames && tagNames.length > 0) {
+            const normalizedTagNames = tagNames.map(name => 
+              name.toLowerCase().trim()
+            );
+            filteredBookmarks = filteredBookmarks.filter(bookmark =>
+              normalizedTagNames.some(tagName =>
+                bookmark.tags.includes(tagName)
+              )
+            );
+          }
+
+          // Prepare search term
+          const searchTerm = caseSensitive ? query : query.toLowerCase();
+          
+          // Search function for individual fields
+          const matchesField = (bookmark, field) => {
+            let value = '';
+            
+            switch (field) {
+              case 'title':
+                value = bookmark.title;
+                break;
+              case 'url':
+                value = bookmark.url;
+                break;
+              case 'description':
+                value = bookmark.description || '';
+                break;
+              case 'tags':
+                // Search in tag names, not normalized values
+                value = bookmark.tags
+                  .map(tagNormalized => tagMap.get(tagNormalized) || tagNormalized)
+                  .join(' ');
+                break;
+              default:
+                return false;
+            }
+
+            if (!caseSensitive) {
+              value = value.toLowerCase();
+            }
+
+            return exactMatch ? value === searchTerm : value.includes(searchTerm);
+          };
+
+          // Perform search
+          const results = filteredBookmarks.filter(bookmark =>
+            fields.some(field => matchesField(bookmark, field))
+          );
+
+          // Sort by relevance (title matches first, then description, then url, then tags)
+          return results.sort((a, b) => {
+            const aTitle = caseSensitive ? a.title : a.title.toLowerCase();
+            const bTitle = caseSensitive ? b.title : b.title.toLowerCase();
+            
+            const aExactTitle = aTitle === searchTerm;
+            const bExactTitle = bTitle === searchTerm;
+            
+            if (aExactTitle && !bExactTitle) return -1;
+            if (!aExactTitle && bExactTitle) return 1;
+            
+            // Then by title contains
+            const aTitleContains = aTitle.includes(searchTerm);
+            const bTitleContains = bTitle.includes(searchTerm);
+            
+            if (aTitleContains && !bTitleContains) return -1;
+            if (!aTitleContains && bTitleContains) return 1;
+            
+            // Then by update date (most recent first)
+            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+          });
+
+        } catch {
+          return [];
+        }
+      },
+
+      // Sorting functionality
+      sortBookmarks: (options) => {
+        try {
+          const { field, direction = 'asc' } = options;
+          const bookmarks = [...get().bookmarks];
+
+          return bookmarks.sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+
+            switch (field) {
+              case 'dateAdded':
+                aValue = new Date(a.createdAt).getTime();
+                bValue = new Date(b.createdAt).getTime();
+                break;
+              case 'lastVisited':
+                aValue = a.lastVisited ? new Date(a.lastVisited).getTime() : 0;
+                bValue = b.lastVisited ? new Date(b.lastVisited).getTime() : 0;
+                break;
+              case 'title':
+                aValue = a.title.toLowerCase();
+                bValue = b.title.toLowerCase();
+                break;
+              case 'domain':
+                aValue = new URL(a.url).hostname.toLowerCase();
+                bValue = new URL(b.url).hostname.toLowerCase();
+                break;
+              case 'favorite':
+                aValue = a.isFavorite ? 1 : 0;
+                bValue = b.isFavorite ? 1 : 0;
+                break;
+              default:
+                return 0;
+            }
+
+            if (aValue < bValue) {
+              return direction === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+              return direction === 'asc' ? 1 : -1;
+            }
+            return 0;
+          });
+        } catch {
+          return [...get().bookmarks];
+        }
+      },
+
+      // Filtering functionality
+      filterBookmarks: (filter) => {
+        try {
+          const bookmarks = get().bookmarks;
+          
+          return bookmarks.filter(bookmark => {
+            // Tags filter (AND logic - bookmark must have ALL specified tags)
+            if (filter.tags && filter.tags.length > 0) {
+              const normalizedFilterTags = filter.tags.map(tag => tag.toLowerCase().trim());
+              const hasAllTags = normalizedFilterTags.every(filterTag =>
+                bookmark.tags.includes(filterTag)
+              );
+              if (!hasAllTags) return false;
+            }
+
+            // Favorites filter
+            if (filter.favorites !== undefined) {
+              if (filter.favorites !== bookmark.isFavorite) return false;
+            }
+
+            // Date added filter
+            if (filter.dateAdded) {
+              const bookmarkTime = new Date(bookmark.createdAt).getTime();
+              if (filter.dateAdded.from && bookmarkTime < new Date(filter.dateAdded.from).getTime()) {
+                return false;
+              }
+              if (filter.dateAdded.to && bookmarkTime > new Date(filter.dateAdded.to).getTime()) {
+                return false;
+              }
+            }
+
+            // Last visited filter
+            if (filter.lastVisited) {
+              if (!bookmark.lastVisited) return false;
+              const visitedTime = new Date(bookmark.lastVisited).getTime();
+              if (filter.lastVisited.from && visitedTime < new Date(filter.lastVisited.from).getTime()) {
+                return false;
+              }
+              if (filter.lastVisited.to && visitedTime > new Date(filter.lastVisited.to).getTime()) {
+                return false;
+              }
+            }
+
+            // Collection filter
+            if (filter.collectionId !== undefined) {
+              if (bookmark.collectionId !== filter.collectionId) return false;
+            }
+
+            // Domain filter
+            if (filter.domain) {
+              try {
+                const bookmarkDomain = new URL(bookmark.url).hostname.toLowerCase();
+                const filterDomain = filter.domain.toLowerCase();
+                if (bookmarkDomain !== filterDomain) return false;
+              } catch {
+                return false;
+              }
+            }
+
+            return true;
+          });
+        } catch {
+          return [];
+        }
+      },
+
+      // Combined filtering and sorting
+      getFilteredAndSortedBookmarks: (options) => {
+        try {
+          let result = get().bookmarks;
+
+          // Apply filters first
+          if (options.filter) {
+            result = get().filterBookmarks(options.filter);
+          }
+
+          // Apply sorting
+          if (options.sort) {
+            const { field, direction = 'asc' } = options.sort;
+            result = result.sort((a, b) => {
+              let aValue: any;
+              let bValue: any;
+
+              switch (field) {
+                case 'dateAdded':
+                  aValue = new Date(a.createdAt).getTime();
+                  bValue = new Date(b.createdAt).getTime();
+                  break;
+                case 'lastVisited':
+                  aValue = a.lastVisited ? new Date(a.lastVisited).getTime() : 0;
+                  bValue = b.lastVisited ? new Date(b.lastVisited).getTime() : 0;
+                  break;
+                case 'title':
+                  aValue = a.title.toLowerCase();
+                  bValue = b.title.toLowerCase();
+                  break;
+                case 'domain':
+                  aValue = new URL(a.url).hostname.toLowerCase();
+                  bValue = new URL(b.url).hostname.toLowerCase();
+                  break;
+                case 'favorite':
+                  aValue = a.isFavorite ? 1 : 0;
+                  bValue = b.isFavorite ? 1 : 0;
+                  break;
+                default:
+                  return 0;
+              }
+
+              if (aValue < bValue) {
+                return direction === 'asc' ? -1 : 1;
+              }
+              if (aValue > bValue) {
+                return direction === 'asc' ? 1 : -1;
+              }
+              return 0;
+            });
+          }
+
+          // Apply pagination
+          if (options.offset !== undefined) {
+            result = result.slice(options.offset);
+          }
+          if (options.limit !== undefined) {
+            result = result.slice(0, options.limit);
+          }
+
+          return result;
+        } catch {
+          return [];
+        }
+      },
     }),
     {
       name: 'bookmark-storage',
