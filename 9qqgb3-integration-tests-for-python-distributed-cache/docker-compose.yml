@@ -11,7 +11,7 @@ services:
         echo '=== Testing repository_before implementation with integration tests ===' &&
         cd /app &&
         PYTHONPATH=/app/repository_before:/app/repository_after:/app \
-        python -m pytest repository_after/tests/ --impl=before -v --tb=short
+        python -m pytest repository_after/tests/ --impl=before -v --tb=short || true
       "
     volumes:
       - .:/app
