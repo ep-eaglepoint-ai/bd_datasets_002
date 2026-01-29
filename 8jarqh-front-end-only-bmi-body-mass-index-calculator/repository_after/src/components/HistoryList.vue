@@ -29,6 +29,27 @@ const formatDate = (timestamp: string): string => {
 const getCategoryClass = (category: string): string => {
   return category.toLowerCase()
 }
+
+const handleKeyDown = (event: KeyboardEvent, action: () => void) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    action()
+  }
+}
+
+const handleDeleteKeyDown = (event: KeyboardEvent, index: number) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    emit('delete-entry', index)
+  }
+}
+
+const handleClearKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    emit('clear-all')
+  }
+}
 </script>
 
 <template>
@@ -39,6 +60,7 @@ const getCategoryClass = (category: string): string => {
         v-if="history.length > 0"
         class="clear-btn"
         @click="emit('clear-all')"
+        @keydown="handleClearKeyDown"
         aria-label="Clear all history"
       >
         Clear All
@@ -52,11 +74,12 @@ const getCategoryClass = (category: string): string => {
       <p class="empty-text">No calculations yet</p>
     </div>
 
-    <div v-else class="history-items">
+    <div v-else class="history-items" role="list" aria-label="BMI calculation history">
       <div 
         v-for="(entry, index) in history" 
         :key="index"
         class="history-item"
+        role="listitem"
       >
         <div class="item-main">
           <div class="item-bmi">
@@ -74,6 +97,7 @@ const getCategoryClass = (category: string): string => {
         <button 
           class="delete-btn"
           @click="emit('delete-entry', index)"
+          @keydown="handleDeleteKeyDown($event, index)"
           aria-label="Delete this entry"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

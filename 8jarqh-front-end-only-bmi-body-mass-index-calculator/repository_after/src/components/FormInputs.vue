@@ -26,15 +26,31 @@ const handleNumberInput = (event: Event, field: string) => {
   const value = target.value === '' ? null : parseFloat(target.value)
   emit(`update:${field}` as any, value)
 }
+
+const handleKeyDown = (event: KeyboardEvent, action: () => void) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    action()
+  }
+}
+
+const handleCalculateKeyDown = (event: KeyboardEvent) => {
+  if (isValid && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault()
+    emit('calculate')
+  }
+}
 </script>
 
 <template>
   <div class="form-inputs">
-    <div class="unit-toggle">
+    <div class="unit-toggle" role="group" aria-label="Unit system selection">
       <button 
         type="button"
         :class="['unit-btn', { active: unitSystem === 'metric' }]"
         @click="emit('toggle-unit')"
+        @keydown="handleKeyDown($event, () => emit('toggle-unit'))"
+        :aria-pressed="unitSystem === 'metric'"
         aria-label="Switch to metric units"
       >
         Metric (cm/kg)
@@ -43,6 +59,8 @@ const handleNumberInput = (event: Event, field: string) => {
         type="button"
         :class="['unit-btn', { active: unitSystem === 'imperial' }]"
         @click="emit('toggle-unit')"
+        @keydown="handleKeyDown($event, () => emit('toggle-unit'))"
+        :aria-pressed="unitSystem === 'imperial'"
         aria-label="Switch to imperial units"
       >
         Imperial (ft/in/lb)
@@ -61,6 +79,7 @@ const handleNumberInput = (event: Event, field: string) => {
           type="number"
           :value="height ?? ''"
           @input="handleNumberInput($event, 'height')"
+          @keydown.enter="isValid && emit('calculate')"
           placeholder="170"
           min="50"
           max="300"
@@ -68,6 +87,7 @@ const handleNumberInput = (event: Event, field: string) => {
           class="input-field"
           :class="{ error: errors.height }"
           aria-describedby="height-error"
+          aria-invalid="!!errors.height"
         />
         <span class="input-suffix">cm</span>
       </div>
@@ -79,6 +99,7 @@ const handleNumberInput = (event: Event, field: string) => {
             type="number"
             :value="heightFeet ?? ''"
             @input="handleNumberInput($event, 'heightFeet')"
+            @keydown.enter="isValid && emit('calculate')"
             placeholder="5"
             min="1"
             max="10"
@@ -86,6 +107,7 @@ const handleNumberInput = (event: Event, field: string) => {
             class="input-field"
             :class="{ error: errors.height }"
             aria-label="Height in feet"
+            aria-invalid="!!errors.height"
           />
           <span class="input-suffix">ft</span>
         </div>
@@ -95,6 +117,7 @@ const handleNumberInput = (event: Event, field: string) => {
             type="number"
             :value="heightInches ?? ''"
             @input="handleNumberInput($event, 'heightInches')"
+            @keydown.enter="isValid && emit('calculate')"
             placeholder="9"
             min="0"
             max="11"
@@ -102,6 +125,7 @@ const handleNumberInput = (event: Event, field: string) => {
             class="input-field"
             :class="{ error: errors.height }"
             aria-label="Height in inches"
+            aria-invalid="!!errors.height"
           />
           <span class="input-suffix">in</span>
         </div>
@@ -124,6 +148,7 @@ const handleNumberInput = (event: Event, field: string) => {
           type="number"
           :value="weight ?? ''"
           @input="handleNumberInput($event, 'weight')"
+          @keydown.enter="isValid && emit('calculate')"
           :placeholder="unitSystem === 'metric' ? '70' : '154'"
           :min="unitSystem === 'metric' ? 2 : 4"
           :max="unitSystem === 'metric' ? 600 : 1300"
@@ -131,6 +156,7 @@ const handleNumberInput = (event: Event, field: string) => {
           class="input-field"
           :class="{ error: errors.weight }"
           aria-describedby="weight-error"
+          aria-invalid="!!errors.weight"
         />
         <span class="input-suffix">{{ unitSystem === 'metric' ? 'kg' : 'lbs' }}</span>
       </div>
@@ -145,6 +171,8 @@ const handleNumberInput = (event: Event, field: string) => {
       class="calculate-btn"
       :disabled="!isValid"
       @click="emit('calculate')"
+      @keydown="handleCalculateKeyDown"
+      aria-label="Calculate BMI"
     >
       Calculate BMI
     </button>

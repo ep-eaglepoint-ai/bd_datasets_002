@@ -12,13 +12,22 @@ const emit = defineEmits<{
 const toggleTheme = () => {
   emit('update:theme', props.theme === 'light' ? 'dark' : 'light')
 }
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    toggleTheme()
+  }
+}
 </script>
 
 <template>
   <button 
     class="theme-toggle"
     @click="toggleTheme"
+    @keydown="handleKeyDown"
     :aria-label="`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`"
+    :aria-pressed="theme === 'dark'"
   >
     <svg v-if="theme === 'light'" class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
