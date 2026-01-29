@@ -1,9 +1,6 @@
 /**
  * Test suite for Access Service List DAL
- * Tests Cuckoo Hash, PQ Encryption, and O(1) performance requirements
- * 
- * These tests FAIL on repository_before (no cache/encryption)
- * These tests PASS on repository_after (with Cuckoo hash + PQ encryption)
+ * Tests Cuckoo Hash, PQ Encryption, and performance requirements
  */
 
 import {
@@ -25,32 +22,32 @@ describe('Quantum-Resistant Cache Optimization', () => {
     resetCacheStats();
   });
 
-  describe('Requirement 1: Perfect Cache - Cuckoo hash for O(1)', () => {
-    
+  describe('Requirement 1: Cache - Cuckoo hash for O(1) per key', () => {
+
     test('CuckooHashTable should provide O(1) get operations', () => {
       const cache = new CuckooHashTable<string>();
-      
+
       // Insert items
       cache.set('key1', 'value1');
       cache.set('key2', 'value2');
       cache.set('key3', 'value3');
-      
+
       // O(1) lookups
       expect(cache.get('key1')).toBe('value1');
       expect(cache.get('key2')).toBe('value2');
       expect(cache.get('key3')).toBe('value3');
     });
 
-    test('CuckooHashTable should handle collisions without degradation', () => {
+    test('CuckooHashTable should handle collisions via displacement', () => {
       const cache = new CuckooHashTable<number>(100);
-      
-      // Insert many items to force collisions
+
+      // Insert many items - collisions handled via cuckoo displacement
       for (let i = 0; i < 50; i++) {
         const success = cache.set(`key_${i}`, i);
         expect(success).toBe(true);
       }
-      
-      // All items should still be retrievable in O(1)
+
+      // All items should still be retrievable
       for (let i = 0; i < 50; i++) {
         expect(cache.get(`key_${i}`)).toBe(i);
       }
@@ -58,10 +55,10 @@ describe('Quantum-Resistant Cache Optimization', () => {
 
     test('CuckooHashTable should support delete operation in O(1)', () => {
       const cache = new CuckooHashTable<string>();
-      
+
       cache.set('key1', 'value1');
       expect(cache.get('key1')).toBe('value1');
-      
+
       const deleted = cache.delete('key1');
       expect(deleted).toBe(true);
       expect(cache.get('key1')).toBeUndefined();
@@ -69,18 +66,18 @@ describe('Quantum-Resistant Cache Optimization', () => {
 
     test('CuckooHashTable should track size correctly', () => {
       const cache = new CuckooHashTable<string>();
-      
+
       expect(cache.getSize()).toBe(0);
-      
+
       cache.set('key1', 'value1');
       expect(cache.getSize()).toBe(1);
-      
+
       cache.set('key2', 'value2');
       expect(cache.getSize()).toBe(2);
-      
+
       cache.delete('key1');
       expect(cache.getSize()).toBe(1);
-      
+
       cache.clear();
       expect(cache.getSize()).toBe(0);
     });
@@ -99,29 +96,29 @@ describe('Quantum-Resistant Cache Optimization', () => {
       resetCacheStats();
       const result1 = await accessServiceListDal({ method: 'get', id: 'test-id-1' });
       expect(result1).toBeDefined();
-      
+
       let stats = getCacheStats();
       expect(stats.misses).toBe(1);
 
       // Second get - cache hit, O(1)
       const result2 = await accessServiceListDal({ method: 'get', id: 'test-id-1' });
       expect(result2).toEqual(result1);
-      
+
       stats = getCacheStats();
       expect(stats.hits).toBe(1);
     });
   });
 
   describe('Requirement 1: PQ encrypt entries', () => {
-    
+
     test('PQEncryption should encrypt data', () => {
       const plaintext = 'sensitive data to encrypt';
       const { ciphertext, nonce } = PQEncryption.encrypt(plaintext);
-      
+
       expect(Buffer.isBuffer(ciphertext)).toBe(true);
       expect(Buffer.isBuffer(nonce)).toBe(true);
       expect(ciphertext.length).toBeGreaterThan(0);
-      
+
       // Ciphertext should be different from plaintext
       expect(ciphertext.toString('utf-8')).not.toBe(plaintext);
     });
@@ -129,17 +126,17 @@ describe('Quantum-Resistant Cache Optimization', () => {
     test('PQEncryption should decrypt data correctly', () => {
       const plaintext = 'sensitive data to decrypt';
       const { ciphertext, nonce } = PQEncryption.encrypt(plaintext);
-      
+
       const decrypted = PQEncryption.decrypt(ciphertext, nonce);
       expect(decrypted).toBe(plaintext);
     });
 
     test('PQEncryption should be deterministic', () => {
       const plaintext = 'deterministic test data';
-      
+
       const result1 = PQEncryption.encrypt(plaintext);
       const result2 = PQEncryption.encrypt(plaintext);
-      
+
       expect(result1.ciphertext.equals(result2.ciphertext)).toBe(true);
       expect(result1.nonce.equals(result2.nonce)).toBe(true);
     });
@@ -147,11 +144,11 @@ describe('Quantum-Resistant Cache Optimization', () => {
     test('PQEncryption should detect tampering (quantum cache poisoning)', () => {
       const plaintext = 'original data';
       const { ciphertext, nonce } = PQEncryption.encrypt(plaintext);
-      
+
       // Tamper with ciphertext
       const tamperedCiphertext = Buffer.from(ciphertext);
       tamperedCiphertext[0] = (tamperedCiphertext[0] + 1) % 256;
-      
+
       const isValid = PQEncryption.verifyIntegrity(plaintext, tamperedCiphertext, nonce);
       expect(isValid).toBe(false);
     });
@@ -159,14 +156,14 @@ describe('Quantum-Resistant Cache Optimization', () => {
     test('PQEncryption should verify valid data', () => {
       const plaintext = 'valid data';
       const { ciphertext, nonce } = PQEncryption.encrypt(plaintext);
-      
+
       const isValid = PQEncryption.verifyIntegrity(plaintext, ciphertext, nonce);
       expect(isValid).toBe(true);
     });
   });
 
-  describe('Requirement 2: Benchmark 500M sim gets <1us', () => {
-    
+  describe('Requirement 2: Benchmark gets <1us', () => {
+
     test('Cache get operations should complete in <1us average', async () => {
       // Seed some data
       const records: AccessServiceRecord[] = [];
@@ -191,19 +188,18 @@ describe('Quantum-Resistant Cache Optimization', () => {
       // Run benchmark - simulate many gets
       const iterations = 10000;
       const startTime = process.hrtime.bigint();
-      
+
       for (let i = 0; i < iterations; i++) {
         await accessServiceListDal({ method: 'get', id: `perf-test-${i % 1000}` });
       }
-      
+
       const endTime = process.hrtime.bigint();
       const totalTimeNs = Number(endTime - startTime);
       const avgTimeNs = totalTimeNs / iterations;
-      
-      // Average get should be < 1000ns (1us)
-      // Note: In real benchmark with 500M rows, we simulate with smaller dataset
-      expect(avgTimeNs).toBeLessThan(1000000); // 1ms threshold for test environment
-      
+
+      // Average get should be < 2000ns (2us) - allows for test environment overhead
+      expect(avgTimeNs).toBeLessThan(2000);
+
       const stats = getCacheStats();
       expect(stats.hits).toBe(iterations);
       expect(stats.hitRate).toBe(100);
@@ -211,12 +207,12 @@ describe('Quantum-Resistant Cache Optimization', () => {
 
     test('Cache should maintain O(1) with large number of entries', () => {
       const cache = new CuckooHashTable<number>(100000);
-      
+
       // Insert 10000 items
       for (let i = 0; i < 10000; i++) {
         cache.set(`large-key-${i}`, i);
       }
-      
+
       // Measure lookup time for random accesses
       const startTime = process.hrtime.bigint();
       for (let i = 0; i < 1000; i++) {
@@ -224,26 +220,26 @@ describe('Quantum-Resistant Cache Optimization', () => {
         cache.get(key);
       }
       const endTime = process.hrtime.bigint();
-      
+
       const avgTimeNs = Number(endTime - startTime) / 1000;
-      
-      // Should still be O(1) - average lookup < 10us
-      expect(avgTimeNs).toBeLessThan(10000);
+
+      // Should still be O(1) - average lookup < 2us (allows for test environment overhead)
+      expect(avgTimeNs).toBeLessThan(2000);
     });
   });
 
-  describe('Requirement 2: Collision-proof', () => {
-    
-    test('CuckooHashTable should handle hash collisions gracefully', () => {
+  describe('Requirement 2: Collision handling', () => {
+
+    test('CuckooHashTable should resolve collisions via displacement', () => {
       const cache = new CuckooHashTable<string>(10); // Small capacity to force collisions
-      
+
       // Insert items that may collide
       const keys = ['abc', 'bca', 'cab', 'aaa', 'bbb', 'ccc', 'ddd', 'eee'];
       keys.forEach((key, i) => {
         cache.set(key, `value_${i}`);
       });
-      
-      // All items should be retrievable despite collisions
+
+      // All items should be retrievable after displacement
       keys.forEach((key, i) => {
         expect(cache.get(key)).toBe(`value_${i}`);
       });
@@ -251,34 +247,34 @@ describe('Quantum-Resistant Cache Optimization', () => {
 
     test('CuckooHashTable should not lose data on update', () => {
       const cache = new CuckooHashTable<string>();
-      
+
       cache.set('key1', 'value1');
       cache.set('key1', 'value1_updated');
-      
+
       expect(cache.get('key1')).toBe('value1_updated');
       expect(cache.getSize()).toBe(1); // Size should not increase on update
     });
 
-    test('Dual hash functions should minimize collision probability', () => {
+    test('Dual hash functions should achieve high insertion success rate', () => {
       const cache = new CuckooHashTable<number>(1000);
-      
+
       // Insert items with similar keys
       const insertCount = 500;
       let successCount = 0;
-      
+
       for (let i = 0; i < insertCount; i++) {
         if (cache.set(`similar_key_${i}`, i)) {
           successCount++;
         }
       }
-      
-      // At least 95% should succeed without rehash
+
+      // At least 95% should succeed without needing rehash
       expect(successCount / insertCount).toBeGreaterThanOrEqual(0.95);
     });
   });
 
   describe('DAL Operations Integration', () => {
-    
+
     test('accessServiceListDal create should add to cache', async () => {
       const newRecord: AccessServiceRecord = {
         id: 'new-record-1',
@@ -294,7 +290,7 @@ describe('Quantum-Resistant Cache Optimization', () => {
       resetCacheStats();
       const fetched = await accessServiceListDal({ method: 'get', id: 'new-record-1' });
       expect(fetched).toEqual(newRecord);
-      
+
       const stats = getCacheStats();
       expect(stats.hits).toBe(1); // Should be cache hit
     });
@@ -369,7 +365,7 @@ describe('Quantum-Resistant Cache Optimization', () => {
       await accessServiceListDal({ method: 'get', id: 'all-1' });
       await accessServiceListDal({ method: 'get', id: 'all-2' });
       await accessServiceListDal({ method: 'get', id: 'all-3' });
-      
+
       expect(getCacheStats().hits).toBe(3);
     });
   });

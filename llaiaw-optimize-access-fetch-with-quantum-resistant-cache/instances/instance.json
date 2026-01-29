@@ -1,31 +1,31 @@
 {
     "instance_id": "LLAIAW",
-    "problem_statement": "It violates multiple hard constraints (complexity, correctness, architecture, cryptography, determinism, and API semantics). While the code appears sophisticated, much of it is theatrical rather than correct. Several claims made in comments are mathematically and technically false.",
+    "problem_statement": "The accessServiceListDal in a banking app uses O(n) table scans causing latency issues. Implement Cuckoo hash for O(1) per-key lookups and PQ encryption for cache entries.",
     "base_commit": "repository_before/",
     "test_patch": "tests/",
     "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/llaiaw-optimize-access-fetch-with-quantum-resistant-cache",
     "environment_setup": "Dockerfile",
     "FAIL_TO_PASS": [
-        "tests/accessServiceList.test.ts::CuckooHashTable should provide O(1) get operations",
-        "tests/accessServiceList.test.ts::CuckooHashTable should handle collisions without degradation",
-        "tests/accessServiceList.test.ts::CuckooHashTable should support delete operation in O(1)",
-        "tests/accessServiceList.test.ts::CuckooHashTable should track size correctly",
-        "tests/accessServiceList.test.ts::accessServiceListDal should use cache for O(1) gets",
-        "tests/accessServiceList.test.ts::PQEncryption should encrypt data",
-        "tests/accessServiceList.test.ts::PQEncryption should decrypt data correctly",
-        "tests/accessServiceList.test.ts::PQEncryption should verify valid data",
-        "tests/accessServiceList.test.ts::Cache get operations should complete in <1us average",
-        "tests/accessServiceList.test.ts::CuckooHashTable should handle hash collisions gracefully",
-        "tests/accessServiceList.test.ts::CuckooHashTable should not lose data on update",
-        "tests/accessServiceList.test.ts::Dual hash functions should minimize collision probability",
-        "tests/accessServiceList.test.ts::accessServiceListDal create should add to cache",
-        "tests/accessServiceList.test.ts::accessServiceListDal update should invalidate and update cache",
-        "tests/accessServiceList.test.ts::accessServiceListDal delete should remove from cache",
-        "tests/accessServiceList.test.ts::accessServiceListDal get all should cache individual records"
+        "CuckooHashTable should provide O(1) get operations",
+        "CuckooHashTable should handle collisions via displacement",
+        "CuckooHashTable should support delete operation in O(1)",
+        "CuckooHashTable should track size correctly",
+        "accessServiceListDal should use cache for O(1) gets",
+        "PQEncryption should encrypt data",
+        "PQEncryption should decrypt data correctly",
+        "PQEncryption should verify valid data",
+        "Cache get operations should complete in <1us average",
+        "CuckooHashTable should resolve collisions via displacement",
+        "CuckooHashTable should not lose data on update",
+        "Dual hash functions should achieve high insertion success rate",
+        "accessServiceListDal create should add to cache",
+        "accessServiceListDal update should invalidate and update cache",
+        "accessServiceListDal delete should remove from cache",
+        "accessServiceListDal get all should cache individual records"
     ],
     "PASS_TO_PASS": [
-        "tests/accessServiceList.test.ts::PQEncryption should be deterministic",
-        "tests/accessServiceList.test.ts::PQEncryption should detect tampering (quantum cache poisoning)",
-        "tests/accessServiceList.test.ts::Cache should maintain O(1) with large number of entries"
+        "PQEncryption should be deterministic",
+        "PQEncryption should detect tampering (quantum cache poisoning)",
+        "Cache should maintain O(1) with large number of entries"
     ]
 }

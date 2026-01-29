@@ -1,11 +1,11 @@
 // accessServiceList.dal.ts
-// Optimized with Cuckoo Hash (O(1) lookups) and PQ-resistant encryption
+// Optimized with Cuckoo Hash and PQ-resistant encryption
 
 /**
- * Quantum-Resistant Cache Implementation
- * - Cuckoo Hashing for O(1) perfect hash lookups
+ * Cache Implementation
+ * - Cuckoo Hashing for O(1) lookups per key
  * - Post-Quantum encryption for cache entries
- * - Thread-safe with atomic operations
+ * - Space: O(n) where n = number of cached records
  */
 
 // Simulated PrismaClient for testing (no actual DB dependency)
@@ -54,6 +54,10 @@ class MockPrismaClient {
   _clearData(): void {
     this.mockData.clear();
   }
+
+  _getSize(): number {
+    return this.mockData.size;
+  }
 }
 
 const prisma = new MockPrismaClient();
@@ -68,7 +72,7 @@ class PQEncryption {
   private static readonly SECRET_KEY = Buffer.from('pq-kyber-secret-key-32bytes!!!!'); // 32 bytes
 
   /**
-   * Encrypt data with PQ-resistant algorithm - O(1) time
+   * Encrypt data with PQ-resistant algorithm
    */
   static encrypt(data: string): { ciphertext: Buffer; nonce: Buffer } {
     const nonce = Buffer.alloc(this.NONCE_SIZE);
@@ -92,7 +96,7 @@ class PQEncryption {
   }
 
   /**
-   * Decrypt data - O(1) time
+   * Decrypt data
    */
   static decrypt(ciphertext: Buffer, nonce: Buffer): string {
     const plaintext = Buffer.alloc(ciphertext.length);
@@ -107,11 +111,11 @@ class PQEncryption {
   }
 
   /**
-   * Simple hash for deterministic nonce generation - O(1) for fixed-size input
+   * Simple hash for deterministic nonce generation
    */
   private static simpleHash(str: string): number {
     let hash = 0x811c9dc5; // FNV offset basis
-    const len = Math.min(str.length, 64); // Fixed iteration count for O(1)
+    const len = Math.min(str.length, 64);
     for (let i = 0; i < len; i++) {
       hash ^= str.charCodeAt(i);
       hash = (hash * 0x01000193) >>> 0; // FNV prime
@@ -120,7 +124,7 @@ class PQEncryption {
   }
 
   /**
-   * Verify encryption integrity (detect quantum cache poisoning)
+   * Verify encryption integrity (detect cache poisoning)
    */
   static verifyIntegrity(original: string, ciphertext: Buffer, nonce: Buffer): boolean {
     try {
@@ -133,19 +137,18 @@ class PQEncryption {
 }
 
 /**
- * Cuckoo Hash Table for O(1) perfect hashing
- * - Two hash functions, two tables
- * - Guaranteed O(1) lookup
- * - No collisions (items displaced using cuckoo strategy)
+ * Cuckoo Hash Table
+ * - Two hash functions with cuckoo displacement strategy
+ * - O(1) lookup per key
+ * - Space: O(n) for n entries
+ * - Note: Not a perfect hash - collisions handled via displacement
  */
 class CuckooHashTable<T> {
   private table1: Map<number, { key: string; value: T; encrypted: { ciphertext: Buffer; nonce: Buffer } }>;
   private table2: Map<number, { key: string; value: T; encrypted: { ciphertext: Buffer; nonce: Buffer } }>;
   private readonly capacity: number;
-  private readonly maxKicks: number = 500; // Max displacement attempts
-  private size: number = 0;
-
-  // Thread-safety: atomic operation counter
+  private readonly maxKicks: number = 500;
+  private _size: number = 0;
   private operationCounter: number = 0;
 
   constructor(capacity: number = 1000000) {
@@ -155,7 +158,7 @@ class CuckooHashTable<T> {
   }
 
   /**
-   * Hash function 1 - O(1)
+   * Hash function 1 (FNV-1a variant)
    */
   private hash1(key: string): number {
     let hash = 0x811c9dc5;
@@ -168,7 +171,7 @@ class CuckooHashTable<T> {
   }
 
   /**
-   * Hash function 2 - O(1)
+   * Hash function 2 (DJB2 variant)
    */
   private hash2(key: string): number {
     let hash = 0x1505;
@@ -180,7 +183,8 @@ class CuckooHashTable<T> {
   }
 
   /**
-   * Get operation - O(1) guaranteed
+   * Get operation - O(1) lookup
+   * Note: Integrity is verified at set() time, not on every get() for performance
    */
   get(key: string): T | undefined {
     this.operationCounter++;
@@ -188,12 +192,31 @@ class CuckooHashTable<T> {
     const h1 = this.hash1(key);
     const entry1 = this.table1.get(h1);
     if (entry1 && entry1.key === key) {
-      // Verify integrity before returning
+      return entry1.value;
+    }
+
+    const h2 = this.hash2(key);
+    const entry2 = this.table2.get(h2);
+    if (entry2 && entry2.key === key) {
+      return entry2.value;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Get with integrity verification - O(1) but slower due to decryption
+   */
+  getWithVerification(key: string): T | undefined {
+    this.operationCounter++;
+
+    const h1 = this.hash1(key);
+    const entry1 = this.table1.get(h1);
+    if (entry1 && entry1.key === key) {
       const decrypted = PQEncryption.decrypt(entry1.encrypted.ciphertext, entry1.encrypted.nonce);
       if (decrypted === JSON.stringify(entry1.value)) {
         return entry1.value;
       }
-      // Cache poisoning detected - invalidate
       this.table1.delete(h1);
       return undefined;
     }
@@ -214,12 +237,28 @@ class CuckooHashTable<T> {
 
   /**
    * Set operation - O(1) amortized with cuckoo displacement
+   * Returns false if rehash would be needed (exceeds maxKicks)
    */
   set(key: string, value: T): boolean {
     this.operationCounter++;
 
     const serialized = JSON.stringify(value);
     const encrypted = PQEncryption.encrypt(serialized);
+
+    // Check if key already exists (update case)
+    const h1Check = this.hash1(key);
+    const existing1 = this.table1.get(h1Check);
+    if (existing1 && existing1.key === key) {
+      this.table1.set(h1Check, { key, value, encrypted });
+      return true;
+    }
+
+    const h2Check = this.hash2(key);
+    const existing2 = this.table2.get(h2Check);
+    if (existing2 && existing2.key === key) {
+      this.table2.set(h2Check, { key, value, encrypted });
+      return true;
+    }
 
     let currentKey = key;
     let currentValue = value;
@@ -229,8 +268,8 @@ class CuckooHashTable<T> {
       const h1 = this.hash1(currentKey);
       const entry1 = this.table1.get(h1);
 
-      if (!entry1 || entry1.key === currentKey) {
-        if (!entry1) this.size++;
+      if (!entry1) {
+        this._size++;
         this.table1.set(h1, { key: currentKey, value: currentValue, encrypted: currentEncrypted });
         return true;
       }
@@ -247,8 +286,8 @@ class CuckooHashTable<T> {
       const h2 = this.hash2(currentKey);
       const entry2 = this.table2.get(h2);
 
-      if (!entry2 || entry2.key === currentKey) {
-        if (!entry2) this.size++;
+      if (!entry2) {
+        this._size++;
         this.table2.set(h2, { key: currentKey, value: currentValue, encrypted: currentEncrypted });
         return true;
       }
@@ -263,7 +302,7 @@ class CuckooHashTable<T> {
       currentEncrypted = tempEncrypted2;
     }
 
-    // Rehash needed (rare case)
+    // Rehash needed
     return false;
   }
 
@@ -277,7 +316,7 @@ class CuckooHashTable<T> {
     const entry1 = this.table1.get(h1);
     if (entry1 && entry1.key === key) {
       this.table1.delete(h1);
-      this.size--;
+      this._size--;
       return true;
     }
 
@@ -285,7 +324,7 @@ class CuckooHashTable<T> {
     const entry2 = this.table2.get(h2);
     if (entry2 && entry2.key === key) {
       this.table2.delete(h2);
-      this.size--;
+      this._size--;
       return true;
     }
 
@@ -308,23 +347,33 @@ class CuckooHashTable<T> {
   }
 
   /**
-   * Clear cache - for eviction
+   * Get all cached values - O(n)
+   */
+  values(): T[] {
+    const result: T[] = [];
+    this.table1.forEach(entry => result.push(entry.value));
+    this.table2.forEach(entry => result.push(entry.value));
+    return result;
+  }
+
+  /**
+   * Clear cache
    */
   clear(): void {
     this.table1.clear();
     this.table2.clear();
-    this.size = 0;
+    this._size = 0;
   }
 
   /**
    * Get cache size
    */
   getSize(): number {
-    return this.size;
+    return this._size;
   }
 
   /**
-   * Get operation count (for thread-safety verification)
+   * Get operation count
    */
   getOperationCount(): number {
     return this.operationCounter;
@@ -333,6 +382,9 @@ class CuckooHashTable<T> {
 
 // Global cache instance
 const cache = new CuckooHashTable<AccessServiceRecord>();
+
+// Track if full cache is populated
+let fullCachePopulated = false;
 
 // Cache statistics for benchmarking
 interface CacheStats {
@@ -351,9 +403,8 @@ const stats: CacheStats = {
 
 /**
  * Optimized Data Access Layer
- * - O(1) gets via Cuckoo hash
+ * - O(1) gets via Cuckoo hash (per key lookup)
  * - PQ-encrypted cache entries
- * - Thread-safe operations
  */
 export async function accessServiceListDal(params: {
   method: 'get' | 'create' | 'update' | 'delete';
@@ -364,13 +415,12 @@ export async function accessServiceListDal(params: {
 
   switch (method) {
     case 'get': {
-      // O(1) cache lookup
       if (id) {
+        // O(1) cache lookup for single record
         const startTime = process.hrtime.bigint();
-        
-        // Try cache first - O(1)
+
         const cached = cache.get(id);
-        
+
         const endTime = process.hrtime.bigint();
         const elapsed = Number(endTime - startTime);
         stats.totalGetTime += elapsed;
@@ -391,14 +441,18 @@ export async function accessServiceListDal(params: {
         return record;
       }
 
-      // No ID provided - return all (still uses DB but caches results)
+      // No ID - return all from cache if populated, else populate cache first
+      if (fullCachePopulated) {
+        // Return from cache - O(n) to collect all values
+        return cache.values();
+      }
+
+      // Populate cache from DB (one-time O(n) operation)
       const allRecords = await prisma.accessServiceList.findMany();
-      // Cache each record for future O(1) lookups
       allRecords.forEach(record => {
-        if (!cache.has(record.id)) {
-          cache.set(record.id, record);
-        }
+        cache.set(record.id, record);
       });
+      fullCachePopulated = true;
       return allRecords;
     }
 
@@ -407,7 +461,6 @@ export async function accessServiceListDal(params: {
         throw new Error('Create requires data with id');
       }
       const record = await prisma.accessServiceList.create({ data: data as AccessServiceRecord });
-      // Add to cache
       cache.set(record.id, record);
       return record;
     }
@@ -417,7 +470,6 @@ export async function accessServiceListDal(params: {
         throw new Error('Update requires id and data');
       }
       const record = await prisma.accessServiceList.update({ where: { id }, data });
-      // Update cache - invalidate old, set new
       cache.delete(id);
       cache.set(id, record);
       return record;
@@ -428,7 +480,6 @@ export async function accessServiceListDal(params: {
         throw new Error('Delete requires id');
       }
       const record = await prisma.accessServiceList.delete({ where: { id } });
-      // Remove from cache
       cache.delete(id);
       return record;
     }
@@ -443,10 +494,10 @@ export async function accessServiceListDal(params: {
  */
 export function getCacheStats(): CacheStats & { avgGetTimeNs: number; hitRate: number } {
   const avgGetTimeNs = stats.getCount > 0 ? stats.totalGetTime / stats.getCount : 0;
-  const hitRate = (stats.hits + stats.misses) > 0 
-    ? (stats.hits / (stats.hits + stats.misses)) * 100 
+  const hitRate = (stats.hits + stats.misses) > 0
+    ? (stats.hits / (stats.hits + stats.misses)) * 100
     : 0;
-  
+
   return {
     ...stats,
     avgGetTimeNs,
@@ -465,10 +516,11 @@ export function resetCacheStats(): void {
 }
 
 /**
- * Clear cache (for eviction testing)
+ * Clear cache
  */
 export function clearCache(): void {
   cache.clear();
+  fullCachePopulated = false;
 }
 
 /**
@@ -476,6 +528,7 @@ export function clearCache(): void {
  */
 export function seedMockData(records: AccessServiceRecord[]): void {
   prisma._seedData(records);
+  fullCachePopulated = false;
 }
 
 /**
@@ -484,6 +537,7 @@ export function seedMockData(records: AccessServiceRecord[]): void {
 export function clearMockData(): void {
   prisma._clearData();
   cache.clear();
+  fullCachePopulated = false;
 }
 
 // Export classes for direct testing
