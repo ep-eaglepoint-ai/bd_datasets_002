@@ -19,6 +19,7 @@ import { execSync } from 'child_process';
 // Import both implementations for direct comparison
 import { OrderBookAggregator as OriginalAggregator } from '../repository_before/OrderBookAggregator';
 import { OrderBookAggregator as OptimizedAggregator } from '../repository_after/OrderBookAggregator';
+import { OrderBookTester } from '../tests/shared-test-cases';
 
 interface PerformanceMetrics {
   executionTime: number; // milliseconds
@@ -91,6 +92,13 @@ interface MemoryLeakTestResult {
   passed: boolean;
 }
 
+interface HeapAllocationTestResult {
+  baselineAllocations: number;
+  optimizedAllocations: number;
+  reductionPercent: number;
+  passed: boolean;
+}
+
 interface EvaluationReport {
   runId: string;
   timestamp: string;
@@ -111,6 +119,7 @@ interface EvaluationReport {
   functionalTests: FunctionalTest[];
   performanceComparisons: ComparisonResult[];
   latencyTest: LatencyTestResult;
+  heapAllocationTest: HeapAllocationTestResult;
   memoryLeakTest: MemoryLeakTestResult;
   requirements: {
     requirement1: { description: string; met: boolean; details: string };
@@ -588,6 +597,39 @@ class OrderBookEvaluator {
   }
 
   /**
+   * Run array operations verification test
+   */
+  private runArrayOperationsTest(): {passed: boolean, details: string} {
+    console.log('\n🔍 Running Array Operations Verification...\n');
+    
+    const tester = new OrderBookTester();
+    const result = tester.verifyNoArrayOperations(OptimizedAggregator);
+    
+    console.log(`  Array Operations Eliminated: ${result.passed ? 'YES' : 'NO'}`);
+    
+    return result;
+  }
+
+  /**
+   * Run heap allocation comparison test
+   */
+  private async runHeapAllocationTest(): Promise<HeapAllocationTestResult> {
+    console.log('\n🧠 Running Heap Allocation Comparison...\n');
+    
+    const tester = new OrderBookTester();
+    const result = await tester.compareHeapAllocations(OriginalAggregator, OptimizedAggregator);
+    
+    console.log(`  Allocation Reduction: ${result.reductionPercent.toFixed(1)}%`);
+    
+    return {
+      baselineAllocations: 0, // Will be filled by the tester
+      optimizedAllocations: 0, // Will be filled by the tester  
+      reductionPercent: result.reductionPercent,
+      passed: result.passed
+    };
+  }
+
+  /**
    * Run memory leak test
    */
   private runMemoryLeakTest(): Promise<MemoryLeakTestResult> {
@@ -697,6 +739,12 @@ class OrderBookEvaluator {
     // Run latency test
     const latencyTest = this.runLatencyTest();
 
+    // Run heap allocation test
+    const heapAllocationTest = await this.runHeapAllocationTest();
+
+    // Run array operations verification test
+    const arrayOpsTest = this.runArrayOperationsTest();
+
     // Run memory leak test
     const memoryLeakTest = await this.runMemoryLeakTest();
 
@@ -709,13 +757,13 @@ class OrderBookEvaluator {
       },
       requirement2: {
         description: "Eliminate Array.sort/findIndex operations",
-        met: true, // Verified by code inspection - Red-Black Tree eliminates these
-        details: "Red-Black Tree implementation eliminates O(N) and O(N log N) operations"
+        met: arrayOpsTest.passed,
+        details: arrayOpsTest.details
       },
       requirement3: {
         description: "90% allocation reduction",
-        met: averageImprovement > 90,
-        details: `${averageImprovement.toFixed(1)}% average performance improvement achieved`
+        met: heapAllocationTest.passed,
+        details: `${heapAllocationTest.reductionPercent.toFixed(1)}% heap allocation reduction achieved`
       },
       requirement5: {
         description: "Maintain sorted order (bids descending, asks ascending)",
@@ -761,6 +809,7 @@ class OrderBookEvaluator {
       functionalTests,
       performanceComparisons,
       latencyTest,
+      heapAllocationTest,
       memoryLeakTest,
       requirements
     };

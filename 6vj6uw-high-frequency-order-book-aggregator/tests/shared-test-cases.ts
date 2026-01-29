@@ -270,13 +270,146 @@ export class OrderBookTester {
   }
 
   /**
+   * Run heap allocation test to measure memory efficiency
+   * This tests requirement 3: Reduce heap allocations by at least 90%
+   */
+  async runHeapAllocationTest(aggregatorClass: any): Promise<{allocationsPerUpdate: number, passed: boolean, reductionPercent?: number}> {
+    console.log('\n🧠 Running Heap Allocation Test...\n');
+    
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+    }
+    
+    const aggregator = new aggregatorClass();
+    const testUpdates = 1000; // Smaller number for precise measurement
+    
+    // Get initial heap usage
+    const initialHeap = process.memoryUsage().heapUsed;
+    
+    // Generate test updates
+    const updates = this.generateUpdates(testUpdates);
+    
+    // Run updates and measure heap growth
+    const startTime = process.hrtime.bigint();
+    
+    for (const update of updates) {
+      aggregator.handleUpdate(update);
+    }
+    
+    const endTime = process.hrtime.bigint();
+    
+    // Force garbage collection again if available
+    if (global.gc) {
+      global.gc();
+    }
+    
+    const finalHeap = process.memoryUsage().heapUsed;
+    const heapGrowth = finalHeap - initialHeap;
+    const allocationsPerUpdate = heapGrowth / testUpdates;
+    
+    const executionTime = Number(endTime - startTime) / 1000000;
+    
+    console.log(`📊 Heap Allocation Test Results:`);
+    console.log(`   Updates Processed: ${testUpdates.toLocaleString()}`);
+    console.log(`   Execution Time: ${executionTime.toFixed(2)}ms`);
+    console.log(`   Initial Heap: ${(initialHeap / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`   Final Heap: ${(finalHeap / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`   Heap Growth: ${(heapGrowth / 1024).toFixed(2)}KB`);
+    console.log(`   Allocations per Update: ${allocationsPerUpdate.toFixed(2)} bytes`);
+    
+    // For baseline comparison, we'll store the result
+    // The optimized version should have 90% fewer allocations
+    const passed = true; // We'll determine this in comparison
+    
+    return { allocationsPerUpdate, passed };
+  }
+
+  /**
+   * Verify that the optimized implementation doesn't use Array.sort or findIndex
+   * This tests requirement 2: Eliminate Array.sort/findIndex operations
+   */
+  verifyNoArrayOperations(optimizedClass: any): {passed: boolean, details: string} {
+    console.log('\n🔍 Verifying Elimination of Array.sort/findIndex Operations...\n');
+    
+    // Check the source code of the optimized implementation
+    const sourceCode = optimizedClass.toString();
+    const classSource = optimizedClass.prototype.constructor.toString();
+    
+    // Also check if we can get the file content (this is a more thorough check)
+    let fileContent = '';
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      // Try to read the repository_after file
+      const filePath = path.join(__dirname, '../repository_after/OrderBookAggregator.ts');
+      if (fs.existsSync(filePath)) {
+        fileContent = fs.readFileSync(filePath, 'utf8');
+      }
+    } catch (error) {
+      // If we can't read the file, we'll just check the runtime code
+    }
+    
+    const codeToCheck = fileContent || sourceCode + classSource;
+    
+    // Check for prohibited operations
+    const hasArraySort = /Array\.prototype\.sort|\.sort\s*\(/.test(codeToCheck);
+    const hasFindIndex = /Array\.prototype\.findIndex|\.findIndex\s*\(/.test(codeToCheck);
+    const hasArrayFind = /\.find\s*\(/.test(codeToCheck) && /findIndex/.test(codeToCheck);
+    
+    const passed = !hasArraySort && !hasFindIndex && !hasArrayFind;
+    
+    let details = 'Code analysis: ';
+    if (hasArraySort) details += 'Found Array.sort usage. ';
+    if (hasFindIndex) details += 'Found findIndex usage. ';
+    if (hasArrayFind) details += 'Found find/findIndex pattern. ';
+    
+    if (passed) {
+      details = 'No Array.sort or findIndex operations detected in optimized implementation';
+    }
+    
+    console.log(`📊 Array Operations Check:`);
+    console.log(`   Array.sort detected: ${hasArraySort ? '❌ YES' : '✅ NO'}`);
+    console.log(`   findIndex detected: ${hasFindIndex ? '❌ YES' : '✅ NO'}`);
+    console.log(`   Status: ${passed ? '✅ PASSED' : '❌ FAILED'}`);
+    console.log(`   Details: ${details}\n`);
+    
+    return { passed, details };
+  }
+
+  /**
+   * Compare heap allocations between two implementations
+   */
+  async compareHeapAllocations(baselineClass: any, optimizedClass: any): Promise<{reductionPercent: number, passed: boolean}> {
+    console.log('\n🔬 Running Heap Allocation Comparison...\n');
+    
+    console.log('Testing baseline implementation...');
+    const baselineResult = await this.runHeapAllocationTest(baselineClass);
+    
+    console.log('\nTesting optimized implementation...');
+    const optimizedResult = await this.runHeapAllocationTest(optimizedClass);
+    
+    const reductionPercent = ((baselineResult.allocationsPerUpdate - optimizedResult.allocationsPerUpdate) / baselineResult.allocationsPerUpdate) * 100;
+    const passed = reductionPercent >= 90;
+    
+    console.log(`\n📈 Allocation Comparison Results:`);
+    console.log(`   Baseline Allocations: ${baselineResult.allocationsPerUpdate.toFixed(2)} bytes/update`);
+    console.log(`   Optimized Allocations: ${optimizedResult.allocationsPerUpdate.toFixed(2)} bytes/update`);
+    console.log(`   Reduction: ${reductionPercent.toFixed(1)}%`);
+    console.log(`   Target: ≥90% reduction`);
+    console.log(`   Status: ${passed ? '✅ PASSED' : '❌ FAILED'}\n`);
+    
+    return { reductionPercent, passed };
+  }
+
+  /**
    * Run high-frequency latency test
    */
-  async runLatencyTest(aggregatorClass: any, isBaseline: boolean = false): Promise<{throughput: number, p99: number, passed: boolean}> {
+  async runLatencyTest(aggregatorClass: any): Promise<{throughput: number, p99: number, passed: boolean}> {
     console.log('\n⚡ Running High-Frequency Latency Test...\n');
     
     const aggregator = new aggregatorClass();
-    const targetUpdatesPerSecond = isBaseline ? 10000 : 100000; // Lower target for baseline
+    const targetUpdatesPerSecond = 100000;
     const testDurationSeconds = 0.1; // Reduced to 0.1 seconds for faster testing
     const totalUpdates = Math.floor(targetUpdatesPerSecond * testDurationSeconds);
     
@@ -327,9 +460,8 @@ export class OrderBookTester {
     const throughputPassed = actualThroughput >= targetUpdatesPerSecond * 0.95; // Allow 5% tolerance
     const passed = p99Passed && throughputPassed;
     
-    const targetLabel = isBaseline ? '10k/sec' : '100k/sec';
     console.log(`\n✅ P99 Latency < 500μs: ${p99Passed ? 'PASSED' : 'FAILED'}`);
-    console.log(`✅ Throughput ≥ ${targetLabel}: ${throughputPassed ? 'PASSED' : 'FAILED'}\n`);
+    console.log(`✅ Throughput ≥ 100k/sec: ${throughputPassed ? 'PASSED' : 'FAILED'}\n`);
     
     return { throughput: actualThroughput, p99, passed };
   }

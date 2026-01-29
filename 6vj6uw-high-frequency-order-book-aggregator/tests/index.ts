@@ -538,10 +538,11 @@ class PerformanceTester {
     console.log(`\n📈 Summary:`);
     console.log(`   Tests Passed: ${passedTests}/${this.results.length}`);
     console.log(`   Average Performance Improvement: ${avgImprovement.toFixed(1)}%`);
-    console.log(`   Requirement 2 (Eliminate Array.sort/findIndex): ✅ ACHIEVED`);
-    console.log(`   Requirement 3 (90% allocation reduction): ✅ ACHIEVED (Red-Black Tree eliminates array operations)`);
-    console.log(`   Requirement 5 (Maintain sorted order): ✅ ACHIEVED`);
-    console.log(`   Requirement 6 (4-decimal precision): ✅ ACHIEVED\n`);
+    console.log(`\n⚠️  Note: For complete requirement validation, run the full evaluation suite:`);
+    console.log(`   - Requirement 1: Run 'npm run test:after' for latency/throughput validation`);
+    console.log(`   - Requirement 2: Verified by code inspection (Red-Black Tree eliminates Array.sort/findIndex)`);
+    console.log(`   - Requirement 3: Run 'npm run evaluate' for heap allocation measurement`);
+    console.log(`   - Requirements 5-8: Run 'npm run evaluate' for comprehensive testing\n`);
   }
 }
 

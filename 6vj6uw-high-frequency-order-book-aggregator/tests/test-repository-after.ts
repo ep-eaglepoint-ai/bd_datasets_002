@@ -30,7 +30,7 @@ async function runRepositoryAfterTests(): Promise<void> {
     tester.printResults();
     
     // Run high-frequency latency test
-    const latencyResult = await tester.runLatencyTest(OrderBookAggregator, false); // false = optimized
+    const latencyResult = await tester.runLatencyTest(OrderBookAggregator);
     
     console.log('\n' + '='.repeat(60));
     console.log('REPOSITORY_AFTER TEST SUMMARY');
