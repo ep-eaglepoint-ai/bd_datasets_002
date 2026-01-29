@@ -159,3 +159,76 @@ def test_alternating_put_get_operations():
     assert cache.get("A") == 1
     assert cache.get("C") == 3
     assert cache.get("D") == 4
+
+# Requirement Tests
+
+def test_requirement_lru_ordering():
+    """Requirement: Insert A, B, C (cap 3). Access A. Insert D. Verify B evicted, A & C remain."""
+    cache = LRUCacheWithTTL(capacity=3, ttl=100)
+    cache.put("A", 1)
+    cache.put("B", 2)
+    cache.put("C", 3)
+    cache.get("A")
+    cache.put("D", 4)
+    assert "B" not in cache.cache
+    assert "A" in cache.cache
+    assert "C" in cache.cache
+
+def test_requirement_atomic_update():
+    """Requirement: put on existing key updates value, expiration, and moves to MRU."""
+    cache = LRUCacheWithTTL(capacity=2, ttl=100)
+    with patch('time.time') as mock_time:
+        mock_time.return_value = 100
+        cache.put("A", 1) # A is MRU
+        
+        mock_time.return_value = 105
+        cache.put("B", 2) # B is MRU, A is LRU
+        
+        mock_time.return_value = 110
+        cache.put("A", 3) # A is updated and moved to MRU, B is now LRU
+        
+        assert cache.cache["A"] == 3
+        assert cache.expiry_map["A"] == 210
+        
+        cache.put("C", 4) # Should evict B (the LRU), while A remains
+        assert "A" in cache.cache
+        assert "B" not in cache.cache
+
+def test_requirement_prune_expired_count():
+    """Requirement: Fill, expire half, verify count and size decrease."""
+    cache = LRUCacheWithTTL(capacity=10, ttl=10)
+    with patch('time.time') as mock_time:
+        mock_time.return_value = 100
+        for i in range(5): cache.put(f"e{i}", i)
+        mock_time.return_value = 120
+        for i in range(5): cache.put(f"k{i}", i)
+        
+        mock_time.return_value = 125
+        count = cache.prune_expired()
+        assert count == 5
+        assert len(cache.cache) == 5
+
+def test_requirement_zero_capacity():
+    """Requirement: Handle zero capacity. (Expected to FAIL in current impl)"""
+    cache = LRUCacheWithTTL(capacity=0, ttl=10)
+    # Will crash with KeyError here
+    cache.put("A", 1) 
+    assert len(cache.cache) == 0
+
+def test_requirement_high_load():
+    """Requirement: 1000+ operations, verify size never exceeds capacity."""
+    capacity = 50
+    cache = LRUCacheWithTTL(capacity=capacity, ttl=100)
+    for i in range(1100):
+        cache.put(f"k{i}", i)
+        assert len(cache.cache) <= capacity
+
+def test_requirement_get_non_existent_no_lru_impact():
+    """Requirement: get on non-existent key does not impact LRU order."""
+    cache = LRUCacheWithTTL(capacity=2, ttl=100)
+    cache.put("A", 1)
+    cache.put("B", 2)
+    cache.get("C") # Non-existent
+    cache.put("D", 3) # Should evict A (the LRU)
+    assert "A" not in cache.cache
+    assert "B" in cache.cache

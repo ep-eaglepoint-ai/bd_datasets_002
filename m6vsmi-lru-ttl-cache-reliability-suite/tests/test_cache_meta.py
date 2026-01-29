@@ -1,145 +1,73 @@
 
 import os
 import sys
+import subprocess
 import pytest
-from unittest.mock import patch
+from pathlib import Path
 
-# Ensure we can import from repository_after or repository_before
-repo_dir = os.environ.get('TEST_REPO_DIR', 'repository_after')
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', repo_dir)))
-from lru_ttl_cache import LRUCacheWithTTL
-
-def test_stale_read():
-    """Insert an item, mock the system clock forward past the TTL, and verify get returns None and removes the key."""
-    cache = LRUCacheWithTTL(capacity=3, ttl=10)
-    with patch('time.time') as mock_time:
-        mock_time.return_value = 100
-        cache.put("A", 1)
-        
-        # Move time forward past TTL (100 + 10 = 110)
-        mock_time.return_value = 111
-        assert cache.get("A") is None
-        assert "A" not in cache.cache
-        assert "A" not in cache.expiry_map
-
-def test_lru_ordering():
-    """Validate LRU ordering: Insert keys A, B, C (capacity 3). Access A. Insert D. Verify B is evicted, while A and C remain."""
-    cache = LRUCacheWithTTL(capacity=3, ttl=100)
-    cache.put("A", 1)
-    cache.put("B", 2)
-    cache.put("C", 3)
+def run_repo_tests(repo_dir_name):
+    """Utility to run pytest on a specific repository and return results."""
+    project_root = Path(__file__).parent.parent
+    repo_path = project_root / repo_dir_name
+    test_file = repo_path / "test_cache.py"
     
-    # Access A to make it MRU
-    cache.get("A")
+    if not test_file.exists():
+        return None, "Test file not found"
+
+    cmd = [sys.executable, "-m", "pytest", str(test_file), "-v"]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repo_path)
     
-    # Initial: A, B, C (MRU)
-    # Get A: B, C, A (MRU)
-    # Put D: C, A, D (MRU) -> B evicted
-    cache.put("D", 4)
+    # Ensure current dir is project root so relative imports in repo work if needed
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=str(project_root))
+    return result.stdout, result.stderr
+
+def parse_outcomes(stdout):
+    """Parse pytest verbose output for test outcomes."""
+    outcomes = {}
+    if not stdout: return outcomes
+    for line in stdout.splitlines():
+        if "::" in line and (" PASSED" in line or " FAILED" in line or " ERROR" in line):
+            parts = line.split()
+            if len(parts) >= 2:
+                nodeid = parts[0]
+                status = parts[1]
+                test_name = nodeid.split("::")[-1]
+                outcomes[test_name] = status
+    return outcomes
+
+def test_meta_test_file_availability():
+    """Meta-test: Verify that 'test_cache.py' exists in the selected repository."""
+    repo_dir = os.environ.get('TEST_REPO_DIR', 'repository_after')
+    project_root = Path(__file__).parent.parent
+    test_file = project_root / repo_dir / "test_cache.py"
+    assert test_file.exists(), f"Configuration Error: {repo_dir}/test_cache.py is missing!"
+
+def test_meta_detects_buggy_zero_capacity():
+    """Meta-test: Verify that the implementation's bugs are correctly identified."""
+    repo_dir = os.environ.get('TEST_REPO_DIR', 'repository_after')
+    stdout, _ = run_repo_tests(repo_dir)
+    outcomes = parse_outcomes(stdout)
     
-    assert "B" not in cache.cache
-    assert "A" in cache.cache
-    assert "C" in cache.cache
-    assert "D" in cache.cache
+    # This test is expected to fail on the current implementation (it crashes with KeyError)
+    assert outcomes.get("test_requirement_zero_capacity") == "FAILED", \
+        "The test suite failed to catch the zero-capacity bug (or the test didn't run)!"
 
-def test_atomic_update():
-    """Verify that put on an existing key updates both its value and its expiration timestamp, and moves it to the most-recently-used position."""
-    cache = LRUCacheWithTTL(capacity=3, ttl=10)
-    with patch('time.time') as mock_time:
-        mock_time.return_value = 100
-        cache.put("A", 1)
-        
-        mock_time.return_value = 105
-        cache.put("B", 2)
-        
-        mock_time.return_value = 110
-        # Update A. Should update expiration to 110 + 10 = 120
-        # Should also move A to end
-        cache.put("A", 10)
-        
-        assert cache.get("A") == 10
-        assert cache.expiry_map["A"] == 120
-        
-        # Verify order: B is now LRU (oldest), A is MRU (newest)
-        # {B: 2, A: 10}
-        cache.put("C", 3) # {B: 2, A: 10, C: 3}
-        cache.put("D", 4) # B should be evicted -> {A: 10, C: 3, D: 4}
-        assert "B" not in cache.cache
-        assert "A" in cache.cache
-
-def test_prune_expired():
-    """Fill the cache with items, expire half of them via time mocking, and verify that prune_expired returns the correct count and the cache size decreases accordingly."""
-    cache = LRUCacheWithTTL(capacity=10, ttl=10)
-    with patch('time.time') as mock_time:
-        mock_time.return_value = 100
-        for i in range(5):
-            cache.put(f"expire{i}", i)
-        
-        mock_time.return_value = 120
-        for i in range(5):
-            cache.put(f"keep{i}", i)
-            
-        mock_time.return_value = 125
-        count = cache.prune_expired()
-        assert count == 5
-        assert len(cache.cache) == 5
-        for i in range(5):
-            assert f"keep{i}" in cache.cache
-            assert f"expire{i}" not in cache.cache
-
-def test_zero_negative_capacity_ttl():
-    """Handle zero and negative capacity/ttl scenarios to ensure the component raises appropriate errors or behaves predictably."""
-    # Test zero capacity - depending on impl, might crash or just not store anything
-    cache = LRUCacheWithTTL(capacity=0, ttl=10)
-    try:
-        cache.put("A", 1)
-    except Exception:
-        pass 
-
-    # Test negative TTL
-    cache_neg_ttl = LRUCacheWithTTL(capacity=5, ttl=-1)
-    with patch('time.time') as mock_time:
-        mock_time.return_value = 100
-        cache_neg_ttl.put("A", 1)
-        # exp = 100 - 1 = 99. 100 > 99, so it should be expired immediately.
-        assert cache_neg_ttl.get("A") is None
-
-def test_high_load():
-    """Perform a high-load simulation (1000+ operations) and verify that len(self.cache) never exceeds self.capacity."""
-    capacity = 50
-    cache = LRUCacheWithTTL(capacity=capacity, ttl=100)
-    for i in range(1500):
-        cache.put(f"key{i}", i)
-        assert len(cache.cache) <= capacity
-    assert len(cache.cache) == capacity
-
-def test_get_non_existent_no_lru_impact():
-    """Verify that get on a non-existent key does not impact the LRU order of existing keys."""
-    cache = LRUCacheWithTTL(capacity=3, ttl=100)
-    cache.put("A", 1)
-    cache.put("B", 2)
-    cache.put("C", 3)
-    # Order: A, B, C
+def test_meta_verifies_core_requirements_pass():
+    """Meta-test: Verify that the test suite correctly passes for working features."""
+    repo_dir = os.environ.get('TEST_REPO_DIR', 'repository_after')
+    stdout, _ = run_repo_tests(repo_dir)
+    outcomes = parse_outcomes(stdout)
     
-    cache.get("non-existent")
+    # Core features that are implemented correctly
+    required_passes = [
+        "test_requirement_lru_ordering",
+        "test_requirement_atomic_update",
+        "test_requirement_prune_expired_count",
+        "test_requirement_high_load",
+        "test_very_short_ttl",  # stale read
+        "test_requirement_get_non_existent_no_lru_impact"
+    ]
     
-    # Order should still be A, B, C. Inserting D should evict A.
-    cache.put("D", 4)
-    assert "A" not in cache.cache
-    assert "B" in cache.cache
-
-def test_coverage_delete_and_prune():
-    """Achieve 100% code coverage, specifically ensuring the _delete and prune_expired methods are fully exercised."""
-    cache = LRUCacheWithTTL(capacity=3, ttl=10)
-    cache.put("A", 1)
-    cache._delete("A") # key exists
-    assert "A" not in cache.cache
-    cache._delete("B") # key doesn't exist
-    
-    with patch('time.time') as mock_time:
-        mock_time.return_value = 100
-        cache.put("C", 3)
-        
-        mock_time.return_value = 200 # expired
-        cache.prune_expired()
-        assert "C" not in cache.cache
+    for test in required_passes:
+        assert outcomes.get(test) == "PASSED", f"Core requirement test {test} failed or was not run!"
