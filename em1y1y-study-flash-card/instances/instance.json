@@ -1,0 +1,11 @@
+{
+            "instance_id": "EM1Y1Y",
+            "problem_statement": "Build a Flash Card Study web app that allows users to create, organize, study, and review flash cards to improve memorization and learning. The app should focus on speed, simplicity, and effective study workflows, making it easy to create decks, quiz oneself, and track learning progress over time.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/em1y1y-study-flash-card",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
