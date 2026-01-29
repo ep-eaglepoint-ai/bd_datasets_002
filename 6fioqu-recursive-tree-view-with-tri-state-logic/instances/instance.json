@@ -1,0 +1,11 @@
+{
+            "instance_id": "6FIOQU",
+            "problem_statement": "Recursive components are a standard pattern, but the engineering complexity spikes when adding "Tri-State" selection logic (Checked, Unchecked, Indeterminate). The challenge lies in the bidirectional propagation of state: a "downward" flow where checking a parent checks all children, and an "upward" calculation where the state of children determines if the parent is Checked or Indeterminate. Mid-tier models frequently fail in two ways: they either mutate the prop directly (violating Vue's one-way data flow), or they fail to implement the "Indeterminate" logic correctly, leaving parents fully checked even when a child is deselected. Additionally, handling this efficiently without causing infinite render loops or deep copying the entire tree on every click presents a significant algorithmic trap.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/6fioqu-recursive-tree-view-with-tri-state-logic",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
