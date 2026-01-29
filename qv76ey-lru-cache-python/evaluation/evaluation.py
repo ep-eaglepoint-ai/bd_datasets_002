@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import uuid
@@ -29,7 +30,7 @@ def run_tests(repo_path: Path):
             capture_output=True,
             text=True,
             timeout=120,
-            env={**subprocess.os.environ, **env}
+            env={**os.environ, **env}
         )
         
         return {
