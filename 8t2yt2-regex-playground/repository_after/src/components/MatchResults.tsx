@@ -114,7 +114,7 @@ const MatchResults: FunctionComponent<Props> = ({
                             <span className="text-theme_textGray">(empty)</span>
                           )}
                         </div>
-                        {group.start !== null && group.end !== null && (
+                        {group.start != null && group.end != null && (
                           <div className="text-xs text-theme_textGray mt-1">
                             [{group.start}, {group.end})
                           </div>

@@ -8,9 +8,10 @@
     "start": "next start repository_after",
     "lint": "echo \"lint disabled\"",
     "lint:fix": "echo \"lint disabled\"",
-    "test": "export NODE_ENV=test && DEBUG_PRINT_LIMIT=10000 jest --runInBand",
-    "test:watch": "npm run test -- --watchAll",
-    "evaluate": "node evaluation/evaluation.js"
+    "test": "npx jest --config tests/jest.config.js --runInBand",
+    "test:watch": "npx jest --config tests/jest.config.js --watch",
+    "test:coverage": "npx jest --config tests/jest.config.js --coverage",
+    "evaluate": "npx ts-node evaluation/evaluation.ts"
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.9",

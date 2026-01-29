@@ -73,4 +73,87 @@ describe("MatchResults", () => {
     expect(screen.getByText("Regex Error")).toBeInTheDocument();
     expect(screen.getByText("Invalid regular expression")).toBeInTheDocument();
   });
+
+  it("shows 0 matches and no matches to display message", () => {
+    render(
+      <MatchResults
+        matches={[]}
+        executionTimeMs={0.12}
+        truncated={false}
+        status="idle"
+      />,
+    );
+
+    expect(screen.getByText("0 matches")).toBeInTheDocument();
+    expect(
+      screen.getByText(/No matches to display. Adjust your pattern/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders execution time with two decimal places", () => {
+    render(
+      <MatchResults
+        matches={[{ index: 0, end: 1, match: "a", groups: [] }]}
+        executionTimeMs={1.256}
+        truncated={false}
+        status="idle"
+      />,
+    );
+
+    expect(screen.getByText("Execution: 1.26ms")).toBeInTheDocument();
+  });
+
+  it("renders optional/empty group text as (empty)", () => {
+    render(
+      <MatchResults
+        matches={[
+          {
+            index: 0,
+            end: 3,
+            match: "abc",
+            groups: [
+              { index: 1, name: "opt", text: null, parentIndex: null },
+              { index: 2, text: "", start: null, end: null, parentIndex: null },
+            ],
+          },
+        ]}
+        executionTimeMs={0}
+        truncated={false}
+        status="idle"
+      />,
+    );
+
+    const emptyLabels = screen.getAllByText("(empty)");
+    expect(emptyLabels.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders group without name (index only)", () => {
+    render(
+      <MatchResults
+        matches={[
+          {
+            index: 0,
+            end: 2,
+            match: "ab",
+            groups: [
+              {
+                index: 1,
+                text: "ab",
+                start: 0,
+                end: 2,
+                parentIndex: null,
+              },
+            ],
+          },
+        ]}
+        executionTimeMs={0}
+        truncated={false}
+        status="idle"
+      />,
+    );
+
+    expect(screen.getByText("#1")).toBeInTheDocument();
+    expect(screen.getAllByText("[0, 2)").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("(outer)")).not.toBeInTheDocument();
+  });
 });

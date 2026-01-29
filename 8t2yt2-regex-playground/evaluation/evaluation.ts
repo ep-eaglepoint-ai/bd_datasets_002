@@ -132,7 +132,7 @@ function runTests(
 
   try {
     const result = execSync(
-      "npx jest --config jest.config.js --json --no-coverage",
+      "npx jest --config tests/jest.config.js --json --no-coverage",
       {
         encoding: "utf8",
         stdio: ["pipe", "pipe", "pipe"],
@@ -223,7 +223,7 @@ const runId = generateRunId();
 const startedAt = new Date();
 
 console.log("\n" + "=".repeat(60));
-console.log("TYPESCRIPT AUTHENTICATION SYSTEM EVALUATION");
+console.log("REGEX PLAYGROUND EVALUATION");
 console.log("=".repeat(60));
 console.log(`Run ID: ${runId}`);
 console.log(`Started at: ${startedAt.toISOString()}`);

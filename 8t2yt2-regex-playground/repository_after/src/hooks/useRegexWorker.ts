@@ -24,6 +24,13 @@ const emptyResult: RegexWorkerResult = {
   groupDefs: [],
 };
 
+const advanceIndex = (str: string, index: number, unicode: boolean): number => {
+  if (!unicode) return index + 1;
+  const code = str.codePointAt(index);
+  if (code === undefined) return index + 1;
+  return index + (code > 0xffff ? 2 : 1);
+};
+
 const parseCapturingGroups = (pattern: string) => {
   const groups: Array<{
     index: number;
@@ -125,14 +132,35 @@ const buildMatchResults = (
   const isIterative = re.global || re.sticky;
 
   const buildGroups = (match: RegExpExecArray) => {
-    return groupDefs.map((def) => ({
-      index: def.index,
-      name: def.name,
-      text: match[def.index] === undefined ? null : match[def.index],
-      start: null,
-      end: null,
-      parentIndex: def.parentIndex ?? null,
-    }));
+    const baseStart = match.index;
+    const baseEnd = match.index + match[0].length;
+    let searchStart = baseStart;
+    return groupDefs.map((def) => {
+      const value = match[def.index];
+      const textVal =
+        value === undefined ? null : (value as string | null);
+      let start: number | null = null;
+      let end: number | null = null;
+      if (textVal !== null && textVal !== undefined && textVal !== "") {
+        const pos = text.indexOf(textVal, searchStart);
+        if (pos !== -1 && pos + textVal.length <= baseEnd) {
+          start = pos;
+          end = pos + textVal.length;
+          searchStart = end;
+        }
+      } else if (textVal === "") {
+        start = searchStart;
+        end = searchStart;
+      }
+      return {
+        index: def.index,
+        name: def.name,
+        text: textVal,
+        start,
+        end,
+        parentIndex: def.parentIndex ?? null,
+      };
+    });
   };
 
   if (!isIterative) {
@@ -162,7 +190,7 @@ const buildMatchResults = (
     }
 
     if (match[0].length === 0) {
-      re.lastIndex += 1;
+      re.lastIndex = advanceIndex(text, re.lastIndex, re.unicode);
     }
   }
 

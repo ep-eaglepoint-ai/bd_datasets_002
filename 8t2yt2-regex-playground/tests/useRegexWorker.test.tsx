@@ -16,24 +16,34 @@ const HookConsumer = ({
   flags,
   text,
   timeoutMs = 50,
+  debounceMs = 0,
+  maxMatches,
 }: {
   pattern: string;
   flags: string;
   text: string;
   timeoutMs?: number;
+  debounceMs?: number;
+  maxMatches?: number;
 }) => {
   const { error, matches } = useRegexWorker({
     pattern,
     flags,
     text,
-    debounceMs: 0,
+    debounceMs,
     timeoutMs,
+    maxMatches,
   });
 
   return (
     <div>
       <div data-testid="error">{error || ""}</div>
       <div data-testid="count">{matches.length}</div>
+      {matches[0] && (
+        <div data-testid="first-match">
+          {matches[0].index},{matches[0].end}
+        </div>
+      )}
     </div>
   );
 };
@@ -77,7 +87,9 @@ describe("useRegexWorker", () => {
 
     mockedCreateRegexWorker.mockReturnValue(worker as unknown as Worker);
 
-    render(<HookConsumer pattern="😊" flags="g" text="😊" />);
+    render(
+      <HookConsumer pattern="😊" flags="g" text="😊" debounceMs={0} />,
+    );
 
     act(() => {
       jest.runOnlyPendingTimers();
@@ -101,6 +113,7 @@ describe("useRegexWorker", () => {
         pattern={"(a+)+$" + " ".repeat(200)}
         flags=""
         text="aaaaaaaaaa"
+        debounceMs={0}
         timeoutMs={10}
       />,
     );
@@ -112,5 +125,178 @@ describe("useRegexWorker", () => {
     expect(screen.getByTestId("error").textContent).toMatch(
       /Execution exceeded 10ms/,
     );
+  });
+
+  it("returns zero matches for empty pattern without posting to worker", () => {
+    const postMessage = jest.fn();
+    const worker = {
+      onmessage: null as ((event: { data: any }) => void) | null,
+      onerror: null as (() => void) | null,
+      postMessage,
+      terminate: jest.fn(),
+    };
+    mockedCreateRegexWorker.mockReturnValue(worker as unknown as Worker);
+
+    render(<HookConsumer pattern="" flags="g" text="hello" />);
+
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(screen.getByTestId("count").textContent).toBe("0");
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  it("debounces: does not post immediately; posts after debounceMs", () => {
+    const postMessage = jest.fn();
+    const worker = {
+      onmessage: null as ((event: { data: any }) => void) | null,
+      onerror: null as (() => void) | null,
+      postMessage,
+      terminate: jest.fn(),
+    };
+    mockedCreateRegexWorker.mockReturnValue(worker as unknown as Worker);
+
+    render(
+      <HookConsumer
+        pattern="a"
+        flags="g"
+        text="a"
+        debounceMs={100}
+      />,
+    );
+
+    expect(postMessage).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends correct payload (pattern, flags, text, maxMatches) to worker", () => {
+    const postMessage = jest.fn();
+    const worker = {
+      onmessage: null as ((event: { data: any }) => void) | null,
+      onerror: null as (() => void) | null,
+      postMessage,
+      terminate: jest.fn(),
+    };
+    mockedCreateRegexWorker.mockReturnValue(worker as unknown as Worker);
+
+    render(
+      <HookConsumer
+        pattern="\\d+"
+        flags="gi"
+        text="test 123"
+        debounceMs={0}
+        maxMatches={1000}
+      />,
+    );
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: "\\d+",
+        flags: "gi",
+        text: "test 123",
+        maxMatches: 1000,
+      }),
+    );
+  });
+
+  it("returns matches for accented character (Unicode)", () => {
+    const worker = {
+      onmessage: null as ((event: { data: any }) => void) | null,
+      onerror: null as (() => void) | null,
+      postMessage: function postMessage() {
+        this.onmessage?.({
+          data: {
+            ok: true,
+            error: null,
+            matches: [
+              {
+                index: 4,
+                end: 8,
+                match: "café",
+                groups: [],
+              },
+            ],
+            executionTimeMs: 0.1,
+            truncated: false,
+            groupDefs: [],
+          },
+        });
+      },
+      terminate: jest.fn(),
+    };
+    mockedCreateRegexWorker.mockReturnValue(worker as unknown as Worker);
+
+    render(
+      <HookConsumer
+        pattern="café"
+        flags="u"
+        text="hello café"
+        debounceMs={0}
+      />,
+    );
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(screen.getByTestId("count").textContent).toBe("1");
+    expect(screen.getByTestId("first-match").textContent).toBe("4,8");
+  });
+
+  it("deterministic: same pattern, flags, text yield same match count and indices", () => {
+    const worker = {
+      onmessage: null as ((event: { data: any }) => void) | null,
+      onerror: null as (() => void) | null,
+      postMessage: function postMessage() {
+        this.onmessage?.({
+          data: {
+            ok: true,
+            error: null,
+            matches: [
+              { index: 0, end: 1, match: "a", groups: [] },
+              { index: 2, end: 3, match: "a", groups: [] },
+            ],
+            executionTimeMs: 0.1,
+            truncated: false,
+            groupDefs: [],
+          },
+        });
+      },
+      terminate: jest.fn(),
+    };
+    mockedCreateRegexWorker.mockReturnValue(worker as unknown as Worker);
+
+    const { rerender } = render(
+      <HookConsumer pattern="a" flags="g" text="a a" debounceMs={0} />,
+    );
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    const count1 = screen.getByTestId("count").textContent;
+    const first1 = screen.getByTestId("first-match").textContent;
+
+    rerender(
+      <HookConsumer pattern="a" flags="g" text="a a" debounceMs={0} />,
+    );
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    const count2 = screen.getByTestId("count").textContent;
+    const first2 = screen.getByTestId("first-match").textContent;
+
+    expect(count1).toBe(count2);
+    expect(first1).toBe(first2);
+    expect(count1).toBe("2");
+    expect(first1).toBe("0,1");
   });
 });
