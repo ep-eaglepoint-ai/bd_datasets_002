@@ -1,0 +1,11 @@
+{
+            "instance_id": "XMHEYB",
+            "problem_statement": "Implementing a traffic shadowing proxy in Go introduces deceptive complexity regarding stream management and concurrency control. The fundamental engineering failure mode is the mishandling of the io.ReadCloser interface found in http.Request.Body; because this is a forward-only stream, reading the payload for the primary upstream destination permanently exhausts the data, causing the shadow upstream to receive an empty request body unless the developer explicitly buffers and clones the stream. Furthermore, the requirement for "Zero Latency Impact" necessitates a strict decoupling of the two request paths. A naive implementation that sequentially calls the live service followed by the shadow service introduces blocking latency, violating the core non-functional requirement. The architecture must utilize goroutines for the shadow path while ensuring that any potential panics or timeouts in that background context do not propagate to the main thread or delay the response to the client.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xmheyb-traffic-mirroring-with-request-body-preservation",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
