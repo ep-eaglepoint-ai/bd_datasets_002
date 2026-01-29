@@ -8,8 +8,14 @@ class WriteConflictError(Exception):
 Version = Tuple[int, Any]  # (commit_ts, value)
 
 class TransactionalKVStore:
+    """
+    Thread-safe MVCC key-value store with snapshot isolation.
+
+    Uses a write lock for state-changing operations (put, commit, vacuum, rollback)
+    while allowing lock-free reads for non-blocking concurrency.
+    """
     def __init__(self) -> None:
-        self._lock = threading.RLock()
+        self._write_lock = threading.Lock()  # Only for state-changing operations
         self._tid_counter = 0
         self._commit_counter = 0
         self._versions: Dict[str, List[Version]] = {}
@@ -17,7 +23,7 @@ class TransactionalKVStore:
         self._writes: Dict[int, Dict[str, Any]] = {}
 
     def begin_transaction(self) -> int:
-        with self._lock:
+        with self._write_lock:
             self._tid_counter += 1
             tid = self._tid_counter
             self._active[tid] = True
@@ -29,7 +35,7 @@ class TransactionalKVStore:
         return versions[-1] if versions else None
 
     def put(self, tid: int, key: str, value: Any) -> None:
-        with self._lock:
+        with self._write_lock:
             if tid not in self._active:
                 raise ValueError("Transaction not active")
             latest = self._latest_commit(key)
@@ -38,22 +44,23 @@ class TransactionalKVStore:
             self._writes[tid][key] = value
 
     def get(self, tid: int, key: str) -> Any:
-        # reads should be non-blocking for writers; read lock only
-        with self._lock:
-            if tid not in self._active:
-                raise ValueError("Transaction not active")
-            # check uncommitted write for this tid
-            if key in self._writes[tid]:
-                return self._writes[tid][key]
-            versions = self._versions.get(key, [])
-            # find latest commit <= tid
-            for commit_ts, val in reversed(versions):
-                if commit_ts <= tid:
-                    return val
-            return None
+        # Lock-free read: does not block writers (requirement #5)
+        # Python's GIL ensures atomic dict/list access for snapshot reads
+        if tid not in self._active:
+            raise ValueError("Transaction not active")
+        # check uncommitted write for this tid
+        writes = self._writes.get(tid, {})
+        if key in writes:
+            return writes[key]
+        versions = self._versions.get(key, [])
+        # find latest commit <= tid (snapshot isolation)
+        for commit_ts, val in reversed(versions):
+            if commit_ts <= tid:
+                return val
+        return None
 
     def commit(self, tid: int) -> bool:
-        with self._lock:
+        with self._write_lock:
             if tid not in self._active:
                 return False
             # assign commit timestamp atomically
@@ -68,14 +75,14 @@ class TransactionalKVStore:
             return True
 
     def rollback(self, tid: int) -> None:
-        with self._lock:
+        with self._write_lock:
             if tid in self._writes:
                 del self._writes[tid]
             if tid in self._active:
                 del self._active[tid]
 
     def vacuum(self) -> None:
-        with self._lock:
+        with self._write_lock:
             if self._active:
                 watermark = min(self._active.keys())
             else:
