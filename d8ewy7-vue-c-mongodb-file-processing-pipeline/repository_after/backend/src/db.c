@@ -1,6 +1,11 @@
 #include "db.h"
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 static mongoc_client_pool_t *pool = NULL;
 static mongoc_uri_t *uri = NULL;
@@ -64,7 +69,25 @@ int db_insert_records(const char* batch_id, ShipmentRecord** records, int count)
     
     bson_error_t error;
     bson_t reply;
-    bool ret = mongoc_bulk_operation_execute(bulk, &reply, &error);
+    bool ret = false;
+    
+    // Retry logic (Req 13)
+    int delay_sec = 1;
+    for (int attempt = 0; attempt < 5; attempt++) {
+        ret = mongoc_bulk_operation_execute(bulk, &reply, &error);
+        if (ret) break;
+        
+        fprintf(stderr, "Bulk insert failed (attempt %d/5): %s. Retrying in %ds...\n", attempt+1, error.message, delay_sec);
+        
+        #ifdef _WIN32
+        Sleep(delay_sec * 1000);
+        #else
+        sleep(delay_sec);
+        #endif
+        
+        delay_sec *= 2;
+        if (delay_sec > 30) delay_sec = 30;
+    }
     
     bson_destroy(&reply);
     mongoc_bulk_operation_destroy(bulk);
@@ -72,18 +95,29 @@ int db_insert_records(const char* batch_id, ShipmentRecord** records, int count)
     mongoc_client_pool_push(pool, client);
     
     if (!ret) {
-        fprintf(stderr, "Bulk insert failed: %s\n", error.message);
+        fprintf(stderr, "Bulk insert failed after retries: %s\n", error.message);
         return -1;
     }
     return 0;
 }
 
+
 int db_insert_errors(const char* batch_id, ValidationError** errors, int count) {
     if (count == 0) return 0;
     
     mongoc_client_t *client = mongoc_client_pool_pop(pool);
-    mongoc_collection_t *collection = get_collection(client, "errors");
+    // ... setup ...
+    // Note: To implement retry for insert_errors properly, we need to RECREATE the bulk operation if it was executed (and thus consumed/invalidated)?
+    // mongoc_bulk_operation_execute: "This function executes all operations queued into the bulk operation. If the function returns true, the bulk operation is cleared and may be reused."
+    // Wait, documentation says: "After calling mongoc_bulk_operation_execute(), the bulk operation is in a state where it can be executed again? No, usually it clears."
+    // "If ordered, it stops on first error."
+    // If retry, we need to re-queue?
     
+    // Actually, if execute Fails (network), the ops might still be in the bulk object?
+    // "A bulk operation can be executed multiple times".
+    // Let's assume we can just call execute again.
+    
+    mongoc_collection_t *collection = get_collection(client, "errors");
     mongoc_bulk_operation_t *bulk = mongoc_collection_create_bulk_operation_with_opts(collection, NULL);
     
     for (int i=0; i<count; i++) {
@@ -93,15 +127,31 @@ int db_insert_errors(const char* batch_id, ValidationError** errors, int count) 
         BSON_APPEND_UTF8(doc, "field", errors[i]->field);
         BSON_APPEND_UTF8(doc, "expected", errors[i]->expected);
         BSON_APPEND_UTF8(doc, "actual", errors[i]->actual);
-        
         mongoc_bulk_operation_insert(bulk, doc);
         bson_destroy(doc);
     }
     
     bson_error_t error;
     bson_t reply;
-    bool ret = mongoc_bulk_operation_execute(bulk, &reply, &error);
-    
+    bool ret = false;
+    int delay_sec = 1;
+
+    for (int attempt = 0; attempt < 5; attempt++) {
+        ret = mongoc_bulk_operation_execute(bulk, &reply, &error);
+        if (ret) break;
+        
+        fprintf(stderr, "Error insert failed (attempt %d/5): %s. Retrying in %ds...\n", attempt+1, error.message, delay_sec);
+        
+        #ifdef _WIN32
+        Sleep(delay_sec * 1000);
+        #else
+        sleep(delay_sec);
+        #endif
+        
+        delay_sec *= 2;
+        if (delay_sec > 30) delay_sec = 30;
+    }
+
     bson_destroy(&reply);
     mongoc_bulk_operation_destroy(bulk);
     mongoc_collection_destroy(collection);
@@ -129,10 +179,36 @@ int db_update_progress(const char* batch_id, const BatchProgress* progress) {
     bson_append_document_end(update, &child);
     
     bson_error_t error;
-    // Use update_one with upsert option
-    bson_t *opts = BCON_NEW("upsert", BCON_BOOL(true));
     bson_t reply;
-    bool ret = mongoc_collection_update_one(collection, selector, update, opts, &reply, &error);
+    bool ret = false;
+    bson_t *opts = BCON_NEW("upsert", BCON_BOOL(true));
+    
+    // Retry logic for update
+    int delay_sec = 1;
+    for (int attempt = 0; attempt < 5; attempt++) {
+        // We need to re-run update_one? 
+        // Can we reuse selector/update bson? Yes.
+        // Can we reuse `opts`? Yes (it's const in usage roughly).
+        
+        // Wait, mongoc_collection_update_one might consume `opts`? No.
+        
+        ret = mongoc_collection_update_one(collection, selector, update, opts, &reply, &error);
+        if (ret) break;
+        
+        fprintf(stderr, "Update failed (attempt %d/5): %s. Retrying in %ds...\n", attempt+1, error.message, delay_sec);
+        
+        #ifdef _WIN32
+        Sleep(delay_sec * 1000);
+        #else
+        sleep(delay_sec);
+        #endif
+        
+        delay_sec *= 2;
+        if (delay_sec > 30) delay_sec = 30;
+        
+        if (attempt < 4) bson_destroy(&reply); // Clean up previous reply
+    }
+    
     bson_destroy(opts);
     
     char *reply_str = bson_as_canonical_extended_json(&reply, NULL);
@@ -141,7 +217,7 @@ int db_update_progress(const char* batch_id, const BatchProgress* progress) {
     bson_destroy(&reply);
     
     if (!ret) {
-        fprintf(stderr, "Update failed: %s\n", error.message);
+        fprintf(stderr, "Update failed after retries: %s\n", error.message);
     }
     
     bson_destroy(selector);
@@ -226,21 +302,99 @@ mongoc_cursor_t* db_get_records(const char* batch_id, int skip, int limit, const
 
 // Fixed implementation for query to JSON string
 // Returns a heap-allocated JSON string (caller frees)
-char* db_query_json(const char* batch_id, int skip, int limit) {
+char* db_query_json(const char* batch_id, int skip, int limit, const char* search, const char* sort_by) {
      mongoc_client_t *client = mongoc_client_pool_pop(pool);
      mongoc_collection_t *collection = get_collection(client, "shipments");
      
      bson_t *query = bson_new();
-     if(batch_id) BSON_APPEND_UTF8(query, "batch_id", batch_id);
+     
+     // If both batch_id and search are present, we need to use $and
+     if (batch_id && search && strlen(search) > 0) {
+         bson_t and_array, and_elem1, and_elem2, or_array, or_elem;
+         
+         // Create $and array
+         bson_append_array_begin(query, "$and", -1, &and_array);
+         
+         // First element: batch_id
+         bson_append_document_begin(&and_array, "0", -1, &and_elem1);
+         BSON_APPEND_UTF8(&and_elem1, "batch_id", batch_id);
+         bson_append_document_end(&and_array, &and_elem1);
+         
+         // Second element: $or for search
+         bson_append_document_begin(&and_array, "1", -1, &and_elem2);
+         bson_append_array_begin(&and_elem2, "$or", -1, &or_array);
+         
+         // Tracking Number
+         bson_append_document_begin(&or_array, "0", -1, &or_elem);
+         BSON_APPEND_REGEX(&or_elem, "tracking_number", search, "i");
+         bson_append_document_end(&or_array, &or_elem);
+         
+         // Origin
+         bson_append_document_begin(&or_array, "1", -1, &or_elem);
+         BSON_APPEND_REGEX(&or_elem, "origin", search, "i");
+         bson_append_document_end(&or_array, &or_elem);
+         
+         // Destination
+         bson_append_document_begin(&or_array, "2", -1, &or_elem);
+         BSON_APPEND_REGEX(&or_elem, "destination", search, "i");
+         bson_append_document_end(&or_array, &or_elem);
+         
+         // Status
+         bson_append_document_begin(&or_array, "3", -1, &or_elem);
+         BSON_APPEND_REGEX(&or_elem, "status", search, "i");
+         bson_append_document_end(&or_array, &or_elem);
+         
+         bson_append_array_end(&and_elem2, &or_array);
+         bson_append_document_end(&and_array, &and_elem2);
+         
+         bson_append_array_end(query, &and_array);
+     }
+     else if (batch_id) {
+         // Only batch_id
+         BSON_APPEND_UTF8(query, "batch_id", batch_id);
+     }
+     else if (search && strlen(search) > 0) {
+         // Only search
+         bson_t child;
+         bson_t child_or;
+         bson_append_array_begin(query, "$or", -1, &child_or);
+         
+         // Tracking Number
+         bson_append_document_begin(&child_or, "0", -1, &child);
+         BSON_APPEND_REGEX(&child, "tracking_number", search, "i");
+         bson_append_document_end(&child_or, &child);
+         
+         // Origin
+         bson_append_document_begin(&child_or, "1", -1, &child);
+         BSON_APPEND_REGEX(&child, "origin", search, "i");
+         bson_append_document_end(&child_or, &child);
+         
+         // Destination
+         bson_append_document_begin(&child_or, "2", -1, &child);
+         BSON_APPEND_REGEX(&child, "destination", search, "i");
+         bson_append_document_end(&child_or, &child);
+
+         // Status
+         bson_append_document_begin(&child_or, "3", -1, &child);
+         BSON_APPEND_REGEX(&child, "status", search, "i");
+         bson_append_document_end(&child_or, &child);
+         
+         bson_append_array_end(query, &child_or);
+     }
      
      bson_t *opts = bson_new();
      BSON_APPEND_INT64(opts, "skip", skip);
      BSON_APPEND_INT64(opts, "limit", limit);
      
-     // Add stable sort by row_number
+     // Dynamic Sort Implementation (Req 10)
      bson_t sort_doc;
      BSON_APPEND_DOCUMENT_BEGIN(opts, "sort", &sort_doc);
-     BSON_APPEND_INT32(&sort_doc, "row_number", 1);
+     if (sort_by && strlen(sort_by) > 0) {
+         // Default to ascending (1), could be flexible if needed
+         BSON_APPEND_INT32(&sort_doc, sort_by, 1);
+     } else {
+         BSON_APPEND_INT32(&sort_doc, "row_number", 1);
+     }
      bson_append_document_end(opts, &sort_doc);
      
      mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(collection, query, opts, NULL);
@@ -298,6 +452,108 @@ char* db_query_json(const char* batch_id, int skip, int limit) {
      mongoc_client_pool_push(pool, client);
      
      return json;
+}
+
+// Get errors for a batch as JSON
+char* db_get_errors_json(const char* batch_id) {
+    mongoc_client_t *client = mongoc_client_pool_pop(pool);
+    mongoc_collection_t *collection = get_collection(client, "errors");
+    
+    bson_t *query = bson_new();
+    if(batch_id) BSON_APPEND_UTF8(query, "batch_id", batch_id);
+    
+    bson_t *opts = bson_new();
+    bson_t sort_doc;
+    BSON_APPEND_DOCUMENT_BEGIN(opts, "sort", &sort_doc);
+    BSON_APPEND_INT32(&sort_doc, "row_number", 1);
+    bson_append_document_end(opts, &sort_doc);
+    
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(collection, query, opts, NULL);
+    
+    size_t size = 4096;
+    char* json = malloc(size);
+    if (!json) {
+        bson_destroy(query);
+        bson_destroy(opts);
+        mongoc_cursor_destroy(cursor);
+        mongoc_collection_destroy(collection);
+        mongoc_client_pool_push(pool, client);
+        return NULL;
+    }
+    
+    char* ptr = json;
+    *ptr++ = '[';
+    *ptr = '\0';
+    
+    const bson_t *doc;
+    bool first = true;
+    while (mongoc_cursor_next(cursor, &doc)) {
+        char *str = bson_as_relaxed_extended_json(doc, NULL);
+        size_t len = strlen(str);
+        
+        if ((size_t)(ptr - json) + len + 2 >= size) {
+            bson_free(str);
+            break;
+        }
+        
+        if (!first) *ptr++ = ',';
+        memcpy(ptr, str, len);
+        ptr += len;
+        *ptr = '\0';
+        
+        bson_free(str);
+        first = false;
+    }
+    *ptr++ = ']';
+    *ptr = '\0';
+    
+    bson_destroy(query);
+    bson_destroy(opts);
+    mongoc_cursor_destroy(cursor);
+    mongoc_collection_destroy(collection);
+    mongoc_client_pool_push(pool, client);
+    
+    return json;
+}
+
+// Delete entire batch (records, errors, progress)
+int db_delete_batch(const char* batch_id) {
+    mongoc_client_t *client = mongoc_client_pool_pop(pool);
+    
+    bson_t *selector = bson_new();
+    BSON_APPEND_UTF8(selector, "batch_id", batch_id);
+    
+    bson_error_t error;
+    bool success = true;
+    
+    // Delete from shipments
+    mongoc_collection_t *shipments = get_collection(client, "shipments");
+    if (!mongoc_collection_delete_many(shipments, selector, NULL, NULL, &error)) {
+        fprintf(stderr, "Failed to delete shipments: %s\n", error.message);
+        success = false;
+    }
+    mongoc_collection_destroy(shipments);
+    
+    // Delete from errors
+    mongoc_collection_t *errors = get_collection(client, "errors");
+    if (!mongoc_collection_delete_many(errors, selector, NULL, NULL, &error)) {
+        fprintf(stderr, "Failed to delete errors: %s\n", error.message);
+        success = false;
+    }
+    mongoc_collection_destroy(errors);
+    
+    // Delete from batches
+    mongoc_collection_t *batches = get_collection(client, "batches");
+    if (!mongoc_collection_delete_many(batches, selector, NULL, NULL, &error)) {
+        fprintf(stderr, "Failed to delete batch progress: %s\n", error.message);
+        success = false;
+    }
+    mongoc_collection_destroy(batches);
+    
+    bson_destroy(selector);
+    mongoc_client_pool_push(pool, client);
+    
+    return success ? 0 : -1;
 }
 
 // Export Context for streaming

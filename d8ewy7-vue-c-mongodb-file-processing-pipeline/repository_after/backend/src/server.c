@@ -256,12 +256,49 @@ int answer_to_connection(void *cls, struct MHD_Connection *connection,
         return MHD_NO; // 404
     }
     
+    // GET /api/errors/{batch_id}
+    if (strncmp(url, "/api/errors/", 12) == 0) {
+        const char* batch_id = url + 12;
+        extern char* db_get_errors_json(const char* batch_id);
+        
+        char* json = db_get_errors_json(batch_id);
+        if (json) {
+            struct MHD_Response *response = MHD_create_response_from_buffer(strlen(json), (void*)json, MHD_RESPMEM_MUST_FREE);
+            MHD_add_response_header(response, "Content-Type", "application/json");
+            MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
+            int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+            MHD_destroy_response(response);
+            return ret;
+        }
+        return MHD_NO; // 404
+    }
+    
+    // DELETE /api/batch/{batch_id}
+    if (strncmp(url, "/api/batch/", 11) == 0 && strcmp(method, "DELETE") == 0) {
+        const char* batch_id = url + 11;
+        extern int db_delete_batch(const char* batch_id);
+        
+        int result = db_delete_batch(batch_id);
+        if (result == 0) {
+            const char* success = "{\"message\": \"Batch deleted successfully\"}";
+            struct MHD_Response *response = MHD_create_response_from_buffer(strlen(success), (void*)success, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(response, "Content-Type", "application/json");
+            MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
+            int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+            MHD_destroy_response(response);
+            return ret;
+        }
+        return MHD_NO; // 404 or error
+    }
+    
     // GET /api/records?batch_id=...
     if (strncmp(url, "/api/records", 12) == 0) {
         // Parse query params manually (Simplified for this task)
         const char* batch_id = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "batch_id");
         const char* skip_str = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "skip");
         const char* limit_str = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "limit");
+        const char* search_term = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "search");
+        const char* sort_by = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "sort_by");
         
         if (batch_id) {
             int skip = skip_str ? atoi(skip_str) : 0;
@@ -276,9 +313,9 @@ int answer_to_connection(void *cls, struct MHD_Connection *connection,
             
             // Assuming I'll update db.h next or rely on linker (C allows implicit but strict flags might fail).
             // Let's assume proper declaration.
-            extern char* db_query_json(const char* batch_id, int skip, int limit);
+            extern char* db_query_json(const char* batch_id, int skip, int limit, const char* search, const char* sort_by);
             
-            char* json = db_query_json(batch_id, skip, limit);
+            char* json = db_query_json(batch_id, skip, limit, search_term, sort_by);
             if (json) {
                 struct MHD_Response *response = MHD_create_response_from_buffer(strlen(json), (void*)json, MHD_RESPMEM_MUST_FREE);
                 MHD_add_response_header(response, "Content-Type", "application/json");

@@ -101,14 +101,19 @@ int parse_csv_line(char* line, ShipmentRecord* record) {
     if (endptr == fields[3] || (*endptr != '\0' && !isspace((unsigned char)*endptr))) {
         return -1; // Invalid number format
     }
-
     
     // Check if we have dimensions (9 fields) or just basic format (6 fields)
     if (field_count >= 9) {
         // Full format with dimensions
-        record->length_cm = atof(fields[4]);
-        record->width_cm = atof(fields[5]);
-        record->height_cm = atof(fields[6]);
+        // Handle empty fields (atof returns 0 for empty string, which is what we want)
+        char* len_field = trim_whitespace(fields[4]);
+        char* wid_field = trim_whitespace(fields[5]);
+        char* hei_field = trim_whitespace(fields[6]);
+        
+        record->length_cm = (strlen(len_field) > 0) ? atof(len_field) : 0.0;
+        record->width_cm = (strlen(wid_field) > 0) ? atof(wid_field) : 0.0;
+        record->height_cm = (strlen(hei_field) > 0) ? atof(hei_field) : 0.0;
+        
         strncpy(record->ship_date, trim_whitespace(fields[7]), 31);
         strncpy(record->status, trim_whitespace(fields[8]), 31);
     } else {

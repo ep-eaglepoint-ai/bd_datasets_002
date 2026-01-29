@@ -41,6 +41,7 @@ services:
     command: sh -c "npm install && npm test"
     depends_on:
       - c-backend
+      - vue-frontend
     environment:
       - API_URL=http://c-backend:8080/api
     networks:
