@@ -48,34 +48,34 @@ type TestSummary struct {
 }
 
 type TestExecution struct {
-	Success bool          `json:"success"`
+	Success  bool         `json:"success"`
 	ExitCode int          `json:"exit_code"`
-	Tests   []TestResult  `json:"tests"`
-	Summary TestSummary   `json:"summary"`
-	Stdout  string        `json:"stdout"`
-	Stderr  string        `json:"stderr"`
+	Tests    []TestResult `json:"tests"`
+	Summary  TestSummary  `json:"summary"`
+	Stdout   string       `json:"stdout"`
+	Stderr   string       `json:"stderr"`
 }
 
 type Metrics struct {
-	TotalFiles                bool `json:"total_files"`
-	ExactWorkerCount          bool `json:"exact_worker_count"`
-	HeapPriorityQueue         bool `json:"heap_priority_queue"`
-	ExponentialBackoff        bool `json:"exponential_backoff"`
-	TaskDeduplication         bool `json:"task_deduplication"`
-	BufferedProgress          bool `json:"buffered_progress"`
-	NoDeferInLoop             bool `json:"no_defer_in_loop"`
-	NoUnusedImports           bool `json:"no_unused_imports"`
-	PanicRecovery             bool `json:"panic_recovery"`
-	GracefulShutdown          bool `json:"graceful_shutdown"`
-	NoGoroutineLeak           bool `json:"no_goroutine_leak"`
-	RateLimiting              bool `json:"rate_limiting"`
-	RaceFreeStats             bool `json:"race_free_stats"`
-	TaskTimeout               bool `json:"task_timeout"`
-	QueueSizeLimit            bool `json:"queue_size_limit"`
-	HardDeadline              bool `json:"hard_deadline"`
-	PriorityOrdering          bool `json:"priority_ordering"`
-	StandardLibOnly           bool `json:"standard_lib_only"`
-	ConcurrentSafety          bool `json:"concurrent_safety"`
+	TotalFiles         bool `json:"total_files"`
+	ExactWorkerCount   bool `json:"exact_worker_count"`
+	HeapPriorityQueue  bool `json:"heap_priority_queue"`
+	ExponentialBackoff bool `json:"exponential_backoff"`
+	TaskDeduplication  bool `json:"task_deduplication"`
+	BufferedProgress   bool `json:"buffered_progress"`
+	NoDeferInLoop      bool `json:"no_defer_in_loop"`
+	NoUnusedImports    bool `json:"no_unused_imports"`
+	PanicRecovery      bool `json:"panic_recovery"`
+	GracefulShutdown   bool `json:"graceful_shutdown"`
+	NoGoroutineLeak    bool `json:"no_goroutine_leak"`
+	RateLimiting       bool `json:"rate_limiting"`
+	RaceFreeStats      bool `json:"race_free_stats"`
+	TaskTimeout        bool `json:"task_timeout"`
+	QueueSizeLimit     bool `json:"queue_size_limit"`
+	HardDeadline       bool `json:"hard_deadline"`
+	PriorityOrdering   bool `json:"priority_ordering"`
+	StandardLibOnly    bool `json:"standard_lib_only"`
+	ConcurrentSafety   bool `json:"concurrent_safety"`
 }
 
 type RepositoryState struct {
@@ -109,24 +109,24 @@ type Comparison struct {
 }
 
 type FinalVerdict struct {
-	Success          bool    `json:"success"`
-	TotalTests       int     `json:"total_tests"`
-	PassedTests      int     `json:"passed_tests"`
-	FailedTests      int     `json:"failed_tests"`
-	SuccessRate      string  `json:"success_rate"`
+	Success           bool   `json:"success"`
+	TotalTests        int    `json:"total_tests"`
+	PassedTests       int    `json:"passed_tests"`
+	FailedTests       int    `json:"failed_tests"`
+	SuccessRate       string `json:"success_rate"`
 	MeetsRequirements bool   `json:"meets_requirements"`
 }
 
 type Report struct {
-	EvaluationMetadata EvaluationMetadata    `json:"evaluation_metadata"`
-	Environment        Environment           `json:"environment"`
-	TestExecution      TestExecution         `json:"test_execution"`
-	ComplianceCheck    RequirementsChecklist `json:"compliance_check"`
-	Before             RepositoryState       `json:"before"`
-	After              RepositoryState       `json:"after"`
-	Comparison         Comparison            `json:"comparison"`
+	EvaluationMetadata    EvaluationMetadata    `json:"evaluation_metadata"`
+	Environment           Environment           `json:"environment"`
+	TestExecution         TestExecution         `json:"test_execution"`
+	ComplianceCheck       RequirementsChecklist `json:"compliance_check"`
+	Before                RepositoryState       `json:"before"`
+	After                 RepositoryState       `json:"after"`
+	Comparison            Comparison            `json:"comparison"`
 	RequirementsChecklist RequirementsChecklist `json:"requirements_checklist"`
-	FinalVerdict       FinalVerdict          `json:"final_verdict"`
+	FinalVerdict          FinalVerdict          `json:"final_verdict"`
 }
 
 const TOTAL = 18
@@ -140,13 +140,11 @@ func main() {
 
 	start := time.Now()
 
-	// Create reports dir
 	dateStr := start.Format("2006-01-02")
 	timeStr := start.Format("15-04-05")
 	reportsDir := filepath.Join("reports", dateStr, timeStr)
 	os.MkdirAll(reportsDir, 0755)
 
-	// Get environment info
 	hostname, _ := os.Hostname()
 	goVersion := runtime.Version()
 	osRelease := getOSRelease()
@@ -171,17 +169,10 @@ func main() {
 		},
 	}
 
-	fmt.Println("📝 Analyzing code...")
-	usesHeap := checkContainerHeap()
-	noDeferInLoop := checkNoDeferInLoop()
-	noUnusedImports := checkUnusedImports()
-	stdLibOnly := checkStdLibOnly()
-
 	fmt.Println("🧪 Running tests with race detector...")
 	testOutput, exitCode := runTests()
 	testResults := parseTests(testOutput)
 
-	// Build test execution
 	passed := 0
 	failed := 0
 	for _, t := range testResults {
@@ -207,15 +198,15 @@ func main() {
 		Stderr: "",
 	}
 
-	// Build compliance check
+	// Build compliance check from test results
 	report.ComplianceCheck = RequirementsChecklist{
 		R1_ExactWorkerCount:   isPassed(testResults, "Requirement1"),
-		R2_HeapPriorityQueue:  usesHeap,
+		R2_HeapPriorityQueue:  isPassed(testResults, "Requirement2"),
 		R3_ExponentialBackoff: isPassed(testResults, "Requirement3"),
 		R4_TaskDeduplication:  isPassed(testResults, "Requirement4"),
 		R5_BufferedProgress:   isPassed(testResults, "Requirement5"),
-		R6_NoDeferInLoop:      noDeferInLoop,
-		R7_NoUnusedImports:    noUnusedImports,
+		R6_NoDeferInLoop:      isPassed(testResults, "Requirement6"),
+		R7_NoUnusedImports:    isPassed(testResults, "Requirement7"),
 		R8_PanicRecovery:      isPassed(testResults, "Requirement8"),
 		R9_GracefulShutdown:   isPassed(testResults, "Requirement9"),
 		R10_NoGoroutineLeak:   isPassed(testResults, "Requirement10"),
@@ -225,11 +216,10 @@ func main() {
 		R14_QueueSizeLimit:    isPassed(testResults, "Requirement14"),
 		R15_HardDeadline:      isPassed(testResults, "Requirement15"),
 		R16_PriorityOrdering:  isPassed(testResults, "Requirement16"),
-		R17_StandardLibOnly:   stdLibOnly,
+		R17_StandardLibOnly:   isPassed(testResults, "Requirement17"),
 		R18_ConcurrentSafety:  isPassed(testResults, "Requirement18"),
 	}
 
-	// Build before state (empty)
 	report.Before = RepositoryState{
 		Metrics: Metrics{},
 		Tests: TestExecution{
@@ -239,7 +229,6 @@ func main() {
 		},
 	}
 
-	// Build after state
 	report.After = RepositoryState{
 		Metrics: Metrics{
 			TotalFiles:         true,
@@ -265,7 +254,6 @@ func main() {
 		Tests: report.TestExecution,
 	}
 
-	// Build comparison
 	totalPassed := countPassed(report.ComplianceCheck)
 	allMet := totalPassed == TOTAL
 
@@ -275,30 +263,26 @@ func main() {
 		TestImprovement:    passed,
 	}
 
-	// Requirements checklist (same as compliance)
 	report.RequirementsChecklist = report.ComplianceCheck
 
-	// Final verdict
 	successRate := 0.0
 	if len(testResults) > 0 {
 		successRate = float64(passed) / float64(len(testResults)) * 100
 	}
 
 	report.FinalVerdict = FinalVerdict{
-		Success:          allMet && exitCode == 0,
-		TotalTests:       len(testResults),
-		PassedTests:      passed,
-		FailedTests:      failed,
-		SuccessRate:      fmt.Sprintf("%.1f", successRate),
+		Success:           allMet && exitCode == 0,
+		TotalTests:        len(testResults),
+		PassedTests:       passed,
+		FailedTests:       failed,
+		SuccessRate:       fmt.Sprintf("%.1f", successRate),
 		MeetsRequirements: allMet,
 	}
 
-	// Save report
 	reportFile := filepath.Join(reportsDir, "report.json")
 	data, _ := json.MarshalIndent(report, "", "  ")
 	os.WriteFile(reportFile, data, 0644)
 
-	// Print results
 	printResults(report, reportFile, start, totalPassed)
 
 	if !report.FinalVerdict.Success {
@@ -349,6 +333,8 @@ func printResults(report Report, reportFile string, start time.Time, totalPassed
 	fmt.Println("╠══════════════════════════════════════════════════════════╣")
 	fmt.Printf("║   Requirements: %d/%d (%.0f%%)                              ║\n",
 		totalPassed, TOTAL, float64(totalPassed)/float64(TOTAL)*100)
+	fmt.Printf("║   Tests: %d/%d passed                                      ║\n",
+		report.FinalVerdict.PassedTests, report.FinalVerdict.TotalTests)
 	fmt.Println("╚══════════════════════════════════════════════════════════╝")
 	fmt.Println()
 }
@@ -371,67 +357,12 @@ func getOSRelease() string {
 	return "unknown"
 }
 
-func checkContainerHeap() bool {
-	content, err := os.ReadFile("/app/repository_after/scheduler.go")
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(content), `"container/heap"`)
-}
-
-func checkNoDeferInLoop() bool {
-	content, err := os.ReadFile("/app/repository_after/scheduler.go")
-	if err != nil {
-		return false
-	}
-
-	lines := strings.Split(string(content), "\n")
-	braceDepth := 0
-	inFor := false
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-
-		if strings.HasPrefix(trimmed, "for ") || trimmed == "for {" {
-			inFor = true
-			braceDepth = 0
-		}
-
-		braceDepth += strings.Count(trimmed, "{")
-		braceDepth -= strings.Count(trimmed, "}")
-
-		if inFor && strings.HasPrefix(trimmed, "defer ") {
-			return false
-		}
-
-		if inFor && braceDepth <= 0 {
-			inFor = false
-		}
-	}
-	return true
-}
-
-func checkUnusedImports() bool {
-	cmd := exec.Command("go", "vet", "./...")
-	cmd.Dir = "/app/repository_after"
-	output, _ := cmd.CombinedOutput()
-	return !strings.Contains(string(output), "imported and not used")
-}
-
-func checkStdLibOnly() bool {
-	content, err := os.ReadFile("/app/repository_after/go.mod")
-	if err != nil {
-		return false
-	}
-	return !strings.Contains(string(content), "github.com")
-}
-
 func runTests() (string, int) {
 	cmd := exec.Command("go", "test", "-v", "-race", "-timeout", "120s", "./...")
 	cmd.Dir = "/app/tests"
 	output, err := cmd.CombinedOutput()
 	fmt.Println(string(output))
-	
+
 	exitCode := 0
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -440,7 +371,7 @@ func runTests() (string, int) {
 			exitCode = 1
 		}
 	}
-	
+
 	return string(output), exitCode
 }
 

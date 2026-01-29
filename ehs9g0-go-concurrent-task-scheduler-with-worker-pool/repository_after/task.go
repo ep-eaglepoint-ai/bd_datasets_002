@@ -5,14 +5,13 @@ import (
 	"time"
 )
 
-// Priority levels for tasks
+// Priority levels for tasks - High=0 (highest), Medium=1, Low=2 (lowest)
 type Priority int
 
 const (
-	PriorityLow Priority = iota
-	PriorityNormal
-	PriorityHigh
-	PriorityCritical
+	PriorityHigh   Priority = 0
+	PriorityMedium Priority = 1
+	PriorityLow    Priority = 2
 )
 
 // TaskState represents the current state of a task
@@ -43,9 +42,11 @@ type Task struct {
 type TaskResult struct {
 	TaskID      string
 	State       TaskState
+	Success     bool
 	Error       error
 	StartedAt   time.Time
 	CompletedAt time.Time
+	Duration    time.Duration
 	Retries     int
 }
 

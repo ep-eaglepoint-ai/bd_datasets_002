@@ -35,27 +35,23 @@ type Scheduler struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	// Task tracking for deduplication
 	taskChannels map[string]chan TaskResult
 	progressChs  map[string]chan int
 	taskMutex    sync.RWMutex
 
-	// Rate limiting
 	rateLimiters map[string]*tokenBucket
 	rateMutex    sync.RWMutex
 
-	// Stats
 	submitted atomic.Int64
 	running_  atomic.Int64
 	completed atomic.Int64
 	failed    atomic.Int64
 	retrying  atomic.Int64
 
-	// In-flight tracking with atomic counter
 	inFlightCount atomic.Int64
 }
 
-// priorityQueue implements heap.Interface
+// priorityQueue implements heap.Interface for priority-based task scheduling
 type priorityQueue struct {
 	items []*taskItem
 }
@@ -68,27 +64,33 @@ type taskItem struct {
 	retries    int
 }
 
+// Len returns the number of items in the queue (heap.Interface)
 func (pq *priorityQueue) Len() int { return len(pq.items) }
 
+// Less compares priorities: lower value = higher priority (heap.Interface)
+// High=0 < Medium=1 < Low=2, so High priority tasks come first
 func (pq *priorityQueue) Less(i, j int) bool {
 	if pq.items[i].task.Priority != pq.items[j].task.Priority {
-		return pq.items[i].task.Priority > pq.items[j].task.Priority
+		return pq.items[i].task.Priority < pq.items[j].task.Priority
 	}
 	return pq.items[i].task.CreatedAt.Before(pq.items[j].task.CreatedAt)
 }
 
+// Swap swaps two items in the queue (heap.Interface)
 func (pq *priorityQueue) Swap(i, j int) {
 	pq.items[i], pq.items[j] = pq.items[j], pq.items[i]
 	pq.items[i].index = i
 	pq.items[j].index = j
 }
 
+// Push adds an item to the queue (heap.Interface)
 func (pq *priorityQueue) Push(x interface{}) {
 	item := x.(*taskItem)
 	item.index = len(pq.items)
 	pq.items = append(pq.items, item)
 }
 
+// Pop removes and returns the highest priority item (heap.Interface)
 func (pq *priorityQueue) Pop() interface{} {
 	old := pq.items
 	n := len(old)
@@ -99,21 +101,21 @@ func (pq *priorityQueue) Pop() interface{} {
 	return item
 }
 
-// Token bucket for rate limiting
+// tokenBucket implements rate limiting using the token bucket algorithm
 type tokenBucket struct {
-	tokens         float64
-	maxTokens      float64
-	refillRate     float64
-	lastRefill     time.Time
-	intervalNanos  int64
-	lastTakeNanos  int64
-	mutex          sync.Mutex
+	tokens        float64
+	maxTokens     float64
+	refillRate    float64
+	lastRefill    time.Time
+	intervalNanos int64
+	lastTakeNanos int64
+	mutex         sync.Mutex
 }
 
 func newTokenBucket(rate float64) *tokenBucket {
 	intervalNanos := int64(float64(time.Second) / rate)
 	return &tokenBucket{
-		tokens:        0, // Start with empty bucket for accurate rate limiting
+		tokens:        0,
 		maxTokens:     rate,
 		refillRate:    rate,
 		lastRefill:    time.Now(),
@@ -125,46 +127,40 @@ func newTokenBucket(rate float64) *tokenBucket {
 func (tb *tokenBucket) take() bool {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
-	
+
 	now := time.Now()
 	nowNanos := now.UnixNano()
-	
-	// Calculate time since last refill
+
 	elapsed := now.Sub(tb.lastRefill).Seconds()
-	
-	// Add tokens based on elapsed time
+
 	tb.tokens += elapsed * tb.refillRate
 	if tb.tokens > tb.maxTokens {
 		tb.tokens = tb.maxTokens
 	}
 	tb.lastRefill = now
 
-	// Check if we have a token available
 	if tb.tokens >= 1.0 {
-		// Enforce minimum interval between tokens
 		timeSinceLastTake := nowNanos - tb.lastTakeNanos
 		if timeSinceLastTake < tb.intervalNanos {
-			// Too soon, need to wait
 			return false
 		}
-		
+
 		tb.tokens -= 1.0
 		tb.lastTakeNanos = nowNanos
 		return true
 	}
-	
+
 	return false
 }
 
 func (tb *tokenBucket) waitForToken(ctx context.Context) error {
-	// First attempt
 	if tb.take() {
 		return nil
 	}
-	
+
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -177,7 +173,7 @@ func (tb *tokenBucket) waitForToken(ctx context.Context) error {
 	}
 }
 
-// NewScheduler creates a new scheduler
+// NewScheduler creates a new scheduler with the given configuration
 func NewScheduler(config SchedulerConfig) *Scheduler {
 	if config.WorkerCount <= 0 {
 		config.WorkerCount = 1
@@ -201,7 +197,7 @@ func NewScheduler(config SchedulerConfig) *Scheduler {
 	return s
 }
 
-// Start begins processing tasks
+// Start initializes and starts the worker pool
 func (s *Scheduler) Start() {
 	if s.running.Swap(true) {
 		return
@@ -255,10 +251,9 @@ func (s *Scheduler) getNextTask() *taskItem {
 func (s *Scheduler) processTask(item *taskItem) {
 	s.inFlightCount.Add(1)
 	defer s.inFlightCount.Add(-1)
-	
+
 	s.running_.Add(1)
 
-	// Rate limiting
 	s.rateMutex.RLock()
 	limiter := s.rateLimiters[item.task.Type]
 	s.rateMutex.RUnlock()
@@ -266,7 +261,7 @@ func (s *Scheduler) processTask(item *taskItem) {
 	if limiter != nil {
 		if err := limiter.waitForToken(s.ctx); err != nil {
 			s.running_.Add(-1)
-			s.sendResult(item, TaskStateCancelled, err)
+			s.sendResult(item, TaskStateCancelled, false, err, time.Time{}, time.Now())
 			return
 		}
 	}
@@ -279,13 +274,14 @@ func (s *Scheduler) processTask(item *taskItem) {
 		item.retries++
 		s.retrying.Add(1)
 
+		// Exponential backoff: 1s, 2s, 4s
 		backoff := time.Duration(1<<(item.retries-1)) * time.Second
 
 		select {
 		case <-time.After(backoff):
 		case <-s.ctx.Done():
 			s.retrying.Add(-1)
-			s.sendResult(item, TaskStateCancelled, s.ctx.Err())
+			s.sendResult(item, TaskStateCancelled, false, s.ctx.Err(), result.StartedAt, time.Now())
 			return
 		}
 
@@ -298,7 +294,7 @@ func (s *Scheduler) processTask(item *taskItem) {
 		return
 	}
 
-	s.sendResult(item, result.State, result.Error)
+	s.sendResult(item, result.State, result.Success, result.Error, result.StartedAt, result.CompletedAt)
 }
 
 func (s *Scheduler) executeWithRecovery(item *taskItem) (result TaskResult) {
@@ -309,6 +305,7 @@ func (s *Scheduler) executeWithRecovery(item *taskItem) (result TaskResult) {
 	defer func() {
 		if r := recover(); r != nil {
 			result.State = TaskStateFailed
+			result.Success = false
 			switch v := r.(type) {
 			case string:
 				result.Error = errors.New("panic: " + v)
@@ -318,6 +315,7 @@ func (s *Scheduler) executeWithRecovery(item *taskItem) (result TaskResult) {
 				result.Error = errors.New("panic occurred")
 			}
 			result.CompletedAt = time.Now()
+			result.Duration = result.CompletedAt.Sub(result.StartedAt)
 		}
 	}()
 
@@ -331,18 +329,21 @@ func (s *Scheduler) executeWithRecovery(item *taskItem) (result TaskResult) {
 	err := item.task.ExecuteFunc(ctx, item.progressCh)
 
 	result.CompletedAt = time.Now()
+	result.Duration = result.CompletedAt.Sub(result.StartedAt)
 
 	if err != nil {
 		result.State = TaskStateFailed
+		result.Success = false
 		result.Error = err
 	} else {
 		result.State = TaskStateCompleted
+		result.Success = true
 	}
 
 	return result
 }
 
-func (s *Scheduler) sendResult(item *taskItem, state TaskState, err error) {
+func (s *Scheduler) sendResult(item *taskItem, state TaskState, success bool, err error, startedAt, completedAt time.Time) {
 	if state == TaskStateCompleted {
 		s.completed.Add(1)
 	} else {
@@ -352,8 +353,11 @@ func (s *Scheduler) sendResult(item *taskItem, state TaskState, err error) {
 	result := TaskResult{
 		TaskID:      item.task.ID,
 		State:       state,
+		Success:     success,
 		Error:       err,
-		CompletedAt: time.Now(),
+		StartedAt:   startedAt,
+		CompletedAt: completedAt,
+		Duration:    completedAt.Sub(startedAt),
 		Retries:     item.retries,
 	}
 
@@ -368,7 +372,7 @@ func (s *Scheduler) sendResult(item *taskItem, state TaskState, err error) {
 	s.taskMutex.Unlock()
 }
 
-// Submit adds a task to the queue
+// Submit adds a task to the scheduler queue
 func (s *Scheduler) Submit(task *Task) (chan TaskResult, chan int, error) {
 	if !s.running.Load() || s.shutdown.Load() {
 		return nil, nil, ErrSchedulerStopped
@@ -386,7 +390,7 @@ func (s *Scheduler) Submit(task *Task) (chan TaskResult, chan int, error) {
 	}
 
 	resultCh := make(chan TaskResult, 1)
-	progressCh := make(chan int, 10)
+	progressCh := make(chan int, 100) // Buffer >= 10 for progress updates
 
 	s.taskChannels[task.ID] = resultCh
 	s.progressChs[task.ID] = progressCh
@@ -443,7 +447,6 @@ func (s *Scheduler) Shutdown(timeout time.Duration) error {
 
 	done := make(chan struct{})
 	go func() {
-		// Wait for all in-flight tasks to complete
 		for s.inFlightCount.Load() > 0 {
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -452,13 +455,10 @@ func (s *Scheduler) Shutdown(timeout time.Duration) error {
 
 	select {
 	case <-done:
-		// All tasks completed
 	case <-time.After(timeout):
-		// Timeout reached, cancel remaining tasks
 		s.cancel()
 	}
 
-	// Wait for workers to finish
 	workersDone := make(chan struct{})
 	go func() {
 		s.wg.Wait()
@@ -474,7 +474,7 @@ func (s *Scheduler) Shutdown(timeout time.Duration) error {
 	return nil
 }
 
-// Stats returns current statistics
+// Stats returns current scheduler statistics
 func (s *Scheduler) Stats() Stats {
 	s.queueMutex.Lock()
 	queueLen := int64(s.taskQueue.Len())
@@ -490,7 +490,7 @@ func (s *Scheduler) Stats() Stats {
 	}
 }
 
-// SetRateLimit sets rate limit for a task type
+// SetRateLimit sets the rate limit for a task type
 func (s *Scheduler) SetRateLimit(taskType string, ratePerSecond float64) {
 	s.rateMutex.Lock()
 	if ratePerSecond <= 0 {
