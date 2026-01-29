@@ -53,7 +53,7 @@ export const useFlagStore = create<FlagStoreState>((set, get) => ({
     const { draftState, persistedState } = get();
     if (!draftState) return;
 
-    const newFlags = draftState.flags.map((f) => {
+    const newFlags = draftState.flags.map((f: any) => {
       if (f.id === flagId) {
         // Determine if we need to reset value because type changed?
         // Requirement 5 says: "If a flag type is changed in the draft, the value must be reset..."
@@ -87,10 +87,10 @@ export const useFlagStore = create<FlagStoreState>((set, get) => ({
       // Extract specific errors for 'value' if possible
       if (formattedErrors.value && Array.isArray(formattedErrors.value)) {
         // This typing is tricky with ZodFormattedError, so let's just flatten the issues
-        const issues = parseResult.error.issues.map((i) => i.message);
+        const issues = parseResult.error.issues.map((i: any) => i.message);
         errors[flagId] = issues;
       } else if (parseResult.error.issues.length > 0) {
-        errors[flagId] = parseResult.error.issues.map((i) => i.message);
+        errors[flagId] = parseResult.error.issues.map((i: any) => i.message);
       }
     } else {
       delete errors[flagId];
@@ -119,7 +119,7 @@ export const useFlagStore = create<FlagStoreState>((set, get) => ({
     const { draftState, persistedState } = get();
     if (!draftState) return;
 
-    const newFlags = draftState.flags.map((f) => {
+    const newFlags = draftState.flags.map((f: any) => {
       if (f.id === flagId) {
         if (f.type === newType) return f;
 

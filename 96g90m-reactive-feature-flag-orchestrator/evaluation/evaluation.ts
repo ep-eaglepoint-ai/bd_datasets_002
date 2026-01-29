@@ -143,13 +143,18 @@ const parseJestOutput = (outputStr: string) => {
   const failedMatch = outputStr.match(/Failed: (\d+)/);
   if (failedMatch) failed = parseInt(failedMatch[1]);
 
-  // Standard Jest fallback
+  // Standard Jest fallback - sum all test suites
   if (!passedMatch) {
-    const standardPassedMatch = outputStr.match(/Tests:\s+(\d+)\s+passed/);
-    if (standardPassedMatch) passed = parseInt(standardPassedMatch[1]);
+    // Match all occurrences of "Tests: X passed"
+    const passedMatches = outputStr.matchAll(/Tests:\s+(\d+)\s+passed/g);
+    for (const match of passedMatches) {
+      passed += parseInt(match[1]);
+    }
 
-    const standardFailedMatch = outputStr.match(/Tests:.*\s+(\d+)\s+failed/);
-    if (standardFailedMatch) failed = parseInt(standardFailedMatch[1]);
+    const failedMatches = outputStr.matchAll(/Tests:.*?(\d+)\s+failed/g);
+    for (const match of failedMatches) {
+      failed += parseInt(match[1]);
+    }
   }
 
   return { passed, failed, total: passed + failed };
