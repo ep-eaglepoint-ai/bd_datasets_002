@@ -20,6 +20,7 @@ jest.mock('../repository_after/src/circuitBreaker', () => ({
 
 import { insertEventsBatch, insertEvent, getEventStats, isDatabaseHealthy, closePool } from '../repository_after/src/database';
 
+/** Database module tests: Req-1 (Pool), Req-2 (batch writes), Req-3 (ON CONFLICT), closePool / isDatabaseHealthy */
 describe('database', () => {
     beforeEach(() => {
         mockQuery.mockClear();
@@ -27,6 +28,7 @@ describe('database', () => {
         mockQuery.mockResolvedValue({ rows: [] });
     });
 
+    /** TC-01 | Req-2, Req-3: Batch INSERT with ON CONFLICT (event_id) DO NOTHING */
     describe('insertEventsBatch', () => {
         it('builds INSERT with ON CONFLICT (event_id) DO NOTHING', async () => {
             const events = [{
@@ -37,6 +39,7 @@ describe('database', () => {
             expect(mockQuery).toHaveBeenCalled();
             expect(mockQuery.mock.calls[0][0]).toContain('ON CONFLICT (event_id) DO NOTHING');
         });
+        /** TC-02 | Req-2: Batches of 1000 events per transaction */
         it('splits batches larger than 1000 into chunks', async () => {
             const events = Array.from({ length: 2500 }, (_, i) => ({
                 event_id: 'e' + i, device_id: 'd', sensor_type: 'temp', value: i, unit: 'C',
@@ -47,6 +50,7 @@ describe('database', () => {
         });
     });
 
+    /** TC-03 | Req-3: Single event uses same ON CONFLICT path */
     describe('insertEvent', () => {
         it('calls insert with ON CONFLICT', async () => {
             const event = {
@@ -58,6 +62,7 @@ describe('database', () => {
         });
     });
 
+    /** TC-04 | Req-1: Pool-based query for stats */
     describe('getEventStats', () => {
         it('returns total from COUNT query', async () => {
             mockQuery.mockResolvedValueOnce({ rows: [{ total: '42' }] });
@@ -65,6 +70,7 @@ describe('database', () => {
         });
     });
 
+    /** TC-05 | Req-12: Health check uses isDatabaseHealthy */
     describe('isDatabaseHealthy', () => {
         it('returns true when SELECT 1 succeeds', async () => {
             mockQuery.mockResolvedValueOnce({ rows: [] });
@@ -76,6 +82,7 @@ describe('database', () => {
         });
     });
 
+    /** TC-06 | Req-10: Graceful shutdown closes pool */
     describe('closePool', () => {
         it('calls pool.end()', async () => {
             await closePool();

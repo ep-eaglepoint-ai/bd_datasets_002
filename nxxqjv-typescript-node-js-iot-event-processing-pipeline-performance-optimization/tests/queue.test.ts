@@ -17,6 +17,7 @@ jest.mock('../repository_after/src/metrics', () => ({ incrementProcessed: jest.f
 
 import { addEventToQueue, addEventsToQueue, getQueueDepth, canAcceptJob, QueueOverloadedError } from '../repository_after/src/queue';
 
+/** Queue module tests: Req-5 (addBulk, jobId), Req-6 (backpressure, QueueOverloadedError) */
 describe('queue', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -25,6 +26,7 @@ describe('queue', () => {
     });
 
     describe('addEventToQueue', () => {
+        /** TC-01 | Req-5: Use jobId equal to event_id for idempotency */
         it('uses jobId equal to event_id', async () => {
             const event = { event_id: 'ev-123', device_id: 'd1', sensor_type: 'temp', value: 25, unit: 'C', timestamp: '2024-01-01T00:00:00Z' };
             await addEventToQueue(event);
@@ -40,6 +42,7 @@ describe('queue', () => {
     });
 
     describe('addEventsToQueue', () => {
+        /** TC-03 | Req-5: Use addBulk with jobId per event */
         it('uses addBulk with jobId per event for small batches', async () => {
             const events = [
                 { event_id: 'e1', device_id: 'd1', sensor_type: 'temp', value: 25, unit: 'C', timestamp: '2024-01-01T00:00:00Z' },
@@ -52,6 +55,7 @@ describe('queue', () => {
             expect(jobs[0]).toEqual({ name: 'process-event', data: events[0], opts: { jobId: 'e1' } });
             expect(jobs[1]).toEqual({ name: 'process-event', data: events[1], opts: { jobId: 'e2' } });
         });
+        /** TC-04 | Req-6: Throw QueueOverloadedError on addEventsToQueue when overloaded */
         it('throws QueueOverloadedError when queue depth exceeds threshold', async () => {
             mockGetWaitingCount.mockResolvedValue(10000);
             mockGetActiveCount.mockResolvedValue(0);
@@ -61,6 +65,7 @@ describe('queue', () => {
     });
 
     describe('getQueueDepth', () => {
+        /** TC-05 | Req-6: Return waiting + active count for backpressure check */
         it('returns waiting + active count', async () => {
             mockGetWaitingCount.mockResolvedValue(100);
             mockGetActiveCount.mockResolvedValue(5);
@@ -69,11 +74,13 @@ describe('queue', () => {
     });
 
     describe('canAcceptJob', () => {
+        /** TC-06 | Req-6: Return true when depth below threshold */
         it('returns true when depth below threshold', async () => {
             mockGetWaitingCount.mockResolvedValue(100);
             mockGetActiveCount.mockResolvedValue(0);
             expect(await canAcceptJob()).toBe(true);
         });
+        /** TC-07 | Req-6: Return false when depth at or above threshold */
         it('returns false when depth at or above threshold', async () => {
             mockGetWaitingCount.mockResolvedValue(10000);
             mockGetActiveCount.mockResolvedValue(0);

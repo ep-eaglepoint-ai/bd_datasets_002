@@ -1,28 +1,54 @@
 import { WebSocketServer } from 'ws';
+import { WebSocket as WsClient } from 'ws';
 import { createServer } from 'http';
 import { setupWebSocket, getBroadcastFn, getConnectedClients } from '../repository_after/src/websocket';
 
+/** WebSocket tests: Req-8 (client cleanup), Req-9 (broadcast stringify once) */
 describe('websocket', () => {
     let server: ReturnType<typeof createServer>;
     let wss: WebSocketServer;
+    let serverPort: number;
 
-    beforeAll(() => {
+    beforeAll((done) => {
         server = createServer((req, res) => res.end());
         wss = setupWebSocket(server);
+        server.listen(0, () => {
+            const addr = server.address();
+            serverPort = typeof addr === 'object' && addr ? addr.port : 0;
+            done();
+        });
     });
 
     afterAll((done) => {
         wss.close(() => { server.close(() => done()); });
     });
 
+    /** TC-01 | Req-9: getBroadcastFn returns broadcast function */
     it('getBroadcastFn returns a function', () => {
         expect(typeof getBroadcastFn()).toBe('function');
     });
 
+    /** TC-02 | Req-8: getConnectedClients returns 0 when no clients */
     it('getConnectedClients returns 0 when no clients', () => {
         expect(getConnectedClients()).toBe(0);
     });
 
+    /** TC-03 | Req-8: Client removed from set on close (cleanup) */
+    it('removes client from set on close so getConnectedClients returns 0', (done) => {
+        const url = 'ws://localhost:' + serverPort + '/ws/events';
+        const client = new WsClient(url);
+        client.on('open', () => {
+            expect(getConnectedClients()).toBe(1);
+            client.close();
+        });
+        client.on('close', () => {
+            expect(getConnectedClients()).toBe(0);
+            done();
+        });
+        client.on('error', done);
+    });
+
+    /** TC-04 | Req-9: Broadcast stringifies once per event (no repeated JSON.stringify) */
     it('broadcast stringifies once per event', () => {
         const stringifySpy = jest.spyOn(JSON, 'stringify');
         const broadcast = getBroadcastFn();

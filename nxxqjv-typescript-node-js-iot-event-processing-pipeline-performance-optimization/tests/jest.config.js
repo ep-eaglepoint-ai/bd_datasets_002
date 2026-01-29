@@ -10,7 +10,7 @@ module.exports = {
   testMatch: ['<rootDir>/tests/**/*.test.ts'],
   testPathIgnorePatterns: isBefore
     ? ['/node_modules/']
-    : ['/node_modules/', '<rootDir>/tests/before/'],
+    : ['/node_modules/', '<rootDir>/tests/before/', '<rootDir>/tests/before_tests/'],
   modulePathIgnorePatterns: ['<rootDir>/repository_after/dist'],
   collectCoverageFrom: [
     'repository_after/src/**/*.ts',
