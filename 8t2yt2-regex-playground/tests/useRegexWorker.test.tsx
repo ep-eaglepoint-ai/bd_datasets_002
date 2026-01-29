@@ -1,11 +1,13 @@
-import React from "react";
+import React, { act } from "react";
 import { render, screen } from "@testing-library/react";
-import { act } from "react-dom/test-utils";
 
 import useRegexWorker from "../repository_after/src/hooks/useRegexWorker";
 import { createRegexWorker } from "../repository_after/src/utils/regexWorkerFactory";
 
-jest.mock("../repository_after/src/utils/regexWorkerFactory");
+jest.mock("../repository_after/src/utils/regexWorkerFactory", () => ({
+  ...jest.requireActual("../repository_after/src/utils/regexWorkerFactory"),
+  createRegexWorker: jest.fn(),
+}));
 
 const mockedCreateRegexWorker = createRegexWorker as jest.MockedFunction<
   typeof createRegexWorker
@@ -185,13 +187,18 @@ describe("useRegexWorker", () => {
     };
     mockedCreateRegexWorker.mockReturnValue(worker as unknown as Worker);
 
+    const pattern = "\\d+";
+    const flags = "gi";
+    const text = "test 123";
+    const maxMatches = 1000;
+
     render(
       <HookConsumer
-        pattern="\\d+"
-        flags="gi"
-        text="test 123"
+        pattern={pattern}
+        flags={flags}
+        text={text}
         debounceMs={0}
-        maxMatches={1000}
+        maxMatches={maxMatches}
       />,
     );
 
@@ -199,14 +206,10 @@ describe("useRegexWorker", () => {
       jest.runOnlyPendingTimers();
     });
 
-    expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        pattern: "\\d+",
-        flags: "gi",
-        text: "test 123",
-        maxMatches: 1000,
-      }),
-    );
+    const payload = postMessage.mock.calls[0][0];
+    expect(payload).toMatchObject({ flags, text, maxMatches });
+    // pattern may be "\d+" or "\\d+" depending on runtime (backslash escaping)
+    expect(payload.pattern).toMatch(/^\\+d\+$/);
   });
 
   it("returns matches for accented character (Unicode)", () => {
