@@ -1,0 +1,502 @@
+package scheduler
+
+import (
+	"container/heap"
+	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+var (
+	ErrSchedulerStopped = errors.New("scheduler is stopped")
+	ErrQueueFull        = errors.New("task queue is full")
+)
+
+// SchedulerConfig holds configuration for the scheduler
+type SchedulerConfig struct {
+	WorkerCount  int
+	MaxQueueSize int
+	BlockOnFull  bool
+}
+
+// Scheduler manages task execution with a worker pool
+type Scheduler struct {
+	config     SchedulerConfig
+	taskQueue  *priorityQueue
+	queueMutex sync.Mutex
+	queueCond  *sync.Cond
+
+	running  atomic.Bool
+	shutdown atomic.Bool
+
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	// Task tracking for deduplication
+	taskChannels map[string]chan TaskResult
+	progressChs  map[string]chan int
+	taskMutex    sync.RWMutex
+
+	// Rate limiting
+	rateLimiters map[string]*tokenBucket
+	rateMutex    sync.RWMutex
+
+	// Stats
+	submitted atomic.Int64
+	running_  atomic.Int64
+	completed atomic.Int64
+	failed    atomic.Int64
+	retrying  atomic.Int64
+
+	// In-flight tracking with atomic counter
+	inFlightCount atomic.Int64
+}
+
+// priorityQueue implements heap.Interface
+type priorityQueue struct {
+	items []*taskItem
+}
+
+type taskItem struct {
+	task       *Task
+	index      int
+	resultCh   chan TaskResult
+	progressCh chan int
+	retries    int
+}
+
+func (pq *priorityQueue) Len() int { return len(pq.items) }
+
+func (pq *priorityQueue) Less(i, j int) bool {
+	if pq.items[i].task.Priority != pq.items[j].task.Priority {
+		return pq.items[i].task.Priority > pq.items[j].task.Priority
+	}
+	return pq.items[i].task.CreatedAt.Before(pq.items[j].task.CreatedAt)
+}
+
+func (pq *priorityQueue) Swap(i, j int) {
+	pq.items[i], pq.items[j] = pq.items[j], pq.items[i]
+	pq.items[i].index = i
+	pq.items[j].index = j
+}
+
+func (pq *priorityQueue) Push(x interface{}) {
+	item := x.(*taskItem)
+	item.index = len(pq.items)
+	pq.items = append(pq.items, item)
+}
+
+func (pq *priorityQueue) Pop() interface{} {
+	old := pq.items
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	pq.items = old[0 : n-1]
+	item.index = -1
+	return item
+}
+
+// Token bucket for rate limiting
+type tokenBucket struct {
+	tokens         float64
+	maxTokens      float64
+	refillRate     float64
+	lastRefill     time.Time
+	intervalNanos  int64
+	lastTakeNanos  int64
+	mutex          sync.Mutex
+}
+
+func newTokenBucket(rate float64) *tokenBucket {
+	intervalNanos := int64(float64(time.Second) / rate)
+	return &tokenBucket{
+		tokens:        0, // Start with empty bucket for accurate rate limiting
+		maxTokens:     rate,
+		refillRate:    rate,
+		lastRefill:    time.Now(),
+		intervalNanos: intervalNanos,
+		lastTakeNanos: time.Now().UnixNano(),
+	}
+}
+
+func (tb *tokenBucket) take() bool {
+	tb.mutex.Lock()
+	defer tb.mutex.Unlock()
+	
+	now := time.Now()
+	nowNanos := now.UnixNano()
+	
+	// Calculate time since last refill
+	elapsed := now.Sub(tb.lastRefill).Seconds()
+	
+	// Add tokens based on elapsed time
+	tb.tokens += elapsed * tb.refillRate
+	if tb.tokens > tb.maxTokens {
+		tb.tokens = tb.maxTokens
+	}
+	tb.lastRefill = now
+
+	// Check if we have a token available
+	if tb.tokens >= 1.0 {
+		// Enforce minimum interval between tokens
+		timeSinceLastTake := nowNanos - tb.lastTakeNanos
+		if timeSinceLastTake < tb.intervalNanos {
+			// Too soon, need to wait
+			return false
+		}
+		
+		tb.tokens -= 1.0
+		tb.lastTakeNanos = nowNanos
+		return true
+	}
+	
+	return false
+}
+
+func (tb *tokenBucket) waitForToken(ctx context.Context) error {
+	// First attempt
+	if tb.take() {
+		return nil
+	}
+	
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if tb.take() {
+				return nil
+			}
+		}
+	}
+}
+
+// NewScheduler creates a new scheduler
+func NewScheduler(config SchedulerConfig) *Scheduler {
+	if config.WorkerCount <= 0 {
+		config.WorkerCount = 1
+	}
+	if config.MaxQueueSize <= 0 {
+		config.MaxQueueSize = 1000
+	}
+
+	s := &Scheduler{
+		config: config,
+		taskQueue: &priorityQueue{
+			items: make([]*taskItem, 0),
+		},
+		taskChannels: make(map[string]chan TaskResult),
+		progressChs:  make(map[string]chan int),
+		rateLimiters: make(map[string]*tokenBucket),
+	}
+	s.queueCond = sync.NewCond(&s.queueMutex)
+	heap.Init(s.taskQueue)
+
+	return s
+}
+
+// Start begins processing tasks
+func (s *Scheduler) Start() {
+	if s.running.Swap(true) {
+		return
+	}
+
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.shutdown.Store(false)
+
+	for i := 0; i < s.config.WorkerCount; i++ {
+		s.wg.Add(1)
+		go s.worker()
+	}
+}
+
+func (s *Scheduler) worker() {
+	defer s.wg.Done()
+
+	for {
+		item := s.getNextTask()
+		if item == nil {
+			return
+		}
+		s.processTask(item)
+	}
+}
+
+func (s *Scheduler) getNextTask() *taskItem {
+	s.queueMutex.Lock()
+	for {
+		if s.shutdown.Load() && s.taskQueue.Len() == 0 {
+			s.queueMutex.Unlock()
+			return nil
+		}
+
+		if s.taskQueue.Len() > 0 {
+			item := heap.Pop(s.taskQueue).(*taskItem)
+			s.queueCond.Broadcast()
+			s.queueMutex.Unlock()
+			return item
+		}
+
+		if s.shutdown.Load() {
+			s.queueMutex.Unlock()
+			return nil
+		}
+
+		s.queueCond.Wait()
+	}
+}
+
+func (s *Scheduler) processTask(item *taskItem) {
+	s.inFlightCount.Add(1)
+	defer s.inFlightCount.Add(-1)
+	
+	s.running_.Add(1)
+
+	// Rate limiting
+	s.rateMutex.RLock()
+	limiter := s.rateLimiters[item.task.Type]
+	s.rateMutex.RUnlock()
+
+	if limiter != nil {
+		if err := limiter.waitForToken(s.ctx); err != nil {
+			s.running_.Add(-1)
+			s.sendResult(item, TaskStateCancelled, err)
+			return
+		}
+	}
+
+	result := s.executeWithRecovery(item)
+
+	s.running_.Add(-1)
+
+	if result.State == TaskStateFailed && item.retries < item.task.MaxRetries {
+		item.retries++
+		s.retrying.Add(1)
+
+		backoff := time.Duration(1<<(item.retries-1)) * time.Second
+
+		select {
+		case <-time.After(backoff):
+		case <-s.ctx.Done():
+			s.retrying.Add(-1)
+			s.sendResult(item, TaskStateCancelled, s.ctx.Err())
+			return
+		}
+
+		s.retrying.Add(-1)
+
+		s.queueMutex.Lock()
+		heap.Push(s.taskQueue, item)
+		s.queueCond.Signal()
+		s.queueMutex.Unlock()
+		return
+	}
+
+	s.sendResult(item, result.State, result.Error)
+}
+
+func (s *Scheduler) executeWithRecovery(item *taskItem) (result TaskResult) {
+	result.TaskID = item.task.ID
+	result.StartedAt = time.Now()
+	result.Retries = item.retries
+
+	defer func() {
+		if r := recover(); r != nil {
+			result.State = TaskStateFailed
+			switch v := r.(type) {
+			case string:
+				result.Error = errors.New("panic: " + v)
+			case error:
+				result.Error = errors.New("panic: " + v.Error())
+			default:
+				result.Error = errors.New("panic occurred")
+			}
+			result.CompletedAt = time.Now()
+		}
+	}()
+
+	ctx := s.ctx
+	var cancelFunc context.CancelFunc
+	if item.task.Timeout > 0 {
+		ctx, cancelFunc = context.WithTimeout(s.ctx, item.task.Timeout)
+		defer cancelFunc()
+	}
+
+	err := item.task.ExecuteFunc(ctx, item.progressCh)
+
+	result.CompletedAt = time.Now()
+
+	if err != nil {
+		result.State = TaskStateFailed
+		result.Error = err
+	} else {
+		result.State = TaskStateCompleted
+	}
+
+	return result
+}
+
+func (s *Scheduler) sendResult(item *taskItem, state TaskState, err error) {
+	if state == TaskStateCompleted {
+		s.completed.Add(1)
+	} else {
+		s.failed.Add(1)
+	}
+
+	result := TaskResult{
+		TaskID:      item.task.ID,
+		State:       state,
+		Error:       err,
+		CompletedAt: time.Now(),
+		Retries:     item.retries,
+	}
+
+	select {
+	case item.resultCh <- result:
+	default:
+	}
+
+	s.taskMutex.Lock()
+	delete(s.taskChannels, item.task.ID)
+	delete(s.progressChs, item.task.ID)
+	s.taskMutex.Unlock()
+}
+
+// Submit adds a task to the queue
+func (s *Scheduler) Submit(task *Task) (chan TaskResult, chan int, error) {
+	if !s.running.Load() || s.shutdown.Load() {
+		return nil, nil, ErrSchedulerStopped
+	}
+
+	if task.CreatedAt.IsZero() {
+		task.CreatedAt = time.Now()
+	}
+
+	s.taskMutex.Lock()
+	if existingCh, exists := s.taskChannels[task.ID]; exists {
+		progressCh := s.progressChs[task.ID]
+		s.taskMutex.Unlock()
+		return existingCh, progressCh, nil
+	}
+
+	resultCh := make(chan TaskResult, 1)
+	progressCh := make(chan int, 10)
+
+	s.taskChannels[task.ID] = resultCh
+	s.progressChs[task.ID] = progressCh
+	s.taskMutex.Unlock()
+
+	item := &taskItem{
+		task:       task,
+		resultCh:   resultCh,
+		progressCh: progressCh,
+	}
+
+	s.queueMutex.Lock()
+
+	if s.taskQueue.Len() >= s.config.MaxQueueSize {
+		if !s.config.BlockOnFull {
+			s.queueMutex.Unlock()
+			s.taskMutex.Lock()
+			delete(s.taskChannels, task.ID)
+			delete(s.progressChs, task.ID)
+			s.taskMutex.Unlock()
+			return nil, nil, ErrQueueFull
+		}
+
+		for s.taskQueue.Len() >= s.config.MaxQueueSize && !s.shutdown.Load() {
+			s.queueCond.Wait()
+		}
+
+		if s.shutdown.Load() {
+			s.queueMutex.Unlock()
+			s.taskMutex.Lock()
+			delete(s.taskChannels, task.ID)
+			delete(s.progressChs, task.ID)
+			s.taskMutex.Unlock()
+			return nil, nil, ErrSchedulerStopped
+		}
+	}
+
+	heap.Push(s.taskQueue, item)
+	s.submitted.Add(1)
+	s.queueCond.Signal()
+	s.queueMutex.Unlock()
+
+	return resultCh, progressCh, nil
+}
+
+// Shutdown gracefully stops the scheduler
+func (s *Scheduler) Shutdown(timeout time.Duration) error {
+	if !s.running.Load() {
+		return nil
+	}
+
+	s.shutdown.Store(true)
+	s.queueCond.Broadcast()
+
+	done := make(chan struct{})
+	go func() {
+		// Wait for all in-flight tasks to complete
+		for s.inFlightCount.Load() > 0 {
+			time.Sleep(10 * time.Millisecond)
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All tasks completed
+	case <-time.After(timeout):
+		// Timeout reached, cancel remaining tasks
+		s.cancel()
+	}
+
+	// Wait for workers to finish
+	workersDone := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(workersDone)
+	}()
+
+	select {
+	case <-workersDone:
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	s.running.Store(false)
+	return nil
+}
+
+// Stats returns current statistics
+func (s *Scheduler) Stats() Stats {
+	s.queueMutex.Lock()
+	queueLen := int64(s.taskQueue.Len())
+	s.queueMutex.Unlock()
+
+	return Stats{
+		Submitted:   s.submitted.Load(),
+		Running:     s.running_.Load(),
+		Completed:   s.completed.Load(),
+		Failed:      s.failed.Load(),
+		Retrying:    s.retrying.Load(),
+		QueueLength: queueLen,
+	}
+}
+
+// SetRateLimit sets rate limit for a task type
+func (s *Scheduler) SetRateLimit(taskType string, ratePerSecond float64) {
+	s.rateMutex.Lock()
+	if ratePerSecond <= 0 {
+		delete(s.rateLimiters, taskType)
+	} else {
+		s.rateLimiters[taskType] = newTokenBucket(ratePerSecond)
+	}
+	s.rateMutex.Unlock()
+}

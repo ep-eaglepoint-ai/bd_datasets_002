@@ -1,13 +1,25 @@
 {
-            "instance_id": "EHS9G0",
-            "problem_statement": "The background job system crashes during peak load due to unbounded goroutine creation. Current implementation spawns a new goroutine per task, causing 50,000+ goroutines and OOM crashes. Payment webhooks process after marketing emails because there's no priority ordering. 
-
-Failed tasks are lost permanently with no retry mechanism. Deployments kill in-flight tasks immediately, corrupting partial operations. The system needs bounded concurrency with a fixed worker pool, priority-based processing, automatic retries with backoff, and graceful shutdown. Core interfaces are defined in task.go and scheduler.go.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ehs9g0-go-concurrent-task-scheduler-with-worker-pool",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "EHS9G0",
+    "problem_statement": "The background job system crashes during peak load due to unbounded goroutine creation. Current implementation spawns a new goroutine per task, causing 50,000+ goroutines and OOM crashes. Payment webhooks process after marketing emails because there's no priority ordering. Failed tasks are lost permanently with no retry mechanism. Deployments kill in-flight tasks immediately, corrupting partial operations. The system needs bounded concurrency with a fixed worker pool, priority-based processing, automatic retries with backoff, and graceful shutdown. Core interfaces are defined in task.go and scheduler.go.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ehs9g0-go-concurrent-task-scheduler-with-worker-pool",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "TestRequirement1_ExactWorkerCount",
+        "TestRequirement3_ExponentialBackoff",
+        "TestRequirement4_TaskDeduplication",
+        "TestRequirement5_ProgressChannelBuffered",
+        "TestRequirement8_PanicRecovery",
+        "TestRequirement9_GracefulShutdown",
+        "TestRequirement10_NoGoroutineLeak",
+        "TestRequirement11_RateLimiting",
+        "TestRequirement12_RaceFreeStats",
+        "TestRequirement13_TaskTimeout",
+        "TestRequirement14_QueueSizeLimit",
+        "TestRequirement15_HardDeadlineShutdown",
+        "TestRequirement16_PriorityOrdering",
+        "TestRequirement18_ConcurrentSafety"
+    ],
+    "PASS_TO_PASS": []
+}
