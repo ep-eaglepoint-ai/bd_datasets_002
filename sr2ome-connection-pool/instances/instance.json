@@ -1,0 +1,11 @@
+{
+            "instance_id": "SR2OME",
+            "problem_statement": "Implement a thread‑safe ConnectionPool class in Python that manages a fixed cache of reusable connections, blocking acquisition when exhausted and automatically returning connections via context manager protocol. The pool must support configurable min/max sizes, acquisition timeouts, idle cleanup, and a PooledConnection wrapper to track state and usage statistics. The solution should prevent resource exhaustion under heavy load by efficiently reusing connections rather than repeatedly establishing new ones.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sr2ome-connection-pool",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
