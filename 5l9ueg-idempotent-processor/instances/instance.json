@@ -11,7 +11,11 @@
     "IdempotentRequestProcessorTest::testFailureMemoization",
     "IdempotentRequestProcessorTest::testCapacityAndEviction",
     "IdempotentRequestProcessorTest::testThreadSafetyMixedKeys",
-    "IdempotentRequestProcessorTest::testGapNullValues"
+    "IdempotentRequestProcessorTest::testGapNullValues",
+    "IdempotentRequestProcessorTest::testConstructorInvalidCapacity",
+    "IdempotentRequestProcessorTest::testNoGlobalLock",
+    "IdempotentRequestProcessorTest::testErrorHandling",
+    "IdempotentRequestProcessorTest::testDefensiveCapacityChecks"
   ],
   "PASS_TO_PASS": []
 }

@@ -9,6 +9,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Queue;
 
 public class IdempotentRequestProcessorTest {
 
@@ -213,6 +217,113 @@ public class IdempotentRequestProcessorTest {
         String res2 = processor.process("null-val", () -> "Not Null");
         assertEquals(null, res2, "Should cache null return value");
         
+        System.out.println("OK");
+    }
+    @Test
+    void testConstructorInvalidCapacity() {
+        System.out.print("Running testConstructorInvalidCapacity... ");
+        try {
+            new IdempotentRequestProcessor<>(-1);
+            fail("Should throw IllegalArgumentException for negative capacity");
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+        try {
+            new IdempotentRequestProcessor<>(0);
+            fail("Should throw IllegalArgumentException for zero capacity");
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+        System.out.println("OK");
+    }
+
+    // Requirement 8: No global locks
+    @Test
+    void testNoGlobalLock() throws Exception {
+        System.out.print("Running testNoGlobalLock... ");
+        IdempotentRequestProcessor<String, String> processor = new IdempotentRequestProcessor<>(10);
+        CountDownLatch lockStarted = new CountDownLatch(1);
+        CountDownLatch finishLock = new CountDownLatch(1);
+        CountDownLatch t2Finished = new CountDownLatch(1);
+
+        // Thread 1: Acquires "lock" on key1 and waits
+        Thread t1 = new Thread(() -> {
+            processor.process("key1", () -> {
+                lockStarted.countDown();
+                try {
+                    finishLock.await(); // Hold key1
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return "res1";
+            });
+        });
+
+        // Thread 2: Should proceed independently on key2
+        Thread t2 = new Thread(() -> {
+            try {
+                lockStarted.await(); // Wait until T1 is definitely inside process
+                processor.process("key2", () -> "res2");
+                t2Finished.countDown();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        t1.start();
+        t2.start();
+
+        // T2 must complete while T1 is still blocked
+        boolean t2CompletedOnTime = t2Finished.await(2, TimeUnit.SECONDS);
+        
+        // Cleanup T1
+        finishLock.countDown();
+        t1.join(1000);
+
+        assertTrue(t2CompletedOnTime, "Thread 2 should have completed while Thread 1 was blocked (Global Lock detected?)");
+        System.out.println("OK");
+    }
+
+    @Test
+    void testErrorHandling() {
+        System.out.print("Running testErrorHandling... ");
+        IdempotentRequestProcessor<String, String> processor = new IdempotentRequestProcessor<>(10);
+        try {
+            processor.process("error-key", () -> {
+                throw new java.lang.Error("Fatal error");
+            });
+            fail("Should throw wrapped exception");
+        } catch (CompletionException e) {
+            assertTrue(e.getCause() instanceof java.lang.Error, "Should wrap Error in CompletionException");
+        }
+        System.out.println("OK");
+    }
+
+    @Test
+    void testDefensiveCapacityChecks() throws Exception {
+        System.out.print("Running testDefensiveCapacityChecks... ");
+        IdempotentRequestProcessor<String, String> processor = new IdempotentRequestProcessor<>(10);
+        
+        // Access private fields via reflection
+        Field sizeField = IdempotentRequestProcessor.class.getDeclaredField("currentSize");
+        sizeField.setAccessible(true);
+        AtomicInteger size = (AtomicInteger) sizeField.get(processor);
+        
+        Field queueField = IdempotentRequestProcessor.class.getDeclaredField("evictionQueue");
+        queueField.setAccessible(true);
+        Queue<?> queue = (Queue<?>) queueField.get(processor);
+        
+        Method enforceMethod = IdempotentRequestProcessor.class.getDeclaredMethod("enforceCapacity");
+        enforceMethod.setAccessible(true);
+
+        // Scenario: State corruption where size > capacity but queue is empty
+        size.set(20);
+        queue.clear();
+        
+        // This should trigger the "queue empty" safety break
+        enforceMethod.invoke(processor);
+        
+        assertEquals(0, size.get(), "Size should reset to 0 if queue is empty");
         System.out.println("OK");
     }
 }
