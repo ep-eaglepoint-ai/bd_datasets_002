@@ -1,14 +1,20 @@
 services:
   app-after:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - NODE_ENV=test
     command: npm test
-    volumes:
-      - .:/app
-      - /app/node_modules
 
   evaluation:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - NODE_ENV=test
     command: npm run evaluate
     volumes:
-      - .:/app
-      - /app/node_modules
+      - ./evaluation:/app/evaluation
