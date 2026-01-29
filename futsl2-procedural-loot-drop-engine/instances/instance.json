@@ -1,0 +1,12 @@
+{
+            "instance_id": "FUTSL2",
+            "problem_statement": "Implement a Java-based procedural loot generation engine for an online RPG. The system must use weighted probabilities for item rarities and include a 'pity timer' to guarantee a high-value drop after a certain number of failures, ensuring player fairness.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/futsl2-procedural-loot-drop-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
