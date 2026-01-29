@@ -280,6 +280,1038 @@ index 000000000..49f790121
 +    processed_at TIMESTAMPTZ NOT NULL,
 +    received_at TIMESTAMPTZ NOT NULL
 +);
+diff --git a/repository_after/dist/app.d.ts b/repository_after/dist/app.d.ts
+new file mode 100644
+index 000000000..e92b9bd49
+--- /dev/null
++++ b/repository_after/dist/app.d.ts
+@@ -0,0 +1,3 @@
++import { createServer } from 'http';
++export declare function getServer(): ReturnType<typeof createServer>;
++export declare function listen(callback?: () => void): void;
+diff --git a/repository_after/dist/app.js b/repository_after/dist/app.js
+new file mode 100644
+index 000000000..7dbecf82d
+--- /dev/null
++++ b/repository_after/dist/app.js
+@@ -0,0 +1,175 @@
++"use strict";
++var __importDefault = (this && this.__importDefault) || function (mod) {
++    return (mod && mod.__esModule) ? mod : { "default": mod };
++};
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.getServer = getServer;
++exports.listen = listen;
++const express_1 = __importDefault(require("express"));
++const http_1 = require("http");
++const config_1 = require("./config");
++const queue_1 = require("./queue");
++const websocket_1 = require("./websocket");
++const database_1 = require("./database");
++const circuitBreaker_1 = require("./circuitBreaker");
++const timeoutMiddleware_1 = require("./timeoutMiddleware");
++const shutdown_1 = require("./shutdown");
++const metrics_1 = require("./metrics");
++const parseLargeJson_1 = require("./parseLargeJson");
++const app = (0, express_1.default)();
++app.use((req, res, next) => {
++    if (req.path === '/events/batch' && req.method === 'POST')
++        return next();
++    return express_1.default.json({ limit: '10mb' })(req, res, next);
++});
++app.use((0, timeoutMiddleware_1.requestTimeoutMiddleware)());
++function validateEvent(event) {
++    if (typeof event !== 'object' || event === null)
++        return false;
++    const e = event;
++    return (typeof e.event_id === 'string' &&
++        typeof e.device_id === 'string' &&
++        typeof e.sensor_type === 'string' &&
++        typeof e.value === 'number' &&
++        typeof e.unit === 'string' &&
++        typeof e.timestamp === 'string');
++}
++app.post('/events', async (req, res, next) => {
++    try {
++        const event = req.body;
++        if (!validateEvent(event)) {
++            return res.status(400).json({ error: 'Invalid event format' });
++        }
++        await (0, queue_1.addEventToQueue)(event);
++        (0, metrics_1.incrementReceived)(1);
++        res.status(202).json({ status: 'accepted', event_id: event.event_id });
++    }
++    catch (error) {
++        if (error instanceof queue_1.QueueOverloadedError) {
++            return res.status(503).json({ error: 'Service Unavailable', reason: 'Queue overloaded' });
++        }
++        next(error);
++    }
++});
++const rawJsonParser = express_1.default.raw({ type: 'application/json', limit: '10mb' });
++app.post('/events/batch', rawJsonParser, async (req, res, next) => {
++    if (Buffer.isBuffer(req.body) && req.body.length > config_1.config.largePayloadThresholdBytes) {
++        try {
++            req.body = await (0, parseLargeJson_1.parseLargeJsonInWorker)(req.body);
++        }
++        catch (err) {
++            return next(err);
++        }
++    }
++    else if (Buffer.isBuffer(req.body)) {
++        try {
++            req.body = JSON.parse(req.body.toString('utf8'));
++        }
++        catch (err) {
++            return next(err);
++        }
++    }
++    next();
++}, async (req, res, next) => {
++    try {
++        const payload = req.body;
++        if (!payload || !Array.isArray(payload.events)) {
++            return res.status(400).json({ error: 'Invalid batch format' });
++        }
++        if (payload.events.length > config_1.config.maxEventsPerBatch) {
++            return res.status(400).json({ error: 'Batch size exceeds maximum ' + config_1.config.maxEventsPerBatch });
++        }
++        const validEvents = [];
++        const invalidIndexes = [];
++        for (let i = 0; i < payload.events.length; i++) {
++            if (validateEvent(payload.events[i])) {
++                validEvents.push(payload.events[i]);
++            }
++            else {
++                invalidIndexes.push(i);
++            }
++        }
++        await (0, queue_1.addEventsToQueue)(validEvents);
++        (0, metrics_1.incrementReceived)(validEvents.length);
++        res.status(202).json({
++            status: 'accepted',
++            accepted: validEvents.length,
++            rejected: invalidIndexes.length,
++            invalid_indexes: invalidIndexes,
++        });
++    }
++    catch (error) {
++        if (error instanceof queue_1.QueueOverloadedError) {
++            return res.status(503).json({ error: 'Service Unavailable', reason: 'Queue overloaded' });
++        }
++        next(error);
++    }
++});
++app.get('/stats', async (req, res, next) => {
++    try {
++        const queueStats = await (0, queue_1.getQueueStats)();
++        const dbStats = await (0, database_1.getEventStats)();
++        res.json({ queue: queueStats, database: dbStats, websocket_clients: (0, websocket_1.getConnectedClients)() });
++    }
++    catch (error) {
++        next(error);
++    }
++});
++app.get('/metrics', async (req, res, next) => {
++    try {
++        const queueDepth = await (0, queue_1.getQueueDepth)();
++        res.json({
++            total_received: (0, metrics_1.getTotalReceived)(),
++            total_processed: (0, metrics_1.getTotalProcessed)(),
++            total_failed: (0, metrics_1.getTotalFailed)(),
++            queue_depth: queueDepth,
++            events_per_second: Math.round((0, metrics_1.getEventsPerSecond)() * 100) / 100,
++            memory_usage_mb: (0, metrics_1.getMemoryUsageMb)(),
++            websocket_clients: (0, websocket_1.getConnectedClients)(),
++        });
++    }
++    catch (error) {
++        next(error);
++    }
++});
++app.get('/health', async (req, res) => {
++    if ((0, circuitBreaker_1.getCircuitBreaker)().isOpen()) {
++        return res.status(503).json({ status: 'unhealthy', reason: 'Circuit breaker open' });
++    }
++    const depth = await (0, queue_1.getQueueDepth)();
++    if (depth >= config_1.config.queue.backpressureThreshold) {
++        return res.status(503).json({ status: 'unhealthy', reason: 'Queue overloaded' });
++    }
++    if (!(await (0, database_1.isDatabaseHealthy)())) {
++        return res.status(503).json({ status: 'unhealthy', reason: 'Database unreachable' });
++    }
++    res.json({ status: 'healthy' });
++});
++app.use((error, req, res, _next) => {
++    console.error('Unhandled error:', error);
++    if (!res.headersSent) {
++        res.status(500).json({ error: 'Internal server error' });
++    }
++});
++const server = (0, http_1.createServer)(app);
++const wss = (0, websocket_1.setupWebSocket)(server);
++(0, queue_1.subscribeToProcessedEvents)((0, websocket_1.getBroadcastFn)());
++(0, queue_1.startWorker)();
++process.on('unhandledRejection', (reason, promise) => {
++    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
++});
++const handles = { server, wss };
++process.on('SIGTERM', () => (0, shutdown_1.gracefulShutdown)(handles));
++process.on('SIGINT', () => (0, shutdown_1.gracefulShutdown)(handles));
++function getServer() {
++    return server;
++}
++function listen(callback) {
++    server.listen(config_1.config.port, () => {
++        console.log('Server running on port ' + config_1.config.port);
++        callback?.();
++    });
++}
++if (require.main === module) {
++    listen();
++}
+diff --git a/repository_after/dist/circuitBreaker.d.ts b/repository_after/dist/circuitBreaker.d.ts
+new file mode 100644
+index 000000000..775237b90
+--- /dev/null
++++ b/repository_after/dist/circuitBreaker.d.ts
+@@ -0,0 +1,17 @@
++/**
++ * In-memory circuit breaker: after failureThreshold failures, open for cooldownMs.
++ * State is per-instance so multiple breakers (e.g. in tests) do not interfere.
++ */
++export declare class DatabaseUnavailableError extends Error {
++    constructor(message: string);
++}
++export declare function createCircuitBreaker(options?: {
++    failureThreshold?: number;
++    cooldownMs?: number;
++}): {
++    execute<T>(fn: () => Promise<T>): Promise<T>;
++    isOpen(): boolean;
++    getState(): "closed" | "open" | "half-open";
++    reset(): void;
++};
++export declare function getCircuitBreaker(): ReturnType<typeof createCircuitBreaker>;
+diff --git a/repository_after/dist/circuitBreaker.js b/repository_after/dist/circuitBreaker.js
+new file mode 100644
+index 000000000..28c9863c3
+--- /dev/null
++++ b/repository_after/dist/circuitBreaker.js
+@@ -0,0 +1,82 @@
++"use strict";
++/**
++ * In-memory circuit breaker: after failureThreshold failures, open for cooldownMs.
++ * State is per-instance so multiple breakers (e.g. in tests) do not interfere.
++ */
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.DatabaseUnavailableError = void 0;
++exports.createCircuitBreaker = createCircuitBreaker;
++exports.getCircuitBreaker = getCircuitBreaker;
++const DEFAULT_FAILURE_THRESHOLD = 5;
++const DEFAULT_COOLDOWN_MS = 30_000;
++class DatabaseUnavailableError extends Error {
++    constructor(message) {
++        super(message);
++        this.name = 'DatabaseUnavailableError';
++        Object.setPrototypeOf(this, DatabaseUnavailableError.prototype);
++    }
++}
++exports.DatabaseUnavailableError = DatabaseUnavailableError;
++function createCircuitBreaker(options) {
++    const failureThreshold = options?.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD;
++    const cooldownMs = options?.cooldownMs ?? DEFAULT_COOLDOWN_MS;
++    let failureCount = 0;
++    let openUntil = 0;
++    let state = 'closed';
++    return {
++        async execute(fn) {
++            const now = Date.now();
++            if (state === 'open') {
++                if (now < openUntil) {
++                    throw new DatabaseUnavailableError('Circuit breaker is open');
++                }
++                state = 'half-open';
++            }
++            try {
++                const result = await fn();
++                if (state === 'half-open') {
++                    state = 'closed';
++                    failureCount = 0;
++                }
++                else {
++                    failureCount = 0;
++                }
++                return result;
++            }
++            catch (err) {
++                failureCount++;
++                if (state === 'half-open' || failureCount >= failureThreshold) {
++                    state = 'open';
++                    openUntil = Date.now() + cooldownMs;
++                }
++                throw err;
++            }
++        },
++        isOpen() {
++            const now = Date.now();
++            if (state === 'open' && now >= openUntil) {
++                state = 'half-open';
++            }
++            return state === 'open';
++        },
++        getState() {
++            const now = Date.now();
++            if (state === 'open' && now >= openUntil) {
++                state = 'half-open';
++            }
++            return state;
++        },
++        reset() {
++            state = 'closed';
++            failureCount = 0;
++            openUntil = 0;
++        },
++    };
++}
++let defaultBreaker = null;
++function getCircuitBreaker() {
++    if (!defaultBreaker) {
++        defaultBreaker = createCircuitBreaker({ failureThreshold: 5, cooldownMs: 30_000 });
++    }
++    return defaultBreaker;
++}
+diff --git a/repository_after/dist/config.d.ts b/repository_after/dist/config.d.ts
+new file mode 100644
+index 000000000..65d482845
+--- /dev/null
++++ b/repository_after/dist/config.d.ts
+@@ -0,0 +1,23 @@
++export declare const config: {
++    port: number;
++    redis: {
++        host: string;
++        port: number;
++    };
++    database: {
++        host: string;
++        port: number;
++        user: string;
++        password: string;
++        database: string;
++        max: number;
++    };
++    queue: {
++        name: string;
++        concurrency: number;
++        backpressureThreshold: number;
++    };
++    requestTimeoutMs: number;
++    largePayloadThresholdBytes: number;
++    maxEventsPerBatch: number;
++};
+diff --git a/repository_after/dist/config.js b/repository_after/dist/config.js
+new file mode 100644
+index 000000000..e9f4b2a78
+--- /dev/null
++++ b/repository_after/dist/config.js
+@@ -0,0 +1,26 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.config = void 0;
++exports.config = {
++    port: parseInt(process.env.PORT || '3000', 10),
++    redis: {
++        host: process.env.REDIS_HOST || 'localhost',
++        port: parseInt(process.env.REDIS_PORT || '6379', 10),
++    },
++    database: {
++        host: process.env.DB_HOST || 'localhost',
++        port: parseInt(process.env.DB_PORT || '5432', 10),
++        user: process.env.DB_USER || 'postgres',
++        password: process.env.DB_PASSWORD || 'postgres',
++        database: process.env.DB_NAME || 'events',
++        max: 20,
++    },
++    queue: {
++        name: process.env.QUEUE_NAME || 'event-processing',
++        concurrency: parseInt(process.env.QUEUE_CONCURRENCY || '20', 10),
++        backpressureThreshold: parseInt(process.env.QUEUE_BACKPRESSURE_THRESHOLD || '10000', 10),
++    },
++    requestTimeoutMs: parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10),
++    largePayloadThresholdBytes: parseInt(process.env.LARGE_PAYLOAD_THRESHOLD_BYTES || '1048576', 10), // 1MB
++    maxEventsPerBatch: parseInt(process.env.MAX_EVENTS_PER_BATCH || '10000', 10),
++};
+diff --git a/repository_after/dist/database.d.ts b/repository_after/dist/database.d.ts
+new file mode 100644
+index 000000000..a066bf523
+--- /dev/null
++++ b/repository_after/dist/database.d.ts
+@@ -0,0 +1,13 @@
++import { PoolClient } from 'pg';
++import { ProcessedEvent } from './types';
++export declare function query(text: string, params?: unknown[]): Promise<{
++    rows: unknown[];
++}>;
++export declare function withClient<T>(cb: (client: PoolClient) => Promise<T>): Promise<T>;
++export declare function insertEvent(event: ProcessedEvent): Promise<void>;
++export declare function insertEventsBatch(events: ProcessedEvent[]): Promise<void>;
++export declare function getEventStats(): Promise<{
++    total: number;
++}>;
++export declare function isDatabaseHealthy(): Promise<boolean>;
++export declare function closePool(): Promise<void>;
+diff --git a/repository_after/dist/database.js b/repository_after/dist/database.js
+new file mode 100644
+index 000000000..e14029a16
+--- /dev/null
++++ b/repository_after/dist/database.js
+@@ -0,0 +1,83 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.query = query;
++exports.withClient = withClient;
++exports.insertEvent = insertEvent;
++exports.insertEventsBatch = insertEventsBatch;
++exports.getEventStats = getEventStats;
++exports.isDatabaseHealthy = isDatabaseHealthy;
++exports.closePool = closePool;
++const pg_1 = require("pg");
++const config_1 = require("./config");
++const circuitBreaker_1 = require("./circuitBreaker");
++const pool = new pg_1.Pool({
++    host: config_1.config.database.host,
++    port: config_1.config.database.port,
++    user: config_1.config.database.user,
++    password: config_1.config.database.password,
++    database: config_1.config.database.database,
++    max: config_1.config.database.max,
++});
++const BATCH_SIZE = 1000;
++async function query(text, params) {
++    const result = await (0, circuitBreaker_1.getCircuitBreaker)().execute(() => pool.query(text, params || []));
++    return { rows: result.rows };
++}
++async function withClient(cb) {
++    const client = await pool.connect();
++    try {
++        return await cb(client);
++    }
++    finally {
++        client.release();
++    }
++}
++function rowToParams(event) {
++    return [
++        event.event_id,
++        event.device_id,
++        event.sensor_type,
++        event.value,
++        event.unit,
++        event.timestamp,
++        JSON.stringify(event.metadata || {}),
++        event.processed_at,
++        event.received_at,
++    ];
++}
++async function insertEvent(event) {
++    await insertEventsBatch([event]);
++}
++async function insertEventsBatch(events) {
++    if (events.length === 0)
++        return;
++    for (let i = 0; i < events.length; i += BATCH_SIZE) {
++        const chunk = events.slice(i, i + BATCH_SIZE);
++        const placeholders = [];
++        const values = [];
++        let paramIndex = 1;
++        for (const event of chunk) {
++            placeholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8})`);
++            values.push(...rowToParams(event));
++            paramIndex += 9;
++        }
++        const sql = `INSERT INTO events (event_id, device_id, sensor_type, value, unit, timestamp, metadata, processed_at, received_at) VALUES ${placeholders.join(', ')} ON CONFLICT (event_id) DO NOTHING`;
++        await (0, circuitBreaker_1.getCircuitBreaker)().execute(() => pool.query(sql, values));
++    }
++}
++async function getEventStats() {
++    const result = await (0, circuitBreaker_1.getCircuitBreaker)().execute(() => pool.query('SELECT COUNT(*) as total FROM events'));
++    return { total: parseInt(String(result.rows[0]?.total ?? 0), 10) };
++}
++async function isDatabaseHealthy() {
++    try {
++        await (0, circuitBreaker_1.getCircuitBreaker)().execute(() => pool.query('SELECT 1'));
++        return true;
++    }
++    catch {
++        return false;
++    }
++}
++async function closePool() {
++    await pool.end();
++}
+diff --git a/repository_after/dist/largePayloadHandler.d.ts b/repository_after/dist/largePayloadHandler.d.ts
+new file mode 100644
+index 000000000..cb0ff5c3b
+--- /dev/null
++++ b/repository_after/dist/largePayloadHandler.d.ts
+@@ -0,0 +1 @@
++export {};
+diff --git a/repository_after/dist/largePayloadHandler.js b/repository_after/dist/largePayloadHandler.js
+new file mode 100644
+index 000000000..438b59d3e
+--- /dev/null
++++ b/repository_after/dist/largePayloadHandler.js
+@@ -0,0 +1,13 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++const worker_threads_1 = require("worker_threads");
++if (worker_threads_1.parentPort && worker_threads_1.workerData?.buffer) {
++    const str = worker_threads_1.workerData.buffer.toString('utf8');
++    try {
++        const parsed = JSON.parse(str);
++        worker_threads_1.parentPort.postMessage({ ok: true, data: parsed });
++    }
++    catch (err) {
++        worker_threads_1.parentPort.postMessage({ ok: false, error: err.message });
++    }
++}
+diff --git a/repository_after/dist/metrics.d.ts b/repository_after/dist/metrics.d.ts
+new file mode 100644
+index 000000000..8299e1cf7
+--- /dev/null
++++ b/repository_after/dist/metrics.d.ts
+@@ -0,0 +1,12 @@
++/**
++ * In-memory metrics for monitoring.
++ */
++export declare function incrementReceived(count: number): void;
++export declare function incrementProcessed(count: number): void;
++export declare function incrementFailed(count: number): void;
++export declare function getTotalReceived(): number;
++export declare function getTotalProcessed(): number;
++export declare function getTotalFailed(): number;
++export declare function getEventsPerSecond(): number;
++export declare function getMemoryUsageMb(): number;
++export declare function resetMetrics(): void;
+diff --git a/repository_after/dist/metrics.js b/repository_after/dist/metrics.js
+new file mode 100644
+index 000000000..1bec1cdee
+--- /dev/null
++++ b/repository_after/dist/metrics.js
+@@ -0,0 +1,60 @@
++"use strict";
++/**
++ * In-memory metrics for monitoring.
++ */
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.incrementReceived = incrementReceived;
++exports.incrementProcessed = incrementProcessed;
++exports.incrementFailed = incrementFailed;
++exports.getTotalReceived = getTotalReceived;
++exports.getTotalProcessed = getTotalProcessed;
++exports.getTotalFailed = getTotalFailed;
++exports.getEventsPerSecond = getEventsPerSecond;
++exports.getMemoryUsageMb = getMemoryUsageMb;
++exports.resetMetrics = resetMetrics;
++const WINDOW_MS = 60_000;
++let totalReceived = 0;
++let totalProcessed = 0;
++let totalFailed = 0;
++const processedTimestamps = [];
++function incrementReceived(count) {
++    totalReceived += count;
++}
++function incrementProcessed(count) {
++    totalProcessed += count;
++    const now = Date.now();
++    for (let i = 0; i < count; i++)
++        processedTimestamps.push(now);
++    const cutoff = now - WINDOW_MS;
++    while (processedTimestamps.length > 0 && processedTimestamps[0] < cutoff) {
++        processedTimestamps.shift();
++    }
++}
++function incrementFailed(count) {
++    totalFailed += count;
++}
++function getTotalReceived() {
++    return totalReceived;
++}
++function getTotalProcessed() {
++    return totalProcessed;
++}
++function getTotalFailed() {
++    return totalFailed;
++}
++function getEventsPerSecond() {
++    const now = Date.now();
++    const cutoff = now - WINDOW_MS;
++    const inWindow = processedTimestamps.filter((t) => t >= cutoff).length;
++    return WINDOW_MS > 0 ? (inWindow / WINDOW_MS) * 1000 : 0;
++}
++function getMemoryUsageMb() {
++    const usage = process.memoryUsage();
++    return Math.round((usage.heapUsed ?? 0) / 1024 / 1024);
++}
++function resetMetrics() {
++    totalReceived = 0;
++    totalProcessed = 0;
++    totalFailed = 0;
++    processedTimestamps.length = 0;
++}
+diff --git a/repository_after/dist/parseLargeJson.d.ts b/repository_after/dist/parseLargeJson.d.ts
+new file mode 100644
+index 000000000..6b020978a
+--- /dev/null
++++ b/repository_after/dist/parseLargeJson.d.ts
+@@ -0,0 +1 @@
++export declare function parseLargeJsonInWorker(buffer: Buffer): Promise<unknown>;
+diff --git a/repository_after/dist/parseLargeJson.js b/repository_after/dist/parseLargeJson.js
+new file mode 100644
+index 000000000..44b8d4419
+--- /dev/null
++++ b/repository_after/dist/parseLargeJson.js
+@@ -0,0 +1,30 @@
++"use strict";
++var __importDefault = (this && this.__importDefault) || function (mod) {
++    return (mod && mod.__esModule) ? mod : { "default": mod };
++};
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.parseLargeJsonInWorker = parseLargeJsonInWorker;
++const worker_threads_1 = require("worker_threads");
++const path_1 = __importDefault(require("path"));
++function parseLargeJsonInWorker(buffer) {
++    return new Promise((resolve, reject) => {
++        const workerPath = path_1.default.join(__dirname, 'largePayloadHandler.js');
++        const worker = new worker_threads_1.Worker(workerPath, {
++            workerData: { buffer },
++        });
++        worker.on('message', (msg) => {
++            if (msg.ok && msg.data !== undefined) {
++                resolve(msg.data);
++            }
++            else {
++                reject(new Error(msg.error || 'Parse failed'));
++            }
++        });
++        worker.on('error', reject);
++        worker.on('exit', (code) => {
++            if (code !== 0) {
++                reject(new Error('Worker stopped with code ' + code));
++            }
++        });
++    });
++}
+diff --git a/repository_after/dist/queue.d.ts b/repository_after/dist/queue.d.ts
+new file mode 100644
+index 000000000..f5838a294
+--- /dev/null
++++ b/repository_after/dist/queue.d.ts
+@@ -0,0 +1,20 @@
++import { Queue, Worker } from 'bullmq';
++import { EventEmitter } from 'events';
++import { SensorEvent, ProcessedEvent } from './types';
++export declare const eventEmitter: EventEmitter<[never]>;
++export declare class QueueOverloadedError extends Error {
++    constructor(message: string);
++}
++export declare const eventQueue: Queue<any, any, string, any, any, string>;
++export declare function startWorker(): Worker;
++export declare function getWorker(): Worker | null;
++export declare function getQueueDepth(): Promise<number>;
++export declare function canAcceptJob(): Promise<boolean>;
++export declare function addEventToQueue(event: SensorEvent): Promise<void>;
++export declare function addEventsToQueue(events: SensorEvent[]): Promise<void>;
++export declare function getQueueStats(): Promise<{
++    waiting: number;
++    active: number;
++}>;
++export declare function subscribeToProcessedEvents(broadcastFn: (event: ProcessedEvent) => void): void;
++export declare function removeProcessedEventsListener(broadcastFn: (event: ProcessedEvent) => void): void;
+diff --git a/repository_after/dist/queue.js b/repository_after/dist/queue.js
+new file mode 100644
+index 000000000..5d57cc1d9
+--- /dev/null
++++ b/repository_after/dist/queue.js
+@@ -0,0 +1,148 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.eventQueue = exports.QueueOverloadedError = exports.eventEmitter = void 0;
++exports.startWorker = startWorker;
++exports.getWorker = getWorker;
++exports.getQueueDepth = getQueueDepth;
++exports.canAcceptJob = canAcceptJob;
++exports.addEventToQueue = addEventToQueue;
++exports.addEventsToQueue = addEventsToQueue;
++exports.getQueueStats = getQueueStats;
++exports.subscribeToProcessedEvents = subscribeToProcessedEvents;
++exports.removeProcessedEventsListener = removeProcessedEventsListener;
++const bullmq_1 = require("bullmq");
++const events_1 = require("events");
++const config_1 = require("./config");
++const database_1 = require("./database");
++const metrics_1 = require("./metrics");
++exports.eventEmitter = new events_1.EventEmitter();
++exports.eventEmitter.setMaxListeners(1000);
++class QueueOverloadedError extends Error {
++    constructor(message) {
++        super(message);
++        this.name = 'QueueOverloadedError';
++        Object.setPrototypeOf(this, QueueOverloadedError.prototype);
++    }
++}
++exports.QueueOverloadedError = QueueOverloadedError;
++exports.eventQueue = new bullmq_1.Queue(config_1.config.queue.name, {
++    connection: config_1.config.redis,
++});
++let workerInstance = null;
++function toProcessedEvent(event, receivedAt) {
++    return {
++        ...event,
++        timestamp: new Date(event.timestamp).toISOString(),
++        processed_at: new Date(),
++        received_at: new Date(receivedAt),
++    };
++}
++async function processSingleJob(job) {
++    const event = job.data;
++    const processed = toProcessedEvent(event, job.timestamp || Date.now());
++    await (0, database_1.insertEventsBatch)([processed]);
++    exports.eventEmitter.emit('event_processed', processed);
++    (0, metrics_1.incrementProcessed)(1);
++}
++async function processBatchJob(job) {
++    const { events } = job.data;
++    const receivedAt = job.timestamp || Date.now();
++    const processed = events.map((e) => toProcessedEvent(e, receivedAt));
++    await (0, database_1.insertEventsBatch)(processed);
++    for (const p of processed) {
++        exports.eventEmitter.emit('event_processed', p);
++    }
++    (0, metrics_1.incrementProcessed)(processed.length);
++}
++function startWorker() {
++    const worker = new bullmq_1.Worker(config_1.config.queue.name, async (job) => {
++        try {
++            if ('events' in job.data && Array.isArray(job.data.events)) {
++                await processBatchJob(job);
++            }
++            else {
++                await processSingleJob(job);
++            }
++        }
++        catch (err) {
++            const count = 'events' in job.data && Array.isArray(job.data.events) ? job.data.events.length : 1;
++            (0, metrics_1.incrementFailed)(count);
++            const eventId = 'event_id' in job.data ? job.data.event_id : 'batch';
++            const deviceId = 'device_id' in job.data ? job.data.device_id : 'n/a';
++            console.error('Job ' + job.id + ' failed (event_id=' + eventId + ', device_id=' + deviceId + '):', err);
++            throw err;
++        }
++    }, {
++        connection: config_1.config.redis,
++        concurrency: config_1.config.queue.concurrency,
++    });
++    worker.on('completed', (job) => {
++        if (process.env.NODE_ENV !== 'test') {
++            console.log('Job ' + job.id + ' completed');
++        }
++    });
++    worker.on('failed', (job, err) => {
++        console.error('Job ' + (job?.id ?? '') + ' failed:', err);
++    });
++    workerInstance = worker;
++    return worker;
++}
++function getWorker() {
++    return workerInstance;
++}
++async function getQueueDepth() {
++    const waiting = await exports.eventQueue.getWaitingCount();
++    const active = await exports.eventQueue.getActiveCount();
++    return waiting + active;
++}
++function canAcceptJob() {
++    return getQueueDepth().then((depth) => depth < config_1.config.queue.backpressureThreshold);
++}
++async function addEventToQueue(event) {
++    const depth = await getQueueDepth();
++    if (depth >= config_1.config.queue.backpressureThreshold) {
++        throw new QueueOverloadedError('Queue depth ' + depth + ' exceeds threshold ' + config_1.config.queue.backpressureThreshold);
++    }
++    await exports.eventQueue.add('process-event', event, { jobId: event.event_id });
++}
++const BATCH_CHUNK_SIZE = 1000;
++async function addEventsToQueue(events) {
++    const depth = await getQueueDepth();
++    if (depth >= config_1.config.queue.backpressureThreshold) {
++        throw new QueueOverloadedError('Queue depth ' + depth + ' exceeds threshold ' + config_1.config.queue.backpressureThreshold);
++    }
++    if (events.length === 0)
++        return;
++    if (events.length <= BATCH_CHUNK_SIZE) {
++        const jobs = events.map((event) => ({
++            name: 'process-event',
++            data: event,
++            opts: { jobId: event.event_id },
++        }));
++        await exports.eventQueue.addBulk(jobs);
++        return;
++    }
++    const jobs = [];
++    for (let i = 0; i < events.length; i += BATCH_CHUNK_SIZE) {
++        const chunk = events.slice(i, i + BATCH_CHUNK_SIZE);
++        const firstId = chunk[0].event_id;
++        const jobId = 'batch-' + i + '-' + firstId + '-' + chunk.length;
++        jobs.push({
++            name: 'process-batch',
++            data: { events: chunk },
++            opts: { jobId },
++        });
++    }
++    await exports.eventQueue.addBulk(jobs);
++}
++async function getQueueStats() {
++    const waiting = await exports.eventQueue.getWaitingCount();
++    const active = await exports.eventQueue.getActiveCount();
++    return { waiting, active };
++}
++function subscribeToProcessedEvents(broadcastFn) {
++    exports.eventEmitter.on('event_processed', broadcastFn);
++}
++function removeProcessedEventsListener(broadcastFn) {
++    exports.eventEmitter.removeListener('event_processed', broadcastFn);
++}
+diff --git a/repository_after/dist/shutdown.d.ts b/repository_after/dist/shutdown.d.ts
+new file mode 100644
+index 000000000..8a9362256
+--- /dev/null
++++ b/repository_after/dist/shutdown.d.ts
+@@ -0,0 +1,10 @@
++import { Server } from 'http';
++import { WebSocketServer } from 'ws';
++export type ShutdownHandles = {
++    server: Server;
++    wss: WebSocketServer | null;
++};
++export declare function isShutdownInProgress(): boolean;
++/** For tests only: reset shutdown state so isShutdownInProgress() can be false again. */
++export declare function resetShutdownState(): void;
++export declare function gracefulShutdown(handles: ShutdownHandles): Promise<void>;
+diff --git a/repository_after/dist/shutdown.js b/repository_after/dist/shutdown.js
+new file mode 100644
+index 000000000..0acd763ba
+--- /dev/null
++++ b/repository_after/dist/shutdown.js
+@@ -0,0 +1,57 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.isShutdownInProgress = isShutdownInProgress;
++exports.resetShutdownState = resetShutdownState;
++exports.gracefulShutdown = gracefulShutdown;
++const database_1 = require("./database");
++const websocket_1 = require("./websocket");
++const queue_1 = require("./queue");
++const websocket_2 = require("./websocket");
++const SHUTDOWN_TIMEOUT_MS = 60_000;
++let isShuttingDown = false;
++function isShutdownInProgress() {
++    return isShuttingDown;
++}
++/** For tests only: reset shutdown state so isShutdownInProgress() can be false again. */
++function resetShutdownState() {
++    isShuttingDown = false;
++}
++async function gracefulShutdown(handles) {
++    if (isShuttingDown)
++        return;
++    isShuttingDown = true;
++    const timeout = setTimeout(() => {
++        console.error('Graceful shutdown timeout; forcing exit');
++        process.exit(1);
++    }, SHUTDOWN_TIMEOUT_MS);
++    try {
++        console.log('Shutting down: stopping HTTP server from accepting new connections...');
++        if (handles.server.listening) {
++            await new Promise((resolve, reject) => {
++                handles.server.close((err) => (err ? reject(err) : resolve()));
++            });
++        }
++        (0, queue_1.removeProcessedEventsListener)((0, websocket_2.getBroadcastFn)());
++        const worker = (0, queue_1.getWorker)();
++        if (worker) {
++            console.log('Closing queue worker...');
++            await worker.close();
++        }
++        await queue_1.eventQueue.close();
++        if (handles.wss) {
++            console.log('Closing WebSocket server...');
++            await (0, websocket_1.closeWebSocketServer)(handles.wss);
++        }
++        console.log('Closing database pool...');
++        await (0, database_1.closePool)();
++        clearTimeout(timeout);
++        isShuttingDown = false;
++        process.exit(0);
++    }
++    catch (err) {
++        console.error('Shutdown error:', err);
++        isShuttingDown = false;
++        clearTimeout(timeout);
++        process.exit(1);
++    }
++}
+diff --git a/repository_after/dist/timeoutMiddleware.d.ts b/repository_after/dist/timeoutMiddleware.d.ts
+new file mode 100644
+index 000000000..50ddf7f34
+--- /dev/null
++++ b/repository_after/dist/timeoutMiddleware.d.ts
+@@ -0,0 +1,2 @@
++import { Request, Response, NextFunction } from 'express';
++export declare function requestTimeoutMiddleware(timeoutMs?: number): (req: Request, res: Response, next: NextFunction) => void;
+diff --git a/repository_after/dist/timeoutMiddleware.js b/repository_after/dist/timeoutMiddleware.js
+new file mode 100644
+index 000000000..9c38559b0
+--- /dev/null
++++ b/repository_after/dist/timeoutMiddleware.js
+@@ -0,0 +1,22 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.requestTimeoutMiddleware = requestTimeoutMiddleware;
++const config_1 = require("./config");
++function requestTimeoutMiddleware(timeoutMs = config_1.config.requestTimeoutMs) {
++    return (req, res, next) => {
++        const timer = setTimeout(() => {
++            if (!res.headersSent) {
++                res.status(504).json({ error: 'Gateway Timeout' });
++                res.end();
++            }
++        }, timeoutMs);
++        const onFinish = () => {
++            clearTimeout(timer);
++            res.removeListener('finish', onFinish);
++            res.removeListener('close', onFinish);
++        };
++        res.once('finish', onFinish);
++        res.once('close', onFinish);
++        next();
++    };
++}
+diff --git a/repository_after/dist/types.d.ts b/repository_after/dist/types.d.ts
+new file mode 100644
+index 000000000..fa3255bb7
+--- /dev/null
++++ b/repository_after/dist/types.d.ts
+@@ -0,0 +1,26 @@
++export interface SensorEvent {
++    event_id: string;
++    device_id: string;
++    sensor_type: string;
++    value: number;
++    unit: string;
++    timestamp: string;
++    metadata?: Record<string, unknown>;
++}
++export interface ProcessedEvent extends SensorEvent {
++    processed_at: Date;
++    received_at: Date;
++}
++export interface BatchPayload {
++    events: SensorEvent[];
++}
++export interface EventStats {
++    total_received: number;
++    total_processed: number;
++    total_failed: number;
++    queue_depth: number;
++    events_per_second: number;
++    processing_latency_ms?: number;
++    memory_usage_mb?: number;
++    websocket_clients?: number;
++}
+diff --git a/repository_after/dist/types.js b/repository_after/dist/types.js
+new file mode 100644
+index 000000000..c8ad2e549
+--- /dev/null
++++ b/repository_after/dist/types.js
+@@ -0,0 +1,2 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
+diff --git a/repository_after/dist/websocket.d.ts b/repository_after/dist/websocket.d.ts
+new file mode 100644
+index 000000000..f5742f027
+--- /dev/null
++++ b/repository_after/dist/websocket.d.ts
+@@ -0,0 +1,7 @@
++import { WebSocketServer } from 'ws';
++import { Server } from 'http';
++import { ProcessedEvent } from './types';
++export declare function setupWebSocket(server: Server): WebSocketServer;
++export declare function getBroadcastFn(): (event: ProcessedEvent) => void;
++export declare function getConnectedClients(): number;
++export declare function closeWebSocketServer(wss: WebSocketServer | null): Promise<void>;
+diff --git a/repository_after/dist/websocket.js b/repository_after/dist/websocket.js
+new file mode 100644
+index 000000000..c0d369b2c
+--- /dev/null
++++ b/repository_after/dist/websocket.js
+@@ -0,0 +1,55 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.setupWebSocket = setupWebSocket;
++exports.getBroadcastFn = getBroadcastFn;
++exports.getConnectedClients = getConnectedClients;
++exports.closeWebSocketServer = closeWebSocketServer;
++const ws_1 = require("ws");
++const clients = new Set();
++function cleanupClient(ws) {
++    clients.delete(ws);
++}
++function broadcastEvent(event) {
++    const payload = JSON.stringify({ type: 'event', data: event });
++    clients.forEach((client) => {
++        if (client.readyState === ws_1.WebSocket.OPEN) {
++            client.send(payload);
++        }
++    });
++}
++function setupWebSocket(server) {
++    const wss = new ws_1.WebSocketServer({ server, path: '/ws/events' });
++    wss.on('connection', (ws) => {
++        if (process.env.NODE_ENV !== 'test') {
++            console.log('New WebSocket client connected');
++        }
++        clients.add(ws);
++        ws.on('message', (message) => {
++            if (process.env.NODE_ENV !== 'test') {
++                console.log('Received:', message);
++            }
++        });
++        ws.on('error', (error) => {
++            console.error('WebSocket error:', error);
++            cleanupClient(ws);
++        });
++        ws.on('close', () => {
++            cleanupClient(ws);
++        });
++    });
++    return wss;
++}
++function getBroadcastFn() {
++    return broadcastEvent;
++}
++function getConnectedClients() {
++    return clients.size;
++}
++function closeWebSocketServer(wss) {
++    if (!wss)
++        return Promise.resolve();
++    clients.clear();
++    return new Promise((resolve) => {
++        wss.close(() => resolve());
++    });
++}
 diff --git a/repository_before/queue.ts b/repository_before/queue.ts
 deleted file mode 100644
 index 84eeb33fc..000000000
@@ -558,20 +1590,17 @@ index 000000000..ccd965884
 +}
 diff --git a/repository_after/src/circuitBreaker.ts b/repository_after/src/circuitBreaker.ts
 new file mode 100644
-index 000000000..a791c9da4
+index 000000000..c04461cf6
 --- /dev/null
 +++ b/repository_after/src/circuitBreaker.ts
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,81 @@
 +/**
 + * In-memory circuit breaker: after failureThreshold failures, open for cooldownMs.
++ * State is per-instance so multiple breakers (e.g. in tests) do not interfere.
 + */
 +
 +const DEFAULT_FAILURE_THRESHOLD = 5;
 +const DEFAULT_COOLDOWN_MS = 30_000;
-+
-+let failureCount = 0;
-+let openUntil = 0;
-+let state: 'closed' | 'open' | 'half-open' = 'closed';
 +
 +export class DatabaseUnavailableError extends Error {
 +    constructor(message: string) {
@@ -584,6 +1613,10 @@ index 000000000..a791c9da4
 +export function createCircuitBreaker(options?: { failureThreshold?: number; cooldownMs?: number }) {
 +    const failureThreshold = options?.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD;
 +    const cooldownMs = options?.cooldownMs ?? DEFAULT_COOLDOWN_MS;
++
++    let failureCount = 0;
++    let openUntil = 0;
++    let state: 'closed' | 'open' | 'half-open' = 'closed';
 +
 +    return {
 +        async execute<T>(fn: () => Promise<T>): Promise<T> {
@@ -1000,10 +2033,10 @@ index 000000000..4b2cb3ec1
 +}
 diff --git a/repository_after/src/shutdown.ts b/repository_after/src/shutdown.ts
 new file mode 100644
-index 000000000..c59ea3524
+index 000000000..6a05ab6df
 --- /dev/null
 +++ b/repository_after/src/shutdown.ts
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,69 @@
 +import { Server } from 'http';
 +import { WebSocketServer } from 'ws';
 +import { closePool } from './database';
@@ -1024,6 +2057,11 @@ index 000000000..c59ea3524
 +    return isShuttingDown;
 +}
 +
++/** For tests only: reset shutdown state so isShutdownInProgress() can be false again. */
++export function resetShutdownState(): void {
++    isShuttingDown = false;
++}
++
 +export async function gracefulShutdown(handles: ShutdownHandles): Promise<void> {
 +    if (isShuttingDown) return;
 +    isShuttingDown = true;
@@ -1035,9 +2073,11 @@ index 000000000..c59ea3524
 +
 +    try {
 +        console.log('Shutting down: stopping HTTP server from accepting new connections...');
-+        await new Promise<void>((resolve, reject) => {
-+            handles.server.close((err) => (err ? reject(err) : resolve()));
-+        });
++        if (handles.server.listening) {
++            await new Promise<void>((resolve, reject) => {
++                handles.server.close((err) => (err ? reject(err) : resolve()));
++            });
++        }
 +
 +        removeProcessedEventsListener(getBroadcastFn());
 +
@@ -1057,9 +2097,11 @@ index 000000000..c59ea3524
 +        await closePool();
 +
 +        clearTimeout(timeout);
++        isShuttingDown = false;
 +        process.exit(0);
 +    } catch (err) {
 +        console.error('Shutdown error:', err);
++        isShuttingDown = false;
 +        clearTimeout(timeout);
 +        process.exit(1);
 +    }
