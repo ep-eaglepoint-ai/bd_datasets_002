@@ -1,11 +1,19 @@
 services:
-  app:
+  test-before:
     build: .
-    volumes:
-      - .:/app
+    environment:
+      - REPO_TYPE=before
+    command: [ "pytest", "-v", "--tb=short", "tests/" ]
 
-  tests:
+  test-after:
     build: .
-    command: pytest -v tests/
+    environment:
+      - REPO_TYPE=after
+    command: [ "pytest", "-v", "--tb=short", "tests/" ]
+
+  evaluation:
+    build: .
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: [ "python", "evaluation/evaluation.py" ]

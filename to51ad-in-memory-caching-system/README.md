@@ -4,15 +4,15 @@
 ## Run tests
 
 ```bash
-docker compose run --rm -e CACHE_REPO=after tests pytest -v
+docker compose run --rm test-before
 ```
 
 ```bash
-docker compose run --rm -e CACHE_REPO=before tests pytest -v
+docker compose run --rm test-after
 ```
 
 ## Run evaluations
 
 ```bash
-docker compose run --rm tests python evaluation/evaluation.py
+docker compose run --rm evaluation
 ```
