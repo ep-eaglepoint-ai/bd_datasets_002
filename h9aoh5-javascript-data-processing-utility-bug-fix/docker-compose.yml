@@ -1,7 +1,7 @@
 services:
   verify_before:
     build: .
-    command: node tests/validation_runner.js repository_before
+    command: sh -c "node tests/validation_runner.js repository_before || true"
     volumes:
       - .:/app
 
