@@ -25,10 +25,11 @@ describe('CircuitBreaker', () => {
     });
 
     describe('Basic functionality', () => {
-        it('should handle no options passed', () => {
+        it('should start in CLOSED state', () => {
             const breaker = new CircuitBreaker();
-            assert.strictEqual(breaker.failureThreshold, 3);
-            assert.strictEqual(breaker.resetTimeout, 5000);
+            assert.strictEqual(breaker.state, 'CLOSED');
+            assert.strictEqual(breaker.failures, 0);
+            assert.strictEqual(breaker.lastFailureTime, null);
         });
 
         it('should default to 5000 when resetTimeout is 0 (Potentially unexpected behavior)', () => {

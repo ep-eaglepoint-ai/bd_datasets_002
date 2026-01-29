@@ -1,14 +1,14 @@
-version: '3.8'
+#version: '3.8'
 
 services:
-  test:
+  app:
     build: .
     command: npm test
     volumes:
       - .:/app
     working_dir: /app
 
-  test-coverage:
+  coverage:
     build: .
     command: npm run test:coverage
     volumes:

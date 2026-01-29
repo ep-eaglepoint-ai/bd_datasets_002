@@ -1,0 +1,66 @@
+{
+  "requirements": [
+    {
+      "id": 1,
+      "name": "should start in CLOSED state",
+      "covered": true
+    },
+    {
+      "id": 2,
+      "name": "should transition to HALF_OPEN after resetTimeout",
+      "covered": true
+    },
+    {
+      "id": 3,
+      "name": "should reset to CLOSED on successful action in HALF_OPEN state",
+      "covered": true
+    },
+    {
+      "id": 4,
+      "name": "should transition back to OPEN on failure in HALF_OPEN state",
+      "covered": true
+    },
+    {
+      "id": 5,
+      "name": "should handle failure threshold boundary",
+      "covered": true
+    },
+    {
+      "id": 6,
+      "name": "should handle asynchronous actions that take 100ms to resolve",
+      "covered": true
+    },
+    {
+      "id": 7,
+      "name": "should handle multiple concurrent calls at resetTimeout boundary",
+      "covered": true
+    },
+    {
+      "id": 8,
+      "name": "should throw CIRCUIT_OPEN error immediately in OPEN state",
+      "covered": true
+    }
+  ],
+  "tests": {
+    "total": 38,
+    "passed": true
+  },
+  "structure": [
+    {
+      "file": "repository_before/CircuitBreaker.js",
+      "exists": true
+    },
+    {
+      "file": "tests/index.js",
+      "exists": true
+    },
+    {
+      "file": "package.json",
+      "exists": true
+    },
+    {
+      "file": "evaluation/evaluation.js",
+      "exists": true
+    }
+  ]
+}

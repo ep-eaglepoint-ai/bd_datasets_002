@@ -5,8 +5,8 @@ import os
 def run_evaluation():
     print("🚀 Running JS-based Evaluation via Python Bridge...")
     
-    # Run the JS evaluation script
-    result = subprocess.run(['node', 'evaluation/evaluation.js'], shell=True)
+    # Use list format for better reliability in Docker/Linux
+    result = subprocess.run(['node', 'evaluation/evaluation.js'])
     
     if result.returncode != 0:
         print("❌ Evaluation failed")

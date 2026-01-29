@@ -1,0 +1,66 @@
+version: 0.2
+# Version Marker: JS-CircuitBreaker-v1
+env:
+  variables:
+    BUILD_CMD_BEFORE: "docker compose build app"
+    BUILD_CMD_AFTER: "docker compose build app"
+    TEST_CMD: "docker compose run --rm app node evaluation/evaluation.js"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "=== INSTALL PHASE ==="
+      - |
+        if ! docker info >/dev/null 2>&1; then
+          echo "Docker daemon not available — ensure CodeBuild project has privilegedMode=true"
+          touch /tmp/BUILD_FAILED_INSTALL
+        fi
+      - npm install -g cross-env
+  pre_build:
+    commands:
+      - set +e
+      - WORKDIR=${TARGET_DIR:-.}
+      - |
+        if ! cd "$WORKDIR"; then
+          echo "WARNING: Unable to enter target directory ${WORKDIR}"
+          touch /tmp/BUILD_FAILED_PREBUILD
+        fi
+      - PWD=$(pwd)
+      - echo "$PWD" > /tmp/build_dir
+      - rm -f /tmp/BUILD_FAILED* /tmp/*.log || true
+  build:
+    commands:
+      - set +e
+      - |
+        if [ -f /tmp/build_dir ]; then
+          cd "$(cat /tmp/build_dir)"
+        fi
+      - |
+        if [ -n "${BUILD_CMD_BEFORE:-}" ]; then
+          echo "Running build command..."
+          if ! /bin/bash -c "set -o pipefail; $BUILD_CMD_BEFORE 2>&1 | tee /tmp/docker_build.log"; then
+              echo "Build command failed - continuing with evaluation..."
+          fi
+        fi
+      - echo "Running tests..."
+      - |
+        if ! /bin/bash -c "set -o pipefail; $TEST_CMD 2>&1 | tee /tmp/tests.log"; then
+            echo "Test command failed"
+            touch /tmp/BUILD_FAILED_TESTS
+        fi
+  post_build:
+    commands:
+      - set +e
+      - |
+        if [ -f /tmp/build_dir ]; then
+          cd "$(cat /tmp/build_dir)"
+        fi
+      - echo "=== POST-BUILD PHASE ==="
+      - |
+        if [ -f /tmp/BUILD_FAILED_INSTALL ] || [ -f /tmp/BUILD_FAILED_PREBUILD ] || [ -f /tmp/BUILD_FAILED_TESTS ]; then
+          echo "FATAL: One or more critical build steps failed. Exiting with error."
+          exit 1
+        fi
+      - echo "Build completed successfully."
