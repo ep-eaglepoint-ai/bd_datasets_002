@@ -1,0 +1,1490 @@
+diff --git a/repository_after/crm-engine/Dockerfile b/repository_after/crm-engine/Dockerfile
+new file mode 100644
+index 00000000..44125c03
+--- /dev/null
++++ b/repository_after/crm-engine/Dockerfile
+@@ -0,0 +1,35 @@
++# CRM Engine Dockerfile
++FROM golang:1.21-alpine AS builder
++
++WORKDIR /app
++
++# Install dependencies
++RUN apk add --no-cache git
++
++# Copy go mod files
++COPY go.mod ./
++RUN go mod download
++
++# Copy source code
++COPY . .
++
++# Build the application
++RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main.go
++
++# Final stage
++FROM alpine:latest
++
++RUN apk --no-cache add ca-certificates
++
++WORKDIR /root/
++
++# Copy the binary from builder
++COPY --from=builder /app/main .
++
++# Copy templates and static files
++COPY --from=builder /app/templates ./templates
++COPY --from=builder /app/static ./static
++
++EXPOSE 8080
++
++CMD ["./main"]
+diff --git a/repository_after/crm-engine/cmd/main.go b/repository_after/crm-engine/cmd/main.go
+new file mode 100644
+index 00000000..e38655d0
+--- /dev/null
++++ b/repository_after/crm-engine/cmd/main.go
+@@ -0,0 +1,128 @@
++package main
++
++import (
++	"html/template"
++	"log"
++	"net/http"
++	"os"
++	"time"
++
++	httpdelivery "github.com/ep-eaglepoint-ai/crm-engine/delivery/http"
++	"github.com/ep-eaglepoint-ai/crm-engine/domain"
++	"github.com/ep-eaglepoint-ai/crm-engine/infrastructure/database"
++	"github.com/ep-eaglepoint-ai/crm-engine/infrastructure/postgres"
++	"github.com/ep-eaglepoint-ai/crm-engine/usecase"
++	"github.com/gorilla/mux"
++)
++
++func main() {
++	// Connect to database
++	db, err := database.Connect()
++	if err != nil {
++		log.Fatalf("Failed to connect to database: %v", err)
++	}
++	defer db.Close()
++
++	// Initialize repository
++	leadRepo := postgres.NewLeadRepository(db)
++	if err := leadRepo.InitSchema(); err != nil {
++		log.Fatalf("Failed to initialize schema: %v", err)
++	}
++
++	// Seed some initial data for testing
++	seedData(leadRepo)
++
++	// Initialize use case
++	leadUseCase := usecase.NewLeadUseCase(leadRepo)
++
++	// Initialize handler
++	leadHandler := httpdelivery.NewLeadHandler(leadUseCase)
++
++	// Setup router
++	router := mux.NewRouter()
++
++	// Serve static files
++	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
++
++	// Serve HTML template at root
++	router.HandleFunc("/", serveIndex).Methods("GET")
++
++	// Register API routes
++	leadHandler.RegisterRoutes(router)
++	router.HandleFunc("/health", httpdelivery.HealthCheck).Methods("GET")
++
++	// Apply middleware
++	router.Use(httpdelivery.LoggingMiddleware)
++	router.Use(httpdelivery.CORSMiddleware)
++
++	// Start server
++	port := os.Getenv("PORT")
++	if port == "" {
++		port = "8080"
++	}
++
++	log.Printf("CRM Engine server starting on port %s", port)
++	if err := http.ListenAndServe(":"+port, router); err != nil {
++		log.Fatalf("Failed to start server: %v", err)
++	}
++}
++
++func seedData(repo *postgres.LeadRepositoryPostgres) {
++	// Check if data already exists
++	leads, _ := repo.FindAll()
++	if len(leads) > 0 {
++		log.Println("Database already seeded, skipping...")
++		return
++	}
++
++	log.Println("Seeding initial data...")
++	// Add some sample leads for testing
++	sampleLeads := []struct {
++		name  string
++		email string
++		score int
++	}{
++		{"John Doe", "john@example.com", 45},
++		{"Jane Smith", "jane@example.com", 85},
++		{"Bob Johnson", "bob@example.com", 60},
++		{"Alice Williams", "alice@example.com", 90},
++		{"Charlie Brown", "charlie@example.com", 30},
++	}
++
++	for _, sl := range sampleLeads {
++		lead := &domain.Lead{
++			Name:      sl.name,
++			Email:     sl.email,
++			LeadScore: sl.score,
++			Status:    domain.StatusProspect,
++			Version:   1,
++			CreatedAt: time.Now(),
++			UpdatedAt: time.Now(),
++		}
++		if err := repo.Create(lead); err != nil {
++			log.Printf("Failed to seed lead %s: %v", sl.name, err)
++		}
++	}
++	log.Println("Data seeding completed")
++}
++
++func serveIndex(w http.ResponseWriter, r *http.Request) {
++	tmpl, err := template.ParseFiles("./templates/index.html")
++	if err != nil {
++		log.Printf("Failed to parse template: %v", err)
++		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
++		return
++	}
++
++	// Pass backend URL to template (empty string means same origin)
++	data := struct {
++		BackendURL string
++	}{
++		BackendURL: "",
++	}
++
++	if err := tmpl.Execute(w, data); err != nil {
++		log.Printf("Failed to execute template: %v", err)
++		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
++	}
++}
+diff --git a/repository_after/crm-engine/delivery/http/handler.go b/repository_after/crm-engine/delivery/http/handler.go
+new file mode 100644
+index 00000000..13c47340
+--- /dev/null
++++ b/repository_after/crm-engine/delivery/http/handler.go
+@@ -0,0 +1,239 @@
++package http
++
++import (
++	"encoding/json"
++	"fmt"
++	"log"
++	"net/http"
++	"strconv"
++	"strings"
++
++	"github.com/ep-eaglepoint-ai/crm-engine/domain"
++	"github.com/ep-eaglepoint-ai/crm-engine/usecase"
++	"github.com/gorilla/mux"
++)
++
++// LeadHandler handles HTTP requests for lead management
++type LeadHandler struct {
++	useCase *usecase.LeadUseCase
++}
++
++// NewLeadHandler creates a new lead handler
++func NewLeadHandler(useCase *usecase.LeadUseCase) *LeadHandler {
++	return &LeadHandler{useCase: useCase}
++}
++
++// GetAllLeads handles GET /api/leads
++func (h *LeadHandler) GetAllLeads(w http.ResponseWriter, r *http.Request) {
++	leads, err := h.useCase.GetAllLeads()
++	if err != nil {
++		http.Error(w, err.Error(), http.StatusInternalServerError)
++		return
++	}
++
++	w.Header().Set("Content-Type", "application/json")
++	json.NewEncoder(w).Encode(leads)
++}
++
++// GetLead handles GET /api/leads/{id}
++func (h *LeadHandler) GetLead(w http.ResponseWriter, r *http.Request) {
++	vars := mux.Vars(r)
++	id, err := strconv.Atoi(vars["id"])
++	if err != nil {
++		http.Error(w, "Invalid lead ID", http.StatusBadRequest)
++		return
++	}
++
++	lead, err := h.useCase.GetLead(id)
++	if err != nil {
++		http.Error(w, err.Error(), http.StatusNotFound)
++		return
++	}
++
++	w.Header().Set("Content-Type", "application/json")
++	json.NewEncoder(w).Encode(lead)
++}
++
++// SearchLeads handles GET /api/leads/search?q=query
++func (h *LeadHandler) SearchLeads(w http.ResponseWriter, r *http.Request) {
++	query := r.URL.Query().Get("q")
++	if query == "" {
++		h.GetAllLeads(w, r)
++		return
++	}
++
++	leads, err := h.useCase.SearchLeads(query)
++	if err != nil {
++		http.Error(w, err.Error(), http.StatusInternalServerError)
++		return
++	}
++
++	w.Header().Set("Content-Type", "application/json")
++	json.NewEncoder(w).Encode(leads)
++}
++
++// CreateLead handles POST /api/leads
++func (h *LeadHandler) CreateLead(w http.ResponseWriter, r *http.Request) {
++	var req struct {
++		Name      string `json:"name"`
++		Email     string `json:"email"`
++		LeadScore int    `json:"lead_score"`
++	}
++
++	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
++		http.Error(w, "Invalid request body", http.StatusBadRequest)
++		return
++	}
++
++	lead, err := h.useCase.CreateLead(req.Name, req.Email, req.LeadScore)
++	if err != nil {
++		http.Error(w, err.Error(), http.StatusBadRequest)
++		return
++	}
++
++	w.Header().Set("Content-Type", "application/json")
++	w.WriteHeader(http.StatusCreated)
++	json.NewEncoder(w).Encode(lead)
++}
++
++// UpdateLead handles PUT /api/leads/{id}
++func (h *LeadHandler) UpdateLead(w http.ResponseWriter, r *http.Request) {
++	vars := mux.Vars(r)
++	id, err := strconv.Atoi(vars["id"])
++	if err != nil {
++		http.Error(w, "Invalid lead ID", http.StatusBadRequest)
++		return
++	}
++
++	var req struct {
++		Name      string            `json:"name"`
++		Email     string            `json:"email"`
++		LeadScore int               `json:"lead_score"`
++		Status    domain.LeadStatus `json:"status"`
++		Version   int64             `json:"version"`
++	}
++
++	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
++		http.Error(w, "Invalid request body", http.StatusBadRequest)
++		return
++	}
++
++	lead, err := h.useCase.UpdateLead(id, req.Name, req.Email, req.LeadScore, req.Status, req.Version)
++	if err != nil {
++		// Handle specific error types
++		if err == domain.ErrVersionMismatch {
++			// Return 409 Conflict with fresh data
++			freshLead, fetchErr := h.useCase.GetLead(id)
++			if fetchErr != nil {
++				http.Error(w, err.Error(), http.StatusConflict)
++				return
++			}
++			w.Header().Set("Content-Type", "application/json")
++			w.WriteHeader(http.StatusConflict)
++			json.NewEncoder(w).Encode(map[string]interface{}{
++				"error":      "Concurrent modification detected",
++				"fresh_data": freshLead,
++			})
++			return
++		}
++		if err == domain.ErrInsufficientScore {
++			// Return 422 Unprocessable Entity
++			w.Header().Set("Content-Type", "application/json")
++			w.WriteHeader(http.StatusUnprocessableEntity)
++			json.NewEncoder(w).Encode(map[string]string{
++				"error": err.Error(),
++			})
++			return
++		}
++		http.Error(w, err.Error(), http.StatusBadRequest)
++		return
++	}
++
++	w.Header().Set("Content-Type", "application/json")
++	json.NewEncoder(w).Encode(lead)
++}
++
++// DeleteLead handles DELETE /api/leads/{id}
++func (h *LeadHandler) DeleteLead(w http.ResponseWriter, r *http.Request) {
++	vars := mux.Vars(r)
++	id, err := strconv.Atoi(vars["id"])
++	if err != nil {
++		http.Error(w, "Invalid lead ID", http.StatusBadRequest)
++		return
++	}
++
++	if err := h.useCase.DeleteLead(id); err != nil {
++		http.Error(w, err.Error(), http.StatusNotFound)
++		return
++	}
++
++	w.WriteHeader(http.StatusNoContent)
++}
++
++// RenderLeadRow renders a single lead row as HTML fragment for HTMX
++func (h *LeadHandler) RenderLeadRow(w http.ResponseWriter, r *http.Request) {
++	vars := mux.Vars(r)
++	id, err := strconv.Atoi(vars["id"])
++	if err != nil {
++		http.Error(w, "Invalid lead ID", http.StatusBadRequest)
++		return
++	}
++
++	lead, err := h.useCase.GetLead(id)
++	if err != nil {
++		http.Error(w, err.Error(), http.StatusNotFound)
++		return
++	}
++
++	w.Header().Set("Content-Type", "text/html")
++	fmt.Fprintf(w, `<tr id="lead-%d" hx-swap-oob="true">`, lead.ID)
++	fmt.Fprintf(w, `<td>%d</td>`, lead.ID)
++	fmt.Fprintf(w, `<td>%s</td>`, lead.Name)
++	fmt.Fprintf(w, `<td>%s</td>`, lead.Email)
++	fmt.Fprintf(w, `<td>%d</td>`, lead.LeadScore)
++	fmt.Fprintf(w, `<td><span class="status-%s">%s</span></td>`, strings.ToLower(string(lead.Status)), lead.Status)
++	fmt.Fprintf(w, `<td>%d</td>`, lead.Version)
++	fmt.Fprintf(w, `<td><button hx-get="/lead/%d/edit" hx-target="#edit-form">Edit</button></td>`, lead.ID)
++	fmt.Fprintf(w, `</tr>`)
++}
++
++// RegisterRoutes registers all routes for the lead handler
++func (h *LeadHandler) RegisterRoutes(router *mux.Router) {
++	router.HandleFunc("/api/leads", h.GetAllLeads).Methods("GET")
++	router.HandleFunc("/api/leads", h.CreateLead).Methods("POST")
++	router.HandleFunc("/api/leads/search", h.SearchLeads).Methods("GET")
++	router.HandleFunc("/api/leads/{id}", h.GetLead).Methods("GET")
++	router.HandleFunc("/api/leads/{id}", h.UpdateLead).Methods("PUT")
++	router.HandleFunc("/api/leads/{id}", h.DeleteLead).Methods("DELETE")
++	router.HandleFunc("/lead/{id}/row", h.RenderLeadRow).Methods("GET")
++}
++
++// HealthCheck handles GET /health
++func HealthCheck(w http.ResponseWriter, r *http.Request) {
++	w.Header().Set("Content-Type", "application/json")
++	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
++}
++
++// LoggingMiddleware logs incoming HTTP requests
++func LoggingMiddleware(next http.Handler) http.Handler {
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
++		next.ServeHTTP(w, r)
++	})
++}
++
++// CORSMiddleware adds CORS headers
++func CORSMiddleware(next http.Handler) http.Handler {
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Access-Control-Allow-Origin", "*")
++		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
++		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
++
++		if r.Method == "OPTIONS" {
++			w.WriteHeader(http.StatusOK)
++			return
++		}
++
++		next.ServeHTTP(w, r)
++	})
++}
+diff --git a/repository_after/crm-engine/domain/lead.go b/repository_after/crm-engine/domain/lead.go
+new file mode 100644
+index 00000000..5aa2acbc
+--- /dev/null
++++ b/repository_after/crm-engine/domain/lead.go
+@@ -0,0 +1,76 @@
++package domain
++
++import (
++	"errors"
++	"time"
++)
++
++// LeadStatus represents the status of a lead
++type LeadStatus string
++
++const (
++	StatusProspect  LeadStatus = "PROSPECT"
++	StatusQualified LeadStatus = "QUALIFIED"
++	StatusConverted LeadStatus = "CONVERTED"
++)
++
++// MinScoreForConversion is the minimum lead score required for conversion
++const MinScoreForConversion = 80
++
++// Lead represents a customer lead entity
++type Lead struct {
++	ID        int        `json:"id"`
++	Name      string     `json:"name"`
++	Email     string     `json:"email"`
++	LeadScore int        `json:"lead_score"`
++	Status    LeadStatus `json:"status"`
++	Version   int64      `json:"version"`
++	CreatedAt time.Time  `json:"created_at"`
++	UpdatedAt time.Time  `json:"updated_at"`
++}
++
++// Validation errors
++var (
++	ErrInvalidName       = errors.New("name cannot be empty")
++	ErrInvalidEmail      = errors.New("email cannot be empty")
++	ErrInvalidScore      = errors.New("lead score must be between 0 and 100")
++	ErrInvalidStatus     = errors.New("invalid status value")
++	ErrVersionMismatch   = errors.New("version mismatch: concurrent modification detected")
++	ErrInsufficientScore = errors.New("lead score must be at least 80 to convert")
++)
++
++// Validate checks if the lead data is valid
++func (l *Lead) Validate() error {
++	if l.Name == "" {
++		return ErrInvalidName
++	}
++	if l.Email == "" {
++		return ErrInvalidEmail
++	}
++	if l.LeadScore < 0 || l.LeadScore > 100 {
++		return ErrInvalidScore
++	}
++	if l.Status != StatusProspect && l.Status != StatusQualified && l.Status != StatusConverted {
++		return ErrInvalidStatus
++	}
++	return nil
++}
++
++// CanTransitionTo checks if a lead can transition to a new status
++func (l *Lead) CanTransitionTo(newStatus LeadStatus) error {
++	// Check conversion requirement
++	if newStatus == StatusConverted && l.LeadScore < MinScoreForConversion {
++		return ErrInsufficientScore
++	}
++	return nil
++}
++
++// LeadRepository defines the interface for lead data access
++type LeadRepository interface {
++	Create(lead *Lead) error
++	FindByID(id int) (*Lead, error)
++	FindAll() ([]*Lead, error)
++	Search(query string) ([]*Lead, error)
++	Update(lead *Lead, expectedVersion int64) error
++	Delete(id int) error
++}
+diff --git a/repository_after/crm-engine/go.mod b/repository_after/crm-engine/go.mod
+new file mode 100644
+index 00000000..2142229e
+--- /dev/null
++++ b/repository_after/crm-engine/go.mod
+@@ -0,0 +1,8 @@
++module github.com/ep-eaglepoint-ai/crm-engine
++
++go 1.21
++
++require (
++	github.com/lib/pq v1.10.9
++	github.com/gorilla/mux v1.8.1
++)
+diff --git a/repository_after/crm-engine/go.sum b/repository_after/crm-engine/go.sum
+new file mode 100644
+index 00000000..2a964d7a
+--- /dev/null
++++ b/repository_after/crm-engine/go.sum
+@@ -0,0 +1,4 @@
++github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
++github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
++github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
++github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
+diff --git a/repository_after/crm-engine/infrastructure/database/connection.go b/repository_after/crm-engine/infrastructure/database/connection.go
+new file mode 100644
+index 00000000..4c1c1ae7
+--- /dev/null
++++ b/repository_after/crm-engine/infrastructure/database/connection.go
+@@ -0,0 +1,43 @@
++package database
++
++import (
++	"database/sql"
++	"fmt"
++	"log"
++	"os"
++	"time"
++
++	_ "github.com/lib/pq"
++)
++
++// Connect establishes a connection to the PostgreSQL database
++func Connect() (*sql.DB, error) {
++	databaseURL := os.Getenv("DATABASE_URL")
++	if databaseURL == "" {
++		databaseURL = "postgres://crm_user:crm_pass@localhost:5432/crm_db?sslmode=disable"
++	}
++
++	db, err := sql.Open("postgres", databaseURL)
++	if err != nil {
++		return nil, fmt.Errorf("failed to open database: %w", err)
++	}
++
++	// Configure connection pool
++	db.SetMaxOpenConns(25)
++	db.SetMaxIdleConns(5)
++	db.SetConnMaxLifetime(5 * time.Minute)
++
++	// Wait for database to be ready
++	maxRetries := 30
++	for i := 0; i < maxRetries; i++ {
++		err = db.Ping()
++		if err == nil {
++			log.Println("Database connection established")
++			return db, nil
++		}
++		log.Printf("Waiting for database... (%d/%d)", i+1, maxRetries)
++		time.Sleep(1 * time.Second)
++	}
++
++	return nil, fmt.Errorf("failed to connect to database after %d retries: %w", maxRetries, err)
++}
+diff --git a/repository_after/crm-engine/infrastructure/postgres/lead_repository.go b/repository_after/crm-engine/infrastructure/postgres/lead_repository.go
+new file mode 100644
+index 00000000..c381298c
+--- /dev/null
++++ b/repository_after/crm-engine/infrastructure/postgres/lead_repository.go
+@@ -0,0 +1,215 @@
++package postgres
++
++import (
++	"database/sql"
++	"fmt"
++	"strings"
++
++	"github.com/ep-eaglepoint-ai/crm-engine/domain"
++	_ "github.com/lib/pq"
++)
++
++// LeadRepositoryPostgres implements LeadRepository using PostgreSQL
++type LeadRepositoryPostgres struct {
++	db *sql.DB
++}
++
++// NewLeadRepository creates a new PostgreSQL lead repository
++func NewLeadRepository(db *sql.DB) *LeadRepositoryPostgres {
++	return &LeadRepositoryPostgres{db: db}
++}
++
++// InitSchema creates the leads table if it doesn't exist
++func (r *LeadRepositoryPostgres) InitSchema() error {
++	query := `
++	CREATE TABLE IF NOT EXISTS leads (
++		id SERIAL PRIMARY KEY,
++		name VARCHAR(255) NOT NULL,
++		email VARCHAR(255) NOT NULL,
++		lead_score INTEGER NOT NULL CHECK (lead_score >= 0 AND lead_score <= 100),
++		status VARCHAR(50) NOT NULL CHECK (status IN ('PROSPECT', 'QUALIFIED', 'CONVERTED')),
++		version BIGINT NOT NULL DEFAULT 1,
++		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
++	);
++	`
++	_, err := r.db.Exec(query)
++	return err
++}
++
++// Create inserts a new lead
++func (r *LeadRepositoryPostgres) Create(lead *domain.Lead) error {
++	query := `
++		INSERT INTO leads (name, email, lead_score, status, version, created_at, updated_at)
++		VALUES ($1, $2, $3, $4, $5, $6, $7)
++		RETURNING id
++	`
++	err := r.db.QueryRow(
++		query,
++		lead.Name,
++		lead.Email,
++		lead.LeadScore,
++		lead.Status,
++		lead.Version,
++		lead.CreatedAt,
++		lead.UpdatedAt,
++	).Scan(&lead.ID)
++
++	return err
++}
++
++// FindByID retrieves a lead by ID
++func (r *LeadRepositoryPostgres) FindByID(id int) (*domain.Lead, error) {
++	query := `
++		SELECT id, name, email, lead_score, status, version, created_at, updated_at
++		FROM leads
++		WHERE id = $1
++	`
++	lead := &domain.Lead{}
++	err := r.db.QueryRow(query, id).Scan(
++		&lead.ID,
++		&lead.Name,
++		&lead.Email,
++		&lead.LeadScore,
++		&lead.Status,
++		&lead.Version,
++		&lead.CreatedAt,
++		&lead.UpdatedAt,
++	)
++	if err == sql.ErrNoRows {
++		return nil, fmt.Errorf("lead not found")
++	}
++	return lead, err
++}
++
++// FindAll retrieves all leads
++func (r *LeadRepositoryPostgres) FindAll() ([]*domain.Lead, error) {
++	query := `
++		SELECT id, name, email, lead_score, status, version, created_at, updated_at
++		FROM leads
++		ORDER BY created_at DESC
++	`
++	rows, err := r.db.Query(query)
++	if err != nil {
++		return nil, err
++	}
++	defer rows.Close()
++
++	var leads []*domain.Lead
++	for rows.Next() {
++		lead := &domain.Lead{}
++		err := rows.Scan(
++			&lead.ID,
++			&lead.Name,
++			&lead.Email,
++			&lead.LeadScore,
++			&lead.Status,
++			&lead.Version,
++			&lead.CreatedAt,
++			&lead.UpdatedAt,
++		)
++		if err != nil {
++			return nil, err
++		}
++		leads = append(leads, lead)
++	}
++	return leads, rows.Err()
++}
++
++// Search finds leads matching the query
++func (r *LeadRepositoryPostgres) Search(query string) ([]*domain.Lead, error) {
++	searchQuery := `
++		SELECT id, name, email, lead_score, status, version, created_at, updated_at
++		FROM leads
++		WHERE LOWER(name) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1) OR LOWER(status) LIKE LOWER($1)
++		ORDER BY created_at DESC
++	`
++	searchPattern := "%" + strings.ToLower(query) + "%"
++	rows, err := r.db.Query(searchQuery, searchPattern)
++	if err != nil {
++		return nil, err
++	}
++	defer rows.Close()
++
++	var leads []*domain.Lead
++	for rows.Next() {
++		lead := &domain.Lead{}
++		err := rows.Scan(
++			&lead.ID,
++			&lead.Name,
++			&lead.Email,
++			&lead.LeadScore,
++			&lead.Status,
++			&lead.Version,
++			&lead.CreatedAt,
++			&lead.UpdatedAt,
++		)
++		if err != nil {
++			return nil, err
++		}
++		leads = append(leads, lead)
++	}
++	return leads, rows.Err()
++}
++
++// Update performs optimistic locking update
++func (r *LeadRepositoryPostgres) Update(lead *domain.Lead, expectedVersion int64) error {
++	// Start transaction
++	tx, err := r.db.Begin()
++	if err != nil {
++		return err
++	}
++	defer tx.Rollback()
++
++	// Perform compare-and-swap update
++	query := `
++		UPDATE leads
++		SET name = $1, email = $2, lead_score = $3, status = $4, version = version + 1, updated_at = $5
++		WHERE id = $6 AND version = $7
++	`
++	result, err := tx.Exec(
++		query,
++		lead.Name,
++		lead.Email,
++		lead.LeadScore,
++		lead.Status,
++		lead.UpdatedAt,
++		lead.ID,
++		expectedVersion,
++	)
++	if err != nil {
++		return err
++	}
++
++	// Check if any rows were affected
++	rowsAffected, err := result.RowsAffected()
++	if err != nil {
++		return err
++	}
++
++	if rowsAffected == 0 {
++		return domain.ErrVersionMismatch
++	}
++
++	return tx.Commit()
++}
++
++// Delete removes a lead by ID
++func (r *LeadRepositoryPostgres) Delete(id int) error {
++	query := `DELETE FROM leads WHERE id = $1`
++	result, err := r.db.Exec(query, id)
++	if err != nil {
++		return err
++	}
++
++	rowsAffected, err := result.RowsAffected()
++	if err != nil {
++		return err
++	}
++
++	if rowsAffected == 0 {
++		return fmt.Errorf("lead not found")
++	}
++
++	return nil
++}
+diff --git a/repository_after/crm-engine/static/style.css b/repository_after/crm-engine/static/style.css
+new file mode 100644
+index 00000000..dc90f5a7
+--- /dev/null
++++ b/repository_after/crm-engine/static/style.css
+@@ -0,0 +1,297 @@
++* {
++    margin: 0;
++    padding: 0;
++    box-sizing: border-box;
++}
++
++body {
++    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    min-height: 100vh;
++    padding: 20px;
++}
++
++.container {
++    max-width: 1200px;
++    margin: 0 auto;
++    background: white;
++    border-radius: 12px;
++    padding: 30px;
++    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
++}
++
++h1 {
++    color: #333;
++    margin-bottom: 10px;
++    font-size: 2.5em;
++}
++
++.subtitle {
++    color: #666;
++    margin-bottom: 30px;
++    font-size: 1.1em;
++}
++
++h2 {
++    color: #444;
++    margin-bottom: 20px;
++    font-size: 1.5em;
++    border-bottom: 2px solid #667eea;
++    padding-bottom: 10px;
++}
++
++/* Notification Styles */
++.notification {
++    padding: 15px 20px;
++    border-radius: 8px;
++    margin-bottom: 20px;
++    font-weight: 500;
++    animation: slideDown 0.3s ease-out;
++}
++
++.notification.hidden {
++    display: none;
++}
++
++.notification.success {
++    background: #d4edda;
++    border: 1px solid #c3e6cb;
++    color: #155724;
++}
++
++.notification.error {
++    background: #f8d7da;
++    border: 1px solid #f5c6cb;
++    color: #721c24;
++}
++
++.notification.warning {
++    background: #fff3cd;
++    border: 1px solid #ffeaa7;
++    color: #856404;
++}
++
++.notification.info {
++    background: #d1ecf1;
++    border: 1px solid #bee5eb;
++    color: #0c5460;
++}
++
++.notification.conflict {
++    background: #ffe5e5;
++    border: 2px solid #ff6b6b;
++    color: #c92a2a;
++    font-size: 1.05em;
++}
++
++@keyframes slideDown {
++    from {
++        opacity: 0;
++        transform: translateY(-10px);
++    }
++
++    to {
++        opacity: 1;
++        transform: translateY(0);
++    }
++}
++
++/* Search Section */
++.search-section {
++    margin-bottom: 30px;
++}
++
++#search-input {
++    width: 100%;
++    padding: 12px 20px;
++    font-size: 1em;
++    border: 2px solid #ddd;
++    border-radius: 8px;
++    transition: border-color 0.3s;
++}
++
++#search-input:focus {
++    outline: none;
++    border-color: #667eea;
++}
++
++/* Form Styles */
++.form-section {
++    background: #f8f9fa;
++    padding: 25px;
++    border-radius: 8px;
++    margin-bottom: 30px;
++}
++
++.form-section.hidden {
++    display: none;
++}
++
++.form-group {
++    margin-bottom: 20px;
++}
++
++.form-group label {
++    display: block;
++    margin-bottom: 8px;
++    color: #333;
++    font-weight: 600;
++}
++
++.form-group input,
++.form-group select {
++    width: 100%;
++    padding: 10px 15px;
++    font-size: 1em;
++    border: 2px solid #ddd;
++    border-radius: 6px;
++    transition: border-color 0.3s;
++}
++
++.form-group input:focus,
++.form-group select:focus {
++    outline: none;
++    border-color: #667eea;
++}
++
++/* Button Styles */
++.btn {
++    padding: 10px 20px;
++    font-size: 1em;
++    border: none;
++    border-radius: 6px;
++    cursor: pointer;
++    transition: all 0.3s;
++    font-weight: 600;
++}
++
++.btn-primary {
++    background: #667eea;
++    color: white;
++}
++
++.btn-primary:hover {
++    background: #5568d3;
++    transform: translateY(-2px);
++    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
++}
++
++.btn-secondary {
++    background: #6c757d;
++    color: white;
++    margin-left: 10px;
++}
++
++.btn-secondary:hover {
++    background: #5a6268;
++}
++
++.btn-danger {
++    background: #dc3545;
++    color: white;
++}
++
++.btn-danger:hover {
++    background: #c82333;
++}
++
++.btn-small {
++    padding: 6px 12px;
++    font-size: 0.9em;
++    margin-right: 5px;
++}
++
++/* Table Styles */
++.table-section {
++    margin-top: 30px;
++}
++
++.leads-table {
++    width: 100%;
++    border-collapse: collapse;
++    background: white;
++    border-radius: 8px;
++    overflow: hidden;
++    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
++}
++
++.leads-table thead {
++    background: #667eea;
++    color: white;
++}
++
++.leads-table th {
++    padding: 15px;
++    text-align: left;
++    font-weight: 600;
++}
++
++.leads-table td {
++    padding: 12px 15px;
++    border-bottom: 1px solid #eee;
++}
++
++.leads-table tbody tr:hover {
++    background: #f8f9fa;
++}
++
++.leads-table tbody tr:last-child td {
++    border-bottom: none;
++}
++
++/* Status Badges */
++.status-badge {
++    display: inline-block;
++    padding: 4px 12px;
++    border-radius: 12px;
++    font-size: 0.85em;
++    font-weight: 600;
++    text-transform: uppercase;
++}
++
++.status-prospect {
++    background: #fff3cd;
++    color: #856404;
++}
++
++.status-qualified {
++    background: #d1ecf1;
++    color: #0c5460;
++}
++
++.status-converted {
++    background: #d4edda;
++    color: #155724;
++}
++
++/* Version Badge */
++.version-badge {
++    display: inline-block;
++    padding: 2px 8px;
++    background: #e9ecef;
++    border-radius: 4px;
++    font-size: 0.9em;
++    font-family: 'Courier New', monospace;
++    font-weight: 600;
++    color: #495057;
++}
++
++/* Responsive Design */
++@media (max-width: 768px) {
++    .container {
++        padding: 15px;
++    }
++
++    h1 {
++        font-size: 1.8em;
++    }
++
++    .leads-table {
++        font-size: 0.9em;
++    }
++
++    .leads-table th,
++    .leads-table td {
++        padding: 8px;
++    }
++}
+diff --git a/repository_after/crm-engine/templates/index.html b/repository_after/crm-engine/templates/index.html
+new file mode 100644
+index 00000000..129416c4
+--- /dev/null
++++ b/repository_after/crm-engine/templates/index.html
+@@ -0,0 +1,278 @@
++<!DOCTYPE html>
++<html lang="en">
++
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Stateful Conflict CRM - Lead Management</title>
++    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
++    <link rel="stylesheet" href="/static/style.css">
++</head>
++
++<body>
++    <div class="container">
++        <h1>🎯 Stateful Conflict CRM</h1>
++        <p class="subtitle">Optimistic Concurrency Control Lead Management System</p>
++
++        <!-- Notification Area -->
++        <div id="notification" class="notification hidden"></div>
++
++        <!-- Search Bar -->
++        <div class="search-section">
++            <input type="text" id="search-input" placeholder="Search leads by name, email, or status..."
++                hx-get="{{.BackendURL}}/api/leads/search" hx-trigger="keyup changed delay:500ms"
++                hx-target="#leads-table-body" hx-swap="innerHTML"
++                hx-vals='js:{q: document.getElementById("search-input").value}'>
++        </div>
++
++        <!-- Create Lead Form -->
++        <div class="form-section">
++            <h2>➕ Create New Lead</h2>
++            <form id="create-form" hx-post="{{.BackendURL}}/api/leads" hx-target="#notification" hx-swap="innerHTML">
++                <div class="form-group">
++                    <label>Name:</label>
++                    <input type="text" name="name" required>
++                </div>
++                <div class="form-group">
++                    <label>Email:</label>
++                    <input type="email" name="email" required>
++                </div>
++                <div class="form-group">
++                    <label>Lead Score (0-100):</label>
++                    <input type="number" name="lead_score" min="0" max="100" required>
++                </div>
++                <button type="submit" class="btn btn-primary">Create Lead</button>
++            </form>
++        </div>
++
++        <!-- Edit Lead Form -->
++        <div id="edit-form" class="form-section hidden">
++            <h2>✏️ Edit Lead</h2>
++            <div id="edit-form-content"></div>
++        </div>
++
++        <!-- Leads Table -->
++        <div class="table-section">
++            <h2>📊 All Leads</h2>
++            <table class="leads-table">
++                <thead>
++                    <tr>
++                        <th>ID</th>
++                        <th>Name</th>
++                        <th>Email</th>
++                        <th>Score</th>
++                        <th>Status</th>
++                        <th>Version</th>
++                        <th>Actions</th>
++                    </tr>
++                </thead>
++                <tbody id="leads-table-body" hx-get="{{.BackendURL}}/api/leads" hx-trigger="load, leadUpdated from:body"
++                    hx-swap="innerHTML">
++                    <tr>
++                        <td colspan="7" style="text-align: center;">Loading...</td>
++                    </tr>
++                </tbody>
++            </table>
++        </div>
++    </div>
++
++    <script>
++        const backendURL = "{{.BackendURL}}";
++
++        // Handle search
++        htmx.on('#search-input', 'htmx:configRequest', function (evt) {
++            const searchValue = document.getElementById('search-input').value;
++            evt.detail.path = backendURL + '/api/leads/search?q=' + encodeURIComponent(searchValue);
++        });
++
++        // Render leads table
++        htmx.on('#leads-table-body', 'htmx:afterSwap', function (evt) {
++            const leads = JSON.parse(evt.detail.xhr.responseText);
++            const tbody = document.getElementById('leads-table-body');
++            tbody.innerHTML = '';
++
++            if (!leads || leads.length === 0) {
++                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No leads found</td></tr>';
++                return;
++            }
++
++            leads.forEach(lead => {
++                const row = createLeadRow(lead);
++                tbody.appendChild(row);
++            });
++        });
++
++        // Create lead row
++        function createLeadRow(lead) {
++            const tr = document.createElement('tr');
++            tr.id = `lead-${lead.id}`;
++
++            const statusClass = lead.status.toLowerCase();
++
++            tr.innerHTML = `
++                <td>${lead.id}</td>
++                <td>${lead.name}</td>
++                <td>${lead.email}</td>
++                <td>${lead.lead_score}</td>
++                <td><span class="status-badge status-${statusClass}">${lead.status}</span></td>
++                <td><span class="version-badge">v${lead.version}</span></td>
++                <td>
++                    <button class="btn btn-small" onclick="editLead(${lead.id})">Edit</button>
++                    <button class="btn btn-small btn-danger" onclick="deleteLead(${lead.id})">Delete</button>
++                </td>
++            `;
++            return tr;
++        }
++
++        // Handle create lead form submission
++        htmx.on('#create-form', 'htmx:afterRequest', function (evt) {
++            if (evt.detail.successful) {
++                showNotification('✅ Lead created successfully!', 'success');
++                document.getElementById('create-form').reset();
++                htmx.trigger('#leads-table-body', 'leadUpdated');
++            } else {
++                showNotification('❌ Failed to create lead: ' + evt.detail.xhr.responseText, 'error');
++            }
++        });
++
++        // Edit lead function
++        function editLead(id) {
++            fetch(`${backendURL}/api/leads/${id}`)
++                .then(res => res.json())
++                .then(lead => {
++                    const editFormSection = document.getElementById('edit-form');
++                    const editFormContent = document.getElementById('edit-form-content');
++
++                    editFormContent.innerHTML = `
++                        <form id="update-form-${lead.id}" onsubmit="updateLead(event, ${lead.id}, ${lead.version})">
++                            <div class="form-group">
++                                <label>Name:</label>
++                                <input type="text" id="name-${lead.id}" value="${lead.name}" required>
++                            </div>
++                            <div class="form-group">
++                                <label>Email:</label>
++                                <input type="email" id="email-${lead.id}" value="${lead.email}" required>
++                            </div>
++                            <div class="form-group">
++                                <label>Lead Score (0-100):</label>
++                                <input type="number" id="score-${lead.id}" value="${lead.lead_score}" min="0" max="100" required>
++                            </div>
++                            <div class="form-group">
++                                <label>Status:</label>
++                                <select id="status-${lead.id}">
++                                    <option value="PROSPECT" ${lead.status === 'PROSPECT' ? 'selected' : ''}>PROSPECT</option>
++                                    <option value="QUALIFIED" ${lead.status === 'QUALIFIED' ? 'selected' : ''}>QUALIFIED</option>
++                                    <option value="CONVERTED" ${lead.status === 'CONVERTED' ? 'selected' : ''}>CONVERTED</option>
++                                </select>
++                            </div>
++                            <div class="form-group">
++                                <label>Version: <span class="version-badge">v${lead.version}</span></label>
++                                <input type="hidden" id="version-${lead.id}" value="${lead.version}">
++                            </div>
++                            <button type="submit" class="btn btn-primary">Update Lead</button>
++                            <button type="button" class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
++                        </form>
++                    `;
++
++                    editFormSection.classList.remove('hidden');
++                    editFormSection.scrollIntoView({ behavior: 'smooth' });
++                })
++                .catch(err => {
++                    showNotification('❌ Failed to load lead: ' + err.message, 'error');
++                });
++        }
++
++        // Update lead function
++        function updateLead(event, id, version) {
++            event.preventDefault();
++
++            const data = {
++                name: document.getElementById(`name-${id}`).value,
++                email: document.getElementById(`email-${id}`).value,
++                lead_score: parseInt(document.getElementById(`score-${id}`).value),
++                status: document.getElementById(`status-${id}`).value,
++                version: version
++            };
++
++            fetch(`${backendURL}/api/leads/${id}`, {
++                method: 'PUT',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(data)
++            })
++                .then(async res => {
++                    if (res.status === 409) {
++                        // Conflict - version mismatch
++                        const freshData = await res.json();
++                        showNotification(
++                            `⚠️ CONFLICT DETECTED! The lead was modified by another user. Current version: ${freshData.version}. Please review the latest data and try again.`,
++                            'conflict'
++                        );
++                        // Reload the form with fresh data
++                        editLead(id);
++                        return null;
++                    } else if (res.status === 422) {
++                        // Unprocessable Entity - invalid state transition
++                        const error = await res.text();
++                        showNotification(`❌ Invalid state transition: ${error}`, 'error');
++                        return null;
++                    } else if (!res.ok) {
++                        throw new Error(await res.text());
++                    }
++                    return res.json();
++                })
++                .then(updatedLead => {
++                    if (updatedLead) {
++                        showNotification('✅ Lead updated successfully!', 'success');
++                        cancelEdit();
++                        htmx.trigger('#leads-table-body', 'leadUpdated');
++                    }
++                })
++                .catch(err => {
++                    showNotification('❌ Failed to update lead: ' + err.message, 'error');
++                });
++        }
++
++        // Cancel edit
++        function cancelEdit() {
++            document.getElementById('edit-form').classList.add('hidden');
++        }
++
++        // Delete lead function
++        function deleteLead(id) {
++            if (!confirm('Are you sure you want to delete this lead?')) {
++                return;
++            }
++
++            fetch(`${backendURL}/api/leads/${id}`, { method: 'DELETE' })
++                .then(res => {
++                    if (res.ok) {
++                        showNotification('✅ Lead deleted successfully!', 'success');
++                        htmx.trigger('#leads-table-body', 'leadUpdated');
++                    } else {
++                        throw new Error('Delete failed');
++                    }
++                })
++                .catch(err => {
++                    showNotification('❌ Failed to delete lead: ' + err.message, 'error');
++                });
++        }
++
++        // Show notification
++        function showNotification(message, type) {
++            const notification = document.getElementById('notification');
++            notification.textContent = message;
++            notification.className = `notification ${type}`;
++
++            setTimeout(() => {
++                notification.classList.add('hidden');
++            }, 5000);
++        }
++
++        // Handle HTMX errors
++        document.body.addEventListener('htmx:responseError', function (evt) {
++            showNotification('❌ Request failed: ' + evt.detail.error, 'error');
++        });
++    </script>
++</body>
++
++</html>
+diff --git a/repository_after/crm-engine/usecase/lead_usecase.go b/repository_after/crm-engine/usecase/lead_usecase.go
+new file mode 100644
+index 00000000..a069687a
+--- /dev/null
++++ b/repository_after/crm-engine/usecase/lead_usecase.go
+@@ -0,0 +1,101 @@
++package usecase
++
++import (
++	"time"
++
++	"github.com/ep-eaglepoint-ai/crm-engine/domain"
++)
++
++// LeadUseCase handles business logic for lead management
++type LeadUseCase struct {
++	repo domain.LeadRepository
++}
++
++// NewLeadUseCase creates a new lead use case
++func NewLeadUseCase(repo domain.LeadRepository) *LeadUseCase {
++	return &LeadUseCase{repo: repo}
++}
++
++// CreateLead creates a new lead
++func (uc *LeadUseCase) CreateLead(name, email string, score int) (*domain.Lead, error) {
++	lead := &domain.Lead{
++		Name:      name,
++		Email:     email,
++		LeadScore: score,
++		Status:    domain.StatusProspect,
++		Version:   1,
++		CreatedAt: time.Now(),
++		UpdatedAt: time.Now(),
++	}
++
++	if err := lead.Validate(); err != nil {
++		return nil, err
++	}
++
++	if err := uc.repo.Create(lead); err != nil {
++		return nil, err
++	}
++
++	return lead, nil
++}
++
++// GetLead retrieves a lead by ID
++func (uc *LeadUseCase) GetLead(id int) (*domain.Lead, error) {
++	return uc.repo.FindByID(id)
++}
++
++// GetAllLeads retrieves all leads
++func (uc *LeadUseCase) GetAllLeads() ([]*domain.Lead, error) {
++	return uc.repo.FindAll()
++}
++
++// SearchLeads searches for leads matching the query
++func (uc *LeadUseCase) SearchLeads(query string) ([]*domain.Lead, error) {
++	return uc.repo.Search(query)
++}
++
++// UpdateLead updates a lead with optimistic locking
++func (uc *LeadUseCase) UpdateLead(id int, name, email string, score int, status domain.LeadStatus, version int64) (*domain.Lead, error) {
++	// Get the current lead
++	existingLead, err := uc.repo.FindByID(id)
++	if err != nil {
++		return nil, err
++	}
++
++	// Prepare updated lead
++	updatedLead := &domain.Lead{
++		ID:        id,
++		Name:      name,
++		Email:     email,
++		LeadScore: score,
++		Status:    status,
++		Version:   version,
++		CreatedAt: existingLead.CreatedAt,
++		UpdatedAt: time.Now(),
++	}
++
++	// Validate the lead data
++	if err := updatedLead.Validate(); err != nil {
++		return nil, err
++	}
++
++	// Check if status transition is allowed
++	if existingLead.Status != status {
++		if err := updatedLead.CanTransitionTo(status); err != nil {
++			return nil, err
++		}
++	}
++
++	// Attempt update with version check (optimistic locking)
++	if err := uc.repo.Update(updatedLead, version); err != nil {
++		return nil, err
++	}
++
++	// Fetch the updated lead to get the new version
++	return uc.repo.FindByID(id)
++}
++
++// DeleteLead deletes a lead by ID
++func (uc *LeadUseCase) DeleteLead(id int) error {
++	return uc.repo.Delete(id)
++}

@@ -1,6 +1,51 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: crm_db
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_pass
+    ports:
+      - "5432:5432"
+
+  crm-engine:
+    build:
+      context: ./repository_after/crm-engine
+    environment:
+      DATABASE_URL: "postgres://crm_user:crm_pass@database:5432/crm_db?sslmode=disable"
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - database
+
+  test-after:
+    image: golang:1.21
+    working_dir: /app
     volumes:
-      - .:/app
+      - ./tests:/app
+    command: sh -c "go mod download && go test -v ./..."
+    environment:
+      DATABASE_URL: "postgres://crm_user:crm_pass@database:5432/crm_db?sslmode=disable"
+      BACKEND_URL: "http://crm-engine:8080"
+      CGO_ENABLED: "1"
+    depends_on:
+      - database
+      - crm-engine
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    environment:
+      DATABASE_URL: "postgres://crm_user:crm_pass@database:5432/crm_db?sslmode=disable"
+      BACKEND_URL: "http://crm-engine:8080"
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+    depends_on:
+      database:
+        condition: service_started
+      crm-engine:
+        condition: service_started
