@@ -10,7 +10,7 @@ import {
     resetMetrics,
 } from '../repository_after/src/metrics';
 
-/** Metrics tests: Req-13 (/metrics endpoint support) */
+/** Metrics tests: Req-17 (/metrics endpoint: total_processed, total_failed, queue_depth, events_per_second, memory_usage_mb) */
 describe('metrics', () => {
     beforeEach(() => {
         resetMetrics();

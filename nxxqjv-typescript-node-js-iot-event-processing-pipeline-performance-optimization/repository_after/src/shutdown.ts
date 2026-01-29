@@ -18,6 +18,11 @@ export function isShutdownInProgress(): boolean {
     return isShuttingDown;
 }
 
+/** For tests only: reset shutdown state so isShutdownInProgress() can be false again. */
+export function resetShutdownState(): void {
+    isShuttingDown = false;
+}
+
 export async function gracefulShutdown(handles: ShutdownHandles): Promise<void> {
     if (isShuttingDown) return;
     isShuttingDown = true;
@@ -29,9 +34,11 @@ export async function gracefulShutdown(handles: ShutdownHandles): Promise<void> 
 
     try {
         console.log('Shutting down: stopping HTTP server from accepting new connections...');
-        await new Promise<void>((resolve, reject) => {
-            handles.server.close((err) => (err ? reject(err) : resolve()));
-        });
+        if (handles.server.listening) {
+            await new Promise<void>((resolve, reject) => {
+                handles.server.close((err) => (err ? reject(err) : resolve()));
+            });
+        }
 
         removeProcessedEventsListener(getBroadcastFn());
 
@@ -51,9 +58,11 @@ export async function gracefulShutdown(handles: ShutdownHandles): Promise<void> 
         await closePool();
 
         clearTimeout(timeout);
+        isShuttingDown = false;
         process.exit(0);
     } catch (err) {
         console.error('Shutdown error:', err);
+        isShuttingDown = false;
         clearTimeout(timeout);
         process.exit(1);
     }

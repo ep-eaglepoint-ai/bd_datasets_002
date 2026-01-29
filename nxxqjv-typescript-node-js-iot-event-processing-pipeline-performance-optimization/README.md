@@ -1,6 +1,5 @@
 # IoT Event Processing Pipeline – Performance Optimization
 
-
 ### Run tests on repository_before
 ```bash
 docker-compose run --rm -e TEST_TARGET=before app npm run test:before

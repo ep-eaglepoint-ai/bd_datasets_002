@@ -15,7 +15,7 @@ jest.mock('bullmq', () => ({
 jest.mock('../repository_after/src/database', () => ({ insertEventsBatch: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../repository_after/src/metrics', () => ({ incrementProcessed: jest.fn(), incrementFailed: jest.fn() }));
 
-import { addEventToQueue, addEventsToQueue, getQueueDepth, canAcceptJob, QueueOverloadedError } from '../repository_after/src/queue';
+import { addEventToQueue, addEventsToQueue, getQueueDepth, canAcceptJob, QueueOverloadedError, startWorker } from '../repository_after/src/queue';
 
 /** Queue module tests: Req-5 (addBulk, jobId), Req-6 (backpressure, QueueOverloadedError) */
 describe('queue', () => {
@@ -62,6 +62,26 @@ describe('queue', () => {
             await expect(addEventsToQueue([{ event_id: 'e1', device_id: 'd1', sensor_type: 'temp', value: 25, unit: 'C', timestamp: '2024-01-01T00:00:00Z' }])).rejects.toThrow(QueueOverloadedError);
             expect(mockAddBulk).not.toHaveBeenCalled();
         });
+        /** TC-04b | Req-7: Use addBulk with process-batch jobs for batches larger than 1000 */
+        it('uses addBulk with process-batch jobs for batches larger than 1000', async () => {
+            const events = Array.from({ length: 2500 }, (_, i) => ({
+                event_id: 'e' + i,
+                device_id: 'd1',
+                sensor_type: 'temp',
+                value: i,
+                unit: 'C',
+                timestamp: '2024-01-01T00:00:00Z',
+            }));
+            await addEventsToQueue(events);
+            expect(mockAddBulk).toHaveBeenCalledTimes(1);
+            const jobs = mockAddBulk.mock.calls[0][0];
+            expect(jobs).toHaveLength(3); // 1000 + 1000 + 500
+            expect(jobs[0].name).toBe('process-batch');
+            expect(jobs[0].data).toEqual({ events: events.slice(0, 1000) });
+            expect(jobs[0].opts.jobId).toMatch(/^batch-0-/);
+            expect(jobs[1].data).toEqual({ events: events.slice(1000, 2000) });
+            expect(jobs[2].data).toEqual({ events: events.slice(2000, 2500) });
+        });
     });
 
     describe('getQueueDepth', () => {
@@ -85,6 +105,20 @@ describe('queue', () => {
             mockGetWaitingCount.mockResolvedValue(10000);
             mockGetActiveCount.mockResolvedValue(0);
             expect(await canAcceptJob()).toBe(false);
+        });
+    });
+
+    /** Req-8: Worker created with concurrency option */
+    describe('startWorker', () => {
+        it('creates Worker with concurrency from config', () => {
+            const bullmq = require('bullmq') as { Worker: jest.Mock };
+            bullmq.Worker.mockClear();
+            startWorker();
+            expect(bullmq.Worker).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.any(Function),
+                expect.objectContaining({ concurrency: 20 })
+            );
         });
     });
 });

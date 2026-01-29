@@ -1,13 +1,10 @@
 /**
  * In-memory circuit breaker: after failureThreshold failures, open for cooldownMs.
+ * State is per-instance so multiple breakers (e.g. in tests) do not interfere.
  */
 
 const DEFAULT_FAILURE_THRESHOLD = 5;
 const DEFAULT_COOLDOWN_MS = 30_000;
-
-let failureCount = 0;
-let openUntil = 0;
-let state: 'closed' | 'open' | 'half-open' = 'closed';
 
 export class DatabaseUnavailableError extends Error {
     constructor(message: string) {
@@ -20,6 +17,10 @@ export class DatabaseUnavailableError extends Error {
 export function createCircuitBreaker(options?: { failureThreshold?: number; cooldownMs?: number }) {
     const failureThreshold = options?.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD;
     const cooldownMs = options?.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+
+    let failureCount = 0;
+    let openUntil = 0;
+    let state: 'closed' | 'open' | 'half-open' = 'closed';
 
     return {
         async execute<T>(fn: () => Promise<T>): Promise<T> {

@@ -33,7 +33,7 @@ jest.mock('../repository_after/src/circuitBreaker', () => ({
 import request from 'supertest';
 import { getServer } from '../repository_after/src/app';
 
-/** API integration tests: Req-5 (queue), Req-6 (backpressure), Req-12 (health), Req-13 (metrics) */
+/** API integration tests: Req-5/15 (queue, jobId), Req-6 (backpressure 503), Req-12 (health), Req-17 (metrics) */
 describe('API integration', () => {
     const server = getServer();
 
@@ -81,6 +81,14 @@ describe('API integration', () => {
         it('returns 400 for invalid batch format', async () => {
             await request(server).post('/events/batch').send({ not_events: [] }).expect(400);
         });
+        /** Req-6: Batch returns 503 when queue overloaded */
+        it('returns 503 when queue overloaded on batch', async () => {
+            const { QueueOverloadedError } = require('../repository_after/src/queue');
+            mockAddEventsToQueue.mockRejectedValueOnce(new QueueOverloadedError('overloaded'));
+            const payload = { events: [{ event_id: 'e1', device_id: 'd1', sensor_type: 'temp', value: 25, unit: 'C', timestamp: '2024-01-01T00:00:00Z' }] };
+            const res = await request(server).post('/events/batch').send(payload).expect(503);
+            expect(res.body.reason).toBe('Queue overloaded');
+        });
     });
 
     describe('GET /health', () => {
@@ -112,7 +120,7 @@ describe('API integration', () => {
     });
 
     describe('GET /metrics', () => {
-        /** TC-10 | Req-13: Return metrics with queue_depth, events_per_second, memory, websocket_clients */
+        /** TC-10 | Req-17: Return metrics with queue_depth, events_per_second, memory, websocket_clients */
         it('returns metrics structure', async () => {
             const res = await request(server).get('/metrics').expect(200);
             expect(res.body).toHaveProperty('total_received');

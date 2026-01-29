@@ -4,6 +4,10 @@ WORKDIR /app
 
 COPY package*.json ./
 
+# Fail fast on slow network instead of hanging (e.g. in AWS)
+ENV NPM_CONFIG_FETCH_TIMEOUT=120000
+ENV NPM_CONFIG_FETCH_RETRIES=2
+
 RUN npm install
 
 COPY . .
@@ -17,4 +21,6 @@ ENV DB_USER=postgres
 ENV DB_PASSWORD=postgres
 ENV DB_NAME=events
 
-CMD ["echo", "Use: docker-compose run --rm app npm run test:before | npm run test:after | npx ts-node evaluation/evaluation.ts"]
+# Prevent runaway test/eval: max 10 min then exit (avoids build "hang" on AWS)
+ENTRYPOINT ["timeout", "--signal=TERM", "600"]
+CMD ["npm", "run", "test:before"]

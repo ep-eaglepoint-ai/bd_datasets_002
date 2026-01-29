@@ -42,11 +42,23 @@ describe('websocket', () => {
             client.close();
         });
         client.on('close', () => {
-            expect(getConnectedClients()).toBe(0);
-            done();
+            // Poll until server has removed client from set (close handler may be async)
+            const deadline = Date.now() + 2000;
+            const check = () => {
+                if (getConnectedClients() === 0) {
+                    done();
+                    return;
+                }
+                if (Date.now() > deadline) {
+                    done(new Error('Expected getConnectedClients() to be 0 within 2s'));
+                    return;
+                }
+                setTimeout(check, 20);
+            };
+            setTimeout(check, 20);
         });
         client.on('error', done);
-    });
+    }, 5000);
 
     /** TC-04 | Req-9: Broadcast stringifies once per event (no repeated JSON.stringify) */
     it('broadcast stringifies once per event', () => {
