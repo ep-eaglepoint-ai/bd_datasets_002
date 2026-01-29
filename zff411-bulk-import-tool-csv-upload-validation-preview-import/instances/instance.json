@@ -1,0 +1,11 @@
+{
+            "instance_id": "ZFF411",
+            "problem_statement": "Manual data entry is slow and error-prone when onboarding or updating large datasets. We need a bulk import feature that lets admins upload a CSV, validates every row with clear error feedback, and imports only clean data while preventing bad/unsafe records from being saved.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/zff411-bulk-import-tool-csv-upload-validation-preview-import",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
