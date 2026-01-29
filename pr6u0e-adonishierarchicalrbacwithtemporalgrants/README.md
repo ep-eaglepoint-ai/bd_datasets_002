@@ -1,7 +1,5 @@
 # Hierarchical RBAC System - AdonisJS Implementation
 
-## Commands
-
 ### Test repository_after
 
 ```bash

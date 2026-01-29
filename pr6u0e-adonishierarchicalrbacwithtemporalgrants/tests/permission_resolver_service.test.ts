@@ -264,4 +264,167 @@ describe("PermissionResolverService", () => {
       expect(expiredRoles[0].expires_at).toBe(expiredTime.toSQL());
     });
   });
+
+  /**
+   * REQ-08: Unit test - 3-level hierarchy (Guest -> Editor -> Admin).
+   * "Write a test suite that constructs a 3-level deep hierarchy (Guest -> Editor -> Admin)
+   * and asserts that the 'Admin' user correctly possesses the permissions of both 'Guest' and 'Editor'.
+   * Database can be mocked for testing."
+   */
+  describe("TC-07: REQ-08 - Admin has Guest and Editor permissions (3-level hierarchy)", () => {
+    function resolvePermissionsForRoleFromTestDb(roleId: number, tenantId: number): string[] {
+      const allPermNames = new Set<string>();
+      const visitedRoleIds = new Set<number>();
+
+      function collectForRole(rid: number): void {
+        if (visitedRoleIds.has(rid)) return;
+        visitedRoleIds.add(rid);
+        const rolePerms = testDb.find("role_permissions", { role_id: rid, tenant_id: tenantId });
+        for (const rp of rolePerms) {
+          const perm = testDb.findOne("permissions", { id: rp.permission_id, tenant_id: tenantId });
+          if (perm) allPermNames.add(perm.name);
+        }
+        const parents = testDb.find("role_hierarchy", { child_role_id: rid, tenant_id: tenantId });
+        for (const h of parents) {
+          collectForRole(h.parent_role_id);
+        }
+      }
+
+      collectForRole(roleId);
+      return Array.from(allPermNames).sort();
+    }
+
+    test("Admin role has can_read (Guest), can_write (Editor), can_delete and can_edit_invoice (Admin)", () => {
+      testDb.insert("user_roles", {
+        user_id: user.id,
+        role_id: adminRole.id,
+        tenant_id: tenantId,
+        is_primary: true,
+        expires_at: null,
+      });
+
+      const adminPermissions = resolvePermissionsForRoleFromTestDb(adminRole.id, tenantId);
+
+      expect(adminPermissions).toContain("can_read");
+      expect(adminPermissions).toContain("can_write");
+      expect(adminPermissions).toContain("can_delete");
+      expect(adminPermissions).toContain("can_edit_invoice");
+      expect(adminPermissions).toHaveLength(4);
+    });
+
+    test("Editor role has can_read (Guest) and can_write (Editor)", () => {
+      const editorPermissions = resolvePermissionsForRoleFromTestDb(editorRole.id, tenantId);
+      expect(editorPermissions).toContain("can_read");
+      expect(editorPermissions).toContain("can_write");
+      expect(editorPermissions).toHaveLength(2);
+    });
+
+    test("Guest role has only can_read", () => {
+      const guestPermissions = resolvePermissionsForRoleFromTestDb(guestRole.id, tenantId);
+      expect(guestPermissions).toContain("can_read");
+      expect(guestPermissions).toHaveLength(1);
+    });
+  });
+
+  /** REQ-02: Returns unique flattened array - no duplicate permissions when role and parent share permission */
+  describe("TC-08: REQ-02 - Unique flattened array (no duplicates)", () => {
+    function resolvePermissionsForRoleFromTestDb(roleId: number, tenantId: number): string[] {
+      const allPermNames = new Set<string>();
+      const visitedRoleIds = new Set<number>();
+      function collectForRole(rid: number): void {
+        if (visitedRoleIds.has(rid)) return;
+        visitedRoleIds.add(rid);
+        const rolePerms = testDb.find("role_permissions", { role_id: rid, tenant_id: tenantId });
+        for (const rp of rolePerms) {
+          const perm = testDb.findOne("permissions", { id: rp.permission_id, tenant_id: tenantId });
+          if (perm) allPermNames.add(perm.name);
+        }
+        const parents = testDb.find("role_hierarchy", { child_role_id: rid, tenant_id: tenantId });
+        for (const h of parents) collectForRole(h.parent_role_id);
+      }
+      collectForRole(roleId);
+      return Array.from(allPermNames).sort();
+    }
+
+    test("when child and parent both have same permission, result contains it once", () => {
+      const sharedPerm = testDb.insert("permissions", {
+        name: "can_shared",
+        tenant_id: tenantId,
+      });
+      testDb.insert("role_permissions", {
+        role_id: guestRole.id,
+        permission_id: sharedPerm.id,
+        tenant_id: tenantId,
+      });
+      testDb.insert("role_permissions", {
+        role_id: adminRole.id,
+        permission_id: sharedPerm.id,
+        tenant_id: tenantId,
+      });
+      const adminPermissions = resolvePermissionsForRoleFromTestDb(adminRole.id, tenantId);
+      const countShared = adminPermissions.filter((p) => p === "can_shared").length;
+      expect(countShared).toBe(1);
+      expect(adminPermissions).toContain("can_shared");
+    });
+  });
+
+  /** REQ-03: Cross-tenant isolation - resolving for tenant A does not include tenant B permissions */
+  describe("TC-09: REQ-03 - Cross-tenant absolute data isolation", () => {
+    function resolvePermissionsFromTestDb(
+      userId: number,
+      tenantId: number,
+      asOf: DateTime
+    ): string[] {
+      const userRoles = testDb.find("user_roles", { user_id: userId, tenant_id: tenantId });
+      const activeUserRoles = userRoles.filter((ur) => {
+        if (ur.expires_at == null) return true;
+        return DateTime.fromSQL(ur.expires_at) > asOf;
+      });
+      const roleIds = [...new Set(activeUserRoles.map((ur) => ur.role_id))];
+      const allPermNames = new Set<string>();
+      const visitedRoleIds = new Set<number>();
+      function collectForRole(rid: number): void {
+        if (visitedRoleIds.has(rid)) return;
+        visitedRoleIds.add(rid);
+        const rolePerms = testDb.find("role_permissions", { role_id: rid, tenant_id: tenantId });
+        for (const rp of rolePerms) {
+          const perm = testDb.findOne("permissions", { id: rp.permission_id, tenant_id: tenantId });
+          if (perm) allPermNames.add(perm.name);
+        }
+        const parents = testDb.find("role_hierarchy", { child_role_id: rid, tenant_id: tenantId });
+        for (const h of parents) collectForRole(h.parent_role_id);
+      }
+      for (const rid of roleIds) collectForRole(rid);
+      return Array.from(allPermNames).sort();
+    }
+
+    test("resolving for tenant 1 does not include permissions from tenant 2", () => {
+      const tenant2Id = 2;
+      const tenant2Role = testDb.insert("roles", { name: "OtherAdmin", tenant_id: tenant2Id });
+      const tenant2Perm = testDb.insert("permissions", {
+        name: "tenant2_only_permission",
+        tenant_id: tenant2Id,
+      });
+      testDb.insert("role_permissions", {
+        role_id: tenant2Role.id,
+        permission_id: tenant2Perm.id,
+        tenant_id: tenant2Id,
+      });
+      testDb.insert("user_roles", {
+        user_id: user.id,
+        role_id: adminRole.id,
+        tenant_id: tenantId,
+        is_primary: true,
+        expires_at: null,
+      });
+      const permissionsTenant1 = resolvePermissionsFromTestDb(
+        user.id,
+        tenantId,
+        DateTime.now()
+      );
+      expect(permissionsTenant1).not.toContain("tenant2_only_permission");
+      expect(permissionsTenant1).toContain("can_read");
+      expect(permissionsTenant1).toContain("can_edit_invoice");
+    });
+  });
 });

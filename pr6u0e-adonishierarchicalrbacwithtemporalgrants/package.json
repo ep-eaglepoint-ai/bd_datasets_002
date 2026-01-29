@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Hierarchical RBAC system with temporal role escalation for AdonisJS v6",
   "scripts": {
-    "test": "jest --config jest.config.cjs"
+    "test": "jest --config tests/jest.config.cjs"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

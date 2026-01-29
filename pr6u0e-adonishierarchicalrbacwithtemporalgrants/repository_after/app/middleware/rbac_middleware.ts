@@ -46,9 +46,9 @@ export default class RbacMiddleware {
 
       return next()
     } catch (error) {
-      ctx.response.status(500).json({ 
+      ctx.response.status(500).json({
         error: 'Failed to resolve user permissions',
-        details: error.message 
+        details: error instanceof Error ? error.message : String(error),
       })
       return
     }

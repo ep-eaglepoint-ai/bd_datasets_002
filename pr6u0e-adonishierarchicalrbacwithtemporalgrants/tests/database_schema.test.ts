@@ -82,6 +82,22 @@ describe('Database Schema Integration', () => {
       expect(userRole.is_primary).toBe(false)
     })
 
+    test('REQ-01: user_roles expires_at is nullable (permanent roles)', () => {
+      const user = testDb.insert('users', {
+        email: 'permanent@example.com',
+        tenant_id: tenantId
+      })
+      const role = testDb.insert('roles', { name: 'Editor', tenant_id: tenantId })
+      const userRole = testDb.insert('user_roles', {
+        user_id: user.id,
+        role_id: role.id,
+        tenant_id: tenantId,
+        is_primary: true,
+        expires_at: null
+      })
+      expect(userRole.expires_at).toBeNull()
+    })
+
     test('should create role permissions junction', () => {
       const role = testDb.insert('roles', { name: 'Admin', tenant_id: tenantId })
       const permission = testDb.insert('permissions', { name: 'can_edit', tenant_id: tenantId })

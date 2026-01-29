@@ -5,6 +5,7 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   injectGlobals: true,
+  rootDir: '..',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   transform: {
@@ -37,4 +38,4 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   testTimeout: 10000
-}
+};

@@ -85,7 +85,23 @@ describe("RolePolicy", () => {
     });
   });
 
-  describe("TC-11: REQ-06 - Multiple permission checks", () => {
+  describe("TC-11: REQ-06 - Bouncer granular check (e.g. allows('can_edit_invoice'))", () => {
+    test("allows(user, permission) delegates to PermissionResolverService.userHasPermission", () => {
+      const content = readFileFromRepo("app/policies/role_policy.ts");
+      expect(content).toContain("allows");
+      expect(content).toContain("userHasPermission");
+      expect(content).toContain("user.id");
+      expect(content).toContain("effectiveTenantId");
+    });
+
+    test("canEditInvoice checks resolved permission set for 'can_edit_invoice'", () => {
+      const content = readFileFromRepo("app/policies/role_policy.ts");
+      expect(content).toContain("canEditInvoice");
+      expect(content).toContain("'can_edit_invoice'");
+    });
+  });
+
+  describe("TC-12: REQ-06 - Multiple permission checks", () => {
     test("should implement hasAnyPermission method", () => {
       const content = readFileFromRepo("app/policies/role_policy.ts");
       

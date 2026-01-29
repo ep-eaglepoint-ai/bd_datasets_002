@@ -55,6 +55,15 @@ describe("RbacMiddleware", () => {
       expect(content).toContain("resolveUserPermissions");
     });
 
+    test("REQ-04: resolved permissions exclude expired temporal roles (via service getActiveUserRoles)", () => {
+      const middlewareContent = readFileFromRepo("app/middleware/rbac_middleware.ts");
+      const serviceContent = readFileFromRepo("app/services/permission_resolver_service.ts");
+      expect(middlewareContent).toContain("resolveUserPermissions");
+      expect(serviceContent).toContain("getActiveUserRoles");
+      expect(serviceContent).toContain("expires_at");
+      expect(serviceContent).toMatch(/whereNull|orWhere.*expires_at/);
+    });
+
     test("should implement hasPermission helper", () => {
       const content = readFileFromRepo("app/middleware/rbac_middleware.ts");
       
