@@ -40,11 +40,11 @@ function pack(salt, nonce, tag, ciphertext) {
 
     // Create Envelope Object
     const envelope = {
-        v: CONFIG.VERSION,               // Version
-        s: toBase64Url(salt),            // Salt
-        n: toBase64Url(nonce),           // Nonce
-        t: toBase64Url(tag),             // Tag
-        c: toBase64Url(ciphertext)       // Ciphertext
+        version: CONFIG.VERSION,               // Version
+        salt: toBase64Url(salt),                // Salt
+        nonce: toBase64Url(nonce),              // Nonce
+        tag: toBase64Url(tag),                  // Tag
+        ciphertext: toBase64Url(ciphertext)     // Ciphertext
     };
 
     return envelope;
@@ -80,12 +80,12 @@ function unpack(encodedEnvelope) {
     }
 
     // Version Check
-    if (envelope.v !== CONFIG.VERSION) {
-        throw new Error(`Unsupported envelope version: ${envelope.v}`);
+    if (envelope.version !== CONFIG.VERSION) {
+        throw new Error(`Unsupported envelope version: ${envelope.version}`);
     }
 
     // Required Fields Presence and Type Check (Should be strings)
-    const requiredFields = ['s', 'n', 't', 'c'];
+    const requiredFields = ['salt', 'nonce', 'tag', 'ciphertext'];
     for (const field of requiredFields) {
         if (typeof envelope[field] !== 'string') {
             throw new Error(`Missing or invalid field in envelope: ${field}`);
@@ -94,10 +94,10 @@ function unpack(encodedEnvelope) {
 
     // Decode Fields
     try {
-        const salt = fromBase64Url(envelope.s);
-        const nonce = fromBase64Url(envelope.n);
-        const tag = fromBase64Url(envelope.t);
-        const ciphertext = fromBase64Url(envelope.c);
+        const salt = fromBase64Url(envelope.salt);
+        const nonce = fromBase64Url(envelope.nonce);
+        const tag = fromBase64Url(envelope.tag);
+        const ciphertext = fromBase64Url(envelope.ciphertext);
 
         // Validate Sizes
         validateBuffer(salt, 'Salt', CONFIG.SIZES.SALT);

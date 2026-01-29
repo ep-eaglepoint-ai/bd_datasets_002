@@ -154,11 +154,11 @@ describe('Encryption Utility Compliance Tests', () => {
         const buf = Buffer.from(encrypted, 'base64url'); // Node 20 supports this
         const json = JSON.parse(buf.toString());
 
-        assert.strictEqual(json.v, 'v1');
-        assert.ok(json.s, 'Salt missing');
-        assert.ok(json.n, 'Nonce missing');
-        assert.ok(json.t, 'Tag missing');
-        assert.ok(json.c, 'Ciphertext missing');
+        assert.strictEqual(json.version, 'v1');
+        assert.ok(json.salt, 'Salt missing');
+        assert.ok(json.nonce, 'Nonce missing');
+        assert.ok(json.tag, 'Tag missing');
+        assert.ok(json.ciphertext, 'Ciphertext missing');
     });
 
 });
