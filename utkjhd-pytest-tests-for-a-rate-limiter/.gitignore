@@ -1,11 +1,42 @@
-# Python
+# --- Python Basics ---
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# --- Virtual Environments ---
 .venv/
+venv/
+env/
+ENV/
+
+# --- Testing & Coverage (Important for your Pytest setup) ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+junit/
+test-results/
+
+# --- Distribution / Packaging ---
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- Type Checking ---
+.mypy_cache/
+.dmypy.json
+
+# --- Environment Variables (Security) ---
 .env
+.env.*
 
-# Node
-node_modules/
-
-# OS
+# --- IDEs & OS ---
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
+
+# --- Project Specific ---
+evaluation/reports/
