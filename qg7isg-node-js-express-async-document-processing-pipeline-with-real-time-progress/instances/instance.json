@@ -1,11 +1,33 @@
 {
-            "instance_id": "QG7ISG",
-            "problem_statement": "The integration team receives data files from partners in CSV, JSON, and XML formats that require validation, transformation, and database loading. Current synchronous implementation crashes on files over 100MB due to full memory loading. Partners report no visibility into processing status and frequently ask support for updates. Processing a 50MB file takes 3 minutes with no progress indication. The team needs a streaming file processor with real-time WebSocket updates, partner-specific schema validation, configurable transformation rules, and individual error logging without stopping the pipeline. Target is handling 500MB files with progress broadcasts every 2 seconds",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/qg7isg-node-js-express-async-document-processing-pipeline-with-real-time-progress",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "QG7ISG",
+  "problem_statement": "The integration team receives data files from partners in CSV, JSON, and XML formats that require validation, transformation, and database loading. Current synchronous implementation crashes on files over 100MB due to full memory loading. Partners report no visibility into processing status and frequently ask support for updates. Processing a 50MB file takes 3 minutes with no progress indication. The team needs a streaming file processor with real-time WebSocket updates, partner-specific schema validation, configurable transformation rules, and individual error logging without stopping the pipeline. Target is handling 500MB files with progress broadcasts every 2 seconds",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/qg7isg-node-js-express-async-document-processing-pipeline-with-real-time-progress",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "Upload API - Requirement 2 > should upload CSV file and return job_id within 500ms",
+    "Upload API - Requirement 2 > should reject upload without API key - Requirement 14",
+    "Upload API - Requirement 2 > should reject invalid file types",
+    "Upload API - Requirement 2 > should validate file type (CSV, JSON, XML only)",
+    "Job Management API - Requirements 3, 4 > should get paginated jobs list - Requirement 3",
+    "Job Management API - Requirements 3, 4 > should filter jobs by status",
+    "Job Management API - Requirements 3, 4 > should get job details by ID",
+    "Job Management API - Requirements 3, 4 > should cancel PENDING job - Requirement 4",
+    "Job Management API - Requirements 3, 4 > should not cancel COMPLETED job",
+    "Health Check - Requirement 13 > should return healthy status when services are connected",
+    "File Parsers - Requirement 7 > should parse CSV file without loading into memory",
+    "File Parsers - Requirement 7 > should parse JSON array file",
+    "File Parsers - Requirement 7 > should parse XML file",
+    "Validation Service - Requirement 8 > should validate string with constraints",
+    "Validation Service - Requirement 8 > should validate email format",
+    "Validation Service - Requirement 8 > should validate number with min/max",
+    "Validation Service - Requirement 8 > should validate enum values",
+    "Validation Service - Requirement 8 > should handle optional fields",
+    "Transformation Service - Requirement 9 > should apply field mapping",
+    "Transformation Service - Requirement 9 > should apply default values",
+    "Transformation Service - Requirement 9 > should convert string to number",
+    "Transformation Service - Requirement 9 > should convert string to boolean"
+  ],
+  "PASS_TO_PASS": []
+}
