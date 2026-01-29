@@ -1,0 +1,87 @@
+{
+  "instanceId": "WH96IX",
+  "timestamp": "2026-01-29T13:15:55.078Z",
+  "error": "No test results found. Tests may have failed to run.",
+  "stack": "Error: No test results found. Tests may have failed to run.\n    at main (file:///app/evaluation/Evaluation.js:410:13)\n    at file:///app/evaluation/Evaluation.js:487:1\n    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)\n    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)",
+  "requirements": [
+    {
+      "id": 1,
+      "description": "Admin can add, update, delete, and view books",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 2,
+      "description": "System must store book details (title, author, ISBN, category, total copies, available copies)",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 3,
+      "description": "Borrowers can search and view available books",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 4,
+      "description": "Borrowers can borrow and return books",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 5,
+      "description": "System must assign and track due dates for borrowed books",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 6,
+      "description": "System must identify overdue books",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 7,
+      "description": "Users can view borrowing history",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 8,
+      "description": "Authentication and role-based access (Admin / Borrower)",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 9,
+      "description": "Built using SvelteKit framework",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 10,
+      "description": "Responsive and user-friendly UI",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 11,
+      "description": "Secure authentication and authorization",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    },
+    {
+      "id": 12,
+      "description": "Database integration for persistent storage",
+      "status": "error",
+      "details": "Evaluation failed before tests could run"
+    }
+  ],
+  "summary": {
+    "totalRequirements": 12,
+    "passedRequirements": 0,
+    "failedRequirements": 12,
+    "overallPassRate": "0%",
+    "allRequirementsMet": false
+  }
+}

@@ -1,0 +1,55 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  // Use string role for maximum connector compatibility
+  role      String   @default("BORROWER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loans     Loan[]
+}
+
+model Book {
+  id              Int      @id @default(autoincrement())
+  title           String
+  author          String
+  isbn            String   @unique
+  category        String?
+  totalCopies     Int
+  availableCopies Int
+  publicationYear Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  loans           Loan[]
+}
+
+model Loan {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  book      Book     @relation(fields: [bookId], references: [id])
+  bookId    Int
+  borrowedAt DateTime @default(now())
+  dueDate   DateTime
+  returnedAt DateTime?
+  fineCents Int       @default(0)
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([dueDate])
+}

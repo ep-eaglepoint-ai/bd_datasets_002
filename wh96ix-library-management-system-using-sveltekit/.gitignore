@@ -1,11 +1,122 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 .venv/
+venv/
+ENV/
+env/
 .env
+*.egg-info/
+dist/
+*.egg
 
-# Node
+# Node / JS
 node_modules/
+.npm/
+.node_repl_history
+.svelte-kit/
+build/
+dist/
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+
+# Package manager lockfiles and caches
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+.npm/
+.yarn/
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Modules and compiled files
+*.tsbuildinfo
+*.js.map
+*.d.ts.map
+lib-cov/
+coverage/
+*.lcov
+.nyc_output/
+*.so
+*.dylib
+*.dll
+*.a
+*.o
+
+# JSON files (lock files, cache, backups, reports)
+*.lock.json
+*-lock.json
+*.cache.json
+*.backup.json
+*.tmp.json
+*.temp.json
+evaluation/reports/*.json
+evaluation/reports/*/*.json
+instances/*.json
+*.report.json
+*-report.json
+test-results.json
+latest-*.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+.cache/
+tmp/
+temp/
+
+# Build artifacts
+*.min.js
+*.min.css
+*.bundle.js
+*.chunk.js
+*.map
+source-map-resolve-*.json
+

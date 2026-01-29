@@ -1,0 +1,178 @@
+{
+  "instanceId": "WH96IX",
+  "timestamp": "2026-01-29T13:27:23.053Z",
+  "testResults": {
+    "total": 43,
+    "passed": 43,
+    "failed": 0,
+    "passRate": "100.00%"
+  },
+  "requirements": [
+    {
+      "id": 1,
+      "description": "Admin can add, update, delete, and view books",
+      "status": "passed",
+      "testResults": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "7/7 tests passed (100.0%)"
+    },
+    {
+      "id": 2,
+      "description": "System must store book details (title, author, ISBN, category, total copies, available copies)",
+      "status": "passed",
+      "testResults": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "3/3 tests passed (100.0%)"
+    },
+    {
+      "id": 3,
+      "description": "Borrowers can search and view available books",
+      "status": "passed",
+      "testResults": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "4/4 tests passed (100.0%)"
+    },
+    {
+      "id": 4,
+      "description": "Borrowers can borrow and return books",
+      "status": "passed",
+      "testResults": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "4/4 tests passed (100.0%)"
+    },
+    {
+      "id": 5,
+      "description": "System must assign and track due dates for borrowed books",
+      "status": "passed",
+      "testResults": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "2/2 tests passed (100.0%)"
+    },
+    {
+      "id": 6,
+      "description": "System must identify overdue books",
+      "status": "passed",
+      "testResults": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "2/2 tests passed (100.0%)"
+    },
+    {
+      "id": 7,
+      "description": "Users can view borrowing history",
+      "status": "passed",
+      "testResults": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "4/4 tests passed (100.0%)"
+    },
+    {
+      "id": 8,
+      "description": "Authentication and role-based access (Admin / Borrower)",
+      "status": "passed",
+      "testResults": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "4/4 tests passed (100.0%)"
+    },
+    {
+      "id": 9,
+      "description": "Built using SvelteKit framework",
+      "status": "passed",
+      "testResults": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "2/2 tests passed (100.0%)"
+    },
+    {
+      "id": 10,
+      "description": "Responsive and user-friendly UI",
+      "status": "passed",
+      "testResults": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "2/2 tests passed (100.0%)"
+    },
+    {
+      "id": 11,
+      "description": "Secure authentication and authorization",
+      "status": "passed",
+      "testResults": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "3/3 tests passed (100.0%)"
+    },
+    {
+      "id": 12,
+      "description": "Database integration for persistent storage",
+      "status": "passed",
+      "testResults": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "passRate": "100.00%"
+      },
+      "details": "3/3 tests passed (100.0%)"
+    }
+  ],
+  "summary": {
+    "totalRequirements": 12,
+    "passedRequirements": 12,
+    "failedRequirements": 0,
+    "overallPassRate": "100.00%",
+    "allRequirementsMet": true
+  },
+  "metaTests": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "passRate": "0%",
+    "details": []
+  },
+  "comparison": {
+    "before": null,
+    "after": {
+      "passed": 12,
+      "failed": 0,
+      "passRate": 100
+    }
+  }
+}

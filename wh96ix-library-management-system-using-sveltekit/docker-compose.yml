@@ -1,6 +1,55 @@
+version: '3.8'
+
 services:
   app:
-    build: .
-    command: pytest -q tests
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
     volumes:
-      - .:/app
+      - ./repository_after:/app/repository_after
+      - /app/repository_after/node_modules
+      - /app/repository_after/.svelte-kit
+    environment:
+      - NODE_ENV=development
+      - SESSION_SECRET=dev-secret-key
+    working_dir: /app/repository_after
+    command: sh -c "npx prisma migrate deploy || npx prisma migrate dev --name init || true && npx prisma generate && npm run dev -- --host 0.0.0.0 --port 5173"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s http://localhost:5173/api/auth > /dev/null || curl -f -s http://localhost:5173/ > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 180s
+    networks:
+      - default
+
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_after:/app/repository_after
+      - /app/repository_after/node_modules
+      - ./evaluation:/app/evaluation
+    environment:
+      - NODE_ENV=test
+    working_dir: /app/repository_after
+    command: npm run test
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./tests:/app/tests
+      - ./evaluation:/app/evaluation
+      - ./repository_after:/app/repository_after
+      - /app/repository_after/node_modules
+      - ./evaluation/reports:/app/evaluation/reports
+    environment:
+      - NODE_ENV=test
+    working_dir: /app/repository_after
+    command: npm run evaluation
