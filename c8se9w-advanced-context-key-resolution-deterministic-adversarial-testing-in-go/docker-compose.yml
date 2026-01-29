@@ -1,6 +1,22 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    working_dir: /app/tests
+    command: sh -c "/usr/local/bin/run-tests.sh /app/repository_before || exit 0"
     volumes:
       - .:/app
+  test-after:
+    build: .
+    working_dir: /app/tests
+    command: /usr/local/bin/run-tests.sh /app/repository_after
+    volumes:
+      - .:/app
+  evaluate:
+    build: .
+    working_dir: /app
+    command: /usr/local/bin/run-evaluation.sh
+    volumes:
+      - .:/app
+    environment:
+      - PROJECT_ROOT=/app
+
