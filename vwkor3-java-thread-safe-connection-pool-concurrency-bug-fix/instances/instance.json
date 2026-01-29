@@ -1,23 +1,24 @@
 {
-            "instance_id": "VWKOR3",
-            "problem_statement": "Production monitoring of ConnectionPool class at pool/ConnectionPool.java shows critical  failures under load. Thread dumps reveal all 500 threads blocked on same monitor, dropping  throughput from 1000 ops/sec to 2 ops/sec with near-zero CPU utilization. Logs show  \"object already in use\" errors (12/day) and pool size occasionally exceeds maxSize=50  (observed 53). Threads waiting for objects sometimes hang past their configured timeout.  After InterruptedException, subsequent operations fail silently. The pool manages database  connections where validation involves a 50-500ms network ping. System must handle 500+  concurrent borrow/release operations without throughput collapse.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vwkor3-java-thread-safe-connection-pool-concurrency-bug-fix",
-            "environment_setup": "Dockerfile",
-                    "FAIL_TO_PASS": [
-                "testThroughputWithSlowValidation",
-                "testAllWaitingThreadsEventuallyWake",
-                "testSpuriousWakeupHandling",
-                "testHighConcurrencyStress"
-            ],
-            "PASS_TO_PASS": [
-                "testBorrowTimeoutAccuracy",
-                "testInterruptHandling",
-                "testInvalidObjectDiscarded",
-                "testSafeRelease",
-                "testZeroTimeout",
-                "testFactoryFailureDoesNotLeakCapacity"
-            ]
-        }
-        
+  "instance_id": "VWKOR3",
+  "problem_statement": "Production monitoring of ConnectionPool class at pool/ConnectionPool.java shows critical  failures under load. Thread dumps reveal all 500 threads blocked on same monitor, dropping  throughput from 1000 ops/sec to 2 ops/sec with near-zero CPU utilization. Logs show  \"object already in use\" errors (12/day) and pool size occasionally exceeds maxSize=50  (observed 53). Threads waiting for objects sometimes hang past their configured timeout.  After InterruptedException, subsequent operations fail silently. The pool manages database  connections where validation involves a 50-500ms network ping. System must handle 500+  concurrent borrow/release operations without throughput collapse.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vwkor3-java-thread-safe-connection-pool-concurrency-bug-fix",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "testThroughputWithSlowValidation",
+    "testAllWaitingThreadsEventuallyWake",
+    "testSpuriousWakeupHandling",
+    "testHighConcurrencyStress",
+    "testFactoryFailureUnblocksWaitingThreads"
+  ],
+  "PASS_TO_PASS": [
+    "testBorrowTimeoutAccuracy",
+    "testInterruptHandling",
+    "testInvalidObjectDiscarded",
+    "testSafeRelease",
+    "testZeroTimeout",
+    "testFactoryFailureDoesNotLeakCapacity",
+    "testConcurrentCreationBoundary"
+  ]
+}
