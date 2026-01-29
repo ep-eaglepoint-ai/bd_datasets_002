@@ -5,6 +5,7 @@ const { SlidingWindowBuffer } = require('./buffer/SlidingWindowBuffer');
 const { WebSocketServer } = require('./websocket/WebSocketServer');
 const { createHistoryRoutes } = require('./api/historyRoutes');
 const { SensorSimulator } = require('./simulator/SensorSimulator');
+const db = require('./db/database');
 
 // Configuration
 const PORT = process.env.PORT || 3001;
@@ -53,8 +54,8 @@ app.get('/api/sensors/:sensorId', (req, res) => {
   res.json(info);
 });
 
-// History routes with buffer
-app.use('/api/history', createHistoryRoutes(buffer));
+// History routes with buffer and db
+app.use('/api/history', createHistoryRoutes(buffer, db));
 
 // Stats endpoint
 app.get('/api/stats', (req, res) => {
@@ -109,13 +110,45 @@ const wsServer = new WebSocketServer({
 });
 wsServer.attach(server);
 
-// Connect simulator to buffer and WebSocket broadcast
+// Persistence Buffer
+let writeBuffer = [];
+const BATCH_SIZE = 500;
+const FLUSH_INTERVAL = 1000;
+
+const flushToDb = async () => {
+  if (writeBuffer.length === 0) return;
+  
+  const batch = [...writeBuffer];
+  writeBuffer = [];
+  
+  try {
+    await db.insertBatch(batch);
+  } catch (err) {
+    console.error('Failed to flush to DB:', err);
+  }
+};
+
+setInterval(flushToDb, FLUSH_INTERVAL);
+
+// Connect simulator to buffer, WebSocket, and DB
 simulator.start((sensorId, data) => {
   // Store in buffer
   buffer.push(sensorId, data);
   
   // Broadcast to subscribed clients
   wsServer.broadcast(sensorId, data);
+  
+  // Add to persistence buffer
+  writeBuffer.push({
+    sensorId,
+    timestamp: data.timestamp || Date.now(),
+    value: data.value,
+    type: data.type
+  });
+  
+  if (writeBuffer.length >= BATCH_SIZE) {
+    flushToDb();
+  }
 });
 
 // Periodic cleanup
@@ -123,24 +156,36 @@ setInterval(() => {
   buffer.evictAll();
 }, 60000); // Every minute
 
-// Start server
-server.listen(PORT, () => {
-  console.log(`IoT Sensor Dashboard Server running on port ${PORT}`);
-  console.log(`- Sensors: ${SENSOR_COUNT}`);
-  console.log(`- Update rate: ${1000 / UPDATE_INTERVAL_MS}Hz`);
-  console.log(`- Buffer window: ${WINDOW_SIZE_MS / 1000}s`);
-  console.log(`- WebSocket: ws://localhost:${PORT}/ws`);
-  console.log(`- API: http://localhost:${PORT}/api`);
-});
+// Initialize DB and Start server
+const startServer = async () => {
+  try {
+    await db.connect();
+    server.listen(PORT, () => {
+      console.log(`IoT Sensor Dashboard Server running on port ${PORT}`);
+      console.log(`- Sensors: ${SENSOR_COUNT}`);
+      console.log(`- Update rate: ${1000 / UPDATE_INTERVAL_MS}Hz`);
+      console.log(`- Buffer window: ${WINDOW_SIZE_MS / 1000}s`);
+      console.log(`- WebSocket: ws://localhost:${PORT}/ws`);
+      console.log(`- API: http://localhost:${PORT}/api`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('Shutting down...');
   simulator.stop();
   wsServer.close();
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  flushToDb().then(() => {
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
   });
 });
 

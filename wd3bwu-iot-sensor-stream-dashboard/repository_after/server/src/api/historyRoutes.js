@@ -8,9 +8,10 @@ const { RequestCoalescer } = require('../thunderingHerd/RequestCoalescer');
  * Requirement 4: Handle thundering herd scenario
  * 
  * @param {SlidingWindowBuffer} buffer 
+ * @param {Database} db
  * @returns {express.Router}
  */
-function createHistoryRoutes(buffer) {
+function createHistoryRoutes(buffer, db) {
   const router = express.Router();
   const coalescer = new RequestCoalescer({
     cacheTTLMs: 1000,   // 1 second cache
@@ -40,6 +41,10 @@ function createHistoryRoutes(buffer) {
           });
         }
         
+        // "Last N" is usually recent, try buffer first
+        // If buffer has enough, return it. If not, maybe DB?
+        // Simplicity: Just return what buffer has for "last". 
+        // If user wants historical "last N", they should use time range.
         const data = buffer.getLastN(sensorId, count);
         return res.json({
           sensorId,
@@ -63,8 +68,25 @@ function createHistoryRoutes(buffer) {
       
       // Use coalescer to prevent thundering herd
       const key = coalescer.generateKey(sensorId, startMs, endMs);
-      const data = await coalescer.execute(key, () => {
-        return buffer.getRange(sensorId, startMs, endMs);
+      const data = await coalescer.execute(key, async () => {
+        // Optimization: Check if fully in buffer
+        const bufferWindowStart = Date.now() - buffer.windowSizeMs;
+        
+        if (startMs >= bufferWindowStart) {
+            // Fully in buffer
+            return buffer.getRange(sensorId, startMs, endMs);
+        } else if (endMs < bufferWindowStart) {
+            // Fully in DB
+            return await db.queryRange(sensorId, startMs, endMs);
+        } else {
+            // Overlaps both
+            // Split the query
+            const dbData = await db.queryRange(sensorId, startMs, bufferWindowStart);
+            const bufferData = buffer.getRange(sensorId, bufferWindowStart, endMs);
+            
+            // Simple merge (dbData should be older)
+            return [...dbData, ...bufferData];
+        }
       });
       
       res.json({
@@ -109,10 +131,20 @@ function createHistoryRoutes(buffer) {
       
       // Fetch all sensors with coalescing
       const results = {};
+      const bufferWindowStart = Date.now() - buffer.windowSizeMs;
+
       await Promise.all(sensorIds.map(async (sensorId) => {
         const key = coalescer.generateKey(sensorId, startMs, endMs);
-        const data = await coalescer.execute(key, () => {
-          return buffer.getRange(sensorId, startMs, endMs);
+        const data = await coalescer.execute(key, async () => {
+             if (startMs >= bufferWindowStart) {
+                return buffer.getRange(sensorId, startMs, endMs);
+            } else if (endMs < bufferWindowStart) {
+                return await db.queryRange(sensorId, startMs, endMs);
+            } else {
+                const dbData = await db.queryRange(sensorId, startMs, bufferWindowStart);
+                const bufferData = buffer.getRange(sensorId, bufferWindowStart, endMs);
+                return [...dbData, ...bufferData];
+            }
         });
         results[sensorId] = data;
       }));

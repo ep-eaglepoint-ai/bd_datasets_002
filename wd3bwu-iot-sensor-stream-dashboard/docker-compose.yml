@@ -1,6 +1,31 @@
 services:
+  # Production Services
+  server:
+    build:
+      context: .
+      target: server
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/sensors.db
+    volumes:
+      - sensor_data:/app/data
+
+  client:
+    build:
+      context: .
+      target: client
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+
+  # Test Services
   test-after:
-    build: .
+    build: 
+      context: .
+      target: test-env
     command: npm test
     volumes:
       - .:/app
@@ -9,10 +34,15 @@ services:
       - /app/repository_after/client/node_modules
 
   evaluation:
-    build: .
+    build: 
+      context: .
+      target: test-env
     command: node evaluation/evaluation.js
     volumes:
       - .:/app
       - /app/node_modules
       - /app/repository_after/server/node_modules
       - /app/repository_after/client/node_modules
+
+volumes:
+  sensor_data:

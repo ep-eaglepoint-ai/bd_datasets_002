@@ -27,8 +27,8 @@
             </div>
             
             <div class="stat-item">
-              <span class="stat-label">Update Rate</span>
-              <span class="stat-value">10Hz</span>
+              <span class="stat-label">FPS</span>
+              <span class="stat-value" :class="{ warning: fps < 55 }">{{ fps }}</span>
             </div>
             
             <div class="connection-status">
@@ -42,6 +42,9 @@
         </div>
       </header>
 
+      <!-- Playback Controls -->
+      <PlaybackControls />
+
       <!-- Sensor Grid -->
       <SensorGrid @visibility-change="handleVisibilityChange" />
     </template>
@@ -53,9 +56,31 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useSensorStore } from './stores/sensorStore.js';
 import { useWebSocket } from './composables/useWebSocket.js';
 import SensorGrid from './components/SensorGrid.vue';
+import PlaybackControls from './components/PlaybackControls.vue';
 
 const store = useSensorStore();
 const loading = ref(true);
+const fps = ref(60);
+
+// FPS Monitor
+let frameCount = 0;
+let lastTime = performance.now();
+const fpsInterval = setInterval(() => {
+  const now = performance.now();
+  fps.value = Math.round((frameCount * 1000) / (now - lastTime));
+  frameCount = 0;
+  lastTime = now;
+}, 1000);
+
+const countFrame = () => {
+  frameCount++;
+  requestAnimationFrame(countFrame);
+};
+requestAnimationFrame(countFrame);
+
+onUnmounted(() => {
+  clearInterval(fpsInterval);
+});
 
 // WebSocket connection
 const wsUrl = `ws://${window.location.hostname}:3001/ws`;
@@ -88,13 +113,17 @@ const handleMessage = (message) => {
 // Handle viewport visibility changes
 const handleVisibilityChange = (visibleSensorIds) => {
   // Update WebSocket subscriptions based on visible sensors
-  debouncedSetSubscriptions(visibleSensorIds);
+  // Only if NOT in playback mode (playback handles fetching itself)
+  if (!store.isPlaybackMode) {
+    debouncedSetSubscriptions(visibleSensorIds);
+  }
 };
 
 // Fetch initial sensor list
 const fetchSensors = async () => {
   try {
-    const response = await fetch('/api/sensors');
+    const apiUrl = `http://${window.location.hostname}:3001/api/sensors`;
+    const response = await fetch(apiUrl);
     const data = await response.json();
     store.setSensors(data.sensors);
     

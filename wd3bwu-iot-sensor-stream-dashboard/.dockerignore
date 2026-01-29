@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+repository_after/server/node_modules
+repository_after/client/node_modules
+repository_after/client/dist
+.git
+.DS_Store
+*.db
+*.log
+tests/load/node_modules
