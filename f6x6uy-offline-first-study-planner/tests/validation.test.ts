@@ -1,11 +1,13 @@
 /**
- * Validation Tests
- * 
- * Tests for Requirement 9: Zod validation
- * - Validate all user input and API payloads
- * - Enforce strict type safety
- * - Reject malformed or malicious data
- * - Return clear, human-readable validation errors
+ * Validation Tests (schema only)
+ *
+ * Zod schema tests only. Service/behavior tests live in:
+ * - reminder.test.ts (reminder CRUD, recurrence, missed triggers, inactive)
+ * - sessions.test.ts, subjects.test.ts, analytics.test.ts (other services)
+ * - offline-manager.test.ts, db.test.ts (offline persistence, DB recovery)
+ * - tests/ui/page.test.tsx (UI and offline fallback)
+ *
+ * This file: Requirement 9 – validate input, type safety, reject malformed data.
  */
 
 import {

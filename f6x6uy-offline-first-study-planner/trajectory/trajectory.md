@@ -1,9 +1,5 @@
 # Trajectory: Offline-First Study Planner
 
-> **Purpose**: This trajectory documents the architectural reasoning and execution path for building a deterministic, distraction-free study tool.
-
----
-
 ## 1. AUDIT / REQUIREMENTS ANALYSIS
 **Guiding Question**: *What exactly needs to be built, and what are the constraints?*
 
@@ -71,8 +67,8 @@ The objective is a **CREATION** task: building a 0-1 productivity application. U
 ### Component Inventory
 * **`lib/db.ts`**: A singleton MongoDB client to prevent connection leaks during Next.js hot-reloads.
 * **`lib/validations.ts`**: Shared Zod schemas for `Subject` and `Session`.
-* **`services/streakService.ts`**: Pure logic to calculate consecutive days.
-* **`app/dashboard/`**: The primary UI hub using Tailwind's "Dark Mode" as default for distraction-free use.
+* **`services/analyticsService.ts`**: Analytics and streak calculation (e.g. `calculateStudyStreak`).
+* **`src/app/page.tsx`**: The primary UI hub (Tailwind, dark mode).
 
 ---
 
@@ -85,7 +81,7 @@ The objective is a **CREATION** task: building a 0-1 productivity application. U
 1.  **User Event**: User clicks "End Session".
 2.  **Validation**: Zod intercepts the payload on the client and the server.
 3.  **Persistence**: Data is written to the local `study_sessions` collection.
-4.  **Revalidation**: `revalidatePath('/dashboard')` triggers a server-side fetch.
+4.  **Revalidation**: Server revalidation (e.g. `revalidatePath('/')`) triggers a server-side fetch.
 5.  **Aggregation**: MongoDB `$group` and `$sort` operators re-calculate the streak.
 6.  **Update**: The UI reflects the new streak count instantly.
 
@@ -136,13 +132,13 @@ The objective is a **CREATION** task: building a 0-1 productivity application. U
 **Guiding Question**: *Did we build what was required? Can we prove it?*
 
 **Requirements Completion**:
-- **Offline Reliability**: ✅ Verified. App loads and saves with Wi-Fi disabled.
+- **Offline reliability**: Automated tests cover cache fallback and sync queue (offline-manager.test.ts, page UI test). Manual verification: app loads and saves with Wi-Fi disabled.
 - **Data Integrity**: ✅ Verified. Malformed payloads are rejected by Zod.
 - **Streak Logic**: ✅ Verified. Test cases covering 3-day, 0-day, and month-boundary streaks passed.
 
 **Quality Metrics**:
-- **Test Coverage**: 95% for core service logic.
-- **First Contentful Paint**: < 0.8s (local).
+- **Test coverage**: Enforced via `npm run test:coverage`; current threshold 70% (jest.config.js). Reminder, offline, and UI tests added; aim to raise threshold toward 95% for core services as coverage is measured.
+- **First Contentful Paint**: Target < 0.8s (local); verify via Lighthouse or DevTools Performance.
 
 ---
 

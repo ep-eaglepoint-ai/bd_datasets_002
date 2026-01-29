@@ -18,4 +18,4 @@ ENV NODE_ENV=test
 ENV MONGODB_URI=mongodb://mongodb:27017
 ENV DB_NAME=study_planner_test
 
-CMD npm test && npx ts-node evaluation/evaluation.ts
+CMD ["sh", "-c", "npm test && npx ts-node evaluation/evaluation.ts"]

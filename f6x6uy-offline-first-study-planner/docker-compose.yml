@@ -21,14 +21,14 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/node_modules
     environment:
       - NODE_ENV=test
       - MONGODB_URI=mongodb://mongodb:27017
       - DB_NAME=study_planner_test
-    command: sh -c "npm test && npx ts-node evaluation/evaluation.ts"
+    command: ["sh", "-c", "npm test && npx ts-node evaluation/evaluation.ts"]
+    volumes:
+      # Mount evaluation output so report.json is available on the host
+      - ./evaluation:/app/evaluation
 
 volumes:
   mongodb_data:

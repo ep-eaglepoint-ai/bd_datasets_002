@@ -2,7 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 
 /**
  * OFFLINE-FIRST STUDY PLANNER EVALUATION
@@ -28,7 +28,6 @@ interface TestResult {
   nodeid: string;
   name: string;
   outcome: 'passed' | 'failed';
-  message: string;
 }
 
 interface TestSummary {
@@ -44,14 +43,9 @@ interface RepositoryResults {
   exit_code: number;
   tests: TestResult[];
   summary: TestSummary;
+  stdout: string;
+  stderr: string;
   error?: string;
-}
-
-interface RequirementResult {
-  id: string;
-  description: string;
-  status: 'PASS' | 'FAIL';
-  checks: string[];
 }
 
 interface ComparisonResults {
@@ -73,7 +67,6 @@ interface EvaluationReport {
   success: boolean;
   error: string | null;
   environment: EnvironmentInfo;
-  requirements: RequirementResult[];
   results: {
     before: RepositoryResults;
     after: RepositoryResults;
@@ -124,107 +117,70 @@ function runTests(repositoryPath: string, repositoryName: string): RepositoryRes
           success: false,
           exit_code: 1,
           tests: [],
-          summary: { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0 }
+          summary: { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0 },
+          stdout: '',
+          stderr: '',
       };
   }
 
-  try {
-    // Run tests via Jest with JSON output
-    const result = execSync('npx jest --config jest.config.js --json --no-coverage', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+  const cwd = process.cwd();
+  const spawnResult = spawnSync('npx', ['jest', '--config', 'jest.config.js', '--json', '--no-coverage'], {
+    encoding: 'utf8',
+    cwd,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
 
-    const jestOutput = JSON.parse(result);
+  const stdout = spawnResult.stdout || '';
+  const stderr = spawnResult.stderr || '';
+
+  const buildResults = (jestOutput: any): RepositoryResults => {
     const testResults: TestResult[] = [];
-
-    jestOutput.testResults.forEach((suite: any) => {
-      suite.assertionResults.forEach((test: any) => {
+    jestOutput.testResults?.forEach((suite: any) => {
+      suite.assertionResults?.forEach((test: any) => {
         testResults.push({
-          nodeid: `${repositoryName}::${test.ancestorTitles.join(' > ')} > ${test.title}`,
+          nodeid: `${repositoryName}::${test.ancestorTitles?.join(' > ') || ''} > ${test.title}`,
           name: test.title,
           outcome: test.status === 'passed' ? 'passed' : 'failed',
-          message: test.failureMessages?.join('\n') || test.title,
         });
       });
     });
-
     return {
-      success: jestOutput.success,
+      success: jestOutput.success ?? false,
       exit_code: jestOutput.success ? 0 : 1,
       tests: testResults,
       summary: {
-        total: jestOutput.numTotalTests,
-        passed: jestOutput.numPassedTests,
-        failed: jestOutput.numFailedTests,
+        total: jestOutput.numTotalTests ?? 0,
+        passed: jestOutput.numPassedTests ?? 0,
+        failed: jestOutput.numFailedTests ?? 0,
         errors: 0,
         skipped: 0,
       },
+      stdout,
+      stderr,
     };
-  } catch (err: any) {
-    if (err.stdout) {
-      try {
-        const jestOutput = JSON.parse(err.stdout);
-        const testResults: TestResult[] = [];
+  };
 
-        jestOutput.testResults.forEach((suite: any) => {
-          suite.assertionResults.forEach((test: any) => {
-            testResults.push({
-              nodeid: `${repositoryName}::${test.ancestorTitles.join(' > ')} > ${test.title}`,
-              name: test.title,
-              outcome: test.status === 'passed' ? 'passed' : 'failed',
-              message: test.failureMessages?.join('\n') || test.title,
-            });
-          });
-        });
-
-        return {
-          success: jestOutput.success,
-          exit_code: jestOutput.success ? 0 : 1,
-          tests: testResults,
-          summary: {
-            total: jestOutput.numTotalTests,
-            passed: jestOutput.numPassedTests,
-            failed: jestOutput.numFailedTests,
-            errors: 0,
-            skipped: 0,
-          },
-        };
-      } catch {}
+  try {
+    const jestOutput = JSON.parse(stdout);
+    return buildResults(jestOutput);
+  } catch {
+    try {
+      const jestOutput = JSON.parse(spawnResult.stdout || '{}');
+      return buildResults(jestOutput);
+    } catch {
+      const errorMessage = spawnResult.error?.message || spawnResult.stderr || 'Test run failed';
+      console.error('\nERROR:', errorMessage);
+      return {
+        success: false,
+        exit_code: spawnResult.status ?? 1,
+        tests: [],
+        summary: { total: 0, passed: 0, failed: 0, errors: 1, skipped: 0 },
+        stdout,
+        stderr,
+        error: errorMessage,
+      };
     }
-
-    const errorMessage = err.message || String(err);
-    console.error('\nERROR:', errorMessage);
-    return {
-      success: false,
-      exit_code: 1,
-      tests: [],
-      summary: { total: 0, passed: 0, failed: 0, errors: 1, skipped: 0 },
-      error: errorMessage,
-    };
   }
-}
-
-function mapRequirements(results: RepositoryResults): RequirementResult[] {
-    const reqs = [
-        { id: 'REQ-01', desc: 'Subject Management (CRUD)', pattern: /Subject Management/i },
-        { id: 'REQ-02', desc: 'Study Session Logging', pattern: /Study Session Management/i },
-        { id: 'REQ-03', desc: 'Total Study Time Computation', pattern: /Total Study Time/i },
-        { id: 'REQ-04', desc: 'Progress Statistics', pattern: /Progress Statistics/i },
-        { id: 'REQ-05', desc: 'Study Streak Calculation', pattern: /Study Streak/i },
-        { id: 'REQ-09', desc: 'Zod Validation', pattern: /Zod Validation/i },
-    ];
-
-    return reqs.map(req => {
-        const matchingTests = results.tests.filter(t => req.pattern.test(t.nodeid));
-        const passed = matchingTests.length > 0 && matchingTests.every(t => t.outcome === 'passed');
-        return {
-            id: req.id,
-            description: req.desc,
-            status: passed ? 'PASS' : 'FAIL',
-            checks: matchingTests.map(t => t.nodeid)
-        };
-    });
 }
 
 function generateOutputPath(): string {
@@ -251,8 +207,6 @@ const afterResults = runTests('repository_after', 'repository_after');
 const finishedAt = new Date();
 const duration = (finishedAt.getTime() - startedAt.getTime()) / 1000;
 
-const requirements = mapRequirements(afterResults);
-
 const comparison: ComparisonResults = {
   before_tests_passed: beforeResults.success,
   after_tests_passed: afterResults.success,
@@ -274,11 +228,6 @@ console.log(`\nAfter Implementation (repository_after):`);
 console.log(`  Overall: ${afterResults.success ? '✅ PASSED' : '❌ FAILED'}`);
 console.log(`  Tests: ${comparison.after_passed}/${comparison.after_total} passed`);
 
-console.log(`\nREQUIREMENTS VERIFICATION:`);
-requirements.forEach(req => {
-    console.log(`  [${req.id}] ${req.status === 'PASS' ? '✅' : '❌'} ${req.description}`);
-});
-
 const success = afterResults.success;
 const errorMessage = success ? null : 'After implementation tests failed';
 
@@ -290,7 +239,6 @@ const report: EvaluationReport = {
   success,
   error: errorMessage,
   environment: getEnvironmentInfo(),
-  requirements: requirements,
   results: {
     before: beforeResults,
     after: afterResults,

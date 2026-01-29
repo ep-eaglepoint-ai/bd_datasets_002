@@ -1,8 +1,8 @@
 // db.ts / mongo.ts
 import { MongoClient, Db } from 'mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-const DB_NAME = process.env.DB_NAME || 'study_planner';
+const DEFAULT_MONGODB_URI = 'mongodb://localhost:27017';
+const DEFAULT_DB_NAME = 'study_planner';
 
 const CLIENT_OPTIONS = {
   maxPoolSize: 10,
@@ -20,7 +20,8 @@ let _clientPromise: Promise<MongoClient> | null = null;
 function getMongoClientPromise(): Promise<MongoClient> {
   if (_clientPromise) return _clientPromise;
 
-  const client = new MongoClient(MONGODB_URI, CLIENT_OPTIONS);
+  const uri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
+  const client = new MongoClient(uri, CLIENT_OPTIONS);
 
   _clientPromise = client
     .connect()
@@ -46,7 +47,8 @@ export async function getMongoClient(): Promise<MongoClient> {
 
 export async function getDatabase(): Promise<Db> {
   const client = await getMongoClientPromise();
-  const db = client.db(DB_NAME);
+  const dbName = process.env.DB_NAME || DEFAULT_DB_NAME;
+  const db = client.db(dbName);
 
   // Run index creation only once (or on first access)
   // You can also move this to an init function called at startup

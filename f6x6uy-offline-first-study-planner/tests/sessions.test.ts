@@ -1,13 +1,3 @@
-/**
- * Study Session Service Tests
- * 
- * Tests for Requirement 2: Study session logging with validation
- * - Log sessions linked to subjects
- * - Reject invalid durations (negative, zero, unrealistic)
- * - Prevent duplicate rapid submissions
- * - Prevent sessions for deleted/nonexistent subjects
- */
-
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient, Db, ObjectId } from 'mongodb';
 import {
@@ -180,7 +170,6 @@ describe('Requirement 2: Study Session Management', () => {
         timestamp,
       });
 
-      // Try to create identical session immediately
       await expect(
         createStudySession({
           subjectId: subject.id,

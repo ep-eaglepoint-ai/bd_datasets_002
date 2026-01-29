@@ -47,13 +47,13 @@ export async function createStudySession(
   const collection = db.collection<StudySession>(COLLECTION_NAME);
 
   // Check for duplicate rapid submissions
-  // Prevent same subject, duration, and timestamp within 5 seconds
+  // Prevent same subject, duration, and timestamp within 5 seconds (strictly less than 5s)
   const recentCutoff = new Date(Date.now() - DUPLICATE_SUBMISSION_WINDOW_MS);
   const duplicateSession = await collection.findOne({
     subjectId: toObjectId(validated.subjectId),
     duration: validated.duration,
     timestamp: validated.timestamp,
-    createdAt: { $gte: recentCutoff },
+    createdAt: { $gt: recentCutoff },
   });
 
   if (duplicateSession) {

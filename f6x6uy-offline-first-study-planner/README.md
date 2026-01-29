@@ -1,11 +1,13 @@
 # Offline-First Study Planner
 
-# run tests only for repository_after
+### Run tests
+
 ```bash
-docker compose run --rm app npm test
+docker compose run --rm --build app npm test
 ```
 
-# Generate evaluation report
+### Generate evaluation report
+
 ```bash
 docker compose run --rm app npx ts-node evaluation/evaluation.ts
 ```

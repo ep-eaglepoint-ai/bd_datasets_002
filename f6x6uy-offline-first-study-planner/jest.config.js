@@ -32,5 +32,37 @@ const customJestConfig = {
   testTimeout: 120000,
 };
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(customJestConfig);
+const baseExport = createJestConfig(customJestConfig);
+
+module.exports = async () => {
+  const base = await (typeof baseExport === 'function' ? baseExport() : baseExport);
+  const { testTimeout, ...baseRest } = base;
+  return {
+    ...base,
+    testTimeout: testTimeout ?? 120000,
+    projects: [
+      {
+        ...baseRest,
+        displayName: 'node',
+        testEnvironment: 'node',
+        testMatch: [
+          '<rootDir>/tests/analytics.test.ts',
+          '<rootDir>/tests/db.test.ts',
+          '<rootDir>/tests/reminder.test.ts',
+          '<rootDir>/tests/sessions.test.ts',
+          '<rootDir>/tests/subjects.test.ts',
+          '<rootDir>/tests/validation.test.ts',
+        ],
+      },
+      {
+        ...baseRest,
+        displayName: 'jsdom',
+        testEnvironment: 'jsdom',
+        testMatch: [
+          '<rootDir>/tests/offline-manager.test.ts',
+          '<rootDir>/tests/ui/**/*.test.tsx',
+        ],
+      },
+    ],
+  };
+};

@@ -1,11 +1,3 @@
-/**
- * Analytics Service Tests
- * 
- * Tests for Requirements 3, 4, 5:
- * - Requirement 3: Total study time computation and aggregation
- * - Requirement 4: Progress statistics (daily, weekly, monthly)
- * - Requirement 5: Study streak calculation
- */
 
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient, Db, ObjectId } from 'mongodb';

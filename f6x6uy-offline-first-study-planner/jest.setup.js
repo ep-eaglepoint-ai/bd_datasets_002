@@ -1,5 +1,6 @@
 // Jest setup file
 // This file runs before each test file
+require('@testing-library/jest-dom');
 
 // Set test environment variables
 process.env.MONGODB_URI = 'mongodb://localhost:27017';
