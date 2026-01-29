@@ -1,6 +1,5 @@
 import sys
 import json
-import time
 import uuid
 import platform
 import subprocess
@@ -27,7 +26,7 @@ def run_tests():
         return {
             "passed": False,
             "return_code": -1,
-            "output": "pytest timeout"
+            "output": "Node.js test timeout"
         }
 
 def run_evaluation():
@@ -35,7 +34,7 @@ def run_evaluation():
     start = datetime.utcnow()
 
     # The task requires comparing before and after
-    # But for simplicity in this specific environment, we run the pytest which includes the JS tests
+    # But for simplicity in this specific environment, we run the Node.js validation tests directly via subprocess
     test_results = run_tests()
 
     comparison = {

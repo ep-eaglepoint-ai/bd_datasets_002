@@ -73,14 +73,14 @@ class DataProcessor {
 
     // Filters array based on provided conditions
     filter(arr, conditions) {
-        return arr.map(item => this._deepClone(item)).filter(item => {
+        return arr.filter(item => {
             for (const [field, condition] of Object.entries(conditions)) {
                 if (!this._matchesCondition(item[field], condition)) {
                     return false;
                 }
             }
             return true;
-        });
+        }).map(item => this._deepClone(item));
     }
 
     // Checks if a value matches a specific condition
@@ -91,34 +91,46 @@ class DataProcessor {
 
         if (condition.$eq !== undefined) return value === condition.$eq;
         if (condition.$ne !== undefined) return value !== condition.$ne;
-        
-        let targetValue = value;
-        let compareValue = condition.$gt ?? condition.$gte ?? condition.$lt ?? condition.$lte ?? condition.$between;
 
+        // Handle date-like values by normalizing both the target value and
+        // any range-related condition values to Date instances.
         if (this._isDate(value) || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
-            targetValue = new Date(value);
-            if (condition.$between) {
-                const [min, max] = condition.$between;
-                return targetValue >= new Date(min) && targetValue <= new Date(max);
+            const targetDate = new Date(value);
+            const dateCondition = { ...condition };
+
+            if (dateCondition.$gt !== undefined) dateCondition.$gt = new Date(dateCondition.$gt);
+            if (dateCondition.$gte !== undefined) dateCondition.$gte = new Date(dateCondition.$gte);
+            if (dateCondition.$lt !== undefined) dateCondition.$lt = new Date(dateCondition.$lt);
+            if (dateCondition.$lte !== undefined) dateCondition.$lte = new Date(dateCondition.$lte);
+            if (Array.isArray(dateCondition.$between)) {
+                const [min, max] = dateCondition.$between;
+                dateCondition.$between = [new Date(min), new Date(max)];
             }
-            if (condition.$gt !== undefined) return targetValue > new Date(condition.$gt);
-            if (condition.$gte !== undefined) return targetValue >= new Date(condition.$gte);
-            if (condition.$lt !== undefined) return targetValue < new Date(condition.$lt);
-            if (condition.$lte !== undefined) return targetValue <= new Date(condition.$lte);
+
+            const dateRangeMatch = this._applyRangeCondition(targetDate, dateCondition);
+            if (dateRangeMatch !== null) return dateRangeMatch;
         }
 
-        if (condition.$gt !== undefined) return value > condition.$gt;
-        if (condition.$gte !== undefined) return value >= condition.$gte;
-        if (condition.$lt !== undefined) return value < condition.$lt;
-        if (condition.$lte !== undefined) return value <= condition.$lte;
+        const rangeMatch = this._applyRangeCondition(value, condition);
+        if (rangeMatch !== null) return rangeMatch;
+
         if (condition.$in !== undefined) return condition.$in.includes(value);
         if (condition.$nin !== undefined) return !condition.$nin.includes(value);
+
+        return true;
+    }
+
+    // Helper for range-based conditions ($gt, $gte, $lt, $lte, $between)
+    _applyRangeCondition(value, condition) {
         if (condition.$between !== undefined) {
             const [min, max] = condition.$between;
             return value >= min && value <= max;
         }
-
-        return true;
+        if (condition.$gt !== undefined) return value > condition.$gt;
+        if (condition.$gte !== undefined) return value >= condition.$gte;
+        if (condition.$lt !== undefined) return value < condition.$lt;
+        if (condition.$lte !== undefined) return value <= condition.$lte;
+        return null;
     }
 
     // Transforms dataset based on field mappings
@@ -256,7 +268,7 @@ class DataProcessor {
             const picked = {};
             for (const field of fields) {
                 if (item.hasOwnProperty(field)) {
-                    picked[field] = typeof item[field] === 'object' ? this._deepClone(item[field]) : item[field];
+                    picked[field] = this._deepClone(item[field]);
                 }
             }
             return picked;
@@ -277,13 +289,41 @@ class DataProcessor {
     // Utility for deep cloning objects
     _deepClone(obj) {
         if (obj === null || typeof obj !== 'object') return obj;
+
         if (obj instanceof Date) return new Date(obj.getTime());
-        if (Array.isArray(obj)) return obj.map(item => this._deepClone(item));
-        const cloned = {};
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-                cloned[key] = this._deepClone(obj[key]);
+
+        if (obj instanceof RegExp) {
+            const clonedRegExp = new RegExp(obj.source, obj.flags);
+            clonedRegExp.lastIndex = obj.lastIndex;
+            return clonedRegExp;
+        }
+
+        if (obj instanceof Map) {
+            const clonedMap = new Map();
+            for (const [key, value] of obj.entries()) {
+                clonedMap.set(this._deepClone(key), this._deepClone(value));
             }
+            return clonedMap;
+        }
+
+        if (obj instanceof Set) {
+            const clonedSet = new Set();
+            for (const value of obj.values()) {
+                clonedSet.add(this._deepClone(value));
+            }
+            return clonedSet;
+        }
+
+        if (obj instanceof ArrayBuffer) return obj.slice(0);
+
+        if (ArrayBuffer.isView(obj)) return new obj.constructor(obj);
+
+        if (Array.isArray(obj)) return obj.map(item => this._deepClone(item));
+
+        const proto = Object.getPrototypeOf(obj);
+        const cloned = Object.create(proto);
+        for (const key of Object.keys(obj)) {
+            cloned[key] = this._deepClone(obj[key]);
         }
         return cloned;
     }
