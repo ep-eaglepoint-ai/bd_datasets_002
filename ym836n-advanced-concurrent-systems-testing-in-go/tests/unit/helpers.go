@@ -186,10 +186,15 @@ func (f *FakeDownloader) Download(ctx context.Context, id int) (string, error) {
 	resp := responses[respIndex]
 
 	if resp.delay > 0 {
+		done := make(chan struct{})
+		go func() {
+			f.clock.Sleep(ctx, resp.delay)
+			close(done)
+		}()
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
-		case <-time.After(resp.delay):
+		case <-done:
 		}
 	}
 

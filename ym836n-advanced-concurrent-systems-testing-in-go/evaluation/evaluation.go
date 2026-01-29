@@ -35,21 +35,21 @@ func main() {
 	fmt.Println("TESTING REPOSITORY_BEFORE")
 	fmt.Println("-" + strings.Repeat("-", 70))
 	beforeResult := runTests(filepath.Join(workspaceRoot, "repository_before"))
-	printTestResult("Before", beforeResult)
+	printTestResult(beforeResult)
 	fmt.Println()
 
 	// Test repository_after
 	fmt.Println("TESTING REPOSITORY_AFTER")
 	fmt.Println("-" + strings.Repeat("-", 70))
 	afterResult := runTests(filepath.Join(workspaceRoot, "repository_after"))
-	printTestResult("After", afterResult)
+	printTestResult(afterResult)
 	fmt.Println()
 
 	// Run meta tests
 	fmt.Println("RUNNING META VALIDATION TESTS")
 	fmt.Println("-" + strings.Repeat("-", 70))
 	metaResult := runMetaTests(workspaceRoot)
-	printTestResult("Meta Validation", metaResult)
+	printTestResult(metaResult)
 	fmt.Println()
 
 	// Summary
@@ -219,7 +219,7 @@ func runMetaTests(workspaceRoot string) TestResult {
 	return result
 }
 
-func printTestResult(name string, result TestResult) {
+func printTestResult(result TestResult) {
 	fmt.Printf("Tests Run:     %d\n", result.Total)
 	fmt.Printf("Passed:        %d\n", result.Passed)
 	fmt.Printf("Failed:        %d\n", result.Failed)
