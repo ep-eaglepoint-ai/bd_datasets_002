@@ -10,5 +10,5 @@ node_modules/
 # OS
 .DS_Store
 
-# Evaluation reports
-evaluation/
+# Evaluation reports (timestamped subdirectories only)
+evaluation/*/
