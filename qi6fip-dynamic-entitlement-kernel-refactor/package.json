@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "jest",
-    "test:before": "TEST_REPO=before NODE_OPTIONS=--experimental-vm-modules jest tests/unified_verification.test.js --testEnvironment=node",
+    "test:before": "TEST_REPO=before NODE_OPTIONS=--experimental-vm-modules jest tests/unified_verification.test.js --testEnvironment=node || true",
     "test:after": "TEST_REPO=after NODE_OPTIONS=--experimental-vm-modules jest tests/unified_verification.test.js --testEnvironment=node",
     "evaluate": "node evaluation/evaluation.js"
   },
