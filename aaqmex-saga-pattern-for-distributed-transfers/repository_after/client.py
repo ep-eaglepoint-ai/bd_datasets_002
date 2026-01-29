@@ -8,14 +8,15 @@ class TransactionOrchestrator:
         self.client = httpx.Client(timeout=10.0)
     
     def transfer(self, source_user: str, target_user: str, amount: float):
-        transaction_id = str(uuid.uuid4())
+        # Single saga ID for the entire transaction
+        saga_id = str(uuid.uuid4())
         
         try:
             # Step 1: Debit source user
             debit_response = self.client.post(
                 f"{self.base_url}/debit",
                 json={"user": source_user, "amount": amount},
-                headers={"transaction-id": f"{transaction_id}-debit"}
+                headers={"transaction-id": saga_id}  # Same saga ID
             )
             debit_response.raise_for_status()
             
@@ -23,11 +24,11 @@ class TransactionOrchestrator:
             credit_response = self.client.post(
                 f"{self.base_url}/credit",
                 json={"user": target_user, "amount": amount},
-                headers={"transaction-id": f"{transaction_id}-credit"}
+                headers={"transaction-id": saga_id}  # Same saga ID
             )
             credit_response.raise_for_status()
             
-            return {"status": "success", "transaction_id": transaction_id}
+            return {"status": "success", "saga_id": saga_id}
         
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 500:
@@ -35,11 +36,16 @@ class TransactionOrchestrator:
                 compensate_response = self.client.post(
                     f"{self.base_url}/compensate_debit",
                     json={"user": source_user, "amount": amount},
-                    headers={"transaction-id": f"{transaction_id}-compensate"}
+                    headers={"transaction-id": saga_id}  # Same saga ID
                 )
                 compensate_response.raise_for_status()
-                return {"status": "rolled_back", "transaction_id": transaction_id}
+                return {"status": "rolled_back", "saga_id": saga_id}
             raise
+    
+    def get_saga_state(self, saga_id: str):
+        response = self.client.get(f"{self.base_url}/saga/{saga_id}")
+        response.raise_for_status()
+        return response.json()
     
     def close(self):
         self.client.close()

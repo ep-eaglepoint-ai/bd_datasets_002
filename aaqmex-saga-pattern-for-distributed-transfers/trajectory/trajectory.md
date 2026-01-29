@@ -14,9 +14,11 @@ In a monolithic system, database ACID transactions guarantee atomicity—either 
 - **No Distributed Transactions**: Cannot use 2PC/XA due to latency and complexity
 - **Data Consistency**: Must guarantee total money in system remains constant
 - **Fault Injection**: Credit service fails 30% of the time (simulating real-world instability)
+- **Saga Identity**: Each step must belong to the same saga transaction for proper tracking
+- **State Recovery**: System must detect incomplete sagas and support recovery
 
 **Implicit Requirements**:
-The system must handle failures gracefully, support safe retries, and maintain financial accuracy despite network chaos. This is a production banking system where data corruption is unacceptable.
+The system must handle failures gracefully, support safe retries, maintain financial accuracy despite network chaos, and track saga state across all steps. This is a production banking system where data corruption is unacceptable.
 
 ---
 
@@ -25,12 +27,12 @@ The system must handle failures gracefully, support safe retries, and maintain f
 **Guiding Question**: "Can we guarantee consistency without distributed transactions?"
 
 **Reasoning**:
-Traditional thinking says "use 2PC or accept eventual consistency." However, the Saga pattern offers a third way: orchestrated compensating transactions. Instead of locking resources across services, we implement explicit undo operations.
+Traditional thinking says "use 2PC or accept eventual consistency." However, the Saga pattern offers a third way: orchestrated compensating transactions with state tracking. Instead of locking resources across services, we implement explicit undo operations and maintain saga state.
 
 **Reframed Understanding**:
-Instead of "making the transaction atomic," we make it "eventually consistent with guaranteed compensation." Each forward step has a corresponding backward step. If any step fails, we execute compensations in reverse order.
+Instead of "making the transaction atomic," we make it "eventually consistent with guaranteed compensation and state tracking." Each forward step has a corresponding backward step. If any step fails, we execute compensations in reverse order. Critically, all steps share a single saga ID so the system knows they belong together.
 
-**Lesson**: Distributed consistency doesn't require distributed transactions. Application-level orchestration with idempotency and compensation can achieve the same guarantees with better performance and simpler failure modes.
+**Lesson**: Distributed consistency doesn't require distributed transactions. Application-level orchestration with idempotency, compensation, and state tracking can achieve the same guarantees with better performance and simpler failure modes. The key is maintaining saga identity across all operations.
 
 ---
 
@@ -45,7 +47,13 @@ Instead of "making the transaction atomic," we make it "eventually consistent wi
   - After: All transfers either complete fully or rollback completely
 - **Idempotency**:
   - Before: N/A
-  - After: Duplicate transaction_id returns success without re-execution
+  - After: Duplicate saga_id returns success without re-execution, with state awareness
+- **Saga State Tracking**:
+  - Before: N/A
+  - After: System tracks PENDING → DEBITED → CREDITED/COMPENSATED states
+- **Saga Identity**:
+  - Before: N/A
+  - After: Single saga ID ties all steps together, enabling recovery and audit
 - **Fault Tolerance**:
   - Before: N/A
   - After: System handles 30% credit failure rate with automatic compensation
@@ -69,14 +77,15 @@ Implementing a **Saga-Specific Test Suite** validating compensating transactions
 
 - **REQ-01 (FastAPI)**: Server uses FastAPI framework
 - **REQ-02 (Endpoints)**: `/debit`, `/credit`, `/compensate_debit` implemented
-- **REQ-03 (Headers)**: `transaction-id` header required on all endpoints
-- **REQ-04 (Tracking)**: In-memory Set tracks processed transaction IDs
-- **REQ-05 (Fault Injection)**: `/credit` fails 30% of the time with HTTP 500
-- **REQ-06 (Idempotency)**: Duplicate transaction_id returns 200 without re-execution
-- **REQ-07 (Debit)**: Decreases source user balance
-- **REQ-08 (Compensation)**: Reverses debit operation
-- **REQ-09 (Client)**: Orchestrator catches 500 and triggers compensation
-- **REQ-10 (Consistency)**: Total money preserved despite failures
+- **REQ-03 (Headers)**: `transaction-id` header explicitly validated and required
+- **REQ-04 (State Tracking)**: In-memory dict tracks saga states (DEBITED, CREDITED, COMPENSATED)
+- **REQ-05 (Saga Identity)**: Single saga ID used across all steps (debit, credit, compensate)
+- **REQ-06 (Idempotency)**: Duplicate saga_id returns 200 with state-aware response
+- **REQ-07 (State Machine)**: Cannot credit after compensate, cannot compensate after credit
+- **REQ-08 (Debit)**: Decreases source user balance and sets state to DEBITED
+- **REQ-09 (Compensation)**: Reverses debit operation and sets state to COMPENSATED
+- **REQ-10 (Client)**: Orchestrator uses single saga ID and catches 500 to trigger compensation
+- **REQ-11 (Consistency)**: Total money preserved despite failures
 
 ---
 
@@ -89,9 +98,9 @@ Two core files in `repository_after/`:
 
 **Impact Assessment**:
 
-- **server.py**: 60 lines (FastAPI app with 3 endpoints + idempotency)
-- **client.py**: 45 lines (Orchestrator class + demo with 100 transfers)
-- **test_after.py**: 90 lines (6 comprehensive tests)
+- **server.py**: 145 lines (FastAPI app with 3 endpoints + saga state machine + state endpoint)
+- **client.py**: 50 lines (Orchestrator class with single saga ID + demo with 100 transfers)
+- **test_after.py**: 150 lines (9 comprehensive tests including state validation)
 
 **Preserved**:
 
@@ -108,30 +117,39 @@ Two core files in `repository_after/`:
 **Happy Path**:
 
 ```
-Client initiates transfer
-→ POST /debit (source_user, amount) → Success
-→ POST /credit (target_user, amount) → Success
+Client initiates transfer with saga_id="abc-123"
+→ POST /debit (source_user, amount, saga_id) → Success, state=DEBITED
+→ POST /credit (target_user, amount, saga_id) → Success, state=CREDITED
 → Return success
 ```
 
 **Failure Path (Compensation)**:
 
 ```
-Client initiates transfer
-→ POST /debit (source_user, amount) → Success
-→ POST /credit (target_user, amount) → HTTP 500 (30% chance)
+Client initiates transfer with saga_id="xyz-789"
+→ POST /debit (source_user, amount, saga_id) → Success, state=DEBITED
+→ POST /credit (target_user, amount, saga_id) → HTTP 500 (30% chance)
 → Catch exception
-→ POST /compensate_debit (source_user, amount) → Success
+→ POST /compensate_debit (source_user, amount, saga_id) → Success, state=COMPENSATED
 → Return rolled_back
 ```
 
 **Idempotency Path**:
 
 ```
-Client retries with same transaction_id
-→ POST /debit (duplicate transaction_id)
-→ Check: transaction_id in processed_transactions?
+Client retries with same saga_id="abc-123"
+→ POST /debit (duplicate saga_id)
+→ Check: saga_id in saga_states? State=DEBITED?
 → Return 200 without modifying balance
+```
+
+**State Recovery Path**:
+
+```
+Operator detects stuck saga
+→ GET /saga/{saga_id}
+→ Returns: {state: "DEBITED", source_user: "alice", amount: 100}
+→ Operator can trigger compensation or investigate
 ```
 
 The control flow explicitly handles partial failures through orchestration, not database rollbacks.
@@ -144,15 +162,15 @@ The control flow explicitly handles partial failures through orchestration, not 
 
 **Objection 1**: "What if the compensation itself fails?"
 
-- **Counter**: In production, compensations should be retryable and logged. This demo assumes compensations succeed, but real systems need dead-letter queues and manual intervention workflows.
+- **Counter**: In production, compensations should be retryable and logged. With saga state tracking, we can detect failed compensations (saga stuck in DEBITED state) and retry or escalate to manual intervention.
 
 **Objection 2**: "What if the client crashes after debit but before calling credit?"
 
-- **Counter**: The orchestrator should persist saga state. In this demo, the saga is lost. Production systems use event sourcing or saga state machines with persistence.
+- **Counter**: The saga state persists in `saga_states` dict. A monitoring system can query `/saga/{saga_id}` to find sagas stuck in DEBITED state and trigger compensation. In production, use persistent storage and background workers.
 
-**Objection 3**: "Isn't this just eventual consistency with extra steps?"
+**Objection 3**: "Why not just use separate transaction IDs per step?"
 
-- **Counter**: Yes, but with guaranteed convergence. Unlike pure eventual consistency, sagas have explicit compensation logic that ensures the system reaches a consistent state.
+- **Counter**: Without a shared saga ID, the system cannot correlate steps. You lose the ability to detect incomplete sagas, audit transaction flow, or implement recovery mechanisms. Saga identity is fundamental to the pattern.
 
 ---
 
@@ -163,9 +181,11 @@ The control flow explicitly handles partial failures through orchestration, not 
 **Must Preserve**:
 
 - Total money in system: `sum(balances.values())` constant
-- Idempotency: Same transaction_id → same result
+- Saga identity: Single saga_id across all steps
+- Idempotency: Same saga_id → same result with state awareness
 - Atomicity: Transfer either completes or fully rolls back
 - No partial state: Never have debit without credit or compensation
+- State tracking: Saga state always reflects current progress
 
 **Must Improve**:
 
@@ -176,7 +196,8 @@ The control flow explicitly handles partial failures through orchestration, not 
 **Must Not Violate**:
 
 - Financial accuracy: No money creation or destruction
-- API contract: transaction_id header always required
+- API contract: transaction-id header always required with explicit validation
+- State machine: Cannot transition from CREDITED to COMPENSATED or vice versa
 
 ---
 
@@ -186,32 +207,37 @@ The control flow explicitly handles partial failures through orchestration, not 
 
 **Key Transformations**:
 
-1. **Idempotency Check**:
+1. **Saga State Tracking**:
 
    ```python
-   if transaction_id in processed_transactions:
-       return {"status": "success", "message": "already processed"}
+   saga_states[saga_id] = {
+       "state": SagaState.DEBITED,
+       "source_user": request.user,
+       "amount": request.amount,
+       "debit_result": result_balance
+   }
    ```
 
-2. **Fault Injection**:
+2. **Single Saga ID**:
 
    ```python
-   if random.random() < 0.3:
-       raise HTTPException(status_code=500)
+   # Client uses same saga_id for all steps
+   saga_id = str(uuid.uuid4())
+   headers={"transaction-id": saga_id}  # Same for debit, credit, compensate
    ```
 
-3. **Compensation Logic**:
+3. **Explicit Header Validation**:
 
    ```python
-   except httpx.HTTPStatusError as e:
-       if e.response.status_code == 500:
-           # Compensate: refund the source user
-           compensate_response = self.client.post(...)
+   transaction_id = req.headers.get("transaction-id")
+   if not transaction_id:
+       raise HTTPException(status_code=400, detail="transaction-id header is required")
    ```
 
-4. **Header Handling**:
+4. **State Machine Enforcement**:
    ```python
-   def debit(request: TransactionRequest, transaction_id: str = Header(...)):
+   if saga["state"] == SagaState.CREDITED:
+       raise HTTPException(status_code=400, detail="saga already completed - cannot compensate")
    ```
 
 ---
@@ -222,18 +248,22 @@ The control flow explicitly handles partial failures through orchestration, not 
 
 **Metric Breakdown**:
 
-- **Test Pass Rate**: 0/6 (no implementation) → 6/6 (100%)
+- **Test Pass Rate**: 0/6 (no implementation) → 9/9 (100%)
 - **Fault Tolerance**: N/A → Handles 30% failure rate
 - **Consistency**: N/A → Total money preserved across 100 transfers
-- **Idempotency**: N/A → Duplicate requests safely ignored
+- **Idempotency**: N/A → Duplicate requests safely ignored with state awareness
 - **Compensation**: N/A → Automatic rollback on failure
+- **Saga Identity**: N/A → Single saga ID tracks entire transaction
+- **State Tracking**: N/A → System knows saga progress (DEBITED/CREDITED/COMPENSATED)
+- **Recovery**: N/A → Can query saga state and detect incomplete transactions
 
 **Completion Evidence**:
 
 - `test_before.py`: 1 skipped (no implementation)
-- `test_after.py`: 6 passed (validates all requirements)
+- `test_after.py`: 9 passed (validates all requirements including state tracking)
 - `evaluation.py`: SUCCESS with before/after comparison
 - Demo: 100 transfers with ~30 rollbacks, total money constant
+- New tests: Saga state tracking, state machine enforcement, recovery scenarios
 
 ---
 
@@ -241,14 +271,14 @@ The control flow explicitly handles partial failures through orchestration, not 
 
 **Guiding Question**: "When should you use the Saga pattern?"
 
-**Problem**: Distributed transactions across microservices cannot use traditional ACID guarantees. Money transfers require consistency despite service failures.
+**Problem**: Distributed transactions across microservices cannot use traditional ACID guarantees. Money transfers require consistency despite service failures. Initial implementations often lack proper saga identity and state tracking, making recovery impossible.
 
-**Solution**: Saga pattern with orchestrated compensating transactions and idempotency to handle partial failures and retries.
+**Solution**: Saga pattern with orchestrated compensating transactions, single saga ID for transaction identity, explicit state tracking (PENDING/DEBITED/CREDITED/COMPENSATED), and idempotency to handle partial failures and retries.
 
 **Trade-offs**:
 
 - Lost: Immediate consistency (brief window where debit exists without credit)
-- Gained: Fault tolerance, scalability, no distributed locks
+- Gained: Fault tolerance, scalability, no distributed locks, recovery capability, audit trail
 
 **When to use Sagas**:
 
@@ -256,12 +286,23 @@ The control flow explicitly handles partial failures through orchestration, not 
 - When 2PC is too slow or complex
 - When you can define compensating operations
 - Financial systems, order processing, booking systems
+- When you need audit trails and recovery mechanisms
 
 **When NOT to use Sagas**:
 
 - Single database transactions (use ACID)
 - Operations without clear compensation (e.g., sending emails)
 - When immediate consistency is required
+- When saga state cannot be persisted
+
+**Critical Implementation Details**:
+
+1. **Always use a single saga ID** across all steps
+2. **Track saga state** to enable recovery and prevent invalid transitions
+3. **Explicitly validate headers** with clear error messages
+4. **Persist saga state** in production (not just in-memory)
+5. **Implement monitoring** to detect stuck sagas
+6. **Make compensations idempotent** and retryable
 
 **Learn more about Saga Pattern**:
 Understanding distributed transaction patterns and when to apply them.
