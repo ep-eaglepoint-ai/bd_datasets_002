@@ -2,440 +2,283 @@
 
 ## 1. Problem Statement
 
-The original `TransactionService` implementation had three critical bugs that made it unsuitable for production financial systems:
+I started by analyzing the original `TransactionService` implementation and identified three critical bugs:
 
-1. **No Idempotency**: The `transfer_funds` method had no mechanism to prevent duplicate processing. If a client sent a request and experienced a network timeout, they might retry, causing the same transaction to be processed multiple times. This led to the "double-spend" issue where balance could be decremented twice for the same intent.
+1. **No Idempotency Check**: The original `transfer_funds` method had no mechanism to prevent duplicate processing. When a client retries a failed HTTP request, the same transaction could be executed multiple times, causing "double-spend" issues where the same balance gets decremented twice.
 
-2. **No Transaction Atomicity**: The method performed two separate `update_balance` calls without any transactional wrapper. If the second update failed after the first succeeded, the system would be left in an inconsistent state (money deducted from sender but never credited to receiver).
+2. **No Transaction Atomicity**: The original code performed two separate `update_balance` calls without wrapping them in a database transaction. If the second update failed after the first succeeded, the system would end up in an inconsistent state (money deducted from sender but never credited to receiver).
 
-3. **Race Conditions**: The original code read the balance first (`get_balance`), then performed checks and updates in separate operations. Between the read and write, another thread could modify the balance, leading to lost updates and inconsistent results under concurrent load.
+3. **Race Condition**: The original implementation read the balance first (`self.db.get_balance(from_account)`), then performed updates. Between the read and write operations, another thread could modify the same account's balance, leading to inconsistent or incorrect balance calculations.
 
-The goal was to create a production-grade ledger that:
-- Ensures every transaction is processed exactly once per idempotency key
-- Maintains account balance consistency under high concurrent load
-- Handles network failures and retries gracefully
+The goal was to ensure that every transaction is processed exactly once per idempotency key and that account balances remain consistent under high concurrent load.
+
+---
 
 ## 2. Requirements
 
-Based on the task specifications, the following requirements were identified:
+From the task description, I identified the following requirements that the solution must meet:
 
-| Requirement | Description |
-|------------|-------------|
-| R1 | Implement an `IdempotencyStore` that records status and result of every `idempotency_key` for 24 hours |
-| R2 | Use database transaction context manager for atomic updates |
-| R3 | Prevent race conditions using SELECT FOR UPDATE or atomic UPDATE pattern |
-| R4 | Handle concurrent requests with same key - return 409 Conflict if IN_PROGRESS |
-| R5 | Handle database connection timeouts with rollback of partial state |
-| R6 | Test concurrent execution of 50 threads withdrawing from limited balance |
+1. **Idempotency Store**: Implement an `IdempotencyStore` that records the status and result of every `idempotency_key` for 24 hours. Subsequent requests with the same key must return the original result without re-executing logic.
+
+2. **Atomic Transactions**: Use a database transaction context manager to ensure that both balance updates (sender and receiver) either succeed together or fail together.
+
+3. **Concurrency Control**: Prevent race conditions using either a 'SELECT FOR UPDATE' pattern or an atomic 'UPDATE ... SET balance = balance - amount WHERE balance >= amount' approach.
+
+4. **In-Progress Handling**: Handle the case where a transaction is already 'IN_PROGRESS' for a given key. If a second request arrives with the same key while the first is still processing, return a 409 Conflict or a custom 'Processing' exception.
+
+5. **Graceful Error Handling**: Ensure the system handles database connection timeouts by rolling back any partial state changes.
+
+6. **Testing**: Use `unittest.mock` to simulate concurrent execution of 50 threads attempting to withdraw 10 units each from an account with only 100 units. Verify that the final balance is exactly 0 and that exactly 10 transaction records exist. Add a test for idempotency where a mocked 'network failure' occurs after the update, and the subsequent retry returns the original success message without a second deduction.
+
+---
 
 ## 3. Constraints
 
-| Constraint | Description |
-|------------|-------------|
-| C1 | Must use provided mock database session with `begin()`, `commit()`, `rollback()` |
-| C2 | Idempotency keys expire after 24 hours |
-| C3 | Must work with in-memory mock for testing, but design must be database-compatible |
-| C4 | Solution must be thread-safe for concurrent access |
+From the task description, I identified the following constraints:
 
-## 4. Research and Resources
+1. **Language**: The solution must be implemented in Python.
 
-### 4.1 Idempotency Patterns Research
+2. **Database**: The system uses PostgreSQL concepts (though a mock database is provided for testing).
 
-I researched idempotency patterns for financial systems and found several key resources:
+3. **Mock Database Interface**: The system uses a mock database session that supports `begin()`, `commit()`, and `rollback()` methods.
 
-- **Stripe's Idempotency Model**: I studied how Stripe implements idempotency using keys passed in request headers. The pattern involves:
-  1. Client generates a unique key for each unique request
-  2. Server checks if key exists in idempotency table
-  3. If exists and completed, return cached response
-  4. If exists and in-progress, return conflict
-  5. If not exists, process and store result
+4. **Thread Safety**: The solution must be thread-safe since multiple concurrent requests may arrive simultaneously.
 
-- **Amazon S3 Idempotent PUT**: Their implementation stores the request signature and checks for duplicates. This inspired the status-based approach (IN_PROGRESS, COMPLETED, FAILED).
+5. **Time-to-Live (TTL)**: The idempotency store must automatically clean up entries after 24 hours.
 
-### 4.2 Concurrency Control Research
+6. **No External Dependencies**: The solution should be implementable using standard Python libraries without adding heavy external dependencies.
 
-I investigated two main approaches for preventing race conditions:
+---
 
-**Approach A: SELECT FOR UPDATE (Pessimistic Locking)**
-```sql
-BEGIN;
-SELECT balance FROM accounts WHERE id = ? FOR UPDATE;
--- Check balance >= amount
-UPDATE accounts SET balance = balance - ? WHERE id = ?;
-COMMIT;
-```
-This locks the row until transaction completes, preventing other transactions from reading.
+## 4. Research
 
-**Approach B: Atomic UPDATE (Optimistic with Conditional)**
-```sql
-UPDATE accounts 
-SET balance = balance - ? 
-WHERE id = ? AND balance >= ?;
-```
-This single atomic statement eliminates the race condition by checking and updating in one operation.
+Before implementing the solution, I researched the following concepts and resources:
 
-I chose Approach B (Atomic UPDATE) because:
-- It reduces lock contention in high-throughput scenarios
-- The database handles the check-and-update atomically
-- It naturally handles the "insufficient funds" case with affected rows = 0
+### 4.1 Idempotency in Distributed Systems
 
-### 4.3 Database Transaction Patterns
+I read about idempotency patterns in distributed systems:
+- **Idempotency Keys**: The concept of using client-provided idempotency keys to ensure safe retries. This is a common pattern used by payment APIs like Stripe and PayPal.
+  - [Stripe API Documentation - Idempotency](https://stripe.com/docs/api/idempotency)
+  - [REST API Design - Idempotency](https://restfulapi.net/idempotent-rest-requests/)
 
-I researched transaction context manager patterns in Python:
+### 4.2 Database Transactions and ACID Properties
 
-```python
-@contextmanager
-def transaction(self):
-    try:
-        yield
-        # If we reach here without exception, commit
-    except Exception:
-        # Rollback on any exception
-        raise
-```
+I reviewed database transaction concepts:
+- **Atomicity**: All operations in a transaction succeed or none do.
+- **Consistency**: Database remains in a valid state before and after transactions.
+- **Isolation**: Concurrent transactions don't interfere with each other.
+- **Durability**: Committed transactions are permanent.
+  - [PostgreSQL Transaction Documentation](https://www.postgresql.org/docs/current/tutorial-transactions.html)
 
-This pattern ensures that if any operation within the context fails, the transaction is rolled back automatically.
+### 4.3 Concurrency Control Patterns
 
-### 4.4 In-Memory Store with TTL
+I researched two main approaches for preventing race conditions:
 
-For the mock implementation, I needed a thread-safe in-memory store. I researched:
+1. **Pessimistic Locking (SELECT FOR UPDATE)**: Lock rows during read to prevent other transactions from modifying them.
+   - [PostgreSQL SELECT FOR UPDATE](https://www.postgresql.org/docs/current/sql-select.html#SQL-FOR-UPDATE-SHARE)
 
-- **Python's threading.Lock**: Required for thread-safe dictionary operations
-- **Time-based expiration**: Using `time.time()` to track entry age
-- **Cleanup strategy**: Lazy cleanup on read operations
+2. **Optimistic Locking with Atomic Updates**: Perform updates atomically by including the condition in the UPDATE statement itself.
+   - [Optimistic Concurrency Control Pattern](https://docs.microsoft.com/en-us/azure/architecture/patterns/optimistic-concurrency)
 
-## 5. Choosing Methods and Rationale
+### 4.4 Python Context Managers for Transactions
 
-### 5.1 Idempotency Store Design
+I reviewed Python's context manager pattern for database transactions:
+- [Python Context Managers](https://docs.python.org/3/library/contextlib.html)
 
-After analyzing the requirements, I decided on a three-state idempotency system:
+---
 
-| State | Meaning | Action |
-|-------|---------|--------|
-| IN_PROGRESS | Transaction being processed | Reject with 409 Conflict |
-| COMPLETED | Transaction succeeded | Return cached success result |
-| FAILED | Transaction failed | Allow retry with same key |
+## 5. Choosing Methods and Why
 
-**Why three states?** The IN_PROGRESS state is crucial because without it, if two requests arrive simultaneously with the same key:
-- Both would see no existing entry
-- Both would start processing
-- Both would attempt to debit the same funds
+After research, I made the following architectural decisions:
 
-By rejecting concurrent IN_PROGRESS requests, we prevent duplicate processing.
+### 5.1 Idempotency Store Implementation
 
-### 5.2 Thread-Safe Store Implementation
+I chose to implement an **in-memory thread-safe idempotency store** because:
 
-I implemented the `IdempotencyStore` with:
+1. **Simplicity**: For this implementation, an in-memory store is sufficient and avoids the complexity of setting up an external cache like Redis.
 
-```python
-def __init__(self, db_session):
-    self._store = {}
-    self._lock = threading.Lock()
-```
+2. **Thread Safety**: I used `threading.Lock()` to ensure thread-safe access to the shared store dictionary.
 
-The threading lock ensures that:
-- Concurrent get/set operations don't corrupt the dictionary
-- The check-then-act pattern is atomic
-- TTL cleanup doesn't race with other operations
+3. **TTL Cleanup**: I implemented automatic cleanup of expired entries (24 hours) to prevent memory leaks.
 
-### 5.3 Atomic Balance Update Method
+4. **Status Tracking**: The store tracks three states:
+   - `IN_PROGRESS`: Transaction is being processed
+   - `COMPLETED`: Transaction succeeded (result cached)
+   - `FAILED`: Transaction failed (can be retried)
 
-I designed the `update_balance_atomic` method with per-account locking:
+### 5.2 Concurrency Control Approach
 
-```python
-def update_balance_atomic(self, account_id, amount, is_add=False):
-    lock = self.locks[account_id]
-    with lock:
-        if is_add:
-            self.balances[account_id] += amount
-            return True
-        else:
-            if self.balances.get(account_id, 0) >= amount:
-                self.balances[account_id] -= amount
-                return True
-            return False
-```
+I chose the **atomic UPDATE approach** with per-account locking because:
 
-**Why per-account locking?** This provides:
-- Fine-grained locking (only locks the account being modified)
-- Allows parallel transfers between different accounts
-- Prevents race conditions on the same account
+1. **Atomicity**: The `update_balance_atomic` method checks the balance and updates it in a single atomic operation with per-account locking.
 
-### 5.4 Transaction Context Manager
+2. **Efficiency**: This approach is more efficient than pessimistic locking since it doesn't hold locks for extended periods.
 
-I wrapped both balance updates in a transaction context:
+3. **Simplicity**: The atomic update pattern `WHERE balance >= amount` naturally handles the balance check and update in one operation.
 
-```python
-with self.db.transaction():
-    sender_ok = self.db.update_balance_atomic(from_account, amount, is_add=False)
-    if not sender_ok:
-        raise InsufficientFundsException("Insufficient funds")
-    receiver_ok = self.db.update_balance_atomic(to_account, amount, is_add=True)
-```
+### 5.3 Transaction Context Manager
 
-This ensures:
-- Both updates succeed or fail together
-- If receiver update fails, sender update is rolled back
-- Exception handling triggers automatic rollback
+I used Python's `@contextmanager` decorator to create a transaction context manager because:
+
+1. **Clean Syntax**: The `with self.db.transaction():` syntax is clean and Pythonic.
+
+2. **Exception Safety**: The context manager automatically handles rollback on exceptions.
+
+3. **Resource Management**: The transaction lock is properly acquired and released.
+
+### 5.4 In-Progress Conflict Handling
+
+I decided to raise a `ProcessingException` when a duplicate request arrives for an in-progress transaction because:
+
+1. **Clear Semantics**: This makes it explicit that the request cannot be processed immediately.
+
+2. **Client Guidance**: Clients can retry after a delay or wait for the original request to complete.
+
+3. **HTTP 409 Alignment**: This maps well to HTTP 409 Conflict status code in a real API.
+
+---
 
 ## 6. Solution Implementation and Explanation
 
-### 6.1 Exception Classes
+### 6.1 IdempotencyStore Implementation
 
-I defined custom exceptions for clear error handling:
-
-```python
-class ProcessingException(Exception):
-    """Raised when a transaction is already in progress for the given key"""
-
-class InsufficientFundsException(Exception):
-    """Raised when sender has insufficient balance"""
-```
-
-These allow callers to distinguish between different failure modes.
-
-### 6.2 IdempotencyStore Implementation
-
-The `IdempotencyStore` class provides:
+I implemented the `IdempotencyStore` class with the following design:
 
 ```python
 class IdempotencyStore:
-    def __init__(self, ttl_seconds=86400):  # 24 hours
-        self.store = {}
-        self.ttl = ttl_seconds
+    """Thread-safe in-memory idempotency store with TTL."""
+
+    TTL_SECONDS = 24 * 60 * 60  # 24 hours
+
+    def __init__(self):
+        self.store = {}  # key -> (status, result, timestamp)
         self.lock = threading.Lock()
-
-    def get(self, key):
-        with self.lock:
-            entry = self.store.get(key)
-            if not entry:
-                return None
-            status, result, timestamp = entry
-            if self._is_expired(timestamp):
-                del self.store[key]
-                return None
-            return status, result
-
-    def set(self, key, status, result):
-        with self.lock:
-            self.store[key] = (status, result, time.time())
 ```
 
-**Key design decisions:**
-- Using `threading.Lock()` for thread safety
-- Storing tuple of (status, result, timestamp) for TTL tracking
-- Lazy cleanup of expired entries on read
+I chose a dictionary-based storage for O(1) access time. Each entry stores a tuple of (status, result, timestamp) with the timestamp used for TTL cleanup.
 
-### 6.3 MockDatabase with Atomic Updates
+### 6.2 MockDatabase with Transaction Support
 
-The mock database simulates real database behavior:
+I implemented the `MockDatabase` class with:
 
-```python
-class MockDatabase:
-    def update_balance_atomic(self, account_id, amount, is_add=False):
-        lock = self.locks[account_id]
-        with lock:
-            if is_add:
-                self.balances[account_id] += amount
-                return True
-            else:
-                if self.balances.get(account_id, 0) >= amount:
-                    self.balances[account_id] -= amount
-                    return True
-                return False
+1. **Transaction Context Manager**: The `transaction()` context manager handles begin/commit/rollback automatically.
 
-    @contextmanager
-    def transaction(self):
-        try:
-            yield
-        except Exception:
-            raise
-```
+2. **Per-Account Locks**: Each account has its own lock to allow concurrent updates to different accounts.
 
-**Why this simulates real database:**
-- Per-account locking mimics row-level locking
-- Atomic check-and-update prevents race conditions
-- Transaction context manager mimics database transactions
+3. **Pending Changes Buffer**: During a transaction, changes are buffered and only applied on commit.
 
-### 6.4 TransactionService Implementation
+4. **Atomic Balance Updates**: The `update_balance_atomic` method performs the balance check and update in one atomic operation.
 
-The refactored `transfer_funds` method:
+### 6.3 TransactionService Implementation
 
-```python
-def transfer_funds(self, from_account, to_account, amount, idempotency_key):
-    # Step 1: Check idempotency store
-    existing = self.idempotency_store.get(idempotency_key)
-    if existing:
-        status, result = existing
-        if status == 'COMPLETED':
-            return result
-        elif status == 'IN_PROGRESS':
-            raise ProcessingException("Transaction is already in progress")
-        elif status == 'FAILED':
-            # Allow retry
-            pass
+I refactored the `TransactionService` to:
 
-    # Step 2: Mark as in progress
-    self.idempotency_store.set(idempotency_key, 'IN_PROGRESS', None)
+1. **Accept Idempotency Key**: The `transfer_funds` method now requires an `idempotency_key` parameter.
 
-    try:
-        # Step 3: Perform atomic updates
-        with self.db.transaction():
-            sender_ok = self.db.update_balance_atomic(from_account, amount, is_add=False)
-            if not sender_ok:
-                raise InsufficientFundsException("Insufficient funds")
-            receiver_ok = self.db.update_balance_atomic(to_account, amount, is_add=True)
+2. **Check Idempotency First**: Before processing, I check if the key already exists in the store.
 
-        # Step 4: Mark as completed
-        self.idempotency_store.set(idempotency_key, 'COMPLETED', True)
-        return True
+3. **Set IN_PROGRESS**: I mark the transaction as in-progress to prevent concurrent processing.
 
-    except Exception as e:
-        # Step 5: Mark as failed
-        current = self.idempotency_store.get(idempotency_key)
-        if not current or current[0] != 'COMPLETED':
-            self.idempotency_store.set(idempotency_key, 'FAILED', False)
-        raise
-```
+4. **Execute in Transaction**: All balance updates and recording happen within the transaction context.
 
-**Execution flow:**
-1. Check if key exists in idempotency store
-2. If COMPLETED, return cached result (idempotent response)
-3. If IN_PROGRESS, raise conflict (prevents duplicate processing)
-4. If FAILED or doesn't exist, proceed with processing
-5. Mark as IN_PROGRESS before starting
-6. Execute both updates atomically within transaction
-7. If all succeed, mark as COMPLETED
-8. If any exception occurs, mark as FAILED and re-raise
+5. **Handle Completion**: On success, I mark the transaction as COMPLETED with the result.
 
-## 7. Handling Requirements, Constraints, and Edge Cases
+6. **Handle Failures**: On failure, I check if the transaction was actually committed (by checking if a record exists) and mark accordingly.
 
-### 7.1 Requirement R1: Idempotency Store with 24-hour TTL
+---
 
-**Implementation:** The `IdempotencyStore` stores entries with a timestamp and checks expiration on read:
+## 7. How Solution Handles Requirements, Constraints, and Edge Cases
 
-```python
-def _is_expired(self, timestamp):
-    return (time.time() - timestamp) > self.ttl  # 86400 seconds = 24 hours
-```
+### 7.1 Handling Idempotency (Requirement 1)
 
-**How it meets the requirement:**
-- Every request with an idempotency key is checked against the store
-- Results are cached for 24 hours
-- Expired entries are automatically cleaned up
+The solution handles idempotency through:
 
-### 7.2 Requirement R2: Transaction Atomicity
+1. **Idempotency Store Check**: Every request first checks the store for an existing entry.
 
-**Implementation:** Both balance updates are wrapped in a transaction context:
+2. **Cached Result**: For COMPLETED requests, the cached result is returned immediately without re-executing logic.
 
-```python
-with self.db.transaction():
-    sender_ok = self.db.update_balance_atomic(from_account, amount, is_add=False)
-    if not sender_ok:
-        raise InsufficientFundsException("Insufficient funds")
-    receiver_ok = self.db.update_balance_atomic(to_account, amount, is_add=True)
-```
+3. **Failed State**: For FAILED requests, the transaction can be retried with the same key.
 
-**How it meets the requirement:**
-- If either update fails, an exception is raised
-- The transaction context manager catches the exception
-- The context exits without committing, rolling back any partial changes
-- Both updates either succeed together or fail together
+### 7.2 Handling Atomicity (Requirement 2)
 
-### 7.3 Requirement R3: Race Condition Prevention
+The solution ensures atomicity through:
 
-**Implementation:** Two-pronged approach:
+1. **Transaction Context Manager**: Both balance updates are wrapped in `with self.db.transaction():`.
 
-1. **Atomic updates per account:**
-   ```python
-   def update_balance_atomic(self, account_id, amount, is_add=False):
-       lock = self.locks[account_id]
-       with lock:
-           # Check and update are atomic within the lock
-           if self.balances.get(account_id, 0) >= amount:
-               self.balances[account_id] -= amount
-               return True
-           return False
-   ```
+2. **Rollback on Exception**: If any operation fails, the entire transaction is rolled back.
 
-2. **Per-account locking:**
-   - Each account has its own lock
-   - Only the accounts being modified are locked
-   - Other accounts can be modified in parallel
+3. **Pending Changes Buffer**: Changes are only visible within the transaction and are atomically applied on commit.
 
-**Why this prevents race conditions:**
-- The check (balance >= amount) and update (balance - amount) are performed atomically
-- No other thread can modify the same account between check and update
-- The lock acquisition and release happen around the entire check-then-update operation
+### 7.3 Handling Concurrency (Requirement 3)
 
-### 7.4 Requirement R4: Handling IN_PROGRESS State
+The solution prevents race conditions through:
 
-**Implementation:** When a duplicate key is detected while IN_PROGRESS:
+1. **Per-Account Locks**: Each account has its own lock to prevent concurrent modifications.
 
-```python
-if existing:
-    status, result = existing
-    if status == 'COMPLETED':
-        return result
-    elif status == 'IN_PROGRESS':
-        raise ProcessingException("Transaction is already in progress")
-    elif status == 'FAILED':
-        # Allow retry
-        pass
-```
+2. **Atomic Updates**: The `update_balance_atomic` method checks the balance and updates it atomically.
 
-**How it prevents duplicate processing:**
-- If request A is processing and request B arrives with the same key
-- Request B sees status IN_PROGRESS
-- Request B raises `ProcessingException` (HTTP 409 equivalent)
-- Request A completes and marks as COMPLETED
-- Subsequent requests with the same key return the cached success
+3. **Transaction Lock**: A global transaction lock prevents concurrent transactions from interfering.
 
-### 7.5 Requirement R5: Database Connection Timeouts
+### 7.4 Handling In-Progress Conflicts (Requirement 4)
 
-**Implementation:** The transaction context manager handles timeouts via exception handling:
+The solution handles in-progress conflicts by:
 
-```python
-@contextmanager
-def transaction(self):
-    try:
-        yield
-    except Exception:
-        # Database connection timeout or any other error
-        raise
-```
+1. **IN_PROGRESS State**: When a transaction starts, it's marked as IN_PROGRESS.
 
-**How it handles timeouts:**
-- If a timeout occurs during update, an exception is raised
-- The exception propagates out of the transaction context
-- The idempotency store marks the transaction as FAILED
-- Any partial changes are rolled back
-- The client can retry with the same idempotency key
+2. **Conflict Detection**: If another request arrives with the same key, it detects the IN_PROGRESS state.
 
-### 7.6 Edge Cases Handled
+3. **ProcessingException**: The second request raises a `ProcessingException` indicating the conflict.
 
-| Edge Case | Scenario | Handling |
-|-----------|----------|----------|
-| E1 | Retry after timeout | Key marked FAILED, allows retry |
-| E2 | Concurrent requests same key | Second request raises ProcessingException |
-| E3 | Insufficient funds | Atomic update returns False, exception raised |
-| E4 | Receiver account doesn't exist | Atomic update creates account with 0 balance, then adds |
-| E5 | Network failure after sender debit | Transaction rolled back, key marked FAILED |
-| E6 | Idempotency key expired | Entry cleaned up, treated as new request |
-| E7 | Transaction crashes mid-processing | Exception caught, key marked FAILED |
+### 7.5 Handling Graceful Error Recovery (Requirement 5)
 
-### 7.7 Why the Solution Works
+The solution handles errors gracefully through:
 
-The solution is built on three foundational principles:
+1. **Exception Handling**: All exceptions are caught and handled appropriately.
 
-1. **Idempotency through caching**: By storing the result of every completed transaction, we ensure that retries return the same result without re-executing the logic.
+2. **Transaction Rollback**: Partial state changes are rolled back on errors.
 
-2. **Atomicity through transactions**: By wrapping both balance updates in a transaction, we guarantee that the ledger stays consistent even when operations fail.
+3. **Record-Based Recovery**: If a transaction is committed but the status update fails, the next retry detects the committed record and marks the transaction as COMPLETED.
 
-3. **Race-free updates through locking**: By using per-account locks with atomic check-then-update operations, we prevent lost updates and ensure balance consistency under concurrent access.
+### 7.6 Handling Testing (Requirement 6)
 
-These principles work together to create a system where:
-- Every transaction is processed exactly once (no duplicates)
-- Account balances never go negative (insufficient funds check)
-- Concurrent transfers maintain consistency (locking)
-- Network failures don't corrupt data (transactions + idempotency)
+The solution supports the required testing through:
+
+1. **Thread-Safe Design**: The solution supports concurrent execution of 50 threads.
+
+2. **Atomic Operations**: Only exactly 10 transactions can succeed when withdrawing 10 units from a 100-unit account.
+
+3. **Network Failure Recovery**: The solution detects committed records even when network failures occur after the update.
+
+### 7.7 Edge Cases Handled
+
+I identified and handled the following edge cases:
+
+1. **Network Failure After Commit**: If the transaction commits but the response fails to send, the next retry detects the record and returns the cached result.
+
+2. **Concurrent Requests with Same Key**: The idempotency store uses a lock to prevent race conditions in the store itself.
+
+3. **Insufficient Funds**: The atomic update naturally fails if the balance is insufficient, and the transaction is rolled back.
+
+4. **Account Does Not Exist**: The system handles non-existent accounts by treating them as having zero balance.
+
+5. **TTL Expiration**: Expired entries are automatically cleaned up to prevent memory leaks.
+
+6. **Duplicate Requests During Processing**: When a second request arrives while the first is still processing, a ProcessingException is raised.
+
+---
+
+## Summary
+
+I approached this problem systematically by:
+
+1. **Analyzing the original buggy implementation** to understand the root causes of the issues.
+
+2. **Researching industry best practices** for idempotency, atomic transactions, and concurrency control.
+
+3. **Designing a solution** that addresses all requirements while working within the constraints of the mock database.
+
+4. **Implementing the solution** with careful attention to thread safety and error handling.
+
+5. **Verifying edge cases** to ensure the solution is robust and handles all expected failure scenarios.
+
+The final solution provides a thread-safe, idempotent, and atomic financial transaction ledger that prevents double-spend issues and maintains data consistency under high concurrency.
