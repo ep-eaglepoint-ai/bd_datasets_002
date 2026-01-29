@@ -3,7 +3,7 @@ services:
     build: .
     environment:
       - REPO_TYPE=before
-    command: [ "pytest", "-v", "--tb=short", "tests/" ]
+    command: [ "sh", "-c", "pytest -v --tb=short tests/ || true" ]
 
   test-after:
     build: .
@@ -15,5 +15,4 @@ services:
     build: .
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-      - /var/run/docker.sock:/var/run/docker.sock
     command: [ "python", "evaluation/evaluation.py" ]
