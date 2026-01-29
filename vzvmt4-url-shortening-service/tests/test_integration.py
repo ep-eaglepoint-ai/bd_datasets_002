@@ -1,4 +1,6 @@
 import pytest
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 
 # REQ-01: Accept long URL, generate short code
@@ -43,14 +45,40 @@ class TestIntegration:
         assert redirect_resp.headers["location"] == long_url
 
     def test_invalid_url_rejection(self, client: TestClient):
-        """REQ-04: Reject invalid URLs."""
+        """REQ-04: Reject invalid URLs with strict 400 Bad Request."""
         response = client.post("/api/shorten", json={"target_url": "not-a-url"})
-        assert response.status_code in (400, 422)
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        assert "invalid" in data["detail"].lower() or "url" in data["detail"].lower()
+
+    def test_unreachable_url_rejection(self, client: TestClient):
+        """Reject valid-format URLs that are not reachable when reachability check is enabled."""
+        with patch("src.main.settings") as mock_settings:
+            mock_settings.VALIDATE_URL_REACHABILITY = True
+            mock_settings.BASE_URL = "http://localhost:8000"
+            with patch("src.main.is_url_reachable", new_callable=AsyncMock, return_value=False):
+                response = client.post(
+                    "/api/shorten",
+                    json={"target_url": "https://example.com/unreachable"},
+                )
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        assert "reachable" in data["detail"].lower()
 
     def test_non_existent_code_404(self, client: TestClient):
-        """REQ-Critical: 404 for invalid code."""
+        """REQ-Critical: 404 for invalid code (redirect endpoint)."""
         response = client.get("/ZZZZZZ") 
         assert response.status_code == 404
+
+    def test_nonexistent_code_retrieval_404(self, client: TestClient):
+        """Shortened URLs that don't exist must return HTTP 404 on retrieval endpoint."""
+        response = client.get("/api/url/INVALIDCODE")
+        assert response.status_code == 404
+        data = response.json()
+        assert "detail" in data
+        assert "not found" in data["detail"].lower() or "short" in data["detail"].lower()
 
     def test_collision_resistance_bulk(self, client: TestClient):
         """REQ-Critical: Generate 100 codes, ensure uniqueness."""
@@ -61,6 +89,33 @@ class TestIntegration:
             code = resp.json()["short_code"]
             assert code not in codes, f"Collision detected for code {code}"
             codes.add(code)
+
+    def test_collision_resistance_1000(self, client: TestClient):
+        """REQ-Critical: Generate 1,000 codes, ensure no collisions."""
+        urls = [f"https://bulk1k.com/{i}" for i in range(1000)]
+        codes = []
+        for url in urls:
+            resp = client.post("/api/shorten", json={"target_url": url})
+            assert resp.status_code == 200
+            codes.append(resp.json()["short_code"])
+        assert len(codes) == 1000
+        assert len(set(codes)) == 1000, "Collision detected among 1,000 short codes"
+
+    def test_very_long_url(self, client: TestClient):
+        """Edge case: very long URL (>2000 chars) is accepted and redirect works."""
+        base = "https://example.com/path?"
+        long_url = base + "x=" + "a" * (2000 - len(base))
+        assert len(long_url) >= 2000
+        resp = client.post("/api/shorten", json={"target_url": long_url})
+        assert resp.status_code == 200
+        data = resp.json()
+        code = data["short_code"]
+        get_resp = client.get(f"/api/url/{code}")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["target_url"] == long_url
+        redir_resp = client.get(f"/{code}", follow_redirects=False)
+        assert redir_resp.status_code in (301, 302, 307, 308)
+        assert redir_resp.headers["location"] == long_url
 
     def test_url_complexity(self, client: TestClient):
         """REQ-Critical: Unicode, special characters, fragments."""
@@ -96,3 +151,55 @@ class TestIntegration:
         assert "Success!" in response.text
         assert long_url in response.text
         assert "href=" in response.text
+
+    def test_api_only_separately_deployable(self, client: TestClient):
+        """Backend/frontend separately deployable: API is self-sufficient (no HTML)."""
+        long_url = "https://api-only.example.com/page"
+        create_resp = client.post("/api/shorten", json={"target_url": long_url})
+        assert create_resp.status_code == 200
+        data = create_resp.json()
+        short_code = data["short_code"]
+        short_url = data["short_url"]
+        assert short_code and short_url
+        get_resp = client.get(f"/api/url/{short_code}")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["target_url"] == long_url
+        redirect_resp = client.get(f"/{short_code}", follow_redirects=False)
+        assert redirect_resp.status_code in (301, 302, 307, 308)
+        assert redirect_resp.headers["location"] == long_url
+
+    def test_concurrent_shorten(self, client: TestClient):
+        """Concurrent shorten: many threads posting different URLs, all succeed, no duplicate codes."""
+        num_urls = 50
+        urls = [f"https://concurrent.com/{i}" for i in range(num_urls)]
+        codes = []
+
+        def shorten(url):
+            resp = client.post("/api/shorten", json={"target_url": url})
+            assert resp.status_code == 200
+            return resp.json()["short_code"]
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(shorten, url) for url in urls]
+            for f in as_completed(futures):
+                codes.append(f.result())
+        assert len(codes) == num_urls
+        assert len(set(codes)) == num_urls, "Collision under concurrent shorten"
+
+    def test_concurrent_redirect(self, client: TestClient):
+        """Concurrent redirect: same short code hit many times; all return 307, same Location."""
+        long_url = "https://concurrent-redirect.example.com/target"
+        create_resp = client.post("/api/shorten", json={"target_url": long_url})
+        assert create_resp.status_code == 200
+        short_code = create_resp.json()["short_code"]
+
+        def redirect():
+            resp = client.get(f"/{short_code}", follow_redirects=False)
+            return resp.status_code, resp.headers.get("location")
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = [executor.submit(redirect) for _ in range(50)]
+            results = [f.result() for f in as_completed(futures)]
+        for status_code, location in results:
+            assert status_code in (301, 302, 307, 308)
+            assert location == long_url

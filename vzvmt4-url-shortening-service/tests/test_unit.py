@@ -1,5 +1,5 @@
 import pytest
-from src.services import encode_base62, decode_base62, generate_short_code
+from src.services import encode_base62, decode_base62, generate_short_code, OFFSET
 from src.models import URLItem
 
 # REQ-06: Character set: [a-zA-Z0-9]
@@ -32,6 +32,25 @@ class TestBijectiveAlgorithm:
         large_id = 100_000_000_000_000 
         code = encode_base62(large_id)
         assert len(code) <= 8, f"Code '{code}' is too long for ID {large_id}"
+
+    def test_length_constraint_large_db_id(self):
+        """Verify generate_short_code produces at most 8 chars for large DB IDs."""
+        # Maximum DB ID that still fits in 8 base62 chars: 62**8 - 1 - OFFSET
+        max_target = (62 ** 8) - 1
+        large_db_id = max_target - OFFSET
+        code = generate_short_code(large_db_id)
+        assert len(code) <= 8, f"Code '{code}' is too long for db_id {large_db_id}"
+        assert len(code) >= 5, f"Code '{code}' should be at least 5 chars"
+
+    def test_deterministic_generation_no_random(self):
+        """REQ-08: Same db_id always yields same short code; different ids yield different codes."""
+        code_1a = generate_short_code(1)
+        code_1b = generate_short_code(1)
+        assert code_1a == code_1b, "Same ID must produce identical code (deterministic)"
+        code_2 = generate_short_code(2)
+        assert code_1a != code_2, "Different IDs must produce different codes"
+        seen = {generate_short_code(i) for i in range(1, 101)}
+        assert len(seen) == 100, "No collisions: 100 distinct IDs must yield 100 distinct codes"
 
 class TestURLValidation:
     
