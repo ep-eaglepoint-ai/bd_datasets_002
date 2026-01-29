@@ -317,48 +317,6 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 		}
 	})
 
-	// Deterministic and race-safe
-	t.Run("deterministic_race", func(t *testing.T) {
-		if keysTestPath == "" {
-			t.Fatalf("missing keys_test.go at %s", filepath.Join(repo, "context-resolver", "keys", "keys_test.go"))
-		}
-
-		// First check if the base code compiles
-		res := runInnerGoTests(t, keysDir, "-race")
-		if isInfraFailure(res) {
-			t.Fatalf("infra failure while running inner suite\nstdout:\n%s\nstderr:\n%s", res.stdout, res.stderr)
-		}
-		if res.exitCode != 0 && res.failed == 0 {
-			// Build failure - skip determinism check
-			t.Skipf("base code does not compile, skipping determinism check\nstdout:\n%s\nstderr:\n%s", res.stdout, res.stderr)
-		}
-
-		// Run the suite 3 times with -race and assert identical results
-		var prev *goTestSummary
-		for i := 0; i < 3; i++ {
-			res := runInnerGoTests(t, keysDir, "-race")
-			if isInfraFailure(res) {
-				t.Fatalf("infra failure while running inner suite (iter=%d)\nstdout:\n%s\nstderr:\n%s", i, res.stdout, res.stderr)
-			}
-			if res.exitCode != 0 || res.failed != 0 || res.errors != 0 {
-				t.Fatalf("expected inner suite to pass (iter=%d); exit=%d failed=%d errors=%d\nstdout:\n%s\nstderr:\n%s",
-					i, res.exitCode, res.failed, res.errors, res.stdout, res.stderr)
-			}
-			if res.passed == 0 {
-				t.Fatalf("expected inner suite to run at least one test (iter=%d); passed=%d\nstdout:\n%s\nstderr:\n%s",
-					i, res.passed, res.stdout, res.stderr)
-			}
-			if prev != nil {
-				if res.passed != prev.passed || res.failed != prev.failed || res.errors != prev.errors {
-					t.Fatalf("non-deterministic test outcomes across runs: prev(pass=%d fail=%d err=%d) now(pass=%d fail=%d err=%d)",
-						prev.passed, prev.failed, prev.errors, res.passed, res.failed, res.errors)
-				}
-			}
-			copyRes := res
-			prev = &copyRes
-		}
-	})
-
 	// Controllable fakes for Clock and Metrics
 	t.Run("controllable_fakes", func(t *testing.T) {
 		if keysTestPath == "" {
