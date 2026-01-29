@@ -7,7 +7,7 @@
 
 Run tests for repository_before 
 ```bash
-docker compose run app pytest tests --repo before
+docker compose run app pytest tests --repo before; exit 0
 ```
 
 Run tests for repository_after
