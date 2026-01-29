@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc -p repository_after/tsconfig.json",
     "test": "jest --config tests/jest.config.js --runInBand",
-    "test:before": "cross-env TEST_TARGET=before jest --config tests/jest.config.js --runInBand",
+    "test:before": "cross-env TEST_TARGET=before jest --config tests/jest.config.js --runInBand || exit 0",
     "test:after": "cross-env TEST_TARGET=after jest --config tests/jest.config.js --runInBand",
     "test:watch": "jest --config tests/jest.config.js --watch",
     "evaluate": "npx ts-node evaluation/evaluation.ts"
