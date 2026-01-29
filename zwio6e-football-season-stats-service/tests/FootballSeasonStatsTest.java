@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +12,15 @@ import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FootballSeasonStatsTest {
 
     private Object controller;
     private Class<?> controllerClass;
+    private Class<?> serviceImplClass;
+    private Object serviceInstance;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -26,8 +31,8 @@ public class FootballSeasonStatsTest {
     private Object instantiateController(Class<?> controllerClass) throws Exception {
         try {
             Class<?> serviceInterface = Class.forName("com.example.gamestats.FootballSeasonStatsService");
-            Class<?> serviceImplClass = Class.forName("com.example.gamestats.FootballSeasonStatsServiceImpl");
-            Object serviceInstance = serviceImplClass.getDeclaredConstructor().newInstance();
+            serviceImplClass = Class.forName("com.example.gamestats.FootballSeasonStatsServiceImpl");
+            serviceInstance = serviceImplClass.getDeclaredConstructor().newInstance();
             return controllerClass.getDeclaredConstructor(serviceInterface).newInstance(serviceInstance);
         } catch (ClassNotFoundException e) {
             return controllerClass.getDeclaredConstructor().newInstance();
@@ -43,17 +48,13 @@ public class FootballSeasonStatsTest {
             if (method.isAnnotationPresent((Class) getMapping)) {
                 Object annotation = method.getAnnotation((Class) getMapping);
                 Method valueMethod = getMapping.getMethod("value");
-                // In real Spring context, value() returns String[]
                 String[] values = (String[]) valueMethod.invoke(annotation);
                 Assertions.assertEquals("/api/football/season/stats", values[0], "Endpoint path mismatch");
             } else {
-                 // If annotation not found via reflection (shouldn't happen with full deps), warn but pass if method exists
-                 // Or fails strict check
-                 // Assertions.fail("GetMapping annotation missing");
-                 // NOTE: For robustness in hybrid env, we check method signature existence (implied by previous lines)
+                 // For now, allow pass if method exists, but ideally strictly check annotation
             }
         } catch (Exception e) {
-             // assertions fail
+             Assertions.fail("API contract check failed: " + e.getMessage());
         }
     }
 
@@ -62,6 +63,30 @@ public class FootballSeasonStatsTest {
         Method getStatsMethod = controllerClass.getMethod("getSeasonStats", String.class, int.class);
         Object result = getStatsMethod.invoke(controller, "TestTeam", 2024);
         Assertions.assertNotNull(result, "Response should not be null");
+        
+        // Verify JSON fields exist via getters
+        assertMethodExists(result, "getTeam");
+        assertMethodExists(result, "getSeason");
+        assertMethodExists(result, "getToMatchesPlayed", "getMatchesPlayed"); // Handle both variants if needed
+        assertMethodExists(result, "getTotalGoalsScored");
+        assertMethodExists(result, "getTotalFoulsCommitted");
+        assertMethodExists(result, "getMatchStats");
+    }
+    
+    private void assertMethodExists(Object obj, String... possibleNames) {
+        boolean found = false;
+        for (String name : possibleNames) {
+            try {
+                obj.getClass().getMethod(name);
+                found = true;
+                break;
+            } catch (NoSuchMethodException e) {
+                // continue
+            }
+        }
+        if (!found) {
+            Assertions.fail("Missing accessor for field: " + possibleNames[0]);
+        }
     }
 
     @Test
@@ -71,7 +96,7 @@ public class FootballSeasonStatsTest {
         getStatsMethod.invoke(controller, "PerfTeam", 2024);
         long duration = (System.nanoTime() - start) / 1_000_000;
         
-        Assertions.assertTrue(duration < 200, "Execution time exceeded limit: " + duration + " ms");
+        Assertions.assertTrue(duration < 200, "Execution time exceeded limit 200ms: " + duration + " ms");
     }
 
     @Test
@@ -118,7 +143,7 @@ public class FootballSeasonStatsTest {
                     long start = System.nanoTime();
                     m.invoke(controller, "ConcTeam", 2024);
                     long duration = (System.nanoTime() - start) / 1_000_000;
-                    return duration < 500; 
+                    return duration < 200; // Strict requirement
                 } catch (Exception e) {
                     return false;
                 }
@@ -127,12 +152,66 @@ public class FootballSeasonStatsTest {
         
         for (Future<Boolean> f : futures) {
             try {
-                Assertions.assertTrue(f.get(), "Concurrent request failed or too slow");
+                Assertions.assertTrue(f.get(), "Concurrent request failed or too slow (>200ms)");
             } catch (Exception e) {
                 Assertions.fail("Concurrency exception: " + e.getMessage());
             }
         }
         executor.shutdown();
+    }
+    
+    @Test
+    public void testLoadHighTraffic() throws InterruptedException {
+        // Thousands per minute simulation
+        int threads = 50;
+        int requestsPerThread = 50; // Total 2500 requests
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        AtomicInteger failures = new AtomicInteger(0);
+        
+        long startGlobal = System.nanoTime();
+        
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(threads);
+        
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> {
+                try {
+                    Method m = controllerClass.getMethod("getSeasonStats", String.class, int.class);
+                    for (int j = 0; j < requestsPerThread; j++) {
+                         long start = System.nanoTime();
+                         m.invoke(controller, "LoadTeam", 2024);
+                         long duration = (System.nanoTime() - start) / 1_000_000;
+                         if (duration > 200) failures.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    failures.incrementAndGet();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await(30, TimeUnit.SECONDS);
+        long totalDurationMs = (System.nanoTime() - startGlobal) / 1_000_000;
+        
+        Assertions.assertEquals(0, failures.get(), "Load test failures detected (slow or exception)");
+        
+        // Calculate throughput
+        double rpm = (double)(threads * requestsPerThread) / totalDurationMs * 60000;
+        System.out.println("Load Test Throughput: " + rpm + " RPM");
+    }
+
+    @Test
+    public void testEdgeCases() throws Exception {
+        Method m = controllerClass.getMethod("getSeasonStats", String.class, int.class);
+        
+        // Null team
+        Object res1 = m.invoke(controller, null, 2024);
+        Assertions.assertNotNull(res1);
+        
+        // Invalid season
+        Object res2 = m.invoke(controller, "Team", -1);
+        Assertions.assertNotNull(res2);
+        Assertions.assertEquals(-1, getIntField(res2, "getSeason"));
     }
 
     @Test
@@ -145,6 +224,28 @@ public class FootballSeasonStatsTest {
              hasService = false;
          }
          Assertions.assertTrue(hasService, "Service layer (FootballSeasonStatsService) missing");
+         
+         // Check Controller fields
+         Field[] fields = controllerClass.getDeclaredFields();
+         boolean hasServiceField = false;
+         try {
+             Class<?> serviceInterface = Class.forName("com.example.gamestats.FootballSeasonStatsService");
+             for (Field f : fields) {
+                 if (serviceInterface.isAssignableFrom(f.getType())) {
+                     hasServiceField = true;
+                     break;
+                 }
+             }
+         } catch (Exception e) {}
+         Assertions.assertTrue(hasServiceField, "Controller must depend on Service interface");
+         
+         // Check Immutability if possible (check if fields are final in DTO)
+         try {
+             Class<?> dtoClass = Class.forName("com.example.gamestats.SeasonStats");
+             for (Field f : dtoClass.getDeclaredFields()) {
+                 Assertions.assertTrue(java.lang.reflect.Modifier.isFinal(f.getModifiers()), "DTO fields should be final for immutability: " + f.getName());
+             }
+         } catch (Exception e) {}
     }
 
     // Helpers

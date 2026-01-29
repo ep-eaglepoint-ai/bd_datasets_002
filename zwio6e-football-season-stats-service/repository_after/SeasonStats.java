@@ -40,6 +40,6 @@ public class SeasonStats {
     }
 
     public List<MatchStats> getMatchStats() {
-        return matchStats;
+        return java.util.Collections.unmodifiableList(matchStats);
     }
 }
