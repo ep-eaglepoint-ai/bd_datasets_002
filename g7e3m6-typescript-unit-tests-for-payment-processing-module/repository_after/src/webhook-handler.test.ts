@@ -35,6 +35,11 @@ describe('WebhookHandler', () => {
     webhookHandler = new WebhookHandler(stripeKey, webhookSecret);
   });
 
+  // Req 19: Restore Date.now after tests that mock it so timestamp-dependent tests do not leak
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   // Req 15: Valid webhook signature verification using Stripe SDK
   it('should return true when verifySignature receives a valid signature', () => {
     stripeInstance.webhooks.constructEvent.mockReturnValue({

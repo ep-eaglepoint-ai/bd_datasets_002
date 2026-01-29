@@ -20,6 +20,7 @@ describe('RefundService', () => {
   let refundService: RefundService;
   let stripeInstance: any;
 
+  // Refund with different currency than original: not implemented (RefundService uses charge.currency only).
   const baseCharge = {
     id: 'ch_123',
     amount: 100,
@@ -202,6 +203,27 @@ describe('RefundService', () => {
 
     const result = await refundService.getRefundStatus('unknown');
     expect(result).toBeNull();
+  });
+
+  // Branch coverage: getRefundStatus when Stripe returns status 'pending'
+  it('should return refund status pending when Stripe refund status is pending', async () => {
+    stripeInstance.refunds.retrieve.mockResolvedValue({
+      id: 're_pending',
+      status: 'pending',
+      amount: 2500,
+      currency: 'usd',
+      payment_intent: 'ch_pending',
+    });
+
+    const result = await refundService.getRefundStatus('re_pending');
+
+    expect(result).toEqual({
+      id: 're_pending',
+      status: 'pending',
+      amount: 25,
+      currency: 'usd',
+      chargeId: 'ch_pending',
+    });
   });
 });
 

@@ -1,9 +1,9 @@
 diff --git a/repository_after/src/payment-service.test.ts b/repository_after/src/payment-service.test.ts
 new file mode 100644
-index 000000000..a531b16f9
+index 000000000..71860984a
 --- /dev/null
 +++ b/repository_after/src/payment-service.test.ts
-@@ -0,0 +1,271 @@
+@@ -0,0 +1,293 @@
 +import Stripe from 'stripe';
 +import { PaymentService, ChargeRequest } from '../../repository_before/src/payment-service';
 +import { PayPalClient } from '../../repository_before/src/paypal-client';
@@ -182,6 +182,28 @@ index 000000000..a531b16f9
 +    stripeInstance.paymentIntents.create.mockRejectedValue(invalidError);
 +
 +    await expect(paymentService.charge(baseRequest)).rejects.toEqual(invalidError);
++  });
++
++  // Req 4: Missing required fields — Stripe rejects invalid/incomplete params; error is propagated
++  it('should propagate Stripe error when request has invalid or missing required fields', async () => {
++    const missingFieldsError = {
++      type: 'StripeInvalidRequestError',
++      message: 'No such customer: \'invalid_customer\'',
++    };
++
++    stripeInstance.paymentIntents.create.mockRejectedValue(missingFieldsError);
++
++    await expect(
++      paymentService.charge({
++        ...baseRequest,
++        customerId: 'invalid_customer',
++      })
++    ).rejects.toEqual(missingFieldsError);
++
++    expect(stripeInstance.paymentIntents.create).toHaveBeenCalledWith(
++      expect.objectContaining({ customer: 'invalid_customer' }),
++      expect.any(Object)
++    );
 +  });
 +
 +  // Req 5: Network timeout during charge (generic error)
@@ -412,10 +434,10 @@ index ea075454d..000000000
 -
 diff --git a/repository_after/src/paypal-client.test.ts b/repository_after/src/paypal-client.test.ts
 new file mode 100644
-index 000000000..94037ec2c
+index 000000000..6ded98678
 --- /dev/null
 +++ b/repository_after/src/paypal-client.test.ts
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,153 @@
 +import { PayPalClient } from '../../repository_before/src/paypal-client';
 +
 +declare const global: any;
@@ -427,6 +449,11 @@ index 000000000..94037ec2c
 +  beforeEach(() => {
 +    paypalClient = new PayPalClient(config);
 +    global.fetch = jest.fn();
++  });
++
++  // Req 19: Restore Date.now after tests that mock it so timestamp-dependent tests do not leak
++  afterEach(() => {
++    jest.restoreAllMocks();
 +  });
 +
 +  const mockFetchResponse = (ok: boolean, jsonData: any) => {
@@ -555,6 +582,13 @@ index 000000000..94037ec2c
 +
 +    await expect(paypalClient.captureOrder('order_123')).rejects.toThrow('Capture error');
 +  });
++
++  // Req 6: Network error — fetch rejects (e.g. connection failure)
++  it('should throw when getAccessToken fails due to network error', async () => {
++    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network request failed'));
++
++    await expect(paypalClient.getAccessToken()).rejects.toThrow('Network request failed');
++  });
 +});
 +
 diff --git a/repository_before/src/paypal-client.ts b/repository_before/src/paypal-client.ts
@@ -673,10 +707,10 @@ index 58aa0e60c..000000000
 -
 diff --git a/repository_after/src/refund-service.test.ts b/repository_after/src/refund-service.test.ts
 new file mode 100644
-index 000000000..e4250e242
+index 000000000..260876ad0
 --- /dev/null
 +++ b/repository_after/src/refund-service.test.ts
-@@ -0,0 +1,207 @@
+@@ -0,0 +1,229 @@
 +import Stripe from 'stripe';
 +import { RefundService, RefundRequest } from '../../repository_before/src/refund-service';
 +
@@ -699,6 +733,7 @@ index 000000000..e4250e242
 +  let refundService: RefundService;
 +  let stripeInstance: any;
 +
++  // Refund with different currency than original: not implemented (RefundService uses charge.currency only).
 +  const baseCharge = {
 +    id: 'ch_123',
 +    amount: 100,
@@ -881,6 +916,27 @@ index 000000000..e4250e242
 +
 +    const result = await refundService.getRefundStatus('unknown');
 +    expect(result).toBeNull();
++  });
++
++  // Branch coverage: getRefundStatus when Stripe returns status 'pending'
++  it('should return refund status pending when Stripe refund status is pending', async () => {
++    stripeInstance.refunds.retrieve.mockResolvedValue({
++      id: 're_pending',
++      status: 'pending',
++      amount: 2500,
++      currency: 'usd',
++      payment_intent: 'ch_pending',
++    });
++
++    const result = await refundService.getRefundStatus('re_pending');
++
++    expect(result).toEqual({
++      id: 're_pending',
++      status: 'pending',
++      amount: 25,
++      currency: 'usd',
++      chargeId: 'ch_pending',
++    });
 +  });
 +});
 +
@@ -1513,10 +1569,10 @@ index 000000000..c6f3cb2df
 +
 diff --git a/repository_after/src/webhook-handler.test.ts b/repository_after/src/webhook-handler.test.ts
 new file mode 100644
-index 000000000..172cd9ecd
+index 000000000..2eba6f23c
 --- /dev/null
 +++ b/repository_after/src/webhook-handler.test.ts
-@@ -0,0 +1,241 @@
+@@ -0,0 +1,246 @@
 +import Stripe from 'stripe';
 +import crypto from 'crypto';
 +import { WebhookHandler } from '../../repository_before/src/webhook-handler';
@@ -1552,6 +1608,11 @@ index 000000000..172cd9ecd
 +
 +    MockedStripe.mockImplementation(() => stripeInstance as any);
 +    webhookHandler = new WebhookHandler(stripeKey, webhookSecret);
++  });
++
++  // Req 19: Restore Date.now after tests that mock it so timestamp-dependent tests do not leak
++  afterEach(() => {
++    jest.restoreAllMocks();
 +  });
 +
 +  // Req 15: Valid webhook signature verification using Stripe SDK

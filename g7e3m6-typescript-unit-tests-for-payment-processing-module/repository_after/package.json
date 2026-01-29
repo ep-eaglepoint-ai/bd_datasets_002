@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "npx jest --runInBand",
-    "test:watch": "npx jest --watch"
+    "test:watch": "npx jest --watch",
+    "test:stability": "node scripts/test-stability.js"
   },
   "dependencies": {
     "stripe": "^14.0.0"

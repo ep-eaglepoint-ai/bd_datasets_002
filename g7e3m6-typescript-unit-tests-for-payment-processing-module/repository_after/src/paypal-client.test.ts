@@ -11,6 +11,11 @@ describe('PayPalClient', () => {
     global.fetch = jest.fn();
   });
 
+  // Req 19: Restore Date.now after tests that mock it so timestamp-dependent tests do not leak
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   const mockFetchResponse = (ok: boolean, jsonData: any) => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok,
@@ -136,6 +141,13 @@ describe('PayPalClient', () => {
     });
 
     await expect(paypalClient.captureOrder('order_123')).rejects.toThrow('Capture error');
+  });
+
+  // Req 6: Network error — fetch rejects (e.g. connection failure)
+  it('should throw when getAccessToken fails due to network error', async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network request failed'));
+
+    await expect(paypalClient.getAccessToken()).rejects.toThrow('Network request failed');
   });
 });
 

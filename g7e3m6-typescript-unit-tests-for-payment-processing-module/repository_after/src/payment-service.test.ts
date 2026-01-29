@@ -178,6 +178,28 @@ describe('PaymentService', () => {
     await expect(paymentService.charge(baseRequest)).rejects.toEqual(invalidError);
   });
 
+  // Req 4: Missing required fields — Stripe rejects invalid/incomplete params; error is propagated
+  it('should propagate Stripe error when request has invalid or missing required fields', async () => {
+    const missingFieldsError = {
+      type: 'StripeInvalidRequestError',
+      message: 'No such customer: \'invalid_customer\'',
+    };
+
+    stripeInstance.paymentIntents.create.mockRejectedValue(missingFieldsError);
+
+    await expect(
+      paymentService.charge({
+        ...baseRequest,
+        customerId: 'invalid_customer',
+      })
+    ).rejects.toEqual(missingFieldsError);
+
+    expect(stripeInstance.paymentIntents.create).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: 'invalid_customer' }),
+      expect.any(Object)
+    );
+  });
+
   // Req 5: Network timeout during charge (generic error)
   it('should throw when network timeout occurs during charge', async () => {
     const timeoutError = new Error('Request timed out');

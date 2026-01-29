@@ -1,48 +1,48 @@
 ## Trajectory: Payment Processing Test Suite
 
-This task is in the Testing category and uses TRANSFORMATION mode: I am improving tests around an existing TypeScript payment processing module (`repository_before` → `repository_after`), not rewriting the core business logic.
+This task adds unit tests for an existing TypeScript payment processing module. The code under test lives in `repository_before` (PaymentService, RefundService, SubscriptionService, WebhookHandler, PayPalClient). Tests and test config live in `repository_after`. The goal is to meet the 25 numbered requirements and 90% coverage without calling real Stripe, PayPal, or HTTP APIs.
 
-### 1. Audit / Requirements Analysis
+### 1. Audit and requirements
 
-I read `req.txt`, the existing services (payment, refund, subscription, webhooks, PayPal client), and the meta-tests to understand what the suite should guarantee. The main gaps were: missing per-service tests, weak mapping from requirements to tests, and no hard coverage guarantees. I also noted that external systems (Stripe, PayPal, HTTP) must never be called for real in tests.
+I read the task requirements (the 25 criteria), the five services in `repository_before`, and the meta-tests in `tests/meta-requirements.test.ts`. The main gaps were: no per-service test files, no clear link from each requirement to a test, and no coverage thresholds. The requirements state that all external calls (Stripe SDK, PayPal/fetch) must be mocked.
 
-### 2. Question Assumptions
+### 2. Assumptions and scope
 
-At first it was tempting to test the new `repository_after` implementations directly, but the framework expects tests to target `repository_before` so that "before fails, after passes" is meaningful. I narrowed scope to only what the requirements actually ask for: realistic unit and integration tests around the existing APIs, not a full redesign of the services. This kept the work focused and avoided over-engineering helpers or abstractions that were not needed.
+Tests must target the implementation in `repository_before` (imports from `../../repository_before/src/...`) so that the evaluation can distinguish "before" (no or failing tests) from "after" (passing tests). I limited scope to what the requirements ask: unit tests with mocks, success and failure paths, edge cases, and coverage. I did not change the service implementations.
 
-### 3. Define Success Criteria
+### 3. Success criteria
 
-I defined "done" as: all requirements 1–25 appear as `Req X:` markers in the tests, Jest coverage thresholds at or above 90% for branches, functions, lines, and statements, and all tests passing in `repository_after` while `repository_before` remains incomplete. Success also meant no focused tests (`.only`) and no accidental real network or SDK usage. The evaluation script’s JSON report serves as the final check that these conditions hold.
+Done means: (1) all 25 requirements are covered by at least one test, with `Req X:` comments where useful, (2) Jest coverage thresholds are at least 90% for branches, functions, lines, and statements, (3) all tests in `repository_after` pass when run with `REPO_PATH=repository_after`, and (4) no real network or SDK usage. The evaluation script runs the meta-tests and produces a JSON report used to verify these conditions.
 
-### 4. Map Requirements to Validation
+### 4. Mapping requirements to tests
 
-For each numbered requirement, I decided what kind of test would prove it: unit, interaction between services, or meta-test. I then used comments like `Req 7:` inside the test files so we can mechanically verify coverage of requirements from `req.txt`. The separate `tests/meta-requirements.test.ts` file enforces this mapping and also checks for Jest config and mocking rules.
+For each requirement I decided whether it is covered by a unit test (e.g. payment-service.test.ts), a meta-test (e.g. file presence, coverage in jest.config.js), or both. Comments like `Req 7:` in test files help trace back to the requirement. The file `tests/meta-requirements.test.ts` checks that the right test files exist, that Stripe and PayPal are mocked, that coverage thresholds are set, and that test names and structure follow the rules.
 
-### 5. Scope the Solution
+### 5. What was changed
 
-I scoped changes to: per-service Jest test files in `repository_after/src`, a Jest setup file for shared mocks, a strict Jest config with coverage thresholds, and the evaluation script. I avoided touching the core service implementations in `repository_before/src` so that behavior under test stayed stable. This kept the change surface small and easier to reason about.
+All changes are in `repository_after` and in the shared `tests/` and `evaluation/` folders. I added: one test file per service (payment-service.test.ts, refund-service.test.ts, subscription-service.test.ts, webhook-handler.test.ts, paypal-client.test.ts), a Jest config with coverage and moduleNameMapper for the Stripe mock, a setup file that mocks fetch by default, and the Stripe __mocks__ stub. I did not modify the source files in `repository_before`.
 
-### 6. Trace Data and Control Flow
+### 6. Data and control flow
 
-I walked through each service’s typical flow: for example, a payment request moving through validation, interaction with Stripe, and error handling. In tests, the real external hops are replaced with mocks, but the flow of data (inputs, intermediate values, outputs) still mirrors production behavior. This made it clear where to assert on state, logs, and side effects without relying on real network calls.
+For each service I followed the flow from request to response: validation, call to Stripe or PayPal (mocked), and handling of success or error. Tests replace Stripe/PayPal/fetch with mocks and assert on arguments passed to mocks and on return values or thrown errors. This keeps behavior aligned with the real flow without hitting the network.
 
-### 7. Anticipate Objections
+### 7. Trade-offs
 
-I considered a few concerns: tests might be too tightly coupled to implementation details, coverage thresholds might be hard to maintain, and mocking Stripe/PayPal/fetch might hide real integration bugs. To keep coupling reasonable, I focused assertions on observable behavior and public APIs. Coverage thresholds are justified here because the module is small and safety-critical, and integration issues can be handled in a different test layer outside this repo.
+Tests could be tied too closely to implementation; I tried to assert on public behavior and mock boundaries. Coverage thresholds add maintenance when code grows; they are kept because the module is payment-related and small. Mocking everything means real integration bugs are not caught here; that is left to integration or E2E tests elsewhere.
 
-### 8. Verify Invariants and Constraints
+### 8. Invariants
 
-Throughout the work, I kept a few invariants in mind: no test should reach the real network, no code in `repository_after` should be imported directly by tests, and the meta-tests must keep enforcing these rules. I also preserved the existing public function signatures so any external consumers would not be broken by changes to tests or config. These constraints guided small decisions like where to place mocks and how to structure imports.
+No test may call the real Stripe API, PayPal API, or fetch. Tests must import implementation from `repository_before`, not from `repository_after`. Meta-tests enforce file names, coverage config, and the presence of mocks. Public APIs of the services were not changed.
 
-### 9. Execute in a Safe Order
+### 9. Order of work
 
-I first created or adjusted the Jest config and setup file so the environment was predictable. Next, I implemented per-service test files, one service at a time, mapping requirements and stabilizing mocks. After that, I added the meta-tests that assert on file presence, coverage thresholds, and mocking rules. Finally, I wired up and ran the evaluation script to confirm that `repository_after` passes and `repository_before` does not.
+I set up Jest config and the Stripe mock first, then the setup file. I implemented the five test files one by one, aligning each with the relevant requirements. Meta-tests were already present and were used to verify file names, coverage, and mocking. The evaluation script was run to confirm that `repository_after` passes and that the report is generated.
 
-### 10. Measure Impact and Verify Completion
+### 10. How completion was verified
 
-I relied on Jest’s coverage report and the evaluation script’s JSON output to measure impact. The key checks were: coverage numbers meeting the 90% thresholds, all tests in `repository_after` passing, and the meta-tests confirming requirement mapping and mocking practices. When those conditions held consistently, I considered the test suite complete for this task.
+Jest was run with coverage from `repository_after`; the report was checked for 90%+ on branches, functions, lines, and statements. The meta-tests were run with `REPO_PATH=repository_after` and must pass. The evaluation script’s JSON output is the formal record that the task conditions are met.
 
-### 11. Document the Decision
+### 11. Summary
 
-In short, the problem was a payment processing module with under-specified, under-enforced tests; the solution was a focused Jest suite plus meta-tests and an evaluation script that encode the desired guarantees. The trade-off is more upfront work to maintain coverage and mocking rules, in exchange for higher confidence and repeatable evaluation. This trajectory explains why the tests are structured this way and when to revisit them: mainly if the public APIs or external integration approach for payments, refunds, subscriptions, or webhooks change in a significant way.
+The task was to add a comprehensive, requirement-grounded unit test suite for the payment module with mocks and 90% coverage. The solution is the Jest suite in `repository_after`, the meta-tests in `tests/`, and the evaluation script. Revisit the tests when the public APIs of the services or the way Stripe/PayPal are integrated change in a meaningful way.
 

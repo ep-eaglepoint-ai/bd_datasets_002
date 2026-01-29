@@ -24,4 +24,6 @@ module.exports = {
     },
   },
   setupFilesAfterEnv: ['<rootDir>/src/test-utils/jest-setup.ts'],
+  // Req 24: Ensure full suite completes within 10 seconds
+  testTimeout: 10000,
 };
