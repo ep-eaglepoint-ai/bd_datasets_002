@@ -1,0 +1,30 @@
+{
+  "run_id": "80e8a30e",
+  "started_at": "2026-01-28T11:12:19.871243",
+  "finished_at": "2026-01-28T11:12:20.414218",
+  "duration_seconds": 0.542975,
+  "success": true,
+  "error": null,
+  "environment": {
+    "python_version": "3.11.14 (main, Jan 13 2026, 03:12:14) [GCC 14.2.0]",
+    "platform": "Linux-6.14.0-37-generic-x86_64-with-glibc2.41",
+    "architecture": [
+      "64bit",
+      ""
+    ],
+    "processor": ""
+  },
+  "results": {
+    "after": {
+      "success": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /usr/local/bin/python\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 21 items\n\ntests/test_requirements.py::TestQuineBehavior::test_prints_encrypted_payload PASSED [  4%]\ntests/test_requirements.py::TestPayloadEncoding::test_payload_is_base64_encoded PASSED [  9%]\ntests/test_requirements.py::TestPayloadEncoding::test_payload_is_zlib_compressed PASSED [ 14%]\ntests/test_requirements.py::TestPayloadEncoding::test_no_plaintext_hamming_in_source PASSED [ 19%]\ntests/test_requirements.py::TestPayloadEncoding::test_no_plaintext_sieve_in_source PASSED [ 23%]\ntests/test_requirements.py::TestTimeBasedDecryption::test_even_minute_decrypts_with_key_a PASSED [ 28%]\ntests/test_requirements.py::TestTimeBasedDecryption::test_odd_minute_decrypts_with_key_b PASSED [ 33%]\ntests/test_requirements.py::TestTimeBasedDecryption::test_single_payload_reused PASSED [ 38%]\ntests/test_requirements.py::TestManualXORImplementation::test_manual_xor_function_exists PASSED [ 42%]\ntests/test_requirements.py::TestManualXORImplementation::test_manual_xor_works_correctly PASSED [ 47%]\ntests/test_requirements.py::TestManualXORImplementation::test_no_xor_operator_in_source PASSED [ 52%]\ntests/test_requirements.py::TestManualBitLengthImplementation::test_manual_bit_length_function_exists PASSED [ 57%]\ntests/test_requirements.py::TestManualBitLengthImplementation::test_manual_bit_length_works PASSED [ 61%]\ntests/test_requirements.py::TestExecutionModel::test_exec_is_used PASSED [ 66%]\ntests/test_requirements.py::TestExecutionModel::test_decrypted_code_is_executable PASSED [ 71%]\ntests/test_requirements.py::TestStandardLibraryOnly::test_only_allowed_imports PASSED [ 76%]\ntests/test_requirements.py::TestStandardLibraryOnly::test_no_external_libraries PASSED [ 80%]\ntests/test_requirements.py::TestFunctionality::test_hamming_distance_function_works PASSED [ 85%]\ntests/test_requirements.py::TestFunctionality::test_sieve_function_works PASSED [ 90%]\ntests/test_requirements.py::TestSingleScript::test_single_file PASSED    [ 95%]\ntests/test_requirements.py::TestSingleScript::test_script_is_runnable PASSED [100%]\n\n============================== 21 passed in 0.05s ==============================\n",
+      "stderr": "",
+      "summary": {
+        "total": 0,
+        "passed": 0,
+        "failed": 0
+      }
+    }
+  }
+}
