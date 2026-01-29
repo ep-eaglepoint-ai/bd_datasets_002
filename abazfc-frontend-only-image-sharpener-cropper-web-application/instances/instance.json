@@ -1,0 +1,11 @@
+{
+            "instance_id": "ABAZFC",
+            "problem_statement": "Many users need to quickly crop and enhance image sharpness before sharing or downloading images, but existing tools are either heavy, require backend uploads, or compromise privacy. There is a need for a lightweight, privacy-friendly, browser-based image editing tool that performs cropping and sharpening entirely on the client side with fast previews and simple controls.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/abazfc-frontend-only-image-sharpener-cropper-web-application",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
