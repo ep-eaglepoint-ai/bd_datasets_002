@@ -1,6 +1,67 @@
+# services:
+#   app:
+#     build: .
+#     command: pytest -q tests
+#     volumes:
+#       - .:/app
+
 services:
-  app:
+  web:
     build: .
-    command: pytest -q tests
+    ports:
+      - "8000:8000"
     volumes:
-      - .:/app
+      - ./repository_after:/app/repository_after
+      - ./tests:/app/tests
+      - ./evaluation:/app/evaluation
+    command: python repository_after/audio_recorder.py
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  tests:
+    build: .
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before  # ADD THIS
+      - ./repository_after:/app/repository_after
+    command: python -m pytest tests/ -v
+
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before  # ADD THIS
+      - ./repository_after:/app/repository_after
+    command: python evaluation/evaluation.py
+
+
+# version: '3.8'
+
+# services:
+#   web:
+#     build: .
+#     ports:
+#       - "8000:8000"
+#     volumes:
+#       - ./repository_after:/app/repository_after
+#       - ./tests:/app/tests
+#       - ./evaluation:/app/evaluation
+#     command: python repository_after/audio_recorder.py
+#     environment:
+#       - PYTHONUNBUFFERED=1
+
+#   tests:
+#     build: .
+#     volumes:
+#       - ./tests:/app/tests
+#       - ./repository_after:/app/repository_after
+#     command: python -m pytest tests/ -v
+
+#   evaluation:
+#     build: .
+#     volumes:
+#       - ./evaluation:/app/evaluation
+#       - ./tests:/app/tests
+#       - ./repository_after:/app/repository_after
+#     command: python evaluation/evaluation.py

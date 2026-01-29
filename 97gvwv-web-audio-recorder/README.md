@@ -1,5 +1,12 @@
 # 97GVWV - Web Audio Recorder
+# Test BEFORE version
+docker compose run --rm tests python -m pytest tests/test_before.py -v
 
+# Test AFTER version  
+docker compose run --rm tests python -m pytest tests/test_after.py -v
+
+# Run comparison tests
+docker compose run --rm tests python -m pytest tests/test_comparison.py -v
 **Category:** sft
 
 ## Overview
