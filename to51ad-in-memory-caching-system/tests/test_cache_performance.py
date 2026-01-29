@@ -142,7 +142,7 @@ class TestSortingPerformance:
         assert elapsed < 0.05, f"get_most_accessed took {elapsed:.3f}s, expected < 0.05s"
         assert len(result) == 10
 
-
+@pytest.mark.timeout(10)
 class TestComplexKeyPerformance:
     def test_complex_key_operations(self):
         cache = Cache(max_size=10000, default_ttl=300, logging_enabled=False)
@@ -166,7 +166,7 @@ class TestComplexKeyPerformance:
         assert set_ops >= 15000, f"Complex key set {set_ops:.0f}/sec below threshold"
         assert get_ops >= 40000, f"Complex key get {get_ops:.0f}/sec below threshold"
 
-
+@pytest.mark.timeout(10)
 class TestPatternSearchPerformance:
     def test_prefix_search_uses_startswith(self):
         cache = Cache(max_size=20000, default_ttl=300, logging_enabled=False)
@@ -194,7 +194,7 @@ class TestPatternSearchPerformance:
         assert elapsed < 0.2, f"Pattern search took {elapsed:.3f}s, expected < 0.2s"
         assert len(results) == 10000
 
-
+@pytest.mark.timeout(10)
 class TestTTLCleanupPerformance:
     def test_ttl_cleanup_uses_heap(self):
         cache = Cache(max_size=20000, default_ttl=0.001, logging_enabled=False)
@@ -211,7 +211,7 @@ class TestTTLCleanupPerformance:
         assert elapsed < 0.1, f"Cleanup took {elapsed:.3f}s, expected < 0.1s"
         assert expired == 10000
 
-
+@pytest.mark.timeout(10)
 class TestLoggingPerformance:
     def test_logging_disabled_overhead(self):
         cache_with_log = Cache(max_size=50000, default_ttl=300, logging_enabled=True)
@@ -234,7 +234,7 @@ class TestLoggingPerformance:
         overhead = (time_with_log - time_no_log) / time_no_log if time_no_log > 0 else 0
         assert overhead < 0.5, f"Logging overhead {overhead:.1%} exceeds 50%"
 
-
+@pytest.mark.timeout(10)
 class TestFunctionalCorrectness:
     def test_basic_set_get(self):
         cache = Cache(max_size=100, default_ttl=300)
@@ -292,6 +292,7 @@ class TestFunctionalCorrectness:
         result = cache.get_or_set('key', lambda: 'new_value')
         assert result == 'computed_value'
     
+
     def test_keys_values_items(self):
         cache = Cache(max_size=100, default_ttl=300)
         cache.set('a', 1)
