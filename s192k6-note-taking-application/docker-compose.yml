@@ -1,0 +1,90 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: notes_db
+    environment:
+      POSTGRES_USER: notes_user
+      POSTGRES_PASSWORD: notes_password
+      POSTGRES_DB: notes_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - notes_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notes_user -d notes_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./repository_after/server
+    container_name: notes_api
+    environment:
+      PORT: 3001
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: notes_user
+      DB_PASSWORD: notes_password
+      DB_NAME: notes_app
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npm run migrate && npm start"
+
+  client:
+    build: ./repository_after/client
+    container_name: notes_client
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    command: npm run dev -- --host
+
+  tests:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_after:/app/repository_after
+    working_dir: /app/tests
+    environment:
+      - API_BASE_URL=http://api:3001
+      - API_PREFIX=/api
+    depends_on:
+      - api
+    command: sh -c "cd /app/repository_after/client && npm install && cd /app/repository_after/server && npm install && cd /app/tests && npm run test:frontend && npm run test:backend"
+
+  evaluation:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    container_name: notes_evaluation
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./repository_after:/app/repository_after
+      - ./tests:/app/tests
+    environment:
+      - API_BASE_URL=http://api:3001
+      - API_PREFIX=/api
+    command: >
+      sh -c "
+      until wget -qO- http://api:3001/api/health >/dev/null; do
+        echo 'waiting for api...';
+        sleep 2;
+      done &&
+      cd /app/repository_after/client && npm install &&
+      cd /app/repository_after/server && npm install &&
+      node /app/evaluation/evaluation.js
+      "
+    depends_on:
+      - api
+
+volumes:
+  notes_db_data:

@@ -1,0 +1,11 @@
+{
+            "instance_id": "S192K6",
+            "problem_statement": "Design and implement a web-based personal Note-Taking Application that allows users to persistently store textual notes with flexible tag-based categorization. Each note may belong to multiple tags simultaneously, enabling powerful organization and retrieval. The system must support the full lifecycle of notes, including creation, modification, filtering by tags, and permanent deletion. Tag-based filtering must be efficient, accurate, and scalable. Data integrity and consistency must be maintained at all times.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/s192k6-note-taking-application",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
