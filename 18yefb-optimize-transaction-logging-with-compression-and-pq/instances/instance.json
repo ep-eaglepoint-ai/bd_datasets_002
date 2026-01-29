@@ -10,6 +10,8 @@
         "tests/telecomTopUP.test.ts::InlineCompressor should compress data",
         "tests/telecomTopUP.test.ts::compression should be deterministic (same input = same output)",
         "tests/telecomTopUP.test.ts::large logs should be truncated to 1KB for O(1) space",
+        "tests/telecomTopUP.test.ts::sendLog should be deterministic (same input = same compression/signature)",
+        "tests/telecomTopUP.test.ts::O(1) constraint: output size bounded regardless of input size",
         "tests/telecomTopUP.test.ts::sendLog should return a signature",
         "tests/telecomTopUP.test.ts::DilithiumPQSigner should sign data",
         "tests/telecomTopUP.test.ts::signature should be deterministic (same input = same signature)",

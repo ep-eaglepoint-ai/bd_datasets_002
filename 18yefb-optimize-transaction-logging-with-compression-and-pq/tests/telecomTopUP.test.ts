@@ -1,9 +1,6 @@
 /**
  * Test suite for Telecom TopUp Transaction Logging
- * Tests compression, PQ signing, and verification requirements
- * 
- * These tests FAIL on repository_before (no compression/signing)
- * These tests PASS on repository_after (with compression/signing)
+ * Tests compression, signing, verification, and determinism
  */
 
 import {
@@ -59,6 +56,47 @@ describe('Transaction Logging Optimization', () => {
 
       // Compression of 1KB fixed input should produce consistent size
       expect(Buffer.isBuffer(compressed)).toBe(true);
+    });
+
+    test('O(1) constraint: output size bounded regardless of input size', () => {
+      // Test with different input sizes
+      const smallInput = 'A'.repeat(100);      // 100 bytes
+      const mediumInput = 'B'.repeat(1000);    // 1KB
+      const largeInput = 'C'.repeat(10000);    // 10KB
+      const hugeInput = 'D'.repeat(100000);    // 100KB
+
+      const smallCompressed = InlineCompressor.compress(smallInput);
+      const mediumCompressed = InlineCompressor.compress(mediumInput);
+      const largeCompressed = InlineCompressor.compress(largeInput);
+      const hugeCompressed = InlineCompressor.compress(hugeInput);
+
+      // All outputs should be bounded (truncation ensures O(1) space)
+      // Large and huge inputs should produce same size due to 1KB truncation
+      expect(largeCompressed.length).toBe(hugeCompressed.length);
+
+      // All compressed outputs should be smaller than LOG_BUFFER_SIZE
+      expect(smallCompressed.length).toBeLessThanOrEqual(LOG_BUFFER_SIZE);
+      expect(mediumCompressed.length).toBeLessThanOrEqual(LOG_BUFFER_SIZE);
+      expect(largeCompressed.length).toBeLessThanOrEqual(LOG_BUFFER_SIZE);
+      expect(hugeCompressed.length).toBeLessThanOrEqual(LOG_BUFFER_SIZE);
+    });
+
+    test('sendLog should be deterministic (same input = same compression/signature)', () => {
+      const testData: APILogData = {
+        APIEndpoint: '/test',
+        method: 'POST',
+        HTTPStatusCode: 200,
+        request: {},
+        response: {},
+        headers: {},
+      };
+
+      const result1 = sendLog('Test message', 'info', testData);
+      const result2 = sendLog('Test message', 'info', testData);
+
+      // Same input should produce same compressed data and signature
+      expect(result1.compressedData.equals(result2.compressedData)).toBe(true);
+      expect(result1.signature.equals(result2.signature)).toBe(true);
     });
   });
 

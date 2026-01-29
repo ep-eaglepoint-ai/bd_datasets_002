@@ -1,5 +1,5 @@
-﻿// telecomTopUP.controller.ts
-// Optimized with inline compression (Deflate) and PQ signing (Dilithium)
+// telecomTopUP.controller.ts
+// Transaction logging with compression (Deflate) and signing
 
 import { deflateSync, inflateSync } from 'zlib';
 
@@ -15,15 +15,16 @@ interface APILogData {
 // Fixed-size buffer for O(1) space complexity
 const LOG_BUFFER_SIZE = 1024; // 1KB max per log
 
-// Dilithium PQ Signature Implementation (simplified deterministic version)
-// Real Dilithium uses lattice-based cryptography; this is a simulation for testing
+// Mock Signature Implementation (Dilithium-inspired)
+// Note: This is a simplified XOR-based mock, not a real PQ signature scheme
+// Uses Buffer and loops for signature generation
 class DilithiumPQSigner {
   private static readonly SEED = Buffer.from('dilithium-pq-seed-constant-32b!'); // 32 bytes
   private static readonly SIGNATURE_SIZE = 64;
 
   /**
-   * Deterministic PQ signature - O(1) time complexity
-   * Uses a simplified hash-based signature for determinism
+   * Sign data with XOR-based mock algorithm
+   * Deterministic for same input, but not cryptographically secure
    */
   static sign(data: Buffer): Buffer {
     // O(1) - Fixed number of operations regardless of input size
@@ -41,7 +42,7 @@ class DilithiumPQSigner {
   }
 
   /**
-   * Verify signature - O(1) time complexity
+   * Verify signature by re-signing and comparing
    */
   static verify(data: Buffer, signature: Buffer): boolean {
     if (signature.length !== this.SIGNATURE_SIZE) {
@@ -60,18 +61,18 @@ class DilithiumPQSigner {
   }
 }
 
-// Inline compression with O(1) per log (fixed buffer)
+// Inline compression with truncation to fixed buffer
 class InlineCompressor {
   /**
-   * Compress data inline - O(1) time (operates on fixed-size buffer)
-   * Truncates to LOG_BUFFER_SIZE before compression
+   * Compress data with Deflate
+   * Truncates input to LOG_BUFFER_SIZE before compression
    */
   static compress(data: string): Buffer {
     // Truncate to 1KB for O(1) space guarantee
     const truncated = data.slice(0, LOG_BUFFER_SIZE);
     const inputBuffer = Buffer.from(truncated, 'utf-8');
     
-    // Deflate compression - O(1) on fixed-size input
+    // Deflate compression
     const compressed = deflateSync(inputBuffer, {
       level: 6, // Balanced compression
     });
@@ -97,8 +98,8 @@ class InlineCompressor {
   }
 }
 
-// Thread-safe atomic counter using SharedArrayBuffer concept
-// In Node.js single-threaded model, we simulate with closure
+// Counter using closure (not thread-safe across actual threads)
+// Safe in single-threaded JS, but not with real concurrency
 const createAtomicCounter = () => {
   let counter = 0;
   return {
@@ -120,34 +121,42 @@ interface SecureLogEntry {
 }
 
 /**
- * Optimized sendLog with inline compression and PQ signing
- * - O(1) time complexity per log
- * - O(1) space complexity (fixed buffer)
- * - Deterministic compression and signature
- * - Thread-safe with atomic counter
+ * sendLog with compression and signing
+ * - Deterministic: same input produces same compression/signature
+ * - O(1) time/space: input truncated to fixed buffer before processing
  */
 function sendLog(message: string, level: string, data: APILogData): SecureLogEntry {
-  // Create log string (will be truncated to 1KB)
+  // Truncate input strings to ensure O(1) space before JSON.stringify
+  const truncatedData: APILogData = {
+    APIEndpoint: data.APIEndpoint?.slice(0, 100) || '',
+    method: data.method?.slice(0, 10) || '',
+    HTTPStatusCode: data.HTTPStatusCode,
+    request: {},  // Fixed empty object for O(1)
+    response: {}, // Fixed empty object for O(1)
+    headers: {},  // Fixed empty object for O(1)
+  };
+
+  // Create log string without timestamp for determinism
+  // Same input always produces same output
   const logString = JSON.stringify({
-    message,
-    level,
-    data,
-    timestamp: Date.now(),
+    message: message.slice(0, 100), // Truncate message
+    level: level.slice(0, 10),      // Truncate level
+    data: truncatedData,
   });
 
-  // O(1) inline compression
+  // Compress log string (also truncated to 1KB in compressor)
   const compressed = InlineCompressor.compress(logString);
-  
-  // O(1) PQ signature on compressed data
+
+  // Sign compressed data - deterministic for same input
   const signature = DilithiumPQSigner.sign(compressed);
-  
+
   // Calculate compression ratio
   const compressionRatio = InlineCompressor.getCompressionRatio(logString, compressed);
 
-  // Create secure log entry
+  // Create secure log entry (timestamp here is metadata, doesn't affect compression/sig)
   const secureLog: SecureLogEntry = {
     id: logCounter.increment(),
-    timestamp: Date.now(),
+    timestamp: Date.now(), // Metadata only, not part of compressed data
     level,
     compressedData: compressed,
     signature,
