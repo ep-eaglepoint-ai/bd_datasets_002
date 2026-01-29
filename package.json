@@ -1,0 +1,15 @@
+{
+  "name": "circuit-breaker-state-testing",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/CircuitBreakerTest.js",
+    "test:coverage": "cross-env NODE_V8_COVERAGE=coverage node --test --experimental-test-coverage tests/CircuitBreakerTest.js"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

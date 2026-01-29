@@ -1,0 +1,73 @@
+{
+    "name": "Circuit Breaker State Testing",
+    "description": "Test suite for Circuit Breaker state machine implementation",
+    "requirements": [
+        {
+            "id": 1,
+            "description": "Achieve 100% branch coverage, including the implicit branches in updateState and handleFailure logic",
+            "test_cases": [
+                "Basic state transitions",
+                "updateState edge cases",
+                "handleFailure edge cases"
+            ]
+        },
+        {
+            "id": 2,
+            "description": "Implement time-sensitive tests: Use mocking to simulate passage of resetTimeout",
+            "test_cases": [
+                "HALF_OPEN transition after timeout",
+                "No transition before timeout"
+            ]
+        },
+        {
+            "id": 3,
+            "description": "Verify Half-Open Recovery path: Success in HALF_OPEN transitions back to CLOSED",
+            "test_cases": [
+                "Successful action in HALF_OPEN state",
+                "Async success in HALF_OPEN state"
+            ]
+        },
+        {
+            "id": 4,
+            "description": "Verify Half-Open Failure path: Failure in HALF_OPEN transitions back to OPEN",
+            "test_cases": [
+                "Failure in HALF_OPEN state",
+                "lastFailureTime update in HALF_OPEN"
+            ]
+        },
+        {
+            "id": 5,
+            "description": "Validate failureThreshold boundary",
+            "test_cases": [
+                "2nd failure keeps CLOSED, 3rd triggers OPEN",
+                "Custom threshold validation"
+            ]
+        },
+        {
+            "id": 6,
+            "description": "Simulate asynchronous action that takes 100ms to resolve",
+            "test_cases": [
+                "100ms delayed success",
+                "Async failure handling"
+            ]
+        },
+        {
+            "id": 7,
+            "description": "Adversarial test with concurrent calls at resetTimeout expiration",
+            "test_cases": [
+                "Multiple concurrent calls at timeout boundary",
+                "Concurrent failures consistency"
+            ]
+        },
+        {
+            "id": 8,
+            "description": "Ensure CIRCUIT_OPEN error is thrown immediately in OPEN state",
+            "test_cases": [
+                "Immediate error without calling action",
+                "Action not called when OPEN"
+            ]
+        }
+    ],
+    "coverage_target": 100,
+    "test_count": 28
+}
