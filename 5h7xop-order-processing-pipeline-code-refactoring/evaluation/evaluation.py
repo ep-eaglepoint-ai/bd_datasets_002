@@ -67,16 +67,13 @@ def run_tests(repo_path: Path) -> Dict[str, Any]:
             # Copy tests to the repository (if tests directory exists)
             tests_src_dir = ROOT / "tests"
             if tests_src_dir.exists():
-                test_dest = temp_repo / "src" / "test" / "java"
+                # Fix: Target specific package directory as tests are flat but have package declaration
+                test_dest = temp_repo / "src" / "test" / "java" / "com" / "ecommerce" / "order"
                 test_dest.mkdir(parents=True, exist_ok=True)
                 
                 # Copy all Java test files
                 for test_file in tests_src_dir.rglob("*.java"):
-                    # Preserve package structure
-                    rel_path = test_file.relative_to(tests_src_dir)
-                    dest_file = test_dest / rel_path
-                    dest_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy(test_file, dest_file)
+                    shutil.copy(test_file, test_dest)
             
         except Exception as e:
             test_result["output"] = f"Failed to prepare test environment: {str(e)}"

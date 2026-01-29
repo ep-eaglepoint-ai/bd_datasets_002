@@ -152,6 +152,52 @@ public class OrderProcessorTest {
         assertTrue(inventorySvc.committedItems.contains("P1"));
     }
 
+    @Test
+    void testValidationFailure() {
+        testCustomerValidation_Invalid();
+    }
+
+    @Test
+    void testDiscount_CouponOnly() {
+        testDiscount_Coupon_Fixed();
+    }
+
+    @Test
+    void testDiscount_LoyaltyOnly() {
+        testDiscount_Loyalty_Platinum();
+    }
+
+    @Test
+    void testDiscount_Priority() {
+        Order o = new Order();
+        o.setOrderId("PRIO-1");
+        o.setCustomerId("CUST-1");
+        o.setPaymentMethod("CREDIT_CARD");
+        o.setShippingAddress("A");
+        o.setPriority(true);
+        // Add item with weight > 0 to trigger shipping calc
+        // 1 item, weight 1.0 -> Base Cost 5.99
+        // Priority -> 5.99 * 1.5 = 8.985
+        OrderItem item = new OrderItem("P1", "Heavy", 1, 10.0);
+        item.setWeight(1.0);
+        o.addItem(item);
+        
+        OrderResult res = processor.processOrder(o);
+        assertTrue(res.isSuccess());
+        assertEquals(8.985, o.getShippingCost(), 0.001);
+    }
+
+    @Test
+    void testInvalidStateTransition() {
+        testInvalidStateTransition_ReProcessCompleted();
+    }
+
+    @Test
+    void testInventoryFailureParams() {
+        testInventoryFailure_OutOfStock();
+    }
+
+
     // ================= Requirement 3: Payment Extensibility =================
     @Test
     void testUnsupportedPaymentMethod() {
@@ -464,5 +510,65 @@ public class OrderProcessorTest {
        OrderResult res = processor.processOrder(o);
        assertFalse(res.isSuccess());
        assertTrue(res.getMessage().contains("blocked"), "Msg: " + res.getMessage());
+    }
+
+    // ================= Requirement 5: Explicit State Machine & Transitions =================
+    
+    @Test
+    void testStateTransition_PendingPayment_Verified() {
+        // Verify state is PENDING_PAYMENT during charge (Requirement 5 valid state)
+        SmartMockPaymentGateway observingGateway = new SmartMockPaymentGateway() {
+            @Override
+            public String charge(double amount, String token, String currency) {
+                if ("PENDING_PAYMENT".equals(order.getStatus())) {
+                    return "TXN_VERIFIED_STATE";
+                }
+                return "ERROR_WRONG_STATE"; 
+            }
+        };
+        // Re-init with observing gateway using Refactored Constructor
+        processor = new OrderProcessor(orderRepo, customerRepo, inventorySvc, observingGateway, couponRepo);
+
+        OrderResult res = processor.processOrder(order);
+        
+        if (!res.isSuccess()) {
+             // If failed, print why (e.g. if it returned ERROR_WRONG_STATE)
+             fail("Process failed: " + res.getMessage());
+        }
+        assertTrue(res.isSuccess());
+        assertEquals("TXN_VERIFIED_STATE", order.getTransactionId());
+        assertEquals("FULFILLED", order.getStatus());
+    }
+
+    @Test
+    void testCancel_FromPaymentFailed_ShouldFail() {
+        // PAYMENT_FAILED -> CANCELLED is INVALID in our logic (it returns false)
+        order.setStatus("PAYMENT_FAILED");
+        OrderResult res = processor.cancelOrder(order);
+        assertFalse(res.isSuccess());
+        assertTrue(res.getMessage().contains("Invalid state transition"), "Should contain invalid transition msg: " + res.getMessage());
+    }
+    
+    @Test
+    void testCancel_FromFulfilled_ShouldSucceed() {
+        // FULFILLED -> CANCELLED is VALID
+        order.setStatus("FULFILLED");
+        order.setOrderId("FUL-1");
+        OrderResult res = processor.cancelOrder(order);
+        assertTrue(res.isSuccess());
+        assertEquals("CANCELLED", order.getStatus());
+    }
+
+    // ================= Requirement 10: Backward Compatibility =================
+    @Test
+    void testLegacyConstructor_Stubbed() {
+        // Instantiation check for legacy constructor (Requirement 10)
+        try {
+            java.lang.reflect.Constructor<?> c = OrderProcessor.class.getConstructor(java.sql.Connection.class, String.class, String.class);
+            Object instance = c.newInstance(null, "url", "key");
+            assertNotNull(instance);
+        } catch (Exception e) {
+            fail("Legacy constructor missing or failed: " + e.getMessage());
+        }
     }
 }
