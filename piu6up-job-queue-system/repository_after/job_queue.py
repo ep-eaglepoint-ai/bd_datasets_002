@@ -135,6 +135,7 @@ class JobQueue:
     Thread-safe priority queue for jobs using heap structure.
 
     Uses a dictionary for O(1) lookup and tombstone pattern for efficient removal.
+    Blocked jobs (with unmet dependencies) are held separately to avoid heap thrashing.
     """
 
     def __init__(self):
@@ -142,6 +143,7 @@ class JobQueue:
         self._jobs: Dict[str, Job] = {}
         self._lock = threading.Lock()
         self._dependents: Dict[str, List[str]] = {}  # job_id -> list of dependent job_ids
+        self._blocked_jobs: Dict[str, Job] = {}  # Jobs waiting for dependencies
         self._tombstone_count = 0
 
     def enqueue(self, job: Job) -> str:
@@ -185,10 +187,10 @@ class JobQueue:
 
                 # Check dependencies
                 if not self._check_dependencies(job):
-                    # Dependencies not met, skip for now
+                    # Dependencies not met - move to blocked set instead of re-pushing to heap
+                    # This avoids O(n) heap thrashing with many blocked jobs
                     heapq.heappop(self._heap)
-                    # Re-add to heap so it can be checked again later
-                    heapq.heappush(self._heap, job)
+                    self._blocked_jobs[job.job_id] = job
                     return None
 
                 heapq.heappop(self._heap)
@@ -217,6 +219,15 @@ class JobQueue:
 
         return True
 
+    def _wake_dependents(self, job_id: str) -> None:
+        """Wake jobs blocked on the given job. Must be called with lock held."""
+        dependent_ids = self._dependents.get(job_id, [])
+        for dep_id in dependent_ids:
+            if dep_id in self._blocked_jobs:
+                blocked_job = self._blocked_jobs.pop(dep_id)
+                # Re-add to heap so it can be scheduled
+                heapq.heappush(self._heap, blocked_job)
+
     def peek(self) -> Optional[Job]:
         """Return the next ready job without removing it."""
         with self._lock:
@@ -241,11 +252,15 @@ class JobQueue:
             return self._jobs[job_id]
 
     def update_status(self, job_id: str, status: JobStatus) -> None:
-        """Update a job's status in O(1) time."""
+        """Update a job's status and wake dependent jobs if completed/failed."""
         with self._lock:
             if job_id not in self._jobs:
                 raise KeyError(f"Job {job_id} not found")
             self._jobs[job_id].status = status
+
+            # Wake blocked dependents when a job completes or fails
+            if status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.DEAD):
+                self._wake_dependents(job_id)
 
     @property
     def size(self) -> int:
@@ -269,7 +284,7 @@ class JobQueue:
             return count
 
     def cleanup(self) -> None:
-        """Compact the heap by removing tombstones."""
+        """Compact the heap by removing tombstones and cleaning up blocked jobs."""
         with self._lock:
             if self._tombstone_count < len(self._heap) * 0.25:
                 return
@@ -277,6 +292,12 @@ class JobQueue:
             self._heap = [j for j in self._heap if not j._removed and j.job_id in self._jobs]
             heapq.heapify(self._heap)
             self._tombstone_count = 0
+
+            # Clean up blocked jobs that are no longer valid
+            invalid_blocked = [jid for jid, job in self._blocked_jobs.items()
+                               if job._removed or jid not in self._jobs]
+            for jid in invalid_blocked:
+                del self._blocked_jobs[jid]
 
     def remove(self, job_id: str) -> None:
         """Mark a job as removed (tombstone)."""
@@ -308,6 +329,15 @@ class JobQueue:
         """Get job IDs that depend on the given job."""
         with self._lock:
             return self._dependents.get(job_id, []).copy()
+
+    def reschedule(self, job_id: str) -> None:
+        """Re-add an existing job to the heap for retry. Job must already be in _jobs."""
+        with self._lock:
+            if job_id not in self._jobs:
+                raise KeyError(f"Job {job_id} not found")
+            job = self._jobs[job_id]
+            # Push back to heap for scheduling
+            heapq.heappush(self._heap, job)
 
 
 class EventHandler:
@@ -418,11 +448,8 @@ class Worker(threading.Thread):
             job.status = JobStatus.PENDING
             self.queue.update_status(job.job_id, JobStatus.PENDING)
 
-            # Re-enqueue with updated schedule
-            try:
-                self.queue.enqueue(job)
-            except ValueError:
-                pass  # Job already in queue
+            # Reschedule existing job (job is still in _jobs, just needs to be re-added to heap)
+            self.queue.reschedule(job.job_id)
 
             self.event_handler.on_job_retried(job, next_scheduled)
             logger.info(f"Job {job.job_id} scheduled for retry {job.retry_count}/{job.max_retries}")
