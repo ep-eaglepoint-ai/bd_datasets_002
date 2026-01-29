@@ -1,134 +1,128 @@
 package dwrg
 
 import (
-	"context"
-
-	"time"
+"context"
+"time"
 )
 
 type StateManager struct {
-	storage       AtomicStorage
-	refillRate    float64
-	burstCapacity int64
+storage       AtomicStorage
+refillRate    float64
+burstCapacity int64
 }
 
 func NewStateManager(storage AtomicStorage, refillRate float64, burstCapacity int64) *StateManager {
-	return &StateManager{
-		storage:       storage,
-		refillRate:    refillRate,
-		burstCapacity: burstCapacity,
-	}
+return &StateManager{
+storage:       storage,
+refillRate:    refillRate,
+burstCapacity: burstCapacity,
+}
 }
 
-// Consumne attempts to consume 'cost' tokens.
-// Returns success, remaining tokens, and wait time.
+// Consumne attempts to consume cost tokens using the GCRA algorithm.
+// GCRA (Generic Cell Rate Algorithm) models the "theoretical arrival time" (TAT) of the next request.
+// If TAT < Now, it means we have full capacity (bucket full).
+// If TAT > Now + BurstTolerance, it means we are rejected.
+//
+// Burst-to-Sustain Model:
+// - Tenants accumulate credit (time slack) when idle.
+// - Max accumulated credit is bounded by burstCapacity.
+// - Refill velocity is constant (1 token / (1/rate) seconds).
+//
+// Returns: allowed (bool), remaining_tokens (int64), wait (time.Duration), error
 func (sm *StateManager) Consumne(ctx context.Context, key string, cost int64, now time.Time) (bool, int64, time.Duration, error) {
-	// We need to store both LastRefillTime and Tokens.
-	// Since AtomicStorage only gives us int64 CAS, we are limited.
-	// Option 1: Store two keys. Not atomic.
-	// Option 2: Pack data. 
-	//   Time (microsecond precision) requires ~50-60 bits.
-	//   Tokens requires ~30-40 bits.
-	//   Total > 64 bits.
-	// Option 3: Assume the "persistence interface" is actually a store for more complex objects, 
-	// but we defined it as int64.
-	// LET'S REDEFINE STORAGE locally to support struct if possible, or pack tightly.
-	// If we use Millisecond precision for time, we need ~45 bits (for 500 years).
-	// Leaving 19 bits for tokens (max 524,287 tokens).
-	// This might be enough.
-	// 
-	// Alternatively, use a "Lazy GCRA" or similar that strictly uses time.
-	// GCRA (Generic Cell Rate Algorithm) stores "Theoretical Arrival Time" (TAT).
-	// One int64 is enough for TAT (timestamp).
-	// TAT approach:
-	//   tat = Get(key)
-	//   if tat < now: tat = now
-	//   new_tat = tat + cost * (1/rate)
-	//   if new_tat > now + burst_limit: reject
-	//   CAS(key, old_tat, new_tat)
-	// This fits perfectly in one int64!
-	
-	// GCRA Implementation
-	// Period per token = 1 / refillRate (seconds per token)
-	emissionInterval := time.Duration(float64(time.Second) / sm.refillRate)
-	baseBurst := time.Duration(sm.burstCapacity) * emissionInterval
-	
-	for {
-		// 1. Get current state (TAT)
-		val, valid, err := sm.storage.Get(ctx, key)
-		if err != nil {
-			return false, 0, 0, err
-		}
-		
-		var tat time.Time
-		if !valid {
-			tat = now
-			val = 0 // Initial generic value for CAS if we treat 0 as "unset" or match specific storage behavior
-		} else {
-			tat = time.Unix(0, val)
-		}
+// Emission Interval: Time duration to accumulate 1 token.
+// e.g., Rate 10/s -> 100ms per token.
+emissionInterval := time.Duration(float64(time.Second) / sm.refillRate)
 
-		// 2. Calculated logic
-		// If TAT is in the past, reset to now (bucket full/idle)
-		if tat.Before(now) {
-			tat = now
-		}
+// Burst Tolerance: The maximum time we can borrow from the future.
+// This represents the "capacity" of the bucket in time units.
+// e.g., Capacity 100 -> 100 * 100ms = 10s of burst tolerance.
+burstTolerance := time.Duration(sm.burstCapacity) * emissionInterval
 
-		// Calculate the cost in time
-		increment := emissionInterval * time.Duration(cost)
-		newTat := tat.Add(increment)
+// Increment: Cost in time units.
+increment := emissionInterval * time.Duration(cost)
 
-		// Check limit
-		// Allow limit is: now + burst_tolerance
-		limit := now.Add(baseBurst)
+for {
+// 1. Get current state (TAT)
+// We use atomic persistence. Value stored is the TAT as Unix Nanoseconds.
+val, valid, err := sm.storage.Get(ctx, key)
+if err != nil {
+return false, 0, 0, err
+}
 
-		if newTat.After(limit) {
-			// Reject
-			// Calculate wait time
-			// Wait time is difference between newTat and limit? Or effectively when we can accommodate this?
-			// Actually in GCRA, if newTAT > limit, it means we don't have enough tokens.
-			// The time until we have enough tokens to process THIS request is (newTat - limit).
-			// Wait, standard GCRA rejection:
-			// You can perform action if newTat <= limit.
-			// Time to wait to fit this action: newTat - limit.
-			wait := newTat.Sub(limit)
-			
-			// Calculate remaining capacity for display
-			// Capacity = limit - tat
-			// remaining tokens = capacity / emissionInterval
-			remainingTime := limit.Sub(tat)
-			remainingTokens := int64(remainingTime / emissionInterval)
-			
-			return false, remainingTokens, wait, nil
-		}
+var tat time.Time
+if !valid {
+// If no state, TAT is effectively now (or even in the past, implying full bucket).
+// We set it to now for calculation purposes, or more accurately:
+// "Full bucket" corresponds to TAT = Now - BurstTolerance?
+// Actually, in GCRA, if TAT < Now, we treat it as Now (loss of accumulated credit beyond max).
+tat = now
+val = 0 // For CAS
+} else {
+tat = time.Unix(0, val)
+}
 
-		// 3. Update state
-		newVal := newTat.UnixNano()
-		if !valid {
-			// If it was missing, we expect '0' or a mechanism to create.
-			// Our interface has CompareAndSwap(key, old, new). 
-			// If it wasn't valid, maybe we rely on strict "0 implies does not exist" or passing 0 is fine.
-			// Let's assume 0 is the "empty" value for CAS.
-			val = 0
-		}
-		
-		swapped, err := sm.storage.CompareAndSwap(ctx, key, val, newVal)
-		if err != nil {
-			return false, 0, 0, err
-		}
-		if swapped {
-			// Success
-			// Remaining tokens
-			remainingTime := limit.Sub(newTat)
-			remainingTokens := int64(remainingTime / emissionInterval)
-			return true, remainingTokens, 0, nil
-		}
-		
-		// Retry loop
-		// Context check
-		if ctx.Err() != nil {
-			return false, 0, 0, ctx.Err()
-		}
-		// Backoff? For high concurrency, spin is risky, but CAS loops usually spin tight.
-	}
+// 2. Adjust TAT for idle time
+// If tat is in the past, it means we have refilled to max or partial.
+// Effectively, if TAT < Now, the new TAT base is Now.
+if tat.Before(now) {
+tat = now
+}
+
+// 3. Calculate New TAT
+newTat := tat.Add(increment)
+
+// 4. Check against Limit
+// The Limit is Now + BurstTolerance.
+// If the new TAT exceeds this limit, the request is rejected because it would
+// require borrowing more time than the burst capacity allows.
+limit := now.Add(burstTolerance)
+
+if newTat.After(limit) {
+// Rejected.
+// Cooldown (Wait) Calculation:
+// The time we need to wait is the time until newTat would be <= limit.
+// newTat - limit is exactly how much we are over the limit.
+// Wait = newTat - limit.
+wait := newTat.Sub(limit)
+
+// Calculate remaining capacity for info (optional but required by interface)
+// Remaining capacity = Limit - TAT (how much room we have left)
+// Remaining Tokens = (Limit - TAT) / emissionInterval
+remainingTime := limit.Sub(tat)
+remainingTokens := int64(remainingTime / emissionInterval)
+
+return false, remainingTokens, wait, nil
+}
+
+// 5. Update State
+// We only update if successful.
+// Storage stores TAT.
+newVal := newTat.UnixNano()
+if !valid {
+val = 0
+}
+
+swapped, err := sm.storage.CompareAndSwap(ctx, key, val, newVal)
+if err != nil {
+return false, 0, 0, err
+}
+
+if swapped {
+// Success
+// Remaining tokens = (Limit - NewTAT) / emissionInterval
+remainingTime := limit.Sub(newTat)
+remainingTokens := int64(remainingTime / emissionInterval)
+return true, remainingTokens, 0, nil
+}
+
+// 6. CAS Failed - Loop/Retry
+if ctx.Err() != nil {
+return false, 0, 0, ctx.Err()
+}
+// Minimal backoff for high contention?
+// For Requirements "extreme concurrency", spinning is better than sleep if contention is short.
+// Go runtime handles yield.
+}
 }
