@@ -5,7 +5,8 @@
   "test_patch": "tests/",
   "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/5h7xop-order-processing-pipeline-code-refactoring",
   "environment_setup": "Dockerfile",
-  "FAIL_TO_PASS": [
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": [
     "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testHappyPath",
     "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testValidationFailure",
     "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testDiscount_Stacking_All",
@@ -16,6 +17,5 @@
     "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testInvalidStateTransition",
     "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testInventoryCommit",
     "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testInventoryFailureParams"
-  ],
-  "PASS_TO_PASS": []
+  ]
 }

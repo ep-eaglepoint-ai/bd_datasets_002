@@ -95,7 +95,6 @@ public class OrderProcessor {
     private void validateOrder(Order order) {
         List<String> errors = validator.validate(order);
         if (!errors.isEmpty()) {
-            updateState(order, OrderState.VALIDATION_FAILED);
             throw new IllegalArgumentException("Validation failed: " + String.join(", ", errors));
         }
         updateState(order, OrderState.VALIDATED);
@@ -103,18 +102,14 @@ public class OrderProcessor {
 
     private void verifyCustomer(Order order) {
         if (!customerRepository.isValid(order.getCustomerId())) {
-             updateState(order, OrderState.CUSTOMER_NOT_FOUND);
              throw new IllegalArgumentException("Customer not found: " + order.getCustomerId());
         }
         if (!customerRepository.isActive(order.getCustomerId())) {
-             updateState(order, OrderState.CUSTOMER_INACTIVE);
              throw new IllegalArgumentException("Customer account is inactive");
         }
         if (customerRepository.isBlocked(order.getCustomerId())) {
-             updateState(order, OrderState.CUSTOMER_BLOCKED);
              throw new IllegalArgumentException("Customer account is blocked");
         }
-        updateState(order, OrderState.CUSTOMER_VERIFIED);
     }
 
     private void calculatePricing(Order order) {
@@ -160,7 +155,6 @@ public class OrderProcessor {
     private void checkAndReserveInventory(Order order) {
         for (OrderItem item : order.getItems()) {
             if (!inventoryService.checkInventory(item.getProductId(), item.getQuantity())) {
-                updateState(order, OrderState.INSUFFICIENT_INVENTORY);
                 throw new IllegalStateException("Insufficient inventory for: " + item.getProductId());
             }
         }
@@ -168,9 +162,8 @@ public class OrderProcessor {
         // Reserve
         try {
             order.getItems().forEach(item -> inventoryService.reserve(item.getProductId(), item.getQuantity()));
-            updateState(order, OrderState.INVENTORY_RESERVED);
+            updateState(order, OrderState.RESERVED);
         } catch (Exception e) {
-            updateState(order, OrderState.INVENTORY_ERROR);
             throw new IllegalStateException("Inventory reservation failed", e);
         }
     }
@@ -195,7 +188,7 @@ public class OrderProcessor {
         String txnId = paymentGateway.charge(order.getTotalAmount(), "mock_token", "USD");
         if (txnId != null && !txnId.startsWith("ERROR")) { // Simple check
             order.setTransactionId(txnId);
-            updateState(order, OrderState.PAYMENT_COMPLETED);
+            updateState(order, OrderState.PAID);
         } else {
             // Rollback inventory
             rollbackInventory(order);
@@ -220,9 +213,8 @@ public class OrderProcessor {
                  ((JdbcCustomerRepository) customerRepository).addLoyaltyPoints(order.getCustomerId(), (int)(order.getTotalAmount() * 10));
             }
             
-            updateState(order, OrderState.COMPLETED);
+            updateState(order, OrderState.FULFILLED);
         } catch (Exception e) {
-            updateState(order, OrderState.FULFILLMENT_ERROR);
             throw new IllegalStateException("Fulfillment failed", e);
         }
     }
@@ -263,12 +255,11 @@ public class OrderProcessor {
             OrderState current = OrderState.fromString(order.getStatus());
             stateMachine.validateTransition(current, OrderState.CANCELLED);
             
-            if (current == OrderState.PAYMENT_COMPLETED || current == OrderState.INVENTORY_RESERVED) {
+            if (current == OrderState.PAID || current == OrderState.RESERVED) {
                 rollbackInventory(order);
             }
-            if (current == OrderState.PAYMENT_COMPLETED) {
+            if (current == OrderState.PAID) {
                  paymentGateway.refund(order.getTransactionId(), order.getTotalAmount());
-                 updateState(order, OrderState.REFUNDED); // Or Cancelled? Logic says Cancelled.
             }
             
             updateState(order, OrderState.CANCELLED);
