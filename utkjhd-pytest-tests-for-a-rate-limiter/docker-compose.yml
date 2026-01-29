@@ -1,6 +1,8 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    working_dir: /app
     volumes:
       - .:/app
+    # Default command (runs your new tests)
+    command: pytest -v -s repository_after/rate_limiter_test.py
