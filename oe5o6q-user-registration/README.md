@@ -5,7 +5,7 @@
 ### Test repository_after
 
 ```bash
-ocker compose run --rm -e REPO_PATH=repository_after registration pytest tests/test_registration.py -v
+docker compose run --rm -e REPO_PATH=repository_after registration pytest tests/test_registration.py -v
 ```
 
 ### Generate evaluation report
