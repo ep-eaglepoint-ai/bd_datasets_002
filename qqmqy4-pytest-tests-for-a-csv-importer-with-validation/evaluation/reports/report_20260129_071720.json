@@ -1,0 +1,306 @@
+{
+  "run_id": "1f991ee4-caa3-459e-8bda-20244f179961",
+  "started_at": "2026-01-29T07:17:20.127758Z",
+  "finished_at": "2026-01-29T07:17:20.578466Z",
+  "duration_seconds": 0.450708,
+  "environment": {
+    "python_version": "3.11.14",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41"
+  },
+  "before": {
+    "tests": {
+      "passed": false,
+      "return_code": 4,
+      "output": "ERROR: usage: __main__.py [options] [file_or_dir] [file_or_dir] [...]\n__main__.py: error: unrecognized arguments: --json-report --json-report-file=/app/evaluation/reports/pytest_repository_before.json\n  inifile: None\n  rootdir: /app\n\n",
+      "outcomes": {}
+    },
+    "metrics": {},
+    "requirements": [
+      {
+        "id": 1,
+        "description": "Test that valid customer rows are inserted correctly.",
+        "tests": [
+          "test_valid_customer_inserted"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 2,
+        "description": "Test that rows with missing or blank required fields are skipped as invalid.",
+        "tests": [
+          "test_invalid_row_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 3,
+        "description": "Test that duplicate emails within the same CSV file are skipped.",
+        "tests": [
+          "test_duplicates_within_csv_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 4,
+        "description": "Test that emails already existing in the repository are skipped as duplicates.",
+        "tests": [
+          "test_existing_emails_skipped_as_duplicate"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 5,
+        "description": "Assert that all fields in ImportStats are exactly correct.",
+        "tests": [
+          "test_importstats_all_fields_exact"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 6,
+        "description": "Verify the number of repository method calls.",
+        "tests": [
+          "test_valid_customer_inserted",
+          "test_duplicates_within_csv_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 7,
+        "description": "Verify the arguments passed to repository insert calls.",
+        "tests": [
+          "test_valid_customer_inserted",
+          "test_mixed_valid_invalid_duplicates"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 8,
+        "description": "Include edge cases such as empty CSV input.",
+        "tests": [
+          "test_empty_csv"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 9,
+        "description": "Include a header-only CSV with no data rows.",
+        "tests": [
+          "test_header_only_csv"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 10,
+        "description": "Include CSV input with a mix of valid, invalid, and duplicate rows.",
+        "tests": [
+          "test_mixed_valid_invalid_duplicates"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 11,
+        "description": "Do not modify the production code.",
+        "tests": [],
+        "passed": null,
+        "manual": true
+      },
+      {
+        "id": 12,
+        "description": "Do not use the file system; use the provided CSV text only.",
+        "tests": [],
+        "passed": null,
+        "manual": true
+      },
+      {
+        "id": 13,
+        "description": "Use mocks or fakes for CustomerRepository.",
+        "tests": [
+          "test_valid_customer_inserted",
+          "test_invalid_row_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 14,
+        "description": "Ensure tests rely only on documented behavior of DictReader.",
+        "tests": [],
+        "passed": null,
+        "manual": true
+      }
+    ]
+  },
+  "after": {
+    "tests": {
+      "passed": false,
+      "return_code": 4,
+      "output": "ERROR: usage: __main__.py [options] [file_or_dir] [file_or_dir] [...]\n__main__.py: error: unrecognized arguments: --json-report --json-report-file=/app/evaluation/reports/pytest_repository_after.json\n  inifile: None\n  rootdir: /app\n\n",
+      "outcomes": {}
+    },
+    "metrics": {},
+    "requirements": [
+      {
+        "id": 1,
+        "description": "Test that valid customer rows are inserted correctly.",
+        "tests": [
+          "test_valid_customer_inserted"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 2,
+        "description": "Test that rows with missing or blank required fields are skipped as invalid.",
+        "tests": [
+          "test_invalid_row_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 3,
+        "description": "Test that duplicate emails within the same CSV file are skipped.",
+        "tests": [
+          "test_duplicates_within_csv_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 4,
+        "description": "Test that emails already existing in the repository are skipped as duplicates.",
+        "tests": [
+          "test_existing_emails_skipped_as_duplicate"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 5,
+        "description": "Assert that all fields in ImportStats are exactly correct.",
+        "tests": [
+          "test_importstats_all_fields_exact"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 6,
+        "description": "Verify the number of repository method calls.",
+        "tests": [
+          "test_valid_customer_inserted",
+          "test_duplicates_within_csv_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 7,
+        "description": "Verify the arguments passed to repository insert calls.",
+        "tests": [
+          "test_valid_customer_inserted",
+          "test_mixed_valid_invalid_duplicates"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 8,
+        "description": "Include edge cases such as empty CSV input.",
+        "tests": [
+          "test_empty_csv"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 9,
+        "description": "Include a header-only CSV with no data rows.",
+        "tests": [
+          "test_header_only_csv"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 10,
+        "description": "Include CSV input with a mix of valid, invalid, and duplicate rows.",
+        "tests": [
+          "test_mixed_valid_invalid_duplicates"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 11,
+        "description": "Do not modify the production code.",
+        "tests": [],
+        "passed": null,
+        "manual": true
+      },
+      {
+        "id": 12,
+        "description": "Do not use the file system; use the provided CSV text only.",
+        "tests": [],
+        "passed": null,
+        "manual": true
+      },
+      {
+        "id": 13,
+        "description": "Use mocks or fakes for CustomerRepository.",
+        "tests": [
+          "test_valid_customer_inserted",
+          "test_invalid_row_skipped"
+        ],
+        "passed": false,
+        "outcomes": {},
+        "manual": false
+      },
+      {
+        "id": 14,
+        "description": "Ensure tests rely only on documented behavior of DictReader.",
+        "tests": [],
+        "passed": null,
+        "manual": true
+      }
+    ]
+  },
+  "comparison": {
+    "passed_gate": false,
+    "improvement_summary": "After implementation failed correctness checks."
+  },
+  "success": false,
+  "error": "One or more tests failed in repository_after"
+}
