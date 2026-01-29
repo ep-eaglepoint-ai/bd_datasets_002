@@ -1,9 +1,11 @@
-version: '3.8'
+version: "3.8"
 services:
   test:
     build: .
     image: a2czi3-test-image
     command: pytest -v tests
+    environment:
+      - PYTHONPATH=/app
     volumes:
       - .:/app
   evaluation:

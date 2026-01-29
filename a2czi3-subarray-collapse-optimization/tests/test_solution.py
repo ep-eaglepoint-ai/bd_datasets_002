@@ -202,5 +202,25 @@ class TestFindMaximumNonDecreasingLength(unittest.TestCase):
                        f"Time {elapsed}s exceeds O(n²) expectation for n={n}")
         self.assertTrue(1 <= res <= n)
 
+    # ===== Requirement 4: Preserve element order after merges =====
+    def test_element_order_preserved(self):
+        """Verify that element order is preserved (cannot sort or reorder)."""
+        # Input: [5, 1, 4]
+        # If reordered to [1, 4, 5], answer would be 3.
+        # Keeping order: [5] last=5. Next 1<5. Merge 1+4=5. [5, 5] last=5. Length 2.
+        # Max length is 2.
+        self.assertEqual(self.solution.findMaximumNonDecreasingLength([5, 1, 4]), 2)
+        
+        # Input: [10, 1]
+        # If reordered to [1, 10], answer would be 2.
+        # Keeping order: [10+1] -> [11], length 1.
+        self.assertEqual(self.solution.findMaximumNonDecreasingLength([10, 1]), 1)
+
+    # ===== Requirement 10: Return a single integer representing the maximum valid array length =====
+    def test_return_type_is_integer(self):
+        """Verify the return value is a single integer."""
+        res = self.solution.findMaximumNonDecreasingLength([1, 2, 3])
+        self.assertIsInstance(res, int)
+
 if __name__ == '__main__':
     unittest.main()
