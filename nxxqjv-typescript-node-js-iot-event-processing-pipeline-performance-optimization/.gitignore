@@ -48,6 +48,3 @@ Thumbs.db
 
 # Evaluation output (generated report dirs: evaluation/YYYY-MM-DD/HH-MM-SS/)
 evaluation/*/
-
-# Debug / tooling
-.cursor/

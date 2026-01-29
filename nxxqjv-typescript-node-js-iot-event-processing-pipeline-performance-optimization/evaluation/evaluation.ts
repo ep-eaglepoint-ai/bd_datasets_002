@@ -4,24 +4,6 @@ import * as path from 'path';
 import * as os from 'os';
 import { execSync, spawnSync } from 'child_process';
 
-// Only send debug logs when explicitly enabled (e.g. local dev). In AWS/CI no server runs on 127.0.0.1:7244,
-// so fetch would hang on connection timeout and cause the run to fail.
-const DEBUG_LOG_ENDPOINT = process.env.CURSOR_DEBUG_LOG_ENABLED ? 'http://127.0.0.1:7244/ingest/15df92e9-b3e3-411b-863b-3690d91dcd59' : '';
-function debugLog(phase: string, data: Record<string, unknown>): void {
-  if (!DEBUG_LOG_ENDPOINT) return;
-  fetch(DEBUG_LOG_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      location: 'evaluation.ts',
-      message: phase,
-      data: { ...data, timestamp: Date.now() },
-      timestamp: Date.now(),
-      sessionId: 'debug-session',
-    }),
-  }).catch(() => {});
-}
-
 /**
  * IoT Event Processing Pipeline Evaluation
  * Runs the test suite for repository_before and repository_after and writes a JSON report.
@@ -123,9 +105,6 @@ function getEnvironmentInfo(): EnvironmentInfo {
 const JEST_SPAWN_TIMEOUT_MS = 5 * 60 * 1000; // 5 min so executor does not wait 1000+s
 
 function runTests(_repositoryPath: string, repositoryName: string): RepositoryResults {
-  // #region agent log
-  debugLog('runTests_start', { repositoryName, hypothesisId: 'H1_H4_H5' });
-  // #endregion
   console.log('\n' + '='.repeat(60));
   console.log('RUNNING TESTS: ' + repositoryName);
   console.log('='.repeat(60));
@@ -143,15 +122,6 @@ function runTests(_repositoryPath: string, repositoryName: string): RepositoryRe
       timeout: JEST_SPAWN_TIMEOUT_MS,
     }
   );
-  // #region agent log
-  debugLog('runTests_end', {
-    repositoryName,
-    status: spawnResult.status,
-    signal: spawnResult.signal,
-    timedOut: spawnResult.signal === 'SIGTERM',
-    hypothesisId: 'H1_H4_H5',
-  });
-  // #endregion
 
   const stdout = spawnResult.stdout || '';
   const stderr = spawnResult.stderr || '';
@@ -226,9 +196,6 @@ function generateOutputPath(): string {
 
 const runId = generateRunId();
 const startedAt = new Date();
-// #region agent log
-debugLog('evaluation_start', { runId, hypothesisId: 'H5' });
-// #endregion
 
 console.log('\n' + '='.repeat(60));
 console.log('IoT EVENT PROCESSING PIPELINE EVALUATION');
@@ -237,13 +204,7 @@ console.log('Run ID: ' + runId);
 console.log('Started at: ' + startedAt.toISOString());
 
 const beforeResults = runTests('repository_before', 'repository_before');
-// #region agent log
-debugLog('before_tests_done', { success: beforeResults.success, hypothesisId: 'H5' });
-// #endregion
 const afterResults = runTests('repository_after', 'repository_after');
-// #region agent log
-debugLog('after_tests_done', { success: afterResults.success, hypothesisId: 'H5' });
-// #endregion
 
 const finishedAt = new Date();
 const duration = (finishedAt.getTime() - startedAt.getTime()) / 1000;
@@ -296,8 +257,5 @@ console.log('EVALUATION COMPLETE');
 console.log('='.repeat(60));
 console.log('Duration: ' + duration.toFixed(2) + 's');
 console.log('Success: ' + (success ? 'YES' : 'NO'));
-// #region agent log
-debugLog('evaluation_end', { duration_seconds: duration, success, hypothesisId: 'H5' });
-// #endregion
 
 process.exit(success ? 0 : 1);
