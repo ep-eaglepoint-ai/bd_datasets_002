@@ -16,6 +16,7 @@ import json
 import uuid
 import platform
 import subprocess
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -43,6 +44,43 @@ def truncate_output(output, max_lines=50):
     return '\n'.join(lines[:max_lines//2] + [f"... ({len(lines) - max_lines} lines truncated) ..."] + lines[-max_lines//2:])
 
 
+def _parse_pytest_summary(output_lines):
+    """
+    Parse pytest summary lines for total/passed/failed counts.
+    Handles both "X passed" and "X passed, Y failed" forms.
+    """
+    passed_count = 0
+    failed_count = 0
+    total = 0
+
+    for line in output_lines:
+        lower = line.lower()
+        if "passed" in lower:
+            match_passed = re.search(r"(\d+)\s+passed", lower)
+            match_failed = re.search(r"(\d+)\s+failed", lower)
+            match_error = re.search(r"(\d+)\s+error", lower)
+            if match_passed:
+                passed_count = int(match_passed.group(1))
+            if match_failed:
+                failed_count = int(match_failed.group(1))
+            if match_error:
+                failed_count = max(failed_count, int(match_error.group(1)))
+            if match_passed or match_failed or match_error:
+                total = passed_count + failed_count
+                return total, passed_count, failed_count
+
+    for line in output_lines:
+        lower = line.lower()
+        if "collected" in lower and "items" in lower:
+            parts = line.split()
+            for i, part in enumerate(parts):
+                if part.isdigit() and i > 0 and "collected" in parts[i - 1].lower():
+                    total = int(part)
+                    return total, passed_count, failed_count
+
+    return total, passed_count, failed_count
+
+
 def run_pytest_tests(pythonpath, tests_dir, label):
     """
     Run pytest tests with specified PYTHONPATH.
@@ -63,36 +101,8 @@ def run_pytest_tests(pythonpath, tests_dir, label):
             timeout=60
         )
         
-        # Parse pytest output
         output_lines = result.stdout.split('\n')
-        passed_count = 0
-        failed_count = 0
-        total = 0
-        
-        for line in output_lines:
-            if "passed" in line.lower() and ("failed" in line.lower() or "error" in line.lower()):
-                # Extract numbers from summary line like "5 passed, 1 failed in 0.5s"
-                parts = line.split()
-                for i, part in enumerate(parts):
-                    if part.isdigit():
-                        if i > 0 and "passed" in parts[i-1].lower():
-                            passed_count = int(part)
-                            total += passed_count
-                        elif i > 0 and ("failed" in parts[i-1].lower() or "error" in parts[i-1].lower()):
-                            failed_count = int(part)
-                            total += failed_count
-        
-        if total == 0:
-            # Try to find test count from collection
-            for line in output_lines:
-                if "test session starts" in line.lower() or "collected" in line.lower():
-                    # Look for "collected N items"
-                    parts = line.split()
-                    for i, part in enumerate(parts):
-                        if part.isdigit() and i > 0 and "collected" in parts[i-1].lower():
-                            total = int(part)
-                            break
-        
+        total, passed_count, failed_count = _parse_pytest_summary(output_lines)
         tests_passed = result.returncode == 0 and failed_count == 0
         
         # Truncate output
@@ -102,18 +112,25 @@ def run_pytest_tests(pythonpath, tests_dir, label):
             "passed": tests_passed,
             "return_code": result.returncode,
             "output": truncated_output,
+            "summary": {
+                "total": total,
+                "passed": passed_count,
+                "failed": failed_count,
+            },
         }
     except subprocess.TimeoutExpired:
         return {
             "passed": False,
             "return_code": -1,
             "output": "Test execution timed out after 60 seconds",
+            "summary": {"total": 0, "passed": 0, "failed": 0},
         }
     except Exception as e:
         return {
             "passed": False,
             "return_code": -1,
             "output": f"Error: {str(e)}",
+            "summary": {"total": 0, "passed": 0, "failed": 0},
         }
 
 
@@ -185,11 +202,21 @@ def run_evaluation():
     
     return {
         "before": {
-            "tests": before_tests,
+            "tests": {
+                "passed": before_tests.get("passed"),
+                "return_code": before_tests.get("return_code"),
+                "output": before_tests.get("output"),
+            },
+            "summary": before_tests.get("summary", {"total": 0, "passed": 0, "failed": 0}),
             "metrics": {}
         },
         "after": {
-            "tests": after_tests,
+            "tests": {
+                "passed": after_tests.get("passed"),
+                "return_code": after_tests.get("return_code"),
+                "output": after_tests.get("output"),
+            },
+            "summary": after_tests.get("summary", {"total": 0, "passed": 0, "failed": 0}),
             "metrics": {}
         },
         "comparison": {
@@ -243,8 +270,16 @@ def main():
         print(f"\nERROR: {str(e)}")
         traceback.print_exc()
         results = {
-            "before": {"tests": {"passed": False, "return_code": -1, "output": ""}, "metrics": {}},
-            "after": {"tests": {"passed": False, "return_code": -1, "output": ""}, "metrics": {}},
+            "before": {
+                "tests": {"passed": False, "return_code": -1, "output": ""},
+                "summary": {"total": 0, "passed": 0, "failed": 0},
+                "metrics": {}
+            },
+            "after": {
+                "tests": {"passed": False, "return_code": -1, "output": ""},
+                "summary": {"total": 0, "passed": 0, "failed": 0},
+                "metrics": {}
+            },
             "comparison": {"passed_gate": False, "improvement_summary": f"Evaluation error: {str(e)}"}
         }
         success = False
