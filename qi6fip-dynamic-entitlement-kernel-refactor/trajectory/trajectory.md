@@ -87,13 +87,21 @@ We replaced a 72-line monolithic function (`EntitlementKernel.js`) with a modula
 | #  Requirement  How We Solved It (Technical Detail) 
 
  **1**  **Fail-Closed**  Eliminated `try/catch` blocks that returned `false`. Logic now throws a custom `AuthorizationError` if the DB fails, forcing the system to deny access safely. 
+
  **2**  **Explainability**  Created `checkAccessDetailed`. It returns an object containing the boolean result, a specific `reason` code, and a full `trace` of which rules were evaluated. 
+
  **3**  **Logic Abstraction**  Created the `DataProvider` interface. Business logic now calls `dataProvider.getUser()` instead of writing raw SQL strings inside the evaluation function. 
+
  **4**  **Hierarchy**  Implemented `PermissionHierarchy.js`. It uses a recursive `implies()` method to determine if a grant (like `ADMIN_DELETE`) satisfies a request (like `READ`). 
+
  **5**  **Temporal Accuracy**  The `CachedDataProvider` is "smart." It validates the `expiry` timestamp of a permission *before* returning it from the cache. If it's expired, it's ignored. 
+
  **6**  **Clean Pipeline**  Replaced the nested `Promise.some` callback hell with a clean `for...of` loop in `EvaluationEngine.js`. It's now standard procedural code that is easy to read. 
- **7**  **Race Condition**  Standardized the sequence of checks. We verify User -> Resource -> Permission in a strict order that prevents "access ghosting" if a user is revoked during the check. 
+
+ **7**  **Race Condition**  Standardized the sequence of checks. We verify User -> Resource -> Permission in a strict order that prevents "access ghosting" if a user is revoked during the check.
+
  **8**  **Adversarial Safety**  By fetching the User Context at the start of every evaluation (from the provider), we ensure that if a user is deleted from the DB, the rest of the logic fails safely even if the cache is stale. 
+ 
  **9**  **Wildcard Hierarchy**  The hierarchy system now explicitly maps wildcard-style grants (like `ADMIN_ALL`) to specific granular permissions (`WRITE`, `READ`) in a central configuration. 
 
 ---
