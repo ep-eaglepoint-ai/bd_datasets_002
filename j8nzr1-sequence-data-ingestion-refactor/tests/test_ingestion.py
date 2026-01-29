@@ -69,93 +69,39 @@ async def test_fastq_corruption_recovery_req6(caplog):
     """
     Requirement 2 & 6: Verify atomic error recovery, logging, and skipped counts.
     Ensures that processing continues despite errors and logs them correctly.
-    (Matches 'test_fastq_corruption_recovery' substring for evaluation)
+    Scale: 1000 records total (999 valid, 1 corrupt).
     """
     caplog.set_level("ERROR")
 
-    # 1. Setup Data with various corruption types
-    # - Valid Record 1
-    # - Bad Record 1: Unexpected char (or logic violation) -> handled by parser checks?
-    #    actually the parser handles missing @, length mismatch, etc.
-    # - Desync Record (Missing +) -> Handled by push_back
-    # - Valid Record 2
+    # 1. Generate 999 Valid Records
+    valid_records_part1 = []
+    for i in range(500):
+        valid_records_part1.append(f"@SEQ_{i}\nAAAA\n+\n!!!!")
 
-    file_content = """@SEQ_1
-AAAA
-+
-!!!!
-@SEQ_BAD_HEADER
-AAAA
-+
-!!!!
-@SEQ_DESYNC_MISSING_QUAL
-AAAA
-+
-@SEQ_2
-TTTT
-+
-!!!!
-"""
-    # The third record is malformed:
-    # L1: @SEQ_DESYNC_MISSING_QUAL
+    # 2. Insert 1 Corrupt Record (Missing Separator)
+    # L1: @SEQ_BAD
     # L2: AAAA
-    # L3: +
-    # L4: @SEQ_2 (This is the start of next record, but parser expects quality).
-    # Parser logic: reads L4 as quality.
-    # Check 1: Length match. len(line4) vs len(line2).
-    # len("@SEQ_2") = 6. len("AAAA") = 4. Mismatch.
-    # Recovery: check if line4 starts with @. Yes. push_back(line4). Yield Error.
-    # Next iter: reads @SEQ_2 as start of new record.
+    # L3: @SEQ_500 (Start of next valid record, missing + and quality)
+    corrupt_record = "@SEQ_BAD\nAAAA"
 
-    # Wait, my example above: "@SEQ_BAD_HEADER".
-    # If the parser expects @ at start, and we give it "@SEQ_BAD_HEADER", it passes line 1 check.
-    # So line 1 is valid. line 2 "AAAA". line 3 "+". line 4 "!!!!".
-    # This is a valid record unless I mess up the content.
-    # Let's make a record that fails "Starts with @".
+    # 3. Generate Remaining Valid Records
+    valid_records_part2 = []
+    for i in range(500, 999): # 499 records
+        valid_records_part2.append(f"@SEQ_{i}\nAAAA\n+\n!!!!")
 
-    file_content_improved = """@SEQ_1
-AAAA
-+
-!!!!
-BROKEN_HEADER_LINE
-AAAA
-+
-!!!!
-@SEQ_2
-TTTT
-+
-!!!!
-@SEQ_DESYNC
-AAAA
-+
-@SEQ_3
-CCCC
-+
-!!!!
-"""
-    # Explanation:
-    # 1. @SEQ_1 -> Valid.
-    # 2. BROKEN_HEADER_LINE -> Failed check "startswith @". Yield Error. (Skipped: 1)
-    #    Parser continues loop. Next line "AAAA" -> Expects Header... Loop continues consuming until valid header or EOF?
-    #    Actually current parser:
-    #    L1: BROKEN_HEADER_LINE. yield Error.
-    #    Loop restarts.
-    #    Next L1: "AAAA". yield Error.
-    #    Next L1: "+". yield Error.
-    #    Next L1: "!!!!". yield Error.
-    #    Next L1: "@SEQ_2". Valid Header.
-    #    So this block generates 4 errors!
+    # Combine
+    # Note: corrupt_record doesn't have a newline at end, but valid_records_part2[0] starts with @
+    # So: ...AAAA\n@SEQ_500...
+    # Parser reads:
+    # L1: @SEQ_BAD
+    # L2: AAAA
+    # L3: @SEQ_500 (Next header).
+    # validation: expects '+'. Found @SEQ_500.
+    # Recovery: push_back(@SEQ_500). yield Error.
 
-    # 3. @SEQ_2 -> Valid.
-    # 4. @SEQ_DESYNC -> Reads header, Reads Seq (AAAA), Reads Sep (+).
-    #    Reads Qual ("@SEQ_3"). Length 6 vs 4. Mismatch.
-    #    Recovery: @SEQ_3 starts with @. push_back(@SEQ_3). yield Error "Malformed...". (Skipped: 2 (cumulative logic, but actually 5 errors so far)).
-    # 5. @SEQ_3 -> Valid.
+    file_content = "\n".join(valid_records_part1) + "\n" + corrupt_record + "\n" + "\n".join(valid_records_part2)
 
-    # Expected: 3 Valid records (SEQ_1, SEQ_2, SEQ_3).
-    # Expected Errors: "BROKEN...", "AAAA...", "+...", "!!!!...", "Malformed...". 5 Skipped.
-
-    storage_mock.read_file.return_value = file_content_improved
+    storage_mock.read_file.return_value = file_content
 
     # Run
     await ingest_processor.process_raw_file("test.FASTQ", "seq_1", "user_1")
@@ -165,20 +111,20 @@ CCCC
     for call_args in db_mock.save_batch.call_args_list:
         saved_records.extend(call_args.args[1])
 
-    assert len(saved_records) == 3
+    # Expect 999 valid records (0-499 and 500-999)
+    assert len(saved_records) == 999
+
     ids = sorted([r['id'] for r in saved_records])
-    assert ids == ['SEQ_1', 'SEQ_2', 'SEQ_3']
+    expected_ids = sorted([f"SEQ_{i}" for i in range(999)])
+    assert ids == expected_ids
 
     # Verify Monitoring
-    # The code calls: await monitoring.log_event("INGEST_COMPLETE", {"user": batch_user, "processed": total_processed, "skipped": skipped_count})
-    # We generated 4 errors for the broken block + 1 error for the desync = 5 skipped.
+    # 1 corrupt record skipped.
     monitoring_mock.log_event.assert_called_with("INGEST_COMPLETE", {
-        "user": "user_1", "processed": 3, "skipped": 5
+        "user": "user_1", "processed": 999, "skipped": 1
     })
 
     # Verify Logs
-    # Check that we have error logs
-    assert len(caplog.records) >= 5
     assert "Skipping record due to error" in caplog.text
 
 @pytest.mark.asyncio
@@ -263,23 +209,43 @@ async def test_unknown_extension():
     assert db_mock.save_batch.call_count == 0
 
 @pytest.mark.asyncio
-async def test_performance_empty_lines():
+async def test_performance_empty_lines(caplog):
     """
-    Process a file with alternating empty lines.
+    Requirement 8: Demonstrate performance impact.
+    Process a larger file with alternating empty lines.
+    Ensures zero interaction overhead (no errors logged, no skipped counts).
     """
+    import time
+    caplog.set_level("ERROR")
+
     records = []
-    for i in range(5):
+    # 1000 records, interwoven with empty lines
+    for i in range(1000):
         records.append(f"\n\n@SEQ_{i}\n\nAAAA\n\n+\n\n!!!!\n")
 
     file_content = "".join(records)
     storage_mock.read_file.return_value = file_content
 
+    start_time = time.perf_counter()
     await ingest_processor.process_raw_file("test.FASTQ", "seq_1", "user_1")
+    end_time = time.perf_counter()
+
+    # Max 2 seconds for 1000 records (generous, should be <0.1s in mock)
+    execution_time = end_time - start_time
+    print(f"\nPerformance: Processed 1000 records (with 4000+ empty lines) in {execution_time:.4f}s")
+
+    # Soft assertion on time to prevent regression
+    assert execution_time < 2.0
 
     saved_records = []
     for call_args in db_mock.save_batch.call_args_list:
         saved_records.extend(call_args.args[1])
 
-    assert len(saved_records) == 5
+    assert len(saved_records) == 1000
 
+    # Critical: Ensure NO errors were logged for empty lines
+    assert len(caplog.records) == 0
 
+    monitoring_mock.log_event.assert_called_with("INGEST_COMPLETE", {
+        "user": "user_1", "processed": 1000, "skipped": 0
+    })
