@@ -11,7 +11,7 @@ services:
     command: sh -c "go mod edit -replace gocode=/app/repository_after && go mod tidy && go test -v ."
     volumes:
       - .:/app
-  evaluation:
+  evaluate:
     image: golang:1.21
     working_dir: /app
     command: sh -c "cd /tmp && mkdir -p eval && cp /app/evaluation/evaluation.go eval/ && cd eval && go mod init evaluation && go get github.com/google/uuid@v1.6.0 && PROJECT_ROOT=/app go run evaluation.go"
