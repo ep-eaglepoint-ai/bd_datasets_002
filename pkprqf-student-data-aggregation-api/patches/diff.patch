@@ -1,66 +1,29 @@
-# Patch: repository_before -> repository_after
-# Refactoring from monolithic controller to properly structured MVC architecture
-#
-# Changes:
-# 1. Split monolithic dataAggregation.java into separate controller, service, and DTOs
-# 2. Fixed integer division bug in average calculation
-# 3. Added input validation with Jakarta Validation annotations
-# 4. Improved code structure with proper separation of concerns
-
-diff --git a/repository_before/dataAggregation.java b/repository_after/src/main/java/com/example/studentapi/controller/StudentAggregationController.java
+diff --git a/repository_before/dataAggregation.java b/repository_before/dataAggregation.java
+deleted file mode 100644
+index f26d96d4c..000000000
 --- a/repository_before/dataAggregation.java
-+++ b/repository_after/src/main/java/com/example/studentapi/controller/StudentAggregationController.java
-@@ -1,98 +1,61 @@
++++ /dev/null
+@@ -1,98 +0,0 @@
 -package com.example.studentapi;
-+package com.example.studentapi.controller;
-
+-
 -import org.springframework.web.bind.annotation.*;
 -import java.util.*;
-+import com.example.studentapi.dto.AggregationResult;
-+import com.example.studentapi.dto.Student;
-+import com.example.studentapi.service.StudentAggregationService;
-+import jakarta.validation.Valid;
-+import org.springframework.http.HttpStatus;
-+import org.springframework.http.ResponseEntity;
-+import org.springframework.validation.BindingResult;
-+import org.springframework.web.bind.annotation.*;
-+
-+import java.util.HashMap;
-+import java.util.List;
-+import java.util.Map;
-+import java.util.stream.Collectors;
-
- @RestController
- @RequestMapping("/api/students")
- public class StudentAggregationController {
+-
+-@RestController
+-@RequestMapping("/api/students")
+-public class StudentAggregationController {
 -
 -    private List<Student> cachedStudents = new ArrayList<>();
-+    
-+    private final StudentAggregationService aggregationService;
-+    
-+    public StudentAggregationController(StudentAggregationService aggregationService) {
-+        this.aggregationService = aggregationService;
-+    }
-
-     @PostMapping("/aggregate")
+-
+-    @PostMapping("/aggregate")
 -    public Map<String, Object> aggregateStudents(@RequestBody List<Student> students) {
 -
 -        Map<String, Object> response = new HashMap<>();
 -
-+    public ResponseEntity<?> aggregateStudents(@Valid @RequestBody List<Student> students, 
-+                                               BindingResult bindingResult) {
-+        
-+        if (bindingResult.hasErrors()) {
-+            Map<String, Object> errorResponse = createValidationErrorResponse(bindingResult);
-+            return ResponseEntity.badRequest().body(errorResponse);
-+        }
-+        
-         if (students == null) {
+-        if (students == null) {
 -            response.put("error", "Students list is null");
 -            return response;
-+            Map<String, Object> errorResponse = Map.of("error", "Students list cannot be null");
-+            return ResponseEntity.badRequest().body(errorResponse);
-         }
+-        }
 -
 -        cachedStudents.clear();
 -        cachedStudents.addAll(students);
@@ -70,13 +33,15 @@ diff --git a/repository_before/dataAggregation.java b/repository_after/src/main/
 -        Student topStudent = null;
 -
 -        for (int i = 0; i < students.size(); i++) {
+-
 -            Student current = students.get(i);
+-
 -            if (current.getScore() < 0) {
 -                continue;
 -            }
+-
 -            totalScore = totalScore + current.getScore();
 -
--            // BUG: O(n²) nested loop
 -            for (int j = 0; j < students.size(); j++) {
 -                if (topStudent == null) {
 -                    topStudent = students.get(j);
@@ -86,21 +51,8 @@ diff --git a/repository_before/dataAggregation.java b/repository_after/src/main/
 -                    }
 -                }
 -            }
-+        
-+        try {
-+            AggregationResult result = aggregationService.aggregateStudents(students);
-+            return ResponseEntity.ok(result);
-+        } catch (Exception e) {
-+            Map<String, Object> errorResponse = Map.of("error", "Internal server error occurred");
-+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-         }
-+    }
-+    
-+    private Map<String, Object> createValidationErrorResponse(BindingResult bindingResult) {
-+        Map<String, Object> errorResponse = new HashMap<>();
-+        errorResponse.put("error", "Validation failed");
-         
--        // BUG: Integer division loses decimal precision
+-        }
+-
 -        if (students.size() > 0) {
 -            averageScore = totalScore / students.size();
 -        }
@@ -109,6 +61,7 @@ diff --git a/repository_before/dataAggregation.java b/repository_after/src/main/
 -        for (Student s : students) {
 -            names.add(s.getName());
 -        }
+-
 -        Collections.sort(names);
 -
 -        response.put("count", students.size());
@@ -118,88 +71,176 @@ diff --git a/repository_before/dataAggregation.java b/repository_after/src/main/
 -        response.put("cachedSize", cachedStudents.size());
 -
 -        return response;
-+        List<String> validationErrors = bindingResult.getFieldErrors().stream()
-+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-+                .collect(Collectors.toList());
-+        
-+        errorResponse.put("validationErrors", validationErrors);
-+        return errorResponse;
-     }
+-    }
 -
--    // Nested class removed - extracted to separate DTO
--    public static class Student { ... }
- }
-
-diff --git /dev/null b/repository_after/src/main/java/com/example/studentapi/service/StudentAggregationService.java
+-    public static class Student {
+-
+-        private String name;
+-        private int score;
+-
+-        public Student() {
+-        }
+-
+-        public Student(String name, int score) {
+-            this.name = name;
+-            this.score = score;
+-        }
+-
+-        public String getName() {
+-            return name;
+-        }
+-
+-        public void setName(String name) {
+-            this.name = name;
+-        }
+-
+-        public int getScore() {
+-            return score;
+-        }
+-        public void setScore(int score) {
+-            this.score = score;
+-        }
+-    }
+-}
+diff --git a/repository_after/src/main/java/com/example/studentapi/StudentApiApplication.java b/repository_after/src/main/java/com/example/studentapi/StudentApiApplication.java
 new file mode 100644
+index 000000000..2fbdcfab5
 --- /dev/null
-+++ b/repository_after/src/main/java/com/example/studentapi/service/StudentAggregationService.java
-@@ -0,0 +1,59 @@
-+package com.example.studentapi.service;
++++ b/repository_after/src/main/java/com/example/studentapi/StudentApiApplication.java
+@@ -0,0 +1,12 @@
++package com.example.studentapi;
++
++import org.springframework.boot.SpringApplication;
++import org.springframework.boot.autoconfigure.SpringBootApplication;
++
++@SpringBootApplication
++public class StudentApiApplication {
++    
++    public static void main(String[] args) {
++        SpringApplication.run(StudentApiApplication.class, args);
++    }
++}
+\ No newline at end of file
+diff --git a/repository_after/src/main/java/com/example/studentapi/controller/StudentAggregationController.java b/repository_after/src/main/java/com/example/studentapi/controller/StudentAggregationController.java
+new file mode 100644
+index 000000000..e8ccaa6e8
+--- /dev/null
++++ b/repository_after/src/main/java/com/example/studentapi/controller/StudentAggregationController.java
+@@ -0,0 +1,69 @@
++package com.example.studentapi.controller;
 +
 +import com.example.studentapi.dto.AggregationResult;
 +import com.example.studentapi.dto.Student;
-+import org.springframework.stereotype.Service;
++import com.example.studentapi.service.StudentAggregationService;
++import jakarta.validation.ConstraintViolation;
++import jakarta.validation.Validator;
++import org.springframework.http.HttpStatus;
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.annotation.*;
 +
++import java.util.ArrayList;
++import java.util.HashMap;
 +import java.util.List;
-+import java.util.stream.Collectors;
++import java.util.Map;
++import java.util.Set;
 +
-+@Service
-+public class StudentAggregationService {
-+    
-+    public AggregationResult aggregateStudents(List<Student> students) {
-+        if (students == null || students.isEmpty()) {
-+            return new AggregationResult(0, 0.0, null, List.of());
++@RestController
++@RequestMapping("/api/students")
++public class StudentAggregationController {
++
++    private final StudentAggregationService aggregationService;
++    private final Validator validator;
++
++    public StudentAggregationController(StudentAggregationService aggregationService, Validator validator) {
++        this.aggregationService = aggregationService;
++        this.validator = validator;
++    }
++
++    @PostMapping("/aggregate")
++    public ResponseEntity<?> aggregateStudents(@RequestBody List<Student> students) {
++        if (students == null) {
++            Map<String, Object> errorResponse = Map.of("error", "Students list cannot be null");
++            return ResponseEntity.badRequest().body(errorResponse);
 +        }
-+        
-+        List<Student> validStudents = filterValidStudents(students);
-+        
-+        int count = validStudents.size();
-+        double averageScore = calculateAverageScore(validStudents);
-+        Student topStudent = findTopStudent(validStudents);
-+        List<String> sortedNames = extractSortedNames(students);
-+        
-+        return new AggregationResult(count, averageScore, topStudent, sortedNames);
-+    }
-+    
-+    private List<Student> filterValidStudents(List<Student> students) {
-+        return students.stream()
-+                .filter(student -> student.getScore() != null && student.getScore() >= 0)
-+                .collect(Collectors.toList());
-+    }
-+    
-+    // FIX: Proper double division instead of integer division
-+    private double calculateAverageScore(List<Student> validStudents) {
-+        if (validStudents.isEmpty()) {
-+            return 0.0;
++
++        List<String> validationErrors = validateStudents(students);
++        if (!validationErrors.isEmpty()) {
++            Map<String, Object> errorResponse = new HashMap<>();
++            errorResponse.put("error", "Validation failed");
++            errorResponse.put("validationErrors", validationErrors);
++            return ResponseEntity.badRequest().body(errorResponse);
 +        }
-+        
-+        int totalScore = validStudents.stream()
-+                .mapToInt(Student::getScore)
-+                .sum();
-+        
-+        return (double) totalScore / validStudents.size();  // Fixed: cast to double
++
++        try {
++            AggregationResult result = aggregationService.aggregateStudents(students);
++            return ResponseEntity.ok(result);
++        } catch (Exception e) {
++            Map<String, Object> errorResponse = Map.of("error", "Internal server error occurred");
++            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
++        }
 +    }
-+    
-+    // FIX: O(n) instead of O(n²) for finding top student
-+    private Student findTopStudent(List<Student> validStudents) {
-+        return validStudents.stream()
-+                .max((s1, s2) -> Integer.compare(s1.getScore(), s2.getScore()))
-+                .orElse(null);
-+    }
-+    
-+    // FIX: Filters out empty/blank names
-+    private List<String> extractSortedNames(List<Student> students) {
-+        return students.stream()
-+                .map(Student::getName)
-+                .filter(name -> name != null && !name.trim().isEmpty())
-+                .sorted()
-+                .collect(Collectors.toList());
++
++    private List<String> validateStudents(List<Student> students) {
++        List<String> errors = new ArrayList<>();
++        for (int i = 0; i < students.size(); i++) {
++            Student student = students.get(i);
++            if (student == null) {
++                errors.add("students[" + i + "]: Student cannot be null");
++                continue;
++            }
++            Set<ConstraintViolation<Student>> violations = validator.validate(student);
++            for (ConstraintViolation<Student> v : violations) {
++                errors.add("students[" + i + "]." + v.getPropertyPath() + ": " + v.getMessage());
++            }
++        }
++        return errors;
 +    }
 +}
-
-diff --git /dev/null b/repository_after/src/main/java/com/example/studentapi/dto/Student.java
+\ No newline at end of file
+diff --git a/repository_after/src/main/java/com/example/studentapi/dto/AggregationResult.java b/repository_after/src/main/java/com/example/studentapi/dto/AggregationResult.java
 new file mode 100644
+index 000000000..4679fe586
+--- /dev/null
++++ b/repository_after/src/main/java/com/example/studentapi/dto/AggregationResult.java
+@@ -0,0 +1,34 @@
++package com.example.studentapi.dto;
++
++import java.util.List;
++
++public class AggregationResult {
++    
++    private int count;
++    private double averageScore;
++    private Student topStudent;
++    private List<String> sortedNames;
++    
++    public AggregationResult(int count, double averageScore, Student topStudent, List<String> sortedNames) {
++        this.count = count;
++        this.averageScore = averageScore;
++        this.topStudent = topStudent;
++        this.sortedNames = sortedNames;
++    }
++    
++    public int getCount() {
++        return count;
++    }
++    
++    public double getAverageScore() {
++        return averageScore;
++    }
++    
++    public Student getTopStudent() {
++        return topStudent;
++    }
++    
++    public List<String> getSortedNames() {
++        return sortedNames;
++    }
++}
+\ No newline at end of file
+diff --git a/repository_after/src/main/java/com/example/studentapi/dto/Student.java b/repository_after/src/main/java/com/example/studentapi/dto/Student.java
+new file mode 100644
+index 000000000..3a612d417
 --- /dev/null
 +++ b/repository_after/src/main/java/com/example/studentapi/dto/Student.java
 @@ -0,0 +1,38 @@
@@ -241,43 +282,80 @@ new file mode 100644
 +        this.score = score;
 +    }
 +}
-
-diff --git /dev/null b/repository_after/src/main/java/com/example/studentapi/dto/AggregationResult.java
+\ No newline at end of file
+diff --git a/repository_after/src/main/java/com/example/studentapi/service/StudentAggregationService.java b/repository_after/src/main/java/com/example/studentapi/service/StudentAggregationService.java
 new file mode 100644
+index 000000000..46350348b
 --- /dev/null
-+++ b/repository_after/src/main/java/com/example/studentapi/dto/AggregationResult.java
-@@ -0,0 +1,34 @@
-+package com.example.studentapi.dto;
++++ b/repository_after/src/main/java/com/example/studentapi/service/StudentAggregationService.java
+@@ -0,0 +1,59 @@
++package com.example.studentapi.service;
++
++import com.example.studentapi.dto.AggregationResult;
++import com.example.studentapi.dto.Student;
++import org.springframework.stereotype.Service;
 +
 +import java.util.List;
++import java.util.stream.Collectors;
 +
-+public class AggregationResult {
++@Service
++public class StudentAggregationService {
 +    
-+    private int count;
-+    private double averageScore;
-+    private Student topStudent;
-+    private List<String> sortedNames;
-+    
-+    public AggregationResult(int count, double averageScore, Student topStudent, List<String> sortedNames) {
-+        this.count = count;
-+        this.averageScore = averageScore;
-+        this.topStudent = topStudent;
-+        this.sortedNames = sortedNames;
++    public AggregationResult aggregateStudents(List<Student> students) {
++        if (students == null || students.isEmpty()) {
++            return new AggregationResult(0, 0.0, null, List.of());
++        }
++        
++        List<Student> validStudents = filterValidStudents(students);
++        
++        int count = validStudents.size();
++        double averageScore = calculateAverageScore(validStudents);
++        Student topStudent = findTopStudent(validStudents);
++        List<String> sortedNames = extractSortedNames(students);
++        
++        return new AggregationResult(count, averageScore, topStudent, sortedNames);
 +    }
 +    
-+    public int getCount() {
-+        return count;
++    private List<Student> filterValidStudents(List<Student> students) {
++        return students.stream()
++                .filter(student -> student.getScore() != null && student.getScore() >= 0)
++                .collect(Collectors.toList());
 +    }
 +    
-+    public double getAverageScore() {
-+        return averageScore;
++    private double calculateAverageScore(List<Student> validStudents) {
++        if (validStudents.isEmpty()) {
++            return 0.0;
++        }
++        
++        int totalScore = validStudents.stream()
++                .mapToInt(Student::getScore)
++                .sum();
++        
++        return (double) totalScore / validStudents.size();
 +    }
 +    
-+    public Student getTopStudent() {
-+        return topStudent;
++    private Student findTopStudent(List<Student> validStudents) {
++        return validStudents.stream()
++                .max((s1, s2) -> Integer.compare(s1.getScore(), s2.getScore()))
++                .orElse(null);
 +    }
 +    
-+    public List<String> getSortedNames() {
-+        return sortedNames;
++    private List<String> extractSortedNames(List<Student> students) {
++        return students.stream()
++                .map(Student::getName)
++                .filter(name -> name != null && !name.trim().isEmpty())
++                .sorted()
++                .collect(Collectors.toList());
 +    }
 +}
+\ No newline at end of file
+diff --git a/repository_after/src/main/resources/application.properties b/repository_after/src/main/resources/application.properties
+new file mode 100644
+index 000000000..11bf35271
+--- /dev/null
++++ b/repository_after/src/main/resources/application.properties
+@@ -0,0 +1,3 @@
++server.port=8080
++spring.application.name=student-aggregation-api
++logging.level.com.example.studentapi=INFO
+\ No newline at end of file
