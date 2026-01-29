@@ -1,0 +1,11 @@
+{
+            "instance_id": "EAQG1V",
+            "problem_statement": "The inventory management system is producing incorrect stock levels during busy periods. Warehouse workers report that stock counts don't match physical inventory after shift changes. Financial reconciliation shows small discrepancies that grow over time. Reorder alerts sometimes arrive after items are already out of stock. The transaction log occasionally shows duplicate or missing entries. Core logic is in inventory.py, transaction.py, and models.py.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/eaqg1v-python-inventory-management-system-stock-tracking-bug-fix",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
