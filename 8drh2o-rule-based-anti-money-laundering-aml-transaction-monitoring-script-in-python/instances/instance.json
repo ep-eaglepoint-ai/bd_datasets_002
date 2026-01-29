@@ -1,0 +1,11 @@
+{
+            "instance_id": "8DRH2O",
+            "problem_statement": "Financial institutions must identify potentially suspicious transactions to comply with Anti–Money Laundering (AML) regulations. Manual review of large transaction volumes is inefficient and error-prone. This task aims to develop an automated, rule-based Python script that analyzes transaction data, detects common AML red flags, and produces actionable alerts and customer risk summaries to support compliance teams in identifying and reviewing suspicious activity",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/8drh2o-rule-based-anti-money-laundering-aml-transaction-monitoring-script-in-python",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
