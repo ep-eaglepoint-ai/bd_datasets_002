@@ -1,0 +1,11 @@
+{
+            "instance_id": "FW8J5S",
+            "problem_statement": "Many Python applications consume JSON data from APIs or configuration files, but working directly with raw dictionaries leads to weak typing, harder debugging, and less maintainable code. The goal of this task is to create a reusable Python solution that converts JSON data into strongly typed Python data structures using dataclasses. The solution should handle nested objects and lists while remaining lightweight, readable, and free of third-party dependencies, making it suitable for production environments.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/fw8j5s-convert-json-data-into-structured-python-dataclasses",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
