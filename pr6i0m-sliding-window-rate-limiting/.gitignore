@@ -14,7 +14,7 @@ bin/
 .m2/repository/
 .m2/wrapper/
 
-/reports/**/*.json
+
 # Java
 *.log
 *.iml
@@ -24,7 +24,7 @@ bin/
 *~
 
 # JSON Reports
-evaluation/reports/**/*.json
+evaluation/reports/
 
 # Python
 __pycache__/
