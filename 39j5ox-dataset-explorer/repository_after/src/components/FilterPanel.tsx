@@ -2,20 +2,16 @@
 
 import { useState } from 'react';
 import { useDatasetStore } from '../store/dataset-store';
-import { Filter, FilterOperator } from '../types/dataset';
+import { Filter, FilterOperator, Column } from '../types/dataset';
 import { Button } from '../components/ui/Button';
 import { 
   Plus, 
   X, 
   Filter as FilterIcon,
   Search,
-  Calendar,
-  Hash,
-  Type,
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
-import { generateId } from '../lib/utils';
 
 const OPERATORS: { value: FilterOperator; label: string; types: string[] }[] = [
   { value: 'equals', label: 'Equals', types: ['string', 'number', 'boolean', 'date', 'categorical'] },
@@ -52,14 +48,7 @@ export function FilterPanel() {
     );
   }
 
-  const currentVersion = currentDataset.versions.find((v:any) => v.id === currentDataset.currentVersion);
-
-
-  interface ColumnType {
-    id: string;
-    name: string;
-    type: string;
-  }
+  const currentVersion = currentDataset.versions.find(v => v.id === currentDataset.currentVersion);
   if (!currentVersion) return null;
 
   const handleAddFilter = () => {
@@ -82,14 +71,14 @@ export function FilterPanel() {
   };
 
   const getOperatorsForColumn = (columnId: string) => {
-    const column = currentVersion.columns.find(c => c.id === columnId);
+    const column = currentVersion.columns.find((c: Column) => c.id === columnId);
     if (!column) return OPERATORS;
     
     return OPERATORS.filter(op => op.types.includes(column.type));
   };
 
   const renderValueInput = (filter: Partial<Filter>, onChange: (value: any) => void) => {
-    const column = currentVersion.columns.find(c => c.id === filter.columnId);
+    const column = currentVersion.columns.find((c: Column) => c.id === filter.columnId);
     if (!column) return null;
 
     if (filter.operator === 'is_null' || filter.operator === 'is_not_null') {
@@ -100,7 +89,7 @@ export function FilterPanel() {
       case 'boolean':
         return (
           <select
-            value={String(filter.value || 'true')}
+            value={filter.value !== undefined ? String(filter.value) : 'true'}
             onChange={(e) => onChange(e.target.value === 'true')}
             className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
           >
@@ -113,7 +102,7 @@ export function FilterPanel() {
         return (
           <input
             type="number"
-            value={filter.value || ''}
+            value={filter.value !== undefined ? String(filter.value) : ''}
             onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
             placeholder="Enter number..."
             className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground"
@@ -124,7 +113,7 @@ export function FilterPanel() {
         return (
           <input
             type="date"
-            value={filter.value || ''}
+            value={filter.value !== undefined ? String(filter.value) : ''}
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
           />
@@ -135,14 +124,14 @@ export function FilterPanel() {
         const uniqueValues = Array.from(
           new Set(
             currentDataset.processedData
-              .map(row => row[column.name])
-              .filter(v => v !== null && v !== undefined && v !== '')
+              .map((row: Record<string, any>) => row[column.name])
+              .filter((v: any) => v !== null && v !== undefined && v !== '')
           )
         ).slice(0, 100); // Limit to first 100 unique values
 
         return (
           <select
-            value={filter.value || ''}
+            value={filter.value !== undefined ? String(filter.value) : ''}
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
           >
@@ -159,7 +148,7 @@ export function FilterPanel() {
         return (
           <input
             type="text"
-            value={filter.value || ''}
+            value={filter.value !== undefined ? String(filter.value) : ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Enter value..."
             className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground"
@@ -205,8 +194,8 @@ export function FilterPanel() {
           <div className="space-y-3">
             <h4 className="font-medium text-sm text-muted-foreground">Active Filters</h4>
             
-            {currentVersion.filters.map((filter) => {
-              const column = currentVersion.columns.find(c => c.id === filter.columnId);
+            {currentVersion.filters.map((filter: Filter) => {
+              const column = currentVersion.columns.find((c: Column) => c.id === filter.columnId);
               if (!column) return null;
 
               return (
@@ -302,7 +291,7 @@ export function FilterPanel() {
                   className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
                 >
                   <option value="">Select column...</option>
-                  {currentVersion.columns.map((column) => (
+                  {currentVersion.columns.map((column: Column) => (
                     <option key={column.id} value={column.id}>
                       {column.name} ({column.type})
                     </option>

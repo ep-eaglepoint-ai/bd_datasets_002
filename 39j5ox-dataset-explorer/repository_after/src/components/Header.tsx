@@ -32,10 +32,10 @@ export function Header() {
     clearCurrentDataset();
   };
 
-  const handleExport = () => {
+  const handleExportCSV = () => {
     if (!currentDataset || filteredData.length === 0) return;
 
-    // Simple CSV export
+    // CSV export
     const headers = Object.keys(filteredData[0]);
     const csvContent = [
       headers.join(','),
@@ -57,6 +57,56 @@ export function Header() {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     link.setAttribute('download', `${currentDataset.name}_filtered.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportJSON = () => {
+    if (!currentDataset || filteredData.length === 0) return;
+
+    // JSON export with proper serialization
+    const jsonData = {
+      metadata: {
+        datasetName: currentDataset.name,
+        originalFileName: currentDataset.originalFileName,
+        exportedAt: new Date().toISOString(),
+        totalRows: filteredData.length,
+        columns: Object.keys(filteredData[0]),
+        encoding: 'utf-8'
+      },
+      data: filteredData.map(row => {
+        const processedRow: Record<string, any> = {};
+        Object.entries(row).forEach(([key, value]) => {
+          // Handle different data types properly
+          if (value === null || value === undefined) {
+            processedRow[key] = null;
+          } else if (value instanceof Date) {
+            processedRow[key] = value.toISOString();
+          } else if (typeof value === 'string') {
+            // Preserve string values as-is
+            processedRow[key] = value;
+          } else if (typeof value === 'number') {
+            // Preserve numeric precision
+            processedRow[key] = value;
+          } else if (typeof value === 'boolean') {
+            processedRow[key] = value;
+          } else {
+            // Convert other types to string
+            processedRow[key] = String(value);
+          }
+        });
+        return processedRow;
+      })
+    };
+
+    const jsonContent = JSON.stringify(jsonData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${currentDataset.name}_filtered.json`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -128,10 +178,19 @@ export function Header() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExport}
+            onClick={handleExportCSV}
             disabled={filteredData.length === 0}
           >
             Export CSV
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportJSON}
+            disabled={filteredData.length === 0}
+          >
+            Export JSON
           </Button>
         </div>
       </div>

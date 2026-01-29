@@ -567,7 +567,7 @@ export const useDatasetStore = create<DatasetState>()(
       // Apply filters
       const enabledFilters = currentVersion.filters.filter(f => f.enabled);
       for (const filter of enabledFilters) {
-        data = applyFilter(data, filter);
+        data = applyFilter(data, filter, currentVersion.columns);
       }
 
       // Apply transformations would go here
@@ -608,9 +608,14 @@ export const useDatasetStore = create<DatasetState>()(
 );
 
 // Helper function to apply a single filter
-function applyFilter(data: Record<string, any>[], filter: Filter): Record<string, any>[] {
+function applyFilter(data: Record<string, any>[], filter: Filter, columns: Column[]): Record<string, any>[] {
   return data.filter(row => {
-    const value = row[filter.columnId];
+    // Find the column to get the column name
+    const column = columns.find(c => c.id === filter.columnId);
+    if (!column) return true;
+    
+    // Use column name to access the row data
+    const value = row[column.name];
     
     switch (filter.operator) {
       case 'equals':
