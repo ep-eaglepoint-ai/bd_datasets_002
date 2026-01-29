@@ -2,7 +2,7 @@ services:
   test-before:
     image: golang:1.21
     working_dir: /app/tests
-    command: sh -c "go mod edit -replace gocode=/app/repository_before && go mod tidy && go test -v ."
+    command: sh -c "go mod edit -replace gocode=/app/repository_before && go mod tidy && go test -v . || true"
     volumes:
       - .:/app
   test-after:
