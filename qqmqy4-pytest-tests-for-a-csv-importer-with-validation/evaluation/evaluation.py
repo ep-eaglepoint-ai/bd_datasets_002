@@ -125,6 +125,9 @@ def run_tests(repo_name: str):
             outcomes = _parse_test_outcomes_from_stdout(output)
         else:
             outcomes = _parse_test_outcomes(json_report_path)
+            if not outcomes:
+                outcomes = _parse_test_outcomes_from_stdout(output)
+        _cleanup_file(json_report_path)
         return {
             "passed": proc.returncode == 0,
             "return_code": proc.returncode,
@@ -173,6 +176,14 @@ def _parse_test_outcomes(report_path: Path):
         if nodeid and outcome:
             outcomes[nodeid] = outcome
     return outcomes
+
+
+def _cleanup_file(path: Path):
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError:
+        pass
 
 
 def _parse_test_outcomes_from_stdout(output: str):
