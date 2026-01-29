@@ -1,0 +1,12 @@
+{
+            "instance_id": "ISGN8F",
+            "problem_statement": "Optimize a Python word‑counting tool to process 100MB+ text files in a single pass, using collections.Counter for fast frequency counting, building indices on‑the‑fly, and reading line‑by‑line to avoid loading the entire file into memory. Replace quadratic string operations with linear algorithms and maintain all original statistical outputs while drastically reducing runtime and memory usage. Ensure the refactored code scales efficiently, handles large datasets robustly, and preserves exact feature behavior without re‑reading or re‑parsing content.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/isgn8f-word-counter-optimize",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
