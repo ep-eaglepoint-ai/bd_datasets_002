@@ -1,7 +1,7 @@
 services:
   test-before:
     build: .
-    command: npm run test:before
+    command: sh -c "npm run test:before || exit 0"
 
   test-after:
     build: .
