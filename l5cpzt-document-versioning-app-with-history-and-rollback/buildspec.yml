@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+      
+  pre_build:
+    commands:
+      - echo Logging in to Docker Hub...
+      - echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USER" --password-stdin
+
+  build:
+    commands:
+      - echo Building Backend...
+      - docker build -t hailu3548/document-app-backend:latest ./repository_after/backend
+      - docker push hailu3548/document-app-backend:latest
+      
+      - echo Building Frontend...
+      - docker build -t hailu3548/document-app-frontend:latest ./repository_after/frontend
+      - docker push hailu3548/document-app-frontend:latest
+
+  post_build:
+    commands:
+      - echo Running Evaluation...
+      - python evaluation/evaluation.py
