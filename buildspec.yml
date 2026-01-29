@@ -2,27 +2,31 @@ version: 0.2
 
 phases:
   install:
-    runtime-versions:
-      python: 3.11
     commands:
-      - echo "Using custom Docker image, Python and Go installed"
+      - echo "Using custom Docker image with Python and Go"
+      - go version
+      - python3 --version
 
   pre_build:
     commands:
       - echo "Running repository_before tests"
-      - go version
-      - cd repository_before
+      - cd $CODEBUILD_SRC_DIR/repository_before
       - go test -v ./...
-      - cd ..
+      - cd $CODEBUILD_SRC_DIR
 
   build:
     commands:
-      - echo "Running evaluation"
-      - python3 -m evaluation.evaluation
+      - echo "Running Python evaluation"
+      - mkdir -p $CODEBUILD_SRC_DIR/evaluation
+      - python3 -m evaluation.evaluation --output $CODEBUILD_SRC_DIR/evaluation/report.json
 
   post_build:
     commands:
       - echo "Running repository_after tests"
-      - cd repository_after
+      - cd $CODEBUILD_SRC_DIR/repository_after
       - go test -v ./...
-      - cd ..
+      - cd $CODEBUILD_SRC_DIR
+
+artifacts:
+  files:
+    - evaluation/report.json
