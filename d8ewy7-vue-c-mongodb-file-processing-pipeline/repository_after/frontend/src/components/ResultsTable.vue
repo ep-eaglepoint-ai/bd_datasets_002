@@ -2,6 +2,17 @@
   <div class="results-container">
     <div class="header-actions">
       <h2>Processed Records</h2>
+      <div class="controls">
+        <input
+          type="text"
+          v-model="search"
+          placeholder="Search..."
+          class="search-input"
+          @input="onSearch"
+        />
+        <button @click="exportData('json')" :disabled="!batchId">JSON</button>
+        <button @click="exportData('csv')" :disabled="!batchId">CSV</button>
+      </div>
       <div v-if="loading" class="spinner"></div>
     </div>
 
@@ -9,11 +20,11 @@
       <table>
         <thead>
           <tr>
-            <th>Tracking #</th>
-            <th>Origin</th>
-            <th>Destination</th>
-            <th>Weight (kg)</th>
-            <th>Status</th>
+            <th @click="sortBy('tracking_number')">Tracking #</th>
+            <th @click="sortBy('origin')">Origin</th>
+            <th @click="sortBy('destination')">Destination</th>
+            <th @click="sortBy('weight_kg')">Weight (kg)</th>
+            <th @click="sortBy('status')">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -57,6 +68,27 @@ const records = ref([]);
 const page = ref(1);
 const limit = 50;
 const loading = ref(false);
+const search = ref("");
+const sortField = ref("");
+let searchTimeout;
+
+const onSearch = () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    page.value = 1;
+    fetchData();
+  }, 300);
+};
+
+const sortBy = (field) => {
+  sortField.value = field;
+  fetchData();
+};
+
+const exportData = (format) => {
+  if (!props.batchId) return;
+  window.location.href = `/api/export?batch_id=${props.batchId}&format=${format}`;
+};
 
 const fetchData = async () => {
   if (!props.batchId) return;
@@ -64,7 +96,7 @@ const fetchData = async () => {
   try {
     const skip = (page.value - 1) * limit;
     const res = await fetch(
-      `/api/records?batch_id=${props.batchId}&skip=${skip}&limit=${limit}`,
+      `/api/records?batch_id=${props.batchId}&skip=${skip}&limit=${limit}&search=${encodeURIComponent(search.value)}&sort_by=${sortField.value}`,
     );
     if (res.ok) {
       records.value = await res.json();
@@ -108,6 +140,19 @@ onMounted(fetchData);
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-input {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
 }
 
 h2 {
@@ -139,6 +184,11 @@ th {
   padding: 0.75rem 1.5rem;
   text-align: left;
   border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+
+th:hover {
+  background-color: #f3f4f6;
 }
 
 td {

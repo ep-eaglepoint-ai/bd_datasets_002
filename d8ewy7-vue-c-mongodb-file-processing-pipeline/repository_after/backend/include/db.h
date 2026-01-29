@@ -22,4 +22,21 @@ int db_get_progress(const char* batch_id, BatchProgress* progress);
 // Get filtered data (simplified signature for now)
 mongoc_cursor_t* db_get_records(const char* batch_id, int skip, int limit, const char* sort_field, int sort_order, const char* search_term);
 
+// Check connection health
+bool db_check_health();
+
+// Get filtered data as JSON string (heap allocated, caller frees)
+char* db_query_json(const char* batch_id, int skip, int limit, const char* search, const char* sort_by);
+
+// Get errors as JSON string
+char* db_get_errors_json(const char* batch_id);
+
+// Delete batch
+int db_delete_batch(const char* batch_id);
+
+// Export functions
+void* db_open_export_cursor(const char* batch_id, bool is_csv);
+int db_read_export_chunk(void* context, char* buf, size_t max);
+void db_close_export_cursor(void* context);
+
 #endif

@@ -40,6 +40,35 @@ mongoc_collection_t* get_collection(mongoc_client_t* client, const char* name) {
     return mongoc_client_get_collection(client, db_name, name);
 }
 
+// Check DB connection health
+bool db_check_health() {
+    if (!pool) return false;
+    
+    // Pop a client to test connection
+    mongoc_client_t *client = mongoc_client_pool_try_pop(pool);
+    if (!client) {
+         // Pool might be exhausted? Or try generic pop if try_pop fails specifically?
+         // try_pop returns NULL if no client available immediately.
+         // Let's use pop with timeout?
+         // Actually, try_pop is non-blocking. If pool full, we assume healthy? 
+         // But we want to test connectivity.
+         client = mongoc_client_pool_pop(pool);
+    }
+    
+    if (!client) return false;
+    
+    bson_t *cmd = BCON_NEW("ping", BCON_INT32(1));
+    bson_error_t error;
+    bson_t reply;
+    bool ret = mongoc_client_command_simple(client, "admin", cmd, NULL, &reply, &error);
+    
+    bson_destroy(cmd);
+    bson_destroy(&reply);
+    mongoc_client_pool_push(pool, client);
+    
+    return ret;
+}
+
 int db_insert_records(const char* batch_id, ShipmentRecord** records, int count) {
     if (count == 0) return 0;
     

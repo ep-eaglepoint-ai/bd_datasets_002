@@ -5,8 +5,7 @@
   "test_patch": "tests/",
   "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/d8ewy7-vue-c-mongodb-file-processing-pipeline",
   "environment_setup": "Dockerfile",
-  "FAIL_TO_PASS": [
-  ],
+  "FAIL_TO_PASS": [],
   "PASS_TO_PASS": [
     "Req 1 & 2: Upload CSV and receive Batch ID",
     "Req 5 & 7: Validate records (Valid & Invalid)",
@@ -15,6 +14,11 @@
     "Req 10: Pagination - Server-side with skip/limit",
     "Req 13: Malformed CSV handles missing fields",
     "Req 13: Invalid data types return validation errors",
-    "Req 8: Progress updates during processing"
+    "Req 8: Progress updates during processing",
+    "Req 1: Drag-and-drop drop zone exists and highlights",
+    "Req 1 & 8: File Upload shows progress bar",
+    "Req 9: Summary displays valid/invalid counts",
+    "Req 10: Data Table functionality (Pagination, Search, Sort)",
+    "Req 11: Export Buttons exist"
   ]
 }

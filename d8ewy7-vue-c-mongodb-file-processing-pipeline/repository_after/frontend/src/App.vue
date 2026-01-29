@@ -17,7 +17,7 @@ const onUploadComplete = (batchId) => {
       <FileUpload @upload-complete="onUploadComplete" />
     </div>
 
-    <div v-if="currentBatchId" class="card">
+    <div class="card">
       <ResultsTable :batch-id="currentBatchId" />
     </div>
   </div>

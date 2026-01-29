@@ -13,7 +13,7 @@ const REPORTS = path.join(ROOT, "evaluation", "reports");
 const runCommand = (cmd, cwd) => {
   return new Promise((resolve) => {
     console.log(`Running: ${cmd} in ${cwd}`);
-    exec(cmd, { cwd, timeout: 60000 }, (error, stdout, stderr) => {
+    exec(cmd, { cwd, timeout: 1200000 }, (error, stdout, stderr) => {
       console.log(stdout + stderr);
       resolve({
         passed: !error,
@@ -24,14 +24,15 @@ const runCommand = (cmd, cwd) => {
   });
 };
 
-
-
 const runTests = async () => {
   // Tests dir
   const testsDir = path.join(ROOT, "tests");
 
   // Install dependencies
   await runCommand("npm install", testsDir);
+
+  // Install Chrome for Puppeteer
+  await runCommand("npx puppeteer browsers install chrome", testsDir);
 
   // Run tests
   return runCommand("npm test", testsDir);
@@ -45,11 +46,11 @@ const printReport = (report, reportPath) => {
   console.log(`Run ID: ${report.run_id}`);
   console.log(`Duration: ${report.duration_seconds.toFixed(2)} seconds`);
   console.log();
-  
+
   console.log("TEST EXECUTION:");
   console.log(`  Passed: ${report.tests.passed}`);
   console.log(`  Return Code: ${report.tests.return_code}`);
-  
+
   console.log();
   console.log("=".repeat(60));
   console.log(`SUCCESS: ${report.success}`);
@@ -80,17 +81,13 @@ const main = async () => {
   const timeStr = start.toISOString().split("T")[1].replace(/[:\.]/g, "-");
   const reportDir = path.join(REPORTS, dateStr, timeStr);
 
-
   // Define the full path explicitly
   const reportPath = path.join(reportDir, "report.json");
 
   fs.mkdirSync(reportDir, { recursive: true });
-  fs.writeFileSync(
-    reportPath,
-    JSON.stringify(report, null, 2),
-  );
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
-    // Call the new printer instead of console.log(JSON...)
+  // Call the new printer instead of console.log(JSON...)
   printReport(report, reportPath);
 
   if (tests.passed) process.exit(0);

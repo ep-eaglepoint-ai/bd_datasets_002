@@ -13,7 +13,34 @@ const progress = ref({
   invalid: 0,
 });
 const error = ref(null);
+const currentBatchId2 = ref(null);
+const showErrors = ref(false);
+const errorsList = ref([]);
+const loadingErrors = ref(false);
 let pollInterval = null;
+
+const toggleErrors = async () => {
+  showErrors.value = !showErrors.value;
+  if (showErrors.value && errorsList.value.length === 0) {
+    loadingErrors.value = true;
+    try {
+      const batchId = currentBatchId2.value;
+      if (!batchId) return;
+
+      const res = await fetch(`/api/errors/${batchId}`);
+      if (res.ok) {
+        errorsList.value = await res.json();
+      } else {
+        error.value = "Failed to fetch error details";
+      }
+    } catch (e) {
+      console.error(e);
+      error.value = "Error loading details";
+    } finally {
+      loadingErrors.value = false;
+    }
+  }
+};
 
 const onDragOver = (e) => {
   e.preventDefault();
@@ -75,6 +102,7 @@ const handleFile = async (selectedFile) => {
       if (xhr.status === 200) {
         const response = JSON.parse(xhr.responseText);
         const batchId = response.batch_id;
+        currentBatchId2.value = batchId;
         startPolling(batchId);
         emit("upload-complete", batchId); // Emit early so table can prepare? Or wait?
         // Wait for final processing
@@ -150,12 +178,42 @@ onUnmounted(() => {
         <div class="fill" :style="{ width: progress.percentage + '%' }"></div>
       </div>
       <p>{{ progress.text }}</p>
-      <div
-        class="stats"
-        v-if="status === 'processing' || status === 'complete'"
-      >
-        <span class="success">Valid: {{ progress.valid }}</span>
-        <span class="bad">Invalid: {{ progress.invalid }}</span>
+    </div>
+
+    <div
+      class="stats"
+      v-if="
+        progress.valid > 0 ||
+        progress.invalid > 0 ||
+        status === 'complete' ||
+        status === 'processing'
+      "
+    >
+      <span class="success">Valid: {{ progress.valid }}</span>
+      <span class="bad">Invalid: {{ progress.invalid }}</span>
+    </div>
+
+    <div
+      v-if="progress.invalid > 0 && status === 'complete'"
+      class="error-details"
+    >
+      <button @click="toggleErrors" class="error-toggle">
+        {{ showErrors ? "Hide" : "Show" }} Validation Errors
+      </button>
+      <div v-if="showErrors" class="error-list">
+        <div v-if="loadingErrors" class="error-item">Loading errors...</div>
+        <div v-else-if="errorsList.length === 0" class="error-item">
+          No detailed errors found.
+        </div>
+        <div
+          v-else
+          v-for="(err, index) in errorsList"
+          :key="index"
+          class="error-item"
+        >
+          <strong>Row {{ err.row_number }}:</strong> {{ err.field }} - Expected
+          {{ err.expected }} (Got: "{{ err.actual }}")
+        </div>
       </div>
     </div>
   </div>
@@ -194,5 +252,36 @@ onUnmounted(() => {
 }
 .bad {
   color: red;
+}
+.error-details {
+  margin-top: 1.5rem;
+  border-top: 1px solid #ccc;
+  padding-top: 1rem;
+  text-align: left;
+}
+.error-toggle {
+  background: none;
+  border: none;
+  color: #d32f2f;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.9rem;
+}
+.error-list {
+  margin-top: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #f8d7da;
+  border-radius: 4px;
+}
+.error-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f1f1f1;
+  font-size: 0.85rem;
+}
+.error-item:last-child {
+  border-bottom: none;
 }
 </style>

@@ -34,11 +34,13 @@ services:
     restart: always
 
   test:
-    image: node:20
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
     working_dir: /app/tests
     volumes:
       - ./tests:/app/tests
-    command: sh -c "npm install && npm test"
+    command: sh -c "npm install && npx puppeteer browsers install chrome && npx jest"
     depends_on:
       - c-backend
       - vue-frontend
@@ -48,7 +50,9 @@ services:
       - app-network
 
   evaluation:
-    image: node:20
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
     working_dir: /app
     volumes:
       - ./tests:/app/tests

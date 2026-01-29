@@ -230,12 +230,23 @@ int answer_to_connection(void *cls, struct MHD_Connection *connection,
     }
     
     if (strcmp(url, "/api/health") == 0) {
-        const char* page = "{\"status\": \"healthy\", \"mongodb\": \"connected\"}";
-        struct MHD_Response *response = MHD_create_response_from_buffer(strlen(page), (void*)page, MHD_RESPMEM_PERSISTENT);
-        MHD_add_response_header(response, "Content-Type", "application/json");
-        int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-        return ret;
+        if (db_check_health()) {
+            const char* page = "{\"status\": \"healthy\", \"mongodb\": \"connected\"}";
+            struct MHD_Response *response = MHD_create_response_from_buffer(strlen(page), (void*)page, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(response, "Content-Type", "application/json");
+            MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
+            int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+            MHD_destroy_response(response);
+            return ret;
+        } else {
+            const char* page = "{\"status\": \"unhealthy\", \"mongodb\": \"disconnected\"}";
+            struct MHD_Response *response = MHD_create_response_from_buffer(strlen(page), (void*)page, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(response, "Content-Type", "application/json");
+            MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
+            int ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
+            MHD_destroy_response(response);
+            return ret;
+        }
     }
     
     // GET /api/status/{id}
