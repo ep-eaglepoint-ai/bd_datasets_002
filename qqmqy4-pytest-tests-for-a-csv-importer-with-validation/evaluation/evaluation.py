@@ -104,7 +104,7 @@ def run_tests(repo_name: str):
     try:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         json_report_path = REPORTS_DIR / f"pytest_{repo_name}.json"
-        proc = subprocess.run(
+        proc, output = _run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -114,14 +114,17 @@ def run_tests(repo_name: str):
                 "--json-report",
                 f"--json-report-file={json_report_path}",
             ],
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT_SECONDS,
+            env,
         )
-        output = (proc.stdout + proc.stderr)
-        outcomes = _parse_test_outcomes(json_report_path)
+
+        if proc.returncode == 4 and "unrecognized arguments: --json-report" in output:
+            proc, output = _run_pytest(
+                [sys.executable, "-m", "pytest", "tests", "-vv"],
+                env,
+            )
+            outcomes = _parse_test_outcomes_from_stdout(output)
+        else:
+            outcomes = _parse_test_outcomes(json_report_path)
         return {
             "passed": proc.returncode == 0,
             "return_code": proc.returncode,
@@ -141,6 +144,19 @@ def run_metrics(repo_path: Path):
     return {}
 
 
+def _run_pytest(cmd, env):
+    proc = subprocess.run(
+        cmd,
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=TIMEOUT_SECONDS,
+    )
+    output = (proc.stdout + proc.stderr)
+    return proc, output
+
+
 def _parse_test_outcomes(report_path: Path):
     if not report_path.exists():
         return {}
@@ -156,6 +172,22 @@ def _parse_test_outcomes(report_path: Path):
         outcome = test.get("outcome")
         if nodeid and outcome:
             outcomes[nodeid] = outcome
+    return outcomes
+
+
+def _parse_test_outcomes_from_stdout(output: str):
+    outcomes = {}
+    for line in output.splitlines():
+        line = line.strip()
+        if "::" not in line:
+            continue
+        parts = line.rsplit(" ", 1)
+        if len(parts) != 2:
+            continue
+        nodeid, status = parts
+        status_upper = status.upper()
+        if status_upper in {"PASSED", "FAILED", "SKIPPED", "XFAIL", "XPASS", "ERROR"}:
+            outcomes[nodeid] = status_upper.lower()
     return outcomes
 
 
