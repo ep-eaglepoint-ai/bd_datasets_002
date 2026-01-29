@@ -166,16 +166,17 @@ func TestConversionRejectionReturns422(t *testing.T) {
 	}
 	defer response.Body.Close()
 
+	// Read response body once
+	bodyBytes, _ := io.ReadAll(response.Body)
+
 	// Should return 422 Unprocessable Entity
 	if response.StatusCode != http.StatusUnprocessableEntity {
-		body, _ := io.ReadAll(response.Body)
-		t.Errorf("Expected status 422 Unprocessable Entity, got %d. Body: %s", response.StatusCode, string(body))
+		t.Errorf("Expected status 422 Unprocessable Entity, got %d. Body: %s", response.StatusCode, string(bodyBytes))
 	}
 
 	// Read and verify error message
-	body, _ := io.ReadAll(response.Body)
 	var errorResponse map[string]string
-	json.Unmarshal(body, &errorResponse)
+	json.Unmarshal(bodyBytes, &errorResponse)
 
 	if errorMsg, ok := errorResponse["error"]; ok {
 		t.Logf("Received expected error message: %s", errorMsg)

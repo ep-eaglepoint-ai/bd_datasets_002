@@ -43,24 +43,14 @@ def run_tests_before():
     Run tests on repository_before (empty baseline)
     Expected to fail as no implementation exists
     """
-    try:
-        return {
-            "passed": False,
-            "return_code": 1,
-            "output": "repository_before is empty (baseline state with no implementation)",
-            "test_count": 0,
-            "passed_count": 0,
-            "failed_count": 0
-        }
-    except Exception as e:
-        return {
-            "passed": False,
-            "return_code": -1,
-            "output": f"Error evaluating repository_before: {str(e)}",
-            "test_count": 0,
-            "passed_count": 0,
-            "failed_count": 0
-        }
+    return {
+        "passed": False,
+        "return_code": 1,
+        "output": "repository_before is empty (baseline state with no implementation)",
+        "test_count": 0,
+        "passed_count": 0,
+        "failed_count": 0
+    }
 
 
 def run_tests_after():

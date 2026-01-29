@@ -107,20 +107,65 @@
             const tr = document.createElement('tr');
             tr.id = `lead-${lead.id}`;
 
-            const statusClass = lead.status.toLowerCase();
+            const statusClass = (lead.status || "").toLowerCase().replace(/[^a-z0-9_-]/g, '');
 
-            tr.innerHTML = `
-                <td>${lead.id}</td>
-                <td>${lead.name}</td>
-                <td>${lead.email}</td>
-                <td>${lead.lead_score}</td>
-                <td><span class="status-badge status-${statusClass}">${lead.status}</span></td>
-                <td><span class="version-badge">v${lead.version}</span></td>
-                <td>
-                    <button class="btn btn-small" onclick="editLead(${lead.id})">Edit</button>
-                    <button class="btn btn-small btn-danger" onclick="deleteLead(${lead.id})">Delete</button>
-                </td>
-            `;
+            // ID cell
+            const idTd = document.createElement('td');
+            idTd.textContent = lead.id;
+            tr.appendChild(idTd);
+
+            // Name cell
+            const nameTd = document.createElement('td');
+            nameTd.textContent = lead.name;
+            tr.appendChild(nameTd);
+
+            // Email cell
+            const emailTd = document.createElement('td');
+            emailTd.textContent = lead.email;
+            tr.appendChild(emailTd);
+
+            // Lead score cell
+            const scoreTd = document.createElement('td');
+            scoreTd.textContent = lead.lead_score;
+            tr.appendChild(scoreTd);
+
+            // Status cell with badge
+            const statusTd = document.createElement('td');
+            const statusSpan = document.createElement('span');
+            statusSpan.classList.add('status-badge');
+            if (statusClass) {
+                statusSpan.classList.add(`status-${statusClass}`);
+            }
+            statusSpan.textContent = lead.status;
+            statusTd.appendChild(statusSpan);
+            tr.appendChild(statusTd);
+
+            // Version cell with badge
+            const versionTd = document.createElement('td');
+            const versionSpan = document.createElement('span');
+            versionSpan.classList.add('version-badge');
+            versionSpan.textContent = 'v' + lead.version;
+            versionTd.appendChild(versionSpan);
+            tr.appendChild(versionTd);
+
+            // Actions cell with Edit/Delete buttons
+            const actionsTd = document.createElement('td');
+
+            const editButton = document.createElement('button');
+            editButton.className = 'btn btn-small';
+            editButton.textContent = 'Edit';
+            editButton.onclick = () => editLead(lead.id);
+            actionsTd.appendChild(editButton);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'btn btn-small btn-danger';
+            deleteButton.textContent = 'Delete';
+            deleteButton.style.marginLeft = '4px';
+            deleteButton.onclick = () => deleteLead(lead.id);
+            actionsTd.appendChild(deleteButton);
+
+            tr.appendChild(actionsTd);
+
             return tr;
         }
 
@@ -144,35 +189,45 @@
                     const editFormContent = document.getElementById('edit-form-content');
 
                     editFormContent.innerHTML = `
-                        <form id="update-form-${lead.id}" onsubmit="updateLead(event, ${lead.id}, ${lead.version})">
+                        <form id="update-form-${lead.id}">
                             <div class="form-group">
                                 <label>Name:</label>
-                                <input type="text" id="name-${lead.id}" value="${lead.name}" required>
+                                <input type="text" id="name-${lead.id}" required>
                             </div>
                             <div class="form-group">
                                 <label>Email:</label>
-                                <input type="email" id="email-${lead.id}" value="${lead.email}" required>
+                                <input type="email" id="email-${lead.id}" required>
                             </div>
                             <div class="form-group">
                                 <label>Lead Score (0-100):</label>
-                                <input type="number" id="score-${lead.id}" value="${lead.lead_score}" min="0" max="100" required>
+                                <input type="number" id="score-${lead.id}" min="0" max="100" required>
                             </div>
                             <div class="form-group">
                                 <label>Status:</label>
                                 <select id="status-${lead.id}">
-                                    <option value="PROSPECT" ${lead.status === 'PROSPECT' ? 'selected' : ''}>PROSPECT</option>
-                                    <option value="QUALIFIED" ${lead.status === 'QUALIFIED' ? 'selected' : ''}>QUALIFIED</option>
-                                    <option value="CONVERTED" ${lead.status === 'CONVERTED' ? 'selected' : ''}>CONVERTED</option>
+                                    <option value="PROSPECT">PROSPECT</option>
+                                    <option value="QUALIFIED">QUALIFIED</option>
+                                    <option value="CONVERTED">CONVERTED</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Version: <span class="version-badge">v${lead.version}</span></label>
-                                <input type="hidden" id="version-${lead.id}" value="${lead.version}">
+                                <label>Version: <span class="version-badge" id="version-badge-${lead.id}"></span></label>
+                                <input type="hidden" id="version-${lead.id}">
                             </div>
                             <button type="submit" class="btn btn-primary">Update Lead</button>
                             <button type="button" class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
                         </form>
                     `;
+
+                    // Safely populate form fields with lead data
+                    document.getElementById(`name-${lead.id}`).value = lead.name;
+                    document.getElementById(`email-${lead.id}`).value = lead.email;
+                    document.getElementById(`score-${lead.id}`).value = lead.lead_score;
+                    document.getElementById(`status-${lead.id}`).value = lead.status;
+                    document.getElementById(`version-${lead.id}`).value = lead.version;
+                    document.getElementById(`version-badge-${lead.id}`).textContent = 'v' + lead.version;
+
+                    document.getElementById(`update-form-${lead.id}`).onsubmit = (event) => updateLead(event, lead.id, lead.version);
 
                     editFormSection.classList.remove('hidden');
                     editFormSection.scrollIntoView({ behavior: 'smooth' });
@@ -203,8 +258,9 @@
                     if (res.status === 409) {
                         // Conflict - version mismatch
                         const freshData = await res.json();
+                        const freshVersion = (freshData.fresh_data && freshData.fresh_data.version) || 'unknown';
                         showNotification(
-                            `⚠️ CONFLICT DETECTED! The lead was modified by another user. Current version: ${freshData.version}. Please review the latest data and try again.`,
+                            `⚠️ CONFLICT DETECTED! The lead was modified by another user. Current version: ${freshVersion}. Please review the latest data and try again.`,
                             'conflict'
                         );
                         // Reload the form with fresh data

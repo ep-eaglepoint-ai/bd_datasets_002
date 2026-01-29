@@ -185,13 +185,35 @@ func (h *LeadHandler) RenderLeadRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Local helper to HTML-escape user-controlled strings before rendering.
+	escape := func(s string) string {
+		var b strings.Builder
+		for _, r := range s {
+			switch r {
+			case '&':
+				b.WriteString("&amp;")
+			case '<':
+				b.WriteString("&lt;")
+			case '>':
+				b.WriteString("&gt;")
+			case '"':
+				b.WriteString("&#34;")
+			case '\'':
+				b.WriteString("&#39;")
+			default:
+				b.WriteRune(r)
+			}
+		}
+		return b.String()
+	}
+
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, `<tr id="lead-%d" hx-swap-oob="true">`, lead.ID)
 	fmt.Fprintf(w, `<td>%d</td>`, lead.ID)
-	fmt.Fprintf(w, `<td>%s</td>`, lead.Name)
-	fmt.Fprintf(w, `<td>%s</td>`, lead.Email)
+	fmt.Fprintf(w, `<td>%s</td>`, escape(lead.Name))
+	fmt.Fprintf(w, `<td>%s</td>`, escape(lead.Email))
 	fmt.Fprintf(w, `<td>%d</td>`, lead.LeadScore)
-	fmt.Fprintf(w, `<td><span class="status-%s">%s</span></td>`, strings.ToLower(string(lead.Status)), lead.Status)
+	fmt.Fprintf(w, `<td><span class="status-%s">%s</span></td>`, strings.ToLower(string(lead.Status)), escape(string(lead.Status)))
 	fmt.Fprintf(w, `<td>%d</td>`, lead.Version)
 	fmt.Fprintf(w, `<td><button hx-get="/lead/%d/edit" hx-target="#edit-form">Edit</button></td>`, lead.ID)
 	fmt.Fprintf(w, `</tr>`)
@@ -199,12 +221,16 @@ func (h *LeadHandler) RenderLeadRow(w http.ResponseWriter, r *http.Request) {
 
 // RegisterRoutes registers all routes for the lead handler
 func (h *LeadHandler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/api/leads", h.GetAllLeads).Methods("GET")
-	router.HandleFunc("/api/leads", h.CreateLead).Methods("POST")
-	router.HandleFunc("/api/leads/search", h.SearchLeads).Methods("GET")
-	router.HandleFunc("/api/leads/{id}", h.GetLead).Methods("GET")
-	router.HandleFunc("/api/leads/{id}", h.UpdateLead).Methods("PUT")
-	router.HandleFunc("/api/leads/{id}", h.DeleteLead).Methods("DELETE")
+	api := router.PathPrefix("/api").Subrouter()
+	api.Use(AuthMiddleware)
+
+	api.HandleFunc("/leads", h.GetAllLeads).Methods("GET")
+	api.HandleFunc("/leads", h.CreateLead).Methods("POST")
+	api.HandleFunc("/leads/search", h.SearchLeads).Methods("GET")
+	api.HandleFunc("/leads/{id}", h.GetLead).Methods("GET")
+	api.HandleFunc("/leads/{id}", h.UpdateLead).Methods("PUT")
+	api.HandleFunc("/leads/{id}", h.DeleteLead).Methods("DELETE")
+
 	router.HandleFunc("/lead/{id}/row", h.RenderLeadRow).Methods("GET")
 }
 
@@ -222,12 +248,36 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// AuthMiddleware is a simple authentication middleware
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiKey := r.Header.Get("X-API-Key")
+		// In a real app, this would check against a DB or env var
+		// For this implementation, we'll allow an empty key if it's not set in env
+		expectedKey := os.Getenv("API_KEY")
+		if expectedKey != "" && apiKey != expectedKey {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // CORSMiddleware adds CORS headers
 func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+		if allowedOrigin == "" {
+			allowedOrigin = "*" // Fallback for dev, but ideally should be restricted
+		}
+
+		origin := r.Header.Get("Origin")
+		if allowedOrigin == "*" || origin == allowedOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

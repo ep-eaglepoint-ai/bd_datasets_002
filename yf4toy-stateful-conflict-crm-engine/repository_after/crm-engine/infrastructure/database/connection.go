@@ -14,7 +14,7 @@ import (
 func Connect() (*sql.DB, error) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		databaseURL = "postgres://crm_user:crm_pass@localhost:5432/crm_db?sslmode=disable"
+		databaseURL = "postgres://crm_user:crm_pass@localhost:5432/crm_db?sslmode=require"
 	}
 
 	db, err := sql.Open("postgres", databaseURL)
