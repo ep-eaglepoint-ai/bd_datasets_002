@@ -100,6 +100,13 @@ interface BookmarkStore {
   getTagDistribution: () => { tag: string; count: number }[];
   getBookmarkingTrends: (days?: number) => { date: string; count: number }[];
   getFavoriteUsagePatterns: () => { total: number; favorites: number; percentage: number };
+  
+  // Bulk operations engine (atomic transactions)
+  bulkDelete: (bookmarkIds: string[]) => { success: boolean; deletedIds?: string[]; error?: string };
+  bulkTagAdd: (bookmarkIds: string[], tagNames: string[]) => { success: boolean; updatedIds?: string[]; error?: string };
+  bulkTagRemove: (bookmarkIds: string[], tagNames: string[]) => { success: boolean; updatedIds?: string[]; error?: string };
+  bulkMoveToCollection: (bookmarkIds: string[], collectionId?: string) => { success: boolean; updatedIds?: string[]; error?: string };
+  bulkFavorite: (bookmarkIds: string[], isFavorite: boolean) => { success: boolean; updatedIds?: string[]; error?: string };
 }
 
 /* -----------------------------------------------------
@@ -1060,6 +1067,231 @@ export const useBookmarkStore = create<BookmarkStore>()(
           return { total, favorites, percentage };
         } catch {
           return { total: 0, favorites: 0, percentage: 0 };
+        }
+      },
+
+      // Bulk operations engine (atomic transactions)
+      bulkDelete: (bookmarkIds) => {
+        try {
+          if (!bookmarkIds || bookmarkIds.length === 0) {
+            return { success: false, error: 'No bookmark IDs provided' };
+          }
+
+          const state = get();
+          const existingBookmarks = state.bookmarks;
+          const bookmarksToDelete = existingBookmarks.filter(b => bookmarkIds.includes(b.id));
+          
+          if (bookmarksToDelete.length !== bookmarkIds.length) {
+            return { success: false, error: 'One or more bookmarks not found' };
+          }
+
+          // Create backup for rollback
+          const backupBookmarks = [...existingBookmarks];
+          
+          try {
+            set((currentState) => ({
+              bookmarks: currentState.bookmarks.filter(b => !bookmarkIds.includes(b.id)),
+            }));
+
+            return { success: true, deletedIds: bookmarkIds };
+          } catch (rollbackError) {
+            // Rollback on failure
+            set({ bookmarks: backupBookmarks });
+            return { success: false, error: 'Failed to delete bookmarks, changes rolled back' };
+          }
+        } catch {
+          return { success: false, error: 'Unexpected error during bulk delete' };
+        }
+      },
+
+      bulkTagAdd: (bookmarkIds, tagNames) => {
+        try {
+          if (!bookmarkIds || bookmarkIds.length === 0) {
+            return { success: false, error: 'No bookmark IDs provided' };
+          }
+          if (!tagNames || tagNames.length === 0) {
+            return { success: false, error: 'No tag names provided' };
+          }
+
+          const state = get();
+          const existingBookmarks = state.bookmarks;
+          const normalizedTags = tagNames.map(normalizeTagName).filter(Boolean);
+          
+          if (normalizedTags.length === 0) {
+            return { success: false, error: 'No valid tag names provided' };
+          }
+
+          const bookmarksToUpdate = existingBookmarks.filter(b => bookmarkIds.includes(b.id));
+          if (bookmarksToUpdate.length !== bookmarkIds.length) {
+            return { success: false, error: 'One or more bookmarks not found' };
+          }
+
+          // Create backup for rollback
+          const backupBookmarks = [...existingBookmarks];
+          
+          try {
+            set((currentState) => ({
+              bookmarks: currentState.bookmarks.map(bookmark => {
+                if (bookmarkIds.includes(bookmark.id)) {
+                  const existingTags = new Set(bookmark.tags);
+                  const newTags = normalizedTags.filter(tag => !existingTags.has(tag));
+                  return {
+                    ...bookmark,
+                    tags: [...bookmark.tags, ...newTags],
+                    updatedAt: new Date(),
+                  };
+                }
+                return bookmark;
+              }),
+            }));
+
+            return { success: true, updatedIds: bookmarkIds };
+          } catch (rollbackError) {
+            // Rollback on failure
+            set({ bookmarks: backupBookmarks });
+            return { success: false, error: 'Failed to add tags, changes rolled back' };
+          }
+        } catch {
+          return { success: false, error: 'Unexpected error during bulk tag add' };
+        }
+      },
+
+      bulkTagRemove: (bookmarkIds, tagNames) => {
+        try {
+          if (!bookmarkIds || bookmarkIds.length === 0) {
+            return { success: false, error: 'No bookmark IDs provided' };
+          }
+          if (!tagNames || tagNames.length === 0) {
+            return { success: false, error: 'No tag names provided' };
+          }
+
+          const state = get();
+          const existingBookmarks = state.bookmarks;
+          const normalizedTags = tagNames.map(normalizeTagName).filter(Boolean);
+          
+          if (normalizedTags.length === 0) {
+            return { success: false, error: 'No valid tag names provided' };
+          }
+
+          const bookmarksToUpdate = existingBookmarks.filter(b => bookmarkIds.includes(b.id));
+          if (bookmarksToUpdate.length !== bookmarkIds.length) {
+            return { success: false, error: 'One or more bookmarks not found' };
+          }
+
+          // Create backup for rollback
+          const backupBookmarks = [...existingBookmarks];
+          
+          try {
+            set((currentState) => ({
+              bookmarks: currentState.bookmarks.map(bookmark => {
+                if (bookmarkIds.includes(bookmark.id)) {
+                  return {
+                    ...bookmark,
+                    tags: bookmark.tags.filter(tag => !normalizedTags.includes(tag)),
+                    updatedAt: new Date(),
+                  };
+                }
+                return bookmark;
+              }),
+            }));
+
+            return { success: true, updatedIds: bookmarkIds };
+          } catch (rollbackError) {
+            // Rollback on failure
+            set({ bookmarks: backupBookmarks });
+            return { success: false, error: 'Failed to remove tags, changes rolled back' };
+          }
+        } catch {
+          return { success: false, error: 'Unexpected error during bulk tag remove' };
+        }
+      },
+
+      bulkMoveToCollection: (bookmarkIds, collectionId) => {
+        try {
+          if (!bookmarkIds || bookmarkIds.length === 0) {
+            return { success: false, error: 'No bookmark IDs provided' };
+          }
+
+          const state = get();
+          const existingBookmarks = state.bookmarks;
+          
+          // Validate collection exists if provided
+          if (collectionId && !state.collections.some(c => c.id === collectionId)) {
+            return { success: false, error: 'Collection not found' };
+          }
+
+          const bookmarksToUpdate = existingBookmarks.filter(b => bookmarkIds.includes(b.id));
+          if (bookmarksToUpdate.length !== bookmarkIds.length) {
+            return { success: false, error: 'One or more bookmarks not found' };
+          }
+
+          // Create backup for rollback
+          const backupBookmarks = [...existingBookmarks];
+          
+          try {
+            set((currentState) => ({
+              bookmarks: currentState.bookmarks.map(bookmark => {
+                if (bookmarkIds.includes(bookmark.id)) {
+                  return {
+                    ...bookmark,
+                    collectionId,
+                    updatedAt: new Date(),
+                  };
+                }
+                return bookmark;
+              }),
+            }));
+
+            return { success: true, updatedIds: bookmarkIds };
+          } catch (rollbackError) {
+            // Rollback on failure
+            set({ bookmarks: backupBookmarks });
+            return { success: false, error: 'Failed to move bookmarks, changes rolled back' };
+          }
+        } catch {
+          return { success: false, error: 'Unexpected error during bulk move' };
+        }
+      },
+
+      bulkFavorite: (bookmarkIds, isFavorite) => {
+        try {
+          if (!bookmarkIds || bookmarkIds.length === 0) {
+            return { success: false, error: 'No bookmark IDs provided' };
+          }
+
+          const state = get();
+          const existingBookmarks = state.bookmarks;
+          const bookmarksToUpdate = existingBookmarks.filter(b => bookmarkIds.includes(b.id));
+          
+          if (bookmarksToUpdate.length !== bookmarkIds.length) {
+            return { success: false, error: 'One or more bookmarks not found' };
+          }
+
+          // Create backup for rollback
+          const backupBookmarks = [...existingBookmarks];
+          
+          try {
+            set((currentState) => ({
+              bookmarks: currentState.bookmarks.map(bookmark => {
+                if (bookmarkIds.includes(bookmark.id)) {
+                  return {
+                    ...bookmark,
+                    isFavorite,
+                    updatedAt: new Date(),
+                  };
+                }
+                return bookmark;
+              }),
+            }));
+
+            return { success: true, updatedIds: bookmarkIds };
+          } catch (rollbackError) {
+            // Rollback on failure
+            set({ bookmarks: backupBookmarks });
+            return { success: false, error: 'Failed to update favorites, changes rolled back' };
+          }
+        } catch {
+          return { success: false, error: 'Unexpected error during bulk favorite update' };
         }
       },
     }),

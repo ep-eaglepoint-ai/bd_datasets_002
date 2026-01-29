@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { Bookmark, BookmarkFormData } from '../types';
 import { useBookmarkStore } from '../store/bookmarkStore';
+import { DownloadCSVButton } from '../components/DownloadCSVButton';
 
 export default function BookmarkManager() {
   const [title, setTitle] = useState('');
@@ -448,39 +450,43 @@ export default function BookmarkManager() {
             
             {/* Sorting Bar - Only show for All Bookmarks */}
             {!debouncedSearchQuery && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="sort-field" className="text-sm font-medium text-gray-700">
-                    Sort:
-                  </label>
-                  <select
-                    id="sort-field"
-                    value={sortField}
-                    onChange={(e) => setSortField(e.target.value as any)}
-                    className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  >
-                    <option value="dateAdded">Date Added</option>
-                    <option value="lastVisited">Last Visited</option>
-                    <option value="title">Title</option>
-                    <option value="domain">Domain</option>
-                    <option value="favorite">Favorite</option>
-                  </select>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="sort-field" className="text-sm font-medium text-gray-700">
+                      Sort:
+                    </label>
+                    <select
+                      id="sort-field"
+                      value={sortField}
+                      onChange={(e) => setSortField(e.target.value as any)}
+                      className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    >
+                      <option value="dateAdded">Date Added</option>
+                      <option value="lastVisited">Last Visited</option>
+                      <option value="title">Title</option>
+                      <option value="domain">Domain</option>
+                      <option value="favorite">Favorite</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="sort-direction" className="text-sm font-medium text-gray-700">
+                      Order:
+                    </label>
+                    <select
+                      id="sort-direction"
+                      value={sortDirection}
+                      onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
+                      className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    >
+                      <option value="desc">↓</option>
+                      <option value="asc">↑</option>
+                    </select>
+                  </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <label htmlFor="sort-direction" className="text-sm font-medium text-gray-700">
-                    Order:
-                  </label>
-                  <select
-                    id="sort-direction"
-                    value={sortDirection}
-                    onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
-                    className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  >
-                    <option value="desc">↓</option>
-                    <option value="asc">↑</option>
-                  </select>
-                </div>
+                <DownloadCSVButton bookmarks={sortedBookmarks} />
               </div>
             )}
           </div>
