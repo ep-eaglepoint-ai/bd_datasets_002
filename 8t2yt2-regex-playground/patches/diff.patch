@@ -1278,42 +1278,6 @@ index 000000000..5b6f034a1
 +++ b/repository_after/src/tests/global.d.ts
 @@ -0,0 +1 @@
 +declare module 'react-highlight-within-textarea'
-diff --git a/repository_after/src/tests/tsconfig.json b/repository_after/src/tests/tsconfig.json
-new file mode 100644
-index 000000000..60c68318d
---- /dev/null
-+++ b/repository_after/src/tests/tsconfig.json
-@@ -0,0 +1,30 @@
-+{
-+  "compilerOptions": {
-+    "target": "es5",
-+    "lib": [
-+      "dom",
-+      "dom.iterable",
-+      "esnext"
-+    ],
-+    "allowJs": true,
-+    "skipLibCheck": true,
-+    "strict": true,
-+    "forceConsistentCasingInFileNames": true,
-+    "noEmit": true,
-+    "esModuleInterop": true,
-+    "module": "commonjs",
-+    "moduleResolution": "node",
-+    "resolveJsonModule": true,
-+    "isolatedModules": true,
-+    "jsx": "react",
-+    "alwaysStrict": true,
-+  },
-+  "include": [
-+    "next-env.d.ts",
-+    "**/*.ts",
-+    "**/*.tsx"
-+  ],
-+  "exclude": [
-+    "node_modules",
-+  ]
-+}
 diff --git a/repository_after/src/types/regex.ts b/repository_after/src/types/regex.ts
 new file mode 100644
 index 000000000..9bd6dc94d
