@@ -61,7 +61,13 @@ def run_evaluation():
     start = datetime.utcnow()
     
     before = evaluate("repository_before", "before")
+    print("✅ repository_before evaluation completed (failures expected)")
+    
     after = evaluate("repository_after", "after")
+    if after["tests"]["passed"]:
+        print("✅ repository_after passed all tests as expected")
+    else:
+        print("❌ repository_after failed some tests")
     
     comparison = {
         "passed_gate": after["tests"]["passed"],
@@ -94,6 +100,7 @@ def run_evaluation():
         json.dump(result, f, indent=2)
         
     print(f"Report generated: {report_path}")
+    print(f"✅ Evaluation successful! Report saved to {report_path} ✅")
     return result
 
 def main():
