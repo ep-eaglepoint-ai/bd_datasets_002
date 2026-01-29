@@ -39,8 +39,6 @@ __pycache__/
 .venv/
 .env
 
-# Node (legacy)
-node_modules/
 
 # Evaluation reports
-evaluation/report/
+evaluation/reports/
