@@ -10,23 +10,23 @@ phases:
   pre_build:
     commands:
       - echo "Running repository_before tests"
-      - cd $CODEBUILD_SRC_DIR/repository_before
+      - cd $CODEBUILD_SRC_DIR/jr2pzv-production-grade-validation-test-suite-for-validate-function/repository_before
       - go test -v ./...
-      - cd $CODEBUILD_SRC_DIR
+      - cd $CODEBUILD_SRC_DIR/jr2pzv-production-grade-validation-test-suite-for-validate-function
 
   build:
     commands:
       - echo "Running Python evaluation"
-      - mkdir -p $CODEBUILD_SRC_DIR/evaluation
-      - python3 -m evaluation.evaluation --output $CODEBUILD_SRC_DIR/evaluation/report.json
+      - mkdir -p $CODEBUILD_SRC_DIR/jr2pzv-production-grade-validation-test-suite-for-validate-function/evaluation
+      - python3 -m evaluation.evaluation --output $CODEBUILD_SRC_DIR/jr2pzv-production-grade-validation-test-suite-for-validate-function/evaluation/report.json
 
   post_build:
     commands:
       - echo "Running repository_after tests"
-      - cd $CODEBUILD_SRC_DIR/repository_after
+      - cd $CODEBUILD_SRC_DIR/jr2pzv-production-grade-validation-test-suite-for-validate-function/repository_after
       - go test -v ./...
-      - cd $CODEBUILD_SRC_DIR
+      - cd $CODEBUILD_SRC_DIR/jr2pzv-production-grade-validation-test-suite-for-validate-function
 
 artifacts:
   files:
-    - evaluation/report.json
+    - jr2pzv-production-grade-validation-test-suite-for-validate-function/evaluation/report.json
