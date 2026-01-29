@@ -1,24 +1,25 @@
 import knex, { Knex } from 'knex';
-import { InventoryService, ReportFilter, InventoryReportItem } from '../repository_after/inventoryService';
+import mockDb from 'mock-knex';
+import { KnexInventoryService, ReportFilter, InventoryReportItem } from '../repository_after/KnexInventoryService';
 
 describe('Edge Cases Test', () => {
     let mockKnex: Knex;
-    let service: InventoryService;
+    let service: KnexInventoryService;
+    let tracker: mockDb.Tracker;
 
     beforeAll(() => {
         mockKnex = knex({
             client: 'pg',
-            connection: {
-                host: 'localhost',
-                user: 'test',
-                password: 'test',
-                database: 'test',
-            },
         });
-        service = new InventoryService(mockKnex);
+        mockDb.mock(mockKnex);
+        tracker = mockDb.getTracker();
+        tracker.install();
+        service = new KnexInventoryService(mockKnex);
     });
 
     afterAll(async () => {
+        tracker.uninstall();
+        mockDb.unmock(mockKnex);
         await mockKnex.destroy();
     });
 
@@ -169,15 +170,13 @@ describe('Edge Cases Test', () => {
 
     describe('SQL Injection Prevention', () => {
         it('should safely handle SQL injection attempts in categoryName', () => {
-            const maliciousFilter: ReportFilter = {
-                categoryName: "'; DROP TABLE products; --",
-            };
+            const maliciousInput = "'; DROP TABLE products; --";
             const query = mockKnex('products as p')
                 .select('*')
-                .where('c.name', maliciousFilter.categoryName);
+                .where('c.name', maliciousInput);
 
             const sql = query.toSQL();
-            expect(sql.bindings).toContain("'; DROP TABLE products; --");
+            expect(sql.bindings).toContain(maliciousInput);
             expect(sql.sql.toUpperCase()).not.toContain('DROP TABLE');
         });
     });

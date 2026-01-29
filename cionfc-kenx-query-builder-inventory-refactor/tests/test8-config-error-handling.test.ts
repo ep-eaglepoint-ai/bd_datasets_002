@@ -1,5 +1,6 @@
 import knex, { Knex } from 'knex';
-import { InventoryService, KnexConfig, ReportFilter } from '../repository_after/inventoryService';
+import mockDb from 'mock-knex';
+import { KnexInventoryService, KnexConfig, ReportFilter } from '../repository_after/KnexInventoryService';
 
 describe('Test 8: Knex Configuration and Error Handling', () => {
     it('should define KnexConfig interface with required properties', () => {
@@ -58,60 +59,52 @@ describe('Test 8: Knex Configuration and Error Handling', () => {
         expect(configWithoutPool.pool).toBeUndefined();
     });
 
-    it('should handle database connection errors gracefully', async () => {
-        const invalidKnex = knex({
-            client: 'pg',
-            connection: {
-                host: 'invalid-host-that-does-not-exist',
-                port: 9999,
-                user: 'invalid',
-                password: 'invalid',
-                database: 'invalid',
-            },
-            pool: {
-                min: 0,
-                max: 1,
-            },
-            acquireConnectionTimeout: 1000,
+    describe('Runtime Error Handling with mock-knex', () => {
+        let mockKnex: Knex;
+        let service: KnexInventoryService;
+        let tracker: mockDb.Tracker;
+
+        beforeEach(() => {
+            mockKnex = knex({ client: 'pg' });
+            mockDb.mock(mockKnex);
+            tracker = mockDb.getTracker();
+            tracker.install();
+            service = new KnexInventoryService(mockKnex);
         });
 
-        const service = new InventoryService(invalidKnex);
-        const filter: ReportFilter = {};
-        await expect(service.getInventoryReport(filter)).rejects.toThrow();
-        await invalidKnex.destroy();
+        afterEach(async () => {
+            tracker.uninstall();
+            mockDb.unmock(mockKnex);
+            await mockKnex.destroy();
+        });
+
+        it('should handle database connection errors gracefully', async () => {
+            tracker.on('query', (query) => {
+                query.reject(new Error('Connection timeout'));
+            });
+
+            try {
+                await service.getInventoryReport({});
+                throw new Error('Should have thrown an error');
+            } catch (error: any) {
+                expect(error.message).toMatch(/Database query failed:.*Connection timeout/i);
+            }
+        });
+
+        it('should wrap database errors with meaningful error messages', async () => {
+            tracker.on('query', (query) => {
+                query.reject(new Error('Syntax error at or near "AS"'));
+            });
+
+            await expect(service.getInventoryReport({})).rejects.toThrow(/Database query failed/i);
+        });
     });
 
-    it('should wrap database errors with meaningful error messages', async () => {
-        const mockKnex = knex({
-            client: 'pg',
-            connection: {
-                host: 'localhost',
-                user: 'test',
-                password: 'test',
-                database: 'test',
-            },
-        });
-
-        const service = new InventoryService(mockKnex);
-        await expect(service.getInventoryReport({})).rejects.toThrow(/Database query failed/i);
-        await mockKnex.destroy();
-    });
-
-    it('should accept Knex instance in InventoryService constructor', () => {
-        const mockKnex = knex({
-            client: 'pg',
-            connection: {
-                host: 'localhost',
-                port: 5432,
-                user: 'test',
-                password: 'test',
-                database: 'test',
-            },
-        });
-
-        const service = new InventoryService(mockKnex);
-        expect(service).toBeInstanceOf(InventoryService);
-        mockKnex.destroy();
+    it('should accept Knex instance in KnexInventoryService constructor', () => {
+        const testKnex = knex({ client: 'pg' });
+        const service = new KnexInventoryService(testKnex);
+        expect(service).toBeInstanceOf(KnexInventoryService);
+        testKnex.destroy();
     });
 
     it('should properly configure PostgreSQL client', () => {

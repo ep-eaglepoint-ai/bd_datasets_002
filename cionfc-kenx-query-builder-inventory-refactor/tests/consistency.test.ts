@@ -1,49 +1,43 @@
 import knex, { Knex } from 'knex';
-import { InventoryService as NewService, ReportFilter, InventoryReportItem } from '../repository_after/inventoryService';
+import mockDb from 'mock-knex';
+import { KnexInventoryService as NewService, ReportFilter, InventoryReportItem } from '../repository_after/KnexInventoryService';
 
 describe('Consistency Test: Identical Results Between Implementations', () => {
     let mockKnex: Knex;
     let newService: NewService;
+    let tracker: mockDb.Tracker;
 
     beforeAll(() => {
         mockKnex = knex({
             client: 'pg',
-            connection: {
-                host: 'localhost',
-                user: 'test',
-                password: 'test',
-                database: 'test',
-            },
         });
+        mockDb.mock(mockKnex);
+        tracker = mockDb.getTracker();
+        tracker.install();
         newService = new NewService(mockKnex);
     });
 
     afterAll(async () => {
+        tracker.uninstall();
+        mockDb.unmock(mockKnex);
         await mockKnex.destroy();
     });
 
-    it('should generate equivalent SQL for basic query with no filters', () => {
-        const newQuery = mockKnex('products as p')
-            .select(
-                'p.id as productId',
-                'p.name as productName',
-                'p.sku',
-                'c.name as categoryName',
-                'p.stock_count as currentStock',
-                mockKnex.raw(`COALESCE((${mockKnex('order_items as oi').sum('oi.quantity').whereRaw('oi.product_id = p.id').toString()}), 0) as "totalSold"`)
-            )
-            .leftJoin('categories as c', 'p.category_id', 'c.id')
-            .orderBy('p.name', 'asc')
-            .limit(20)
-            .offset(0);
+    it('should generate equivalent SQL for basic query with no filters', async () => {
+        let capturedSql = '';
+        tracker.on('query', (query) => {
+            capturedSql = query.sql.toLowerCase();
+            query.response([]);
+        });
 
-        const sql = newQuery.toSQL().sql.toLowerCase();
-        expect(sql).toContain('select');
-        expect(sql).toContain('products');
-        expect(sql).toContain('left join');
-        expect(sql).toContain('categories');
-        expect(sql).toContain('order by');
-        expect(sql).toContain('limit');
+        await newService.getInventoryReport({});
+        expect(capturedSql).toContain('select');
+        expect(capturedSql).toContain('products');
+        expect(capturedSql).toContain('left join');
+        expect(capturedSql).toContain('categories');
+        expect(capturedSql).toContain('order by');
+        expect(capturedSql).toContain('limit');
+        expect(capturedSql).toContain('coalesce');
     });
 
     it('should generate equivalent SQL with categoryName filter', () => {
@@ -169,21 +163,17 @@ describe('Consistency Test: Identical Results Between Implementations', () => {
         expect(sql).toContain('asc');
     });
 
-    it('should generate identical subquery structure for total_sold', () => {
-        const subquery = mockKnex('order_items as oi')
-            .sum('oi.quantity')
-            .whereRaw('oi.product_id = p.id');
+    it('should generate identical subquery structure for total_sold', async () => {
+        let capturedSql = '';
+        tracker.on('query', (query) => {
+            capturedSql = query.sql.toLowerCase();
+            query.response([]);
+        });
 
-        const fullQuery = mockKnex('products as p')
-            .select(
-                'p.id',
-                mockKnex.raw(`COALESCE((${subquery.toString()}), 0) as "totalSold"`)
-            );
-
-        const sql = fullQuery.toSQL().sql.toLowerCase();
-        expect(sql).toContain('coalesce');
-        expect(sql).toContain('sum');
-        expect(sql).toContain('order_items');
+        await newService.getInventoryReport({});
+        expect(capturedSql).toContain('coalesce');
+        expect(capturedSql).toContain('sum');
+        expect(capturedSql).toContain('order_items');
     });
 
     it('should return the same data structure (InventoryReportItem)', () => {

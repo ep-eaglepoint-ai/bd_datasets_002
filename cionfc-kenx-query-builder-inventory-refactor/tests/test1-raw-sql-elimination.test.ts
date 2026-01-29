@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 describe('Test 1: Raw SQL Elimination', () => {
-    const serviceFilePath = path.join(__dirname, '../repository_after/inventoryService.ts');
+    const serviceFilePath = path.join(__dirname, '../repository_after/KnexInventoryService.ts');
     let sourceCode: string;
     let codeWithoutComments: string;
 
@@ -23,6 +23,11 @@ describe('Test 1: Raw SQL Elimination', () => {
         const sqlConcatPattern = /sql\s*\+=\s*["`']/gi;
         const matches = sourceCode.match(sqlConcatPattern);
         expect(matches).toBeNull();
+    });
+
+    it('should not contain whereRaw or knex.raw calls', () => {
+        expect(codeWithoutComments).not.toContain('whereRaw');
+        expect(codeWithoutComments).not.toContain('.raw(');
     });
 
     it('should import and use Knex from "knex" package', () => {

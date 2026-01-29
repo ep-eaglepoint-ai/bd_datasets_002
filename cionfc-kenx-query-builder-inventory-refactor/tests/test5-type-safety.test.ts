@@ -1,4 +1,4 @@
-import { ReportFilter, InventoryReportItem, KnexConfig } from '../repository_after/inventoryService';
+import { ReportFilter, InventoryReportItem, KnexConfig } from '../repository_after/KnexInventoryService';
 
 describe('Test 5: TypeScript Type Safety', () => {
     it('should define ReportFilter interface with correct optional properties', () => {

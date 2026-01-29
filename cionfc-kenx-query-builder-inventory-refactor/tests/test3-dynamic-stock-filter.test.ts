@@ -1,24 +1,25 @@
 import knex, { Knex } from 'knex';
-import { InventoryService } from '../repository_after/inventoryService';
+import mockDb from 'mock-knex';
+import { KnexInventoryService } from '../repository_after/KnexInventoryService';
 
 describe('Test 3: Dynamic Stock Status Filter', () => {
     let mockKnex: Knex;
-    let service: InventoryService;
+    let service: KnexInventoryService;
+    let tracker: mockDb.Tracker;
 
     beforeAll(() => {
         mockKnex = knex({
             client: 'pg',
-            connection: {
-                host: 'localhost',
-                user: 'test',
-                password: 'test',
-                database: 'test',
-            },
         });
-        service = new InventoryService(mockKnex);
+        mockDb.mock(mockKnex);
+        tracker = mockDb.getTracker();
+        tracker.install();
+        service = new KnexInventoryService(mockKnex);
     });
 
     afterAll(async () => {
+        tracker.uninstall();
+        mockDb.unmock(mockKnex);
         await mockKnex.destroy();
     });
 

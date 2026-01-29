@@ -1,29 +1,30 @@
 import knex, { Knex } from 'knex';
-import { InventoryService } from '../repository_after/inventoryService';
+import mockDb from 'mock-knex';
+import { KnexInventoryService } from '../repository_after/KnexInventoryService';
 
 describe('Test 4: Subquery Conversion for total_sold', () => {
     let mockKnex: Knex;
-    let service: InventoryService;
+    let service: KnexInventoryService;
+    let tracker: mockDb.Tracker;
 
     beforeAll(() => {
         mockKnex = knex({
             client: 'pg',
-            connection: {
-                host: 'localhost',
-                user: 'test',
-                password: 'test',
-                database: 'test',
-            },
         });
-        service = new InventoryService(mockKnex);
+        mockDb.mock(mockKnex);
+        tracker = mockDb.getTracker();
+        tracker.install();
+        service = new KnexInventoryService(mockKnex);
     });
 
     afterAll(async () => {
+        tracker.uninstall();
+        mockDb.unmock(mockKnex);
         await mockKnex.destroy();
     });
 
     it('should create a subquery that sums quantities from order_items', () => {
-        const subquery = mockKnex('order_items as oi').sum('oi.quantity').whereRaw('oi.product_id = p.id');
+        const subquery = (mockKnex('order_items as oi').sum('oi.quantity') as any).whereColumn('oi.product_id', 'p.id');
         const sql = subquery.toSQL().sql.toLowerCase();
         expect(sql).toContain('sum');
         expect(sql).toContain('quantity');
@@ -31,29 +32,31 @@ describe('Test 4: Subquery Conversion for total_sold', () => {
     });
 
     it('should correlate subquery to parent product using product_id', () => {
-        const subquery = mockKnex('order_items as oi').sum('oi.quantity').whereRaw('oi.product_id = p.id');
+        const subquery = (mockKnex('order_items as oi').sum('oi.quantity') as any).whereColumn('oi.product_id', 'p.id');
         const sql = subquery.toSQL().sql;
-        expect(sql).toContain('product_id');
-        expect(sql).toContain('p.id');
+        expect(sql).toMatch(/product_id/);
+        expect(sql).toMatch(/p"?\."?id/);
     });
 
-    it('should use COALESCE to handle null values', () => {
-        const subquery = mockKnex('order_items as oi').sum('oi.quantity').whereRaw('oi.product_id = p.id');
-        const fullQuery = mockKnex('products as p').select(
-            'p.id',
-            mockKnex.raw(`COALESCE((${subquery.toString()}), 0) as "totalSold"`)
-        );
-        const sql = fullQuery.toSQL().sql.toLowerCase();
-        expect(sql).toContain('coalesce');
-        expect(sql).toContain('sum');
+    it('should use COALESCE to handle null values', async () => {
+        let capturedSql = '';
+        tracker.on('query', (query) => {
+            capturedSql = query.sql.toLowerCase();
+            query.response([]);
+        });
+
+        await service.getInventoryReport({});
+        expect(capturedSql).toContain('coalesce');
     });
 
-    it('should alias the subquery result as totalSold', () => {
-        const subquery = mockKnex('order_items as oi').sum('oi.quantity').whereRaw('oi.product_id = p.id');
-        const fullQuery = mockKnex('products as p').select(
-            mockKnex.raw(`COALESCE((${subquery.toString()}), 0) as "totalSold"`)
-        );
-        const sql = fullQuery.toSQL().sql;
-        expect(sql).toContain('totalSold');
+    it('should alias the subquery result as totalSold', async () => {
+        let capturedSql = '';
+        tracker.on('query', (query) => {
+            capturedSql = query.sql;
+            query.response([]);
+        });
+
+        await service.getInventoryReport({});
+        expect(capturedSql).toContain('totalSold');
     });
 });
