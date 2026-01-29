@@ -1,0 +1,11 @@
+{
+            "instance_id": "K6JI4Z",
+            "problem_statement": "The objective of this task is to design and implement a comprehensive test suite for a rule-based Anti–Money Laundering (AML) transaction monitoring system. The testing effort must validate that each detection rule behaves correctly under both suspicious and non-suspicious transaction scenarios. The tests should confirm accurate rule triggering, proper handling of time-based transaction windows, correct state management, and deterministic alert generation. The goal is to ensure that the AML monitoring engine produces reliable, explainable, and repeatable results suitable for compliance and audit requirements.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/k6ji4z-testing-a-rule-based-aml-transaction-monitoring-system",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
