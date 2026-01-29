@@ -548,6 +548,26 @@ HTML_CONTENT = """<!DOCTYPE html>
             margin-top: 0.75rem;
         }
 
+        # .action-btn {
+        #     flex: 1;
+        #     padding: 0.5rem;
+        #     font-size: 0.7rem;
+        #     background: transparent;
+        #     border: 1px solid var(--border);
+        #     color: var(--text);
+        #     cursor: pointer;
+        #     transition: all 0.2s ease;
+        # }
+
+        # .action-btn:hover {
+        #     border-color: var(--accent);
+        #     color: var(--accent);
+        # }
+
+        # .delete-btn:hover {
+        #     border-color: var(--accent);
+        #     color: var(--accent);
+        # }
         .action-btn {
             flex: 1;
             padding: 0.5rem;
@@ -557,11 +577,29 @@ HTML_CONTENT = """<!DOCTYPE html>
             color: var(--text);
             cursor: pointer;
             transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        .action-btn:hover::before {
+            left: 0;
         }
 
         .action-btn:hover {
             border-color: var(--accent);
-            color: var(--accent);
+            color: white;
         }
 
         .delete-btn:hover {
