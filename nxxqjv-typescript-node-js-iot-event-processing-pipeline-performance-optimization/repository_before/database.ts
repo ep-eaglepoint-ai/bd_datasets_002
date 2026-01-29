@@ -39,3 +39,27 @@ export async function getEventStats(): Promise<{ total: number }> {
     }
 }
 
+/** Compatibility: one INSERT per event, no ON CONFLICT. */
+export async function insertEventsBatch(events: ProcessedEvent[]): Promise<void> {
+    await Promise.all(events.map((e) => insertEvent(e)));
+}
+
+/** Compatibility: no-op (no pool in before). */
+export async function closePool(): Promise<void> {
+    return Promise.resolve();
+}
+
+/** Compatibility: try Client, SELECT 1, then end. */
+export async function isDatabaseHealthy(): Promise<boolean> {
+    const client = new Client(config.database);
+    try {
+        await client.connect();
+        await client.query('SELECT 1');
+        return true;
+    } catch {
+        return false;
+    } finally {
+        await client.end();
+    }
+}
+

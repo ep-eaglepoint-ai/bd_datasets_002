@@ -6,6 +6,14 @@ import { insertEvent } from './database';
 
 export const eventEmitter = new EventEmitter();
 
+export class QueueOverloadedError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'QueueOverloadedError';
+        Object.setPrototypeOf(this, QueueOverloadedError.prototype);
+    }
+}
+
 export const eventQueue = new Queue(config.queue.name, {
     connection: config.redis,
 });
@@ -55,5 +63,17 @@ export async function getQueueStats(): Promise<{ waiting: number; active: number
     const waiting = await eventQueue.getWaitingCount();
     const active = await eventQueue.getActiveCount();
     return { waiting, active };
+}
+
+/** Compatibility: waiting + active. */
+export async function getQueueDepth(): Promise<number> {
+    const waiting = await eventQueue.getWaitingCount();
+    const active = await eventQueue.getActiveCount();
+    return waiting + active;
+}
+
+/** Compatibility: no backpressure in before, always true. */
+export function canAcceptJob(): Promise<boolean> {
+    return Promise.resolve(true);
 }
 

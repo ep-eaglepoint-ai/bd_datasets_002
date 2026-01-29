@@ -96,16 +96,23 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
 
 const server = createServer(app);
 
-setupWebSocket(server);
+const wss = setupWebSocket(server);
 
 startWorker();
 
-server.listen(config.port, () => {
-    console.log(`Server running on port ${config.port}`);
-});
+/** Compatibility: return the HTTP server for tests. */
+export function getServer(): ReturnType<typeof createServer> {
+    return server;
+}
 
-process.on('SIGTERM', () => {
-    console.log('Shutting down...');
-    process.exit(0);
-});
+// Only listen when run as main; tests import getServer() and must not start listening (avoids Jest open handle).
+if (require.main === module) {
+    server.listen(config.port, () => {
+        console.log(`Server running on port ${config.port}`);
+    });
+    process.on('SIGTERM', () => {
+        console.log('Shutting down...');
+        process.exit(0);
+    });
+}
 
