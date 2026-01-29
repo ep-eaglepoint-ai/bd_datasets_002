@@ -34,7 +34,7 @@ class StreamWindowAggregator:
             
             window_start = (timestamp // self.window_size) * self.window_size
             
-            if window_start not in self.windows or self.windows[window_start]['count'] == 0:
+            if window_start not in self.windows:
                 window_completion_time = window_start + self.window_size + self.allowed_lateness
                 heapq.heappush(self.window_heap, (window_completion_time, window_start))
             
@@ -64,6 +64,9 @@ class StreamWindowAggregator:
                 average_value = window_data['sum'] / window_data['count']
                 yield (window_start, average_value)
             del self.windows[window_start]
+        
+        # Ensure the heap state is consistent with the cleared windows.
+        self.window_heap.clear()
 
 
 def main():
