@@ -1,0 +1,12 @@
+{
+            "instance_id": "SFKZPA",
+            "problem_statement": "Build a Resume Builder web app that collects structured personal and professional information, renders a live preview in a professional layout, and exports a high‑quality PDF without requiring design experience. The interface must allow users to customize section order and visibility, be fully responsive, and prioritize speed and usability for friction‑less resume creation. Implement a clean, intuitive flow from data entry to PDF export while maintaining data integrity and visual polish.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/sfkzpa-resume-builder",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
