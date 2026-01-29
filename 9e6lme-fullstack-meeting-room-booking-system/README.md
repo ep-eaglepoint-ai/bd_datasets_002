@@ -1,4 +1,4 @@
-# Atomic Meeting Room Booking System
+# Fullstack Meeting Room Booking System
 
 ## Commands
 
