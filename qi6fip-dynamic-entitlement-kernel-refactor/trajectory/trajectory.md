@@ -74,12 +74,6 @@ With the new engine in place, I ran the **Unified Test Suite** again, this time 
 
 ### Architectural Transformation
 We replaced a 72-line monolithic function (`EntitlementKernel.js`) with a modular, **Rule-Based Evaluation Engine**. This change moved us from "Script-based Authorization" to "Object-Oriented Authorization."
-
-**Design Patterns Used:**
-1.  **Strategy Pattern**: Each authorization rule (e.g., Ownership, Superuser) is an independent class. We can add new rules without ever touching the core engine logic.
-2.  **Decorator Pattern**: The `CachedDataProvider` wraps the standard `DatabaseDataProvider`. This cleanly separates the "how we fetch data" from "how we cache it."
-3.  **Dependency Injection**: The logic is injected with a `DataProvider`, allowing us to swap the real database for an `InMemory` version during testing.
-
 ---
 
 ### Requirement Fulfillment (The 9 Pillars)

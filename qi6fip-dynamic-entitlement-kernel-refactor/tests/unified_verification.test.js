@@ -49,8 +49,27 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
         mockCache.storage = {};
     });
 
+    /** PRESERVATION: Basic Identity & Ownership (Must work in both versions) */
+    describe('Preservation', () => {
+        test('PRESERVE: Owner should always have access', async () => {
+            mockDb.execute
+                .mockResolvedValueOnce([{ uuid: 'u1', is_superuser: 0 }]) // User
+                .mockResolvedValueOnce([{ asset_id: 'r1', owner_id: 'u1' }]); // Resource owner is u1
+
+            const result = await checkAccess('u1', 'READ', 'r1');
+            expect(result).toBe(true);
+        });
+
+        test('PRESERVE: Superuser should always have access', async () => {
+            mockDb.execute.mockResolvedValueOnce([{ uuid: 'admin', is_superuser: 1 }]);
+
+            const result = await checkAccess('admin', 'READ', 'r1');
+            expect(result).toBe(true);
+        });
+    });
+
     /** Requirement 1: Fail-Closed Security (CRITICAL) */
-    describe('Req 1: Fail-Closed', () => {
+    describe('Fail-Closed', () => {
         test('STRICT: Must deny access by THROWING if database fails', async () => {
             mockDb.execute.mockRejectedValue(new Error('DATABASE_TIMEOUT'));
 
@@ -60,7 +79,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 2: Explainability (HIGH) */
-    describe('Req 2: Explainability', () => {
+    describe('Explainability', () => {
         test('STRICT: Must support detailed mode with reason codes', async () => {
             expect(checkAccessDetailed).not.toBeNull();
 
@@ -73,7 +92,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 3: Logic Abstraction (HIGH) */
-    describe('Req 3: Logic Abstraction', () => {
+    describe('Logic Abstraction', () => {
         test('STRICT: Logic layer must be importable without infrastructure (Deterministic Testing)', async () => {
             // Requirement 3 demands separation. If we can't find the Engine/DataProvider files, we fail.
             const provFile = isAfter ? 'DataProvider.js' : 'DOES_NOT_EXIST.js';
@@ -91,7 +110,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 4: Hierarchical Resolution (HIGH) */
-    describe('Req 4: Hierarchy', () => {
+    describe('Hierarchy', () => {
         test('STRICT: ADMIN_DELETE should implicitly grant READ', async () => {
             mockDb.execute
                 .mockResolvedValueOnce([{ uuid: 'u1', is_superuser: 0 }]) // User
@@ -105,7 +124,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 5: Temporal Permission Correctness (CRITICAL) */
-    describe('Req 5: Temporal Correctness', () => {
+    describe('Temporal Correctness', () => {
         test('STRICT: Must NEVER retrieve an expired permission from cache as valid', async () => {
             const expiredVal = new Date(Date.now() - 1000).toISOString();
 
@@ -127,7 +146,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 6: Clean Pipeline (MEDIUM) */
-    describe('Req 6: Code Quality', () => {
+    describe('Code Quality', () => {
         test('STRICT: Must eliminate messy nested callback/some calls for clean pipeline', async () => {
             // Verified during code review of repository_after/EvaluationEngine.js
             expect(isAfter).toBe(true);
@@ -135,7 +154,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 7: Race Condition Case (MEDIUM) */
-    describe('Req 7: Race Condition', () => {
+    describe('Race Condition', () => {
         test('STRICT: Secure membership check order', async () => {
             mockDb.execute
                 .mockResolvedValueOnce([{ uuid: 'u1', is_superuser: 0 }])
@@ -149,7 +168,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 8: Adversarial Cache Protection (MEDIUM) */
-    describe('Req 8: Adversarial Safety', () => {
+    describe('Adversarial Safety', () => {
         test('STRICT: Handle deleted user with stale cache correctly', async () => {
             if (!isAfter) {
                 mockCache.storage[`auth:u_deleted:READ:r1`] = 'true'; // POISON
@@ -170,7 +189,7 @@ describe(`EntitlementKernel Compliance (${REPO.toUpperCase()})`, () => {
     });
 
     /** Requirement 9: Wildcard Override (MEDIUM) */
-    describe('Req 9: Wildcard Override', () => {
+    describe('Wildcard Override', () => {
         test('STRICT: ADMIN_ALL should implicitly grant WRITE', async () => {
             mockDb.execute
                 .mockResolvedValueOnce([{ uuid: 'u1', is_superuser: 0 }])
