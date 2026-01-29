@@ -121,7 +121,7 @@ class TestCorrectBillingResults:
         register_user(db_connection, email, "hash1", "User One", datetime.now(timezone.utc), uuid.uuid4())
         
         result = register_user(db_connection, email, "hash2", "User Two", datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 19
+        assert result[0] == 23
         assert "already registered" in result[1].lower()
         assert result[2] is None
 
@@ -208,7 +208,7 @@ class TestConcurrentExecution:
             results = [f.result() for f in as_completed(futures)]
         
         success_count = sum(1 for r in results if r[0] == 0)
-        constraint_count = sum(1 for r in results if r[0] == 19)
+        constraint_count = sum(1 for r in results if r[0] == 23)
         
         assert success_count == 1
         assert constraint_count == 4
@@ -241,49 +241,49 @@ class TestConcurrentExecution:
 class TestErrorCodes:
     def test_missing_email_returns_misuse(self, db_connection):
         result = register_user(db_connection, None, "hash", "User", datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 21
+        assert result[0] == 22
 
     def test_empty_email_returns_misuse(self, db_connection):
         result = register_user(db_connection, "   ", "hash", "User", datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 21
+        assert result[0] == 22
 
     def test_invalid_email_format_returns_misuse(self, db_connection):
         result = register_user(db_connection, "notanemail", "hash", "User", datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 21
+        assert result[0] == 22
 
     def test_missing_password_returns_misuse(self, db_connection):
         result = register_user(db_connection, "test@example.com", None, "User", datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 21
+        assert result[0] == 22
 
     def test_missing_name_returns_misuse(self, db_connection):
         result = register_user(db_connection, "test@example.com", "hash", None, datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 21
+        assert result[0] == 22
 
     def test_missing_request_id_returns_misuse(self, db_connection):
         result = register_user(db_connection, "test@example.com", "hash", "User", datetime.now(timezone.utc), None)
-        assert result[0] == 21
+        assert result[0] == 22
 
     def test_duplicate_email_returns_constraint(self, db_connection):
         register_user(db_connection, "dup@example.com", "hash", "User", datetime.now(timezone.utc), uuid.uuid4())
         result = register_user(db_connection, "dup@example.com", "hash", "User", datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 19
+        assert result[0] == 23
 
 
 class TestInvalidInputHandling:
     def test_null_inputs(self, db_connection):
         result = register_user(db_connection, None, None, None, None, None)
-        assert result[0] == 21
+        assert result[0] == 22
         assert result[2] is None
 
     def test_whitespace_only_inputs(self, db_connection):
         result = register_user(db_connection, "   ", "   ", "   ", datetime.now(timezone.utc), uuid.uuid4())
-        assert result[0] == 21
+        assert result[0] == 22
 
     def test_invalid_email_formats(self, db_connection):
         invalid_emails = ["notanemail", "@example.com", "user@", "user@.com"]
         for email in invalid_emails:
             result = register_user(db_connection, email, "hash", "User", datetime.now(timezone.utc), uuid.uuid4())
-            assert result[0] == 21
+            assert result[0] == 22
 
 
 class TestSafeDeterministicBehavior:
@@ -330,6 +330,19 @@ class TestSafeDeterministicBehavior:
             status = cur.fetchone()[0]
         
         assert status == "FAILURE"
+
+    def test_audit_log_on_idempotent_request(self, db_connection):
+        request_id = uuid.uuid4()
+        email = "idempotent_audit@example.com"
+        
+        register_user(db_connection, email, "hash", "User", datetime.now(timezone.utc), request_id)
+        register_user(db_connection, email, "hash", "User", datetime.now(timezone.utc), request_id)
+        
+        with db_connection.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM audit_log WHERE request_id = %s AND status = 'SUCCESS'", (request_id,))
+            count = cur.fetchone()[0]
+        
+        assert count == 2
 
 
 class TestPostgreSQLBestPractices:
