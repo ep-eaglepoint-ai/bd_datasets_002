@@ -317,13 +317,13 @@ func runGoTests(projectRoot, repositoryPath, label string) TestRunResult {
 			Stdout:    stdoutStr,
 			Stderr:    stderrStr,
 			Tests:     tests,
-			Summary: TestSummary{
-				Total:   total,
-				Passed:  passed,
-				Failed:  failed,
-				Errors:  errors,
-				Skipped: skipped,
-			},
+		Summary: TestSummary{
+			Total:   total,
+			Passed:  passed,
+			Failed:  failed,
+			Errors:  errors,
+			Skipped: skipped,
+		},
 		},
 		Metrics: Metrics{},
 	}
