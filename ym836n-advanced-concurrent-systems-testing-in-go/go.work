@@ -1,0 +1,8 @@
+go 1.21
+
+use (
+	./repository_after/batch
+	./repository_before/batch
+	./tests
+	./tests/unit
+)

@@ -1,6 +1,30 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  # Test repository_before
+  test-before:
+    build:
+      context: .
+      target: test-before
+    container_name: ym836n-test-before
+    working_dir: /workspace/tests/unit
     volumes:
-      - .:/app
+      - .:/workspace
+
+  # Test repository_after
+  test-after:
+    build:
+      context: .
+      target: test-after
+    container_name: ym836n-test-after
+    working_dir: /workspace/tests/unit
+    volumes:
+      - .:/workspace
+
+  # Run evaluation
+  evaluation:
+    build:
+      context: .
+      target: evaluation
+    container_name: ym836n-evaluation
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
