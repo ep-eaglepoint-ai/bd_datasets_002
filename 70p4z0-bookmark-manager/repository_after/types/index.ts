@@ -10,6 +10,8 @@ export interface Bookmark {
   isFavorite: boolean;
   category?: string; // Keep for backward compatibility
   lastVisited?: Date; // Track when bookmark was last accessed
+  clickCount: number; // Track total clicks
+  visitTimestamps: Date[]; // Track visit history (capped array)
 }
 
 export interface BookmarkCategory {

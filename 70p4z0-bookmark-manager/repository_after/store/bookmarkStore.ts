@@ -90,6 +90,16 @@ interface BookmarkStore {
   sortBookmarks: (options: SortOptions) => Bookmark[];
   filterBookmarks: (filter: BookmarkFilter) => Bookmark[];
   getFilteredAndSortedBookmarks: (options: FilterAndSortOptions) => Bookmark[];
+  
+  // Interaction tracking methods
+  trackBookmarkVisit: (id: string) => { success: boolean; error?: string };
+  
+  // Analytics selectors (derived from existing data)
+  getMostVisitedBookmarks: (limit?: number) => Bookmark[];
+  getFrequentlySavedDomains: (limit?: number) => { domain: string; count: number }[];
+  getTagDistribution: () => { tag: string; count: number }[];
+  getBookmarkingTrends: (days?: number) => { date: string; count: number }[];
+  getFavoriteUsagePatterns: () => { total: number; favorites: number; percentage: number };
 }
 
 /* -----------------------------------------------------
@@ -131,6 +141,8 @@ const createBookmark = (data: BookmarkFormData): Bookmark => {
     tags: data.tags.map(normalizeTagName),
     createdAt: now,
     updatedAt: now,
+    clickCount: 0,
+    visitTimestamps: [],
   };
 };
 
@@ -911,6 +923,143 @@ export const useBookmarkStore = create<BookmarkStore>()(
           return result;
         } catch {
           return [];
+        }
+      },
+
+      // Interaction tracking
+      trackBookmarkVisit: (id) => {
+        try {
+          const existing = get().getBookmark(id);
+          if (!existing) {
+            return { success: false, error: 'Bookmark not found' };
+          }
+
+          const now = new Date();
+          const maxVisits = 100; // Cap visit history to prevent unbounded growth
+
+          set((state) => ({
+            bookmarks: state.bookmarks.map((bookmark) =>
+              bookmark.id === id
+                ? {
+                    ...bookmark,
+                    clickCount: bookmark.clickCount + 1,
+                    lastVisited: now,
+                    visitTimestamps: [
+                      now,
+                      ...bookmark.visitTimestamps.slice(0, maxVisits - 1)
+                    ],
+                    updatedAt: now,
+                  }
+                : bookmark
+            ),
+          }));
+
+          return { success: true };
+        } catch {
+          return { success: false, error: 'Failed to track visit' };
+        }
+      },
+
+      // Analytics selectors (derived from existing data)
+      getMostVisitedBookmarks: (limit = 10) => {
+        try {
+          const bookmarks = get().bookmarks;
+          
+          return bookmarks
+            .filter(bookmark => bookmark.clickCount > 0)
+            .sort((a, b) => b.clickCount - a.clickCount)
+            .slice(0, limit);
+        } catch {
+          return [];
+        }
+      },
+
+      getFrequentlySavedDomains: (limit = 10) => {
+        try {
+          const bookmarks = get().bookmarks;
+          const domainCounts = new Map<string, number>();
+
+          bookmarks.forEach(bookmark => {
+            try {
+              const domain = new URL(bookmark.url).hostname.toLowerCase();
+              domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+            } catch {
+              // Skip invalid URLs
+            }
+          });
+
+          return Array.from(domainCounts.entries())
+            .map(([domain, count]) => ({ domain, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, limit);
+        } catch {
+          return [];
+        }
+      },
+
+      getTagDistribution: () => {
+        try {
+          const bookmarks = get().bookmarks;
+          const tagCounts = new Map<string, number>();
+
+          bookmarks.forEach(bookmark => {
+            bookmark.tags.forEach(tag => {
+              tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+            });
+          });
+
+          return Array.from(tagCounts.entries())
+            .map(([tag, count]) => ({ tag, count }))
+            .sort((a, b) => b.count - a.count);
+        } catch {
+          return [];
+        }
+      },
+
+      getBookmarkingTrends: (days = 30) => {
+        try {
+          const bookmarks = get().bookmarks;
+          const endDate = new Date();
+          const startDate = new Date();
+          startDate.setDate(endDate.getDate() - days);
+
+          const dailyCounts = new Map<string, number>();
+
+          // Initialize all days with 0
+          for (let i = 0; i < days; i++) {
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            const dateStr = date.toISOString().split('T')[0];
+            dailyCounts.set(dateStr, 0);
+          }
+
+          // Count bookmarks created each day
+          bookmarks.forEach(bookmark => {
+            const createdDate = new Date(bookmark.createdAt);
+            if (createdDate >= startDate && createdDate <= endDate) {
+              const dateStr = createdDate.toISOString().split('T')[0];
+              dailyCounts.set(dateStr, (dailyCounts.get(dateStr) || 0) + 1);
+            }
+          });
+
+          return Array.from(dailyCounts.entries())
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+        } catch {
+          return [];
+        }
+      },
+
+      getFavoriteUsagePatterns: () => {
+        try {
+          const bookmarks = get().bookmarks;
+          const total = bookmarks.length;
+          const favorites = bookmarks.filter(bookmark => bookmark.isFavorite).length;
+          const percentage = total > 0 ? Math.round((favorites / total) * 100) : 0;
+
+          return { total, favorites, percentage };
+        } catch {
+          return { total: 0, favorites: 0, percentage: 0 };
         }
       },
     }),

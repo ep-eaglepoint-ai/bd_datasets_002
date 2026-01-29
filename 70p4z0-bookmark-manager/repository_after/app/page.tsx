@@ -29,6 +29,7 @@ export default function BookmarkManager() {
     getAllBookmarks,
     searchBookmarksAdvanced,
     sortBookmarks,
+    trackBookmarkVisit,
   } = useBookmarkStore();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -38,6 +39,20 @@ export default function BookmarkManager() {
   const [editTags, setEditTags] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editIsFavorite, setEditIsFavorite] = useState(false);
+
+  // Handle bookmark click to track visit
+  const handleBookmarkClick = (bookmarkId: string, url: string) => {
+    try {
+      // Track the visit
+      trackBookmarkVisit(bookmarkId);
+      
+      // Open the URL in a new tab
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      // Silently fail if tracking doesn't work
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   // Debounced search effect
   useEffect(() => {
@@ -492,14 +507,12 @@ export default function BookmarkManager() {
                         )}
                       </div>
                       
-                      <a
-                        href={bookmark.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm mb-2 inline-block"
+                      <button
+                        onClick={() => handleBookmarkClick(bookmark.id, bookmark.url)}
+                        className="text-blue-600 hover:text-blue-800 text-sm mb-2 inline-block underline cursor-pointer"
                       >
                         {bookmark.url}
-                      </a>
+                      </button>
 
                       {bookmark.description && (
                         <p className="text-gray-600 text-sm mb-2">{bookmark.description}</p>
