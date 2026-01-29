@@ -1,11 +1,11 @@
 
 // Low-level database connector - provides raw SQL execution  can be mocked
 // db.execute(query, params) -> Promise<Array>
-import { db } from '../infra/persistence'; 
+import { db } from './infra/persistence'; 
 
 // Distributed cache client - provides simple key-value storage can be mocked
 // cache.get(key) -> Promise<string|null>, cache.set(key, value, ttl) -> Promise<void>
-import { cache } from '../infra/cache'; 
+import { cache } from './infra/cache'; 
 
 /**
  * Evaluates if a subject has a specific permission on a target resource.

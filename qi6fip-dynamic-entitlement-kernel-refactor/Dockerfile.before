@@ -1,0 +1,18 @@
+FROM node:18-slim
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy repository_before code
+COPY repository_before/ ./repository_before/
+
+# Copy tests
+COPY tests/ ./tests/
+
+# Default command to run tests on repository_before
+CMD ["npm", "run", "test:before"]
