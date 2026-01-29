@@ -1,0 +1,10 @@
+# Ignore everything except requirements.txt
+*
+
+# But include requirements.txt
+!requirements.txt
+
+# Also include any other necessary build files
+!Dockerfile
+!compose.yml
+!README.md

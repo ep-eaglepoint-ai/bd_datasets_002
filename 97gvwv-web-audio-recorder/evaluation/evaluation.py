@@ -1,451 +1,402 @@
-# def main():
-#     # TODO: implement evaluation logic
-#     print("Evaluation placeholder")
-
-
-# if __name__ == "__main__":
-#     main()
-
 #!/usr/bin/env python3
+"""
+Evaluation Script for Audio Recorder
+Combines standard guide structure with detailed test results
+"""
 import sys
 import json
 import time
 import uuid
 import platform
 import subprocess
+import socket
 from pathlib import Path
 from datetime import datetime
 
+# Paths
 ROOT = Path(__file__).resolve().parent.parent
-REPORTS = ROOT / "evaluation" / "reports"
-REPORTS.mkdir(parents=True, exist_ok=True)
+EVALUATION_ROOT = ROOT / "evaluation"
+
+def get_timestamp_dir():
+    """Create timestamp-based directory structure"""
+    now = datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H-%M-%S")
+    return EVALUATION_ROOT / date_str / time_str
 
 def environment_info():
+    """Collect environment information matching sample format"""
     return {
         "python_version": platform.python_version(),
-        "platform": platform.platform()
+        "platform": platform.platform(),
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "architecture": platform.machine(),
+        "hostname": socket.gethostname(),
+        "git_commit": "unknown",  # Simplified for now
+        "git_branch": "unknown"
     }
 
-def run_tests(test_file):
-    """Run pytest on a specific test file"""
+def run_pytest_detailed(repo_name: str):
+    """Run pytest and return detailed results like the sample"""
     try:
+        # Determine which test file to run
+        if repo_name == "repository_before":
+            test_file = "tests/test_before.py"
+        elif repo_name == "repository_after":
+            test_file = "tests/test_after.py"
+        else:
+            test_file = "tests/"
+        
+        # Run pytest with verbose output
         proc = subprocess.run(
-            ["pytest", test_file, "-q", "--tb=short"],
+            ["pytest", test_file, "-v"],
             cwd=ROOT,
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=60
         )
+        
+        # Parse the output to extract test details
+        output = proc.stdout + proc.stderr
+        tests = []
+        passed_count = 0
+        failed_count = 0
+        error_count = 0
+        total_count = 0
+        
+        # Parse each line to extract test results
+        lines = output.split('\n')
+        for line in lines:
+            line = line.strip()
+            
+            # Look for test result lines
+            if "PASSED" in line or "FAILED" in line or "ERROR" in line:
+                # Extract test nodeid
+                parts = line.split()
+                for part in parts:
+                    if "test_" in part and "::" in part:
+                        nodeid = part
+                        test_name = part.split("::")[-1]
+                        
+                        # Determine outcome
+                        if "PASSED" in line:
+                            outcome = "passed"
+                            passed_count += 1
+                        elif "FAILED" in line:
+                            outcome = "failed"
+                            failed_count += 1
+                        elif "ERROR" in line:
+                            outcome = "error"
+                            error_count += 1
+                        
+                        tests.append({
+                            "nodeid": nodeid,
+                            "name": test_name,
+                            "outcome": outcome
+                        })
+                        total_count += 1
+                        break
+        
+        # If we couldn't parse tests from output, create a simple list
+        if not tests:
+            # Get all test functions from the test file
+            if test_file.endswith('.py'):
+                try:
+                    with open(ROOT / test_file, 'r') as f:
+                        content = f.read()
+                        import re
+                        test_functions = re.findall(r'def (test_\w+)', content)
+                        
+                        for func in test_functions:
+                            nodeid = f"{test_file}::{func}"
+                            tests.append({
+                                "nodeid": nodeid,
+                                "name": func,
+                                "outcome": "unknown"
+                            })
+                            total_count += 1
+                except:
+                    pass
+        
+        # Determine success based on return code
+        success = proc.returncode == 0
+        
         return {
-            "passed": proc.returncode == 0,
-            "return_code": proc.returncode,
-            "output": (proc.stdout + proc.stderr)[:8000]
+            "success": success,
+            "exit_code": proc.returncode,
+            "tests": tests,
+            "summary": {
+                "total": total_count,
+                "passed": passed_count,
+                "failed": failed_count,
+                "errors": error_count,
+                "skipped": 0
+            },
+            "stdout": proc.stdout[:10000],  # Truncate long output
+            "stderr": proc.stderr
         }
+        
     except subprocess.TimeoutExpired:
-        return {"passed": False, "return_code": -1, "output": "pytest timeout"}
+        return {
+            "success": False,
+            "exit_code": -1,
+            "tests": [],
+            "summary": {"total": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0},
+            "stdout": "pytest timeout after 60 seconds",
+            "stderr": ""
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "tests": [],
+            "summary": {"total": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0},
+            "stdout": f"Error running tests: {str(e)}",
+            "stderr": ""
+        }
 
-def evaluate(repo_name, test_file):
+def run_metrics(repo_path: Path):
+    """Collect metrics for the repository"""
+    metrics = {}
+    
+    try:
+        # Check if audio_recorder.py exists
+        recorder_file = repo_path / "audio_recorder.py"
+        if recorder_file.exists():
+            with open(recorder_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Extract HTML if it's embedded in Python
+            import re
+            match = re.search(r'HTML_CONTENT = """(.*?)"""', content, re.DOTALL)
+            html_content = match.group(1) if match else content
+            
+            # Calculate feature metrics
+            has_playback = any(x in html_content for x in ['playbackSection', 'togglePlayPause', 'waveformCanvas'])
+            has_monitoring = any(x in html_content for x in ['levelMeter', 'audioContext', 'AnalyserNode'])
+            has_session = any(x in html_content for x in ['sessionRecordings', 'MAX_RECORDINGS', 'addToSession'])
+            
+            # Quality metrics
+            quality_checks = {
+                "keyboard_accessibility": "addEventListener('keydown'" in html_content,
+                "memory_management": 'URL.revokeObjectURL' in html_content,
+                "mobile_responsive": '@media' in html_content,
+                "error_handling": 'try {' in html_content and 'catch' in html_content,
+                "web_audio_api": any(x in html_content for x in ['AudioContext', 'AnalyserNode']),
+                "media_recorder": 'MediaRecorder' in html_content,
+                "wav_format": 'audio/wav' in html_content
+            }
+            
+            # Convert quality checks to numeric metrics
+            quality_score = sum(1 for check in quality_checks.values() if check)
+            
+            metrics = {
+                "size_chars": len(html_content),
+                "lines": html_content.count('\n') + 1,
+                "functions": len(re.findall(r'function\s+(\w+)\s*\(', html_content)),
+                "features_present": sum([has_playback, has_monitoring, has_session]),
+                "has_playback": has_playback,
+                "has_monitoring": has_monitoring,
+                "has_session": has_session,
+                "quality_score": quality_score,
+                "quality_percentage": int((quality_score / len(quality_checks)) * 100) if quality_checks else 0
+            }
+    
+    except Exception as e:
+        # Metrics are optional
+        print(f"Note: Could not collect metrics for {repo_path}: {e}")
+    
+    return metrics
+
+def evaluate(repo_name: str):
+    """Evaluate a single repository"""
     repo_path = ROOT / repo_name
-    tests = run_tests(test_file)
-    metrics = {}  # add metrics if needed
-    return {"tests": tests, "metrics": metrics}
+    
+    # Run tests with detailed output
+    test_results = run_pytest_detailed(repo_name)
+    
+    # Collect metrics
+    metrics = run_metrics(repo_path)
+    
+    # Combine into standard format but with detailed test results
+    return {
+        "tests": {
+            "passed": test_results["success"],
+            "return_code": test_results["exit_code"],
+            "output": test_results["stdout"][:8000]  # Truncated as per standard
+        },
+        "metrics": metrics,
+        # Additional detailed results (for the sample-like structure)
+        "detailed": {
+            "success": test_results["success"],
+            "exit_code": test_results["exit_code"],
+            "tests": test_results["tests"],
+            "summary": test_results["summary"],
+            "stdout": test_results["stdout"],
+            "stderr": test_results["stderr"]
+        }
+    }
 
 def run_evaluation():
-    run_id = str(uuid.uuid4())
-    start = datetime.utcnow()
-
-    before = evaluate("repository_before", "tests/test_before.py")
-    after = evaluate("repository_after", "tests/test_after.py")
-
+    """Main evaluation function - combines standard and detailed formats"""
+    run_id = str(uuid.uuid4())[:8]  # Short ID like in sample
+    started_at = datetime.utcnow()
+    
+    # Create timestamp directory
+    report_dir = get_timestamp_dir()
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_file = report_dir / "report.json"
+    
+    print("="*70)
+    print("🎯 AUDIO RECORDER EVALUATION")
+    print("="*70)
+    
+    # Collect environment info
+    environment = environment_info()
+    
+    # Evaluate before repository
+    print("\n📋 Evaluating BEFORE repository (should be minimal)...")
+    before = evaluate("repository_before")
+    
+    # Evaluate after repository
+    print("📋 Evaluating AFTER repository (should have all features)...")
+    after = evaluate("repository_after")
+    
+    # Generate improvement summary
+    before_features = before.get("metrics", {}).get("features_present", 0)
+    after_features = after.get("metrics", {}).get("features_present", 0)
+    features_added = after_features - before_features
+    
+    if features_added == 3:
+        improvement_summary = "All 3 features successfully added"
+    elif features_added > 0:
+        improvement_summary = f"{features_added}/3 features added"
+    elif after["tests"]["passed"] and not before["tests"]["passed"]:
+        improvement_summary = "After version passes tests (before fails as expected)"
+    elif after["tests"]["passed"] and before["tests"]["passed"]:
+        improvement_summary = "Both versions pass tests"
+    else:
+        improvement_summary = "After version fails tests"
+    
+    # Create comparison section
     comparison = {
-        "passed_gate": after["tests"]["passed"],
-        "improvement_summary": "After version passed all tests; before had failures"
+        "passed_gate": after["tests"]["passed"],  # Standard guide field
+        "improvement_summary": improvement_summary,  # Standard guide field
+        # Additional comparison details
+        "before_tests_passed": before["detailed"]["success"],
+        "after_tests_passed": after["detailed"]["success"],
+        "before_total": before["detailed"]["summary"]["total"],
+        "before_passed": before["detailed"]["summary"]["passed"],
+        "before_failed": before["detailed"]["summary"]["failed"],
+        "after_total": after["detailed"]["summary"]["total"],
+        "after_passed": after["detailed"]["summary"]["passed"],
+        "after_failed": after["detailed"]["summary"]["failed"],
+        "features_added": features_added
     }
-
-    end = datetime.utcnow()
-
+    
+    finished_at = datetime.utcnow()
+    duration = (finished_at - started_at).total_seconds()
+    
+    # Build the hybrid report structure
     report = {
+        # Standard guide fields
         "run_id": run_id,
-        "started_at": start.isoformat() + "Z",
-        "finished_at": end.isoformat() + "Z",
-        "duration_seconds": (end - start).total_seconds(),
-        "environment": environment_info(),
-        "before": before,
-        "after": after,
-        "comparison": comparison,
-        "success": comparison["passed_gate"],
-        "error": None
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "duration_seconds": round(duration, 5),
+        "success": after["tests"]["passed"],  # Standard: success = after.tests.passed
+        "error": None,
+        "environment": environment,
+        
+        # Results section with detailed test info (like sample)
+        "results": {
+            "before": before["detailed"],
+            "after": after["detailed"],
+            "comparison": {
+                "before_tests_passed": before["detailed"]["success"],
+                "after_tests_passed": after["detailed"]["success"],
+                "before_total": before["detailed"]["summary"]["total"],
+                "before_passed": before["detailed"]["summary"]["passed"],
+                "before_failed": before["detailed"]["summary"]["failed"],
+                "after_total": after["detailed"]["summary"]["total"],
+                "after_passed": after["detailed"]["summary"]["passed"],
+                "after_failed": after["detailed"]["summary"]["failed"]
+            }
+        },
+        
+        # Standard guide structure (for compatibility)
+        "before": {
+            "tests": before["tests"],
+            "metrics": before["metrics"]
+        },
+        "after": {
+            "tests": after["tests"],
+            "metrics": after["metrics"]
+        },
+        "comparison": {
+            "passed_gate": after["tests"]["passed"],
+            "improvement_summary": improvement_summary
+        }
     }
-
-    report_file = REPORTS / f"report_{run_id}.json"
-    with open(report_file, "w") as f:
-        json.dump(report, f, indent=4)
-
+    
+    # Save report
+    with open(report_file, 'w', encoding='utf-8') as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+    
+    # Print summary
+    print("\n" + "="*70)
+    print("📊 EVALUATION SUMMARY")
+    print("="*70)
+    
+    print(f"\n📋 Test Results:")
+    print(f"  • Before: {'✅ PASS' if before['tests']['passed'] else '❌ FAIL'} "
+          f"({before['detailed']['summary']['passed']}/{before['detailed']['summary']['total']} tests)")
+    print(f"  • After:  {'✅ PASS' if after['tests']['passed'] else '❌ FAIL'} "
+          f"({after['detailed']['summary']['passed']}/{after['detailed']['summary']['total']} tests)")
+    
+    print(f"\n🎯 Features Status:")
+    print(f"  • Before: {before_features}/3 features present")
+    print(f"  • After:  {after_features}/3 features present")
+    print(f"  • Added:  {features_added}/3 features")
+    
+    print(f"\n📝 Improvement Summary:")
+    print(f"  {improvement_summary}")
+    
+    print(f"\n🏆 Overall Success: {'✅ YES' if report['success'] else '❌ NO'}")
+    print(f"\n📁 Report saved to: evaluation/{report_dir.relative_to(EVALUATION_ROOT)}/report.json")
+    print("="*70)
+    
     return report
 
 def main():
-    report = run_evaluation()
-    print(json.dumps(report, indent=4))
-    return 0 if report["success"] else 1
+    """Main entry point"""
+    try:
+        report = run_evaluation()
+        return 0 if report["success"] else 1
+    except Exception as e:
+        # Create error report directory
+        error_dir = get_timestamp_dir()
+        error_dir.mkdir(parents=True, exist_ok=True)
+        error_file = error_dir / "error.json"
+        
+        error_report = {
+            "run_id": str(uuid.uuid4())[:8],
+            "started_at": datetime.utcnow().isoformat(),
+            "finished_at": datetime.utcnow().isoformat(),
+            "duration_seconds": 0,
+            "success": False,
+            "error": str(e),
+            "environment": environment_info()
+        }
+        
+        with open(error_file, 'w', encoding='utf-8') as f:
+            json.dump(error_report, f, indent=2, ensure_ascii=False)
+        
+        print(f"\n❌ Evaluation failed: {e}")
+        print(f"📁 Error report: evaluation/{error_dir.relative_to(EVALUATION_ROOT)}/error.json")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-#!/usr/bin/env python3
-# """
-# Main evaluation script for audio recorder comparison
-# """
-# import json
-# import sys
-# import re
-# import os
-# from datetime import datetime
-# from pathlib import Path
-
-# class AudioRecorderEvaluator:
-#     def __init__(self):
-#         self.timestamp = datetime.now()
-#         self.date_str = self.timestamp.strftime("%Y-%m-%d")
-#         self.time_str = self.timestamp.strftime("%H-%M-%S")
-        
-#         # Create evaluation directory
-#         self.eval_dir = Path(f"evaluation/{self.date_str}")
-#         self.eval_dir.mkdir(parents=True, exist_ok=True)
-        
-#         self.results = {
-#             'timestamp': self.timestamp.isoformat(),
-#             'date': self.date_str,
-#             'time': self.time_str,
-#             'comparison': {},
-#             'requirements_met': {},
-#             'score': 0,
-#             'status': 'FAIL'
-#         }
-    
-#     def load_html_content(self, filepath):
-#         """Load HTML content from Python file"""
-#         try:
-#             with open(filepath, 'r') as f:
-#                 content = f.read()
-            
-#             # Extract HTML content
-#             match = re.search(r'HTML_CONTENT = """(.*?)"""', content, re.DOTALL)
-#             if match:
-#                 return match.group(1)
-#             else:
-#                 print(f"Error: HTML_CONTENT not found in {filepath}")
-#                 return ""
-#         except FileNotFoundError:
-#             print(f"Error: File not found: {filepath}")
-#             return ""
-    
-#     def extract_features(self, html):
-#         """Extract features from HTML using regex"""
-#         if not html:
-#             return {}
-        
-#         return {
-#             'playback': any(x in html for x in ['playbackSection', 'togglePlayPause', 'waveformCanvas']),
-#             'monitoring': any(x in html for x in ['levelMeter', 'audioContext', 'AnalyserNode']),
-#             'session': any(x in html for x in ['sessionRecordings', 'MAX_RECORDINGS', 'addToSession']),
-#             'keyboard': "addEventListener('keydown'" in html,
-#             'mobile': '@media (max-width:' in html,
-#             'memory': 'URL.revokeObjectURL' in html,
-#             'errors': 'try {' in html and 'catch' in html,
-#             'original': all(x in html for x in ['startRecording', 'downloadRecording', 'MediaRecorder'])
-#         }
-    
-#     def evaluate(self, before_path, after_path):
-#         """Run evaluation"""
-#         print(f"\n{'='*60}")
-#         print("  🎙️  AUDIO RECORDER EVALUATION")
-#         print(f"{'='*60}")
-#         print(f"  Date: {self.date_str}")
-#         print(f"  Time: {self.time_str}")
-        
-#         # Load content
-#         before_html = self.load_html_content(before_path)
-#         after_html = self.load_html_content(after_path)
-        
-#         if not before_html or not after_html:
-#             print("❌ Error: Could not load HTML content")
-#             return self.results
-        
-#         # Extract features
-#         before_features = self.extract_features(before_html)
-#         after_features = self.extract_features(after_html)
-        
-#         # Calculate scores
-#         self.results['requirements_met'] = {
-#             'feature_1_playback_system': after_features.get('playback', False),
-#             'feature_2_live_monitoring': after_features.get('monitoring', False),
-#             'feature_3_session_manager': after_features.get('session', False),
-#             'original_functionality_preserved': after_features.get('original', False),
-#             'keyboard_accessibility': after_features.get('keyboard', False),
-#             'mobile_responsiveness': after_features.get('mobile', False),
-#             'memory_management': after_features.get('memory', False),
-#             'error_handling': after_features.get('errors', False)
-#         }
-        
-#         # Calculate score
-#         passed = sum(1 for req in self.results['requirements_met'].values() if req)
-#         total = len(self.results['requirements_met'])
-#         self.results['score'] = (passed / total) * 100
-        
-#         # Determine status
-#         if self.results['score'] >= 80:
-#             self.results['status'] = 'PASS'
-        
-#         # Add comparison data
-#         self.results['comparison'] = {
-#             'before_features': before_features,
-#             'after_features': after_features,
-#             'html_size_before': len(before_html),
-#             'html_size_after': len(after_html),
-#             'size_increase': len(after_html) - len(before_html)
-#         }
-        
-#         return self.results
-    
-#     def generate_report(self):
-#         """Generate and save report"""
-#         report_file = self.eval_dir / f"report_{self.time_str}.json"
-        
-#         with open(report_file, 'w') as f:
-#             json.dump(self.results, f, indent=2)
-        
-#         # Print summary
-#         print(f"\n📊 EVALUATION RESULTS:")
-#         print(f"  Score: {self.results['score']:.1f}%")
-#         print(f"  Status: {self.results['status']}")
-        
-#         print("\n✅ REQUIREMENTS MET:")
-#         for req, met in self.results['requirements_met'].items():
-#             status = "✓" if met else "✗"
-#             req_name = req.replace('_', ' ').title()
-#             print(f"  {status} {req_name}")
-        
-#         print(f"\n📈 COMPARISON:")
-#         comp = self.results['comparison']
-#         print(f"  HTML Size: {comp['html_size_before']:,} → {comp['html_size_after']:,} chars")
-#         print(f"  Size Increase: +{comp['size_increase']:,} chars")
-        
-#         print(f"\n📄 Report saved to: {report_file}")
-        
-#         # Generate markdown summary
-#         self.generate_markdown_summary()
-        
-#         return self.results
-    
-#     def generate_markdown_summary(self):
-#         """Generate markdown summary"""
-#         md_file = self.eval_dir / f"summary_{self.time_str}.md"
-        
-#         with open(md_file, 'w') as f:
-#             f.write(f"# Audio Recorder Evaluation Report\n\n")
-#             f.write(f"**Date:** {self.date_str}  \n")
-#             f.write(f"**Time:** {self.time_str}  \n")
-#             f.write(f"**Score:** {self.results['score']:.1f}%  \n")
-#             f.write(f"**Status:** {self.results['status']}  \n\n")
-            
-#             f.write("## Requirements Assessment\n\n")
-#             f.write("| Requirement | Status |\n")
-#             f.write("|-------------|--------|\n")
-#             for req, met in self.results['requirements_met'].items():
-#                 status = "✅ PASS" if met else "❌ FAIL"
-#                 req_name = req.replace('_', ' ').title()
-#                 f.write(f"| {req_name} | {status} |\n")
-            
-#             f.write("\n## Comparison Summary\n\n")
-#             comp = self.results['comparison']
-#             f.write(f"- **HTML Size Increase:** +{comp['size_increase']:,} characters\n")
-#             f.write(f"- **Before Version:** {comp['html_size_before']:,} chars\n")
-#             f.write(f"- **After Version:** {comp['html_size_after']:,} chars\n")
-        
-#         print(f"📝 Markdown summary: {md_file}")
-
-# def main():
-#     """Main evaluation function"""
-#     evaluator = AudioRecorderEvaluator()
-    
-#     # Define paths
-#     before_path = Path("repository_before/audio_recorder.py")
-#     after_path = Path("repository_after/audio_recorder.py")
-    
-#     # Check files exist
-#     if not before_path.exists():
-#         print(f"❌ Error: Before version not found at {before_path}")
-#         sys.exit(1)
-    
-#     if not after_path.exists():
-#         print(f"❌ Error: After version not found at {after_path}")
-#         sys.exit(1)
-    
-#     # Run evaluation
-#     evaluator.evaluate(before_path, after_path)
-    
-#     # Generate report
-#     report = evaluator.generate_report()
-    
-#     # Exit with appropriate code
-#     if report['status'] == 'PASS':
-#         print(f"\n{'='*60}")
-#         print("  🎉 EVALUATION PASSED!")
-#         print(f"{'='*60}")
-#         return 0
-#     else:
-#         print(f"\n{'='*60}")
-#         print("  ❌ EVALUATION FAILED!")
-#         print(f"{'='*60}")
-#         return 1
-
-# if __name__ == "__main__":
-#     sys.exit(main())
-
-# #!/usr/bin/env python3
-# """
-# Main evaluation script for audio recorder comparison
-# """
-# import json
-# import sys
-# from pathlib import Path
-# from datetime import datetime
-# from bs4 import BeautifulSoup
-# import re
-
-# class AudioRecorderEvaluator:
-#     def __init__(self):
-#         self.results = {
-#             'timestamp': datetime.now().isoformat(),
-#             'comparison': {},
-#             'before_stats': {},
-#             'after_stats': {},
-#             'requirements_met': {},
-#             'score': 0
-#         }
-    
-#     def load_applications(self, before_path, after_path):
-#         """Load both versions of the application"""
-#         sys.path.insert(0, str(before_path.parent))
-#         sys.path.insert(0, str(after_path.parent))
-        
-#         # Import applications
-#         from repository_before.audio_recorder import HTML_CONTENT as BEFORE_HTML
-#         from repository_after.audio_recorder import HTML_CONTENT as AFTER_HTML
-        
-#         return BEFORE_HTML, AFTER_HTML
-    
-#     def evaluate_features(self, before_html, after_html):
-#         """Evaluate feature implementation"""
-#         before_soup = BeautifulSoup(before_html, 'html.parser')
-#         after_soup = BeautifulSoup(after_html, 'html.parser')
-        
-#         before_script = before_soup.find('script').string if before_soup.find('script') else ""
-#         after_script = after_soup.find('script').string if after_soup.find('script') else ""
-        
-#         # Feature 1: Playback System
-#         playback_indicators = [
-#             'playbackSection', 'togglePlayPause', 'waveformCanvas',
-#             'seekAudio', 'showPlaybackControls'
-#         ]
-        
-#         feature1_score = sum(1 for indicator in playback_indicators 
-#                            if indicator in after_script) / len(playback_indicators)
-        
-#         # Feature 2: Live Monitoring
-#         monitoring_indicators = [
-#             'levelMeter', 'audioContext', 'AnalyserNode',
-#             'getByteFrequencyData', 'updateLevelMeter'
-#         ]
-        
-#         feature2_score = sum(1 for indicator in monitoring_indicators 
-#                            if indicator in after_script) / len(monitoring_indicators)
-        
-#         # Feature 3: Session Manager
-#         session_indicators = [
-#             'sessionRecordings', 'MAX_RECORDINGS', 'addToSession',
-#             'updateSessionUI', 'downloadAllRecordings', 'clearSession'
-#         ]
-        
-#         feature3_score = sum(1 for indicator in session_indicators 
-#                            if indicator in after_script) / len(session_indicators)
-        
-#         # Core preservation
-#         original_functions = [
-#             'updateStatus', 'formatTime', 'startRecording',
-#             'downloadRecording', 'updateTimer'
-#         ]
-        
-#         core_preservation = all(func in after_script for func in original_functions)
-        
-#         self.results['requirements_met'] = {
-#             'feature_1_playback_system': feature1_score >= 0.8,
-#             'feature_2_live_monitoring': feature2_score >= 0.8,
-#             'feature_3_session_manager': feature3_score >= 0.8,
-#             'core_functionality_preserved': core_preservation,
-#             'keyboard_accessibility': 'addEventListener(\'keydown\'' in after_script,
-#             'mobile_responsive': '@media (max-width:' in after_html,
-#             'error_handling': 'try {' in after_script and 'catch' in after_script,
-#             'memory_management': 'URL.revokeObjectURL' in after_script
-#         }
-        
-#         # Calculate overall score
-#         requirements_met = sum(1 for req in self.results['requirements_met'].values() if req)
-#         total_requirements = len(self.results['requirements_met'])
-#         self.results['score'] = (requirements_met / total_requirements) * 100
-        
-#         return self.results
-    
-#     def generate_report(self, output_path="evaluation_report.json"):
-#         """Generate evaluation report"""
-#         with open(output_path, 'w') as f:
-#             json.dump(self.results, f, indent=2)
-        
-#         print(f"\n{'='*60}")
-#         print("  AUDIO RECORDER EVALUATION REPORT")
-#         print(f"{'='*60}")
-        
-#         print(f"\n📊 Overall Score: {self.results['score']:.1f}%")
-        
-#         print("\n✅ Requirements Met:")
-#         for req, met in self.results['requirements_met'].items():
-#             status = "✓" if met else "✗"
-#             req_name = req.replace('_', ' ').title()
-#             print(f"  {status} {req_name}")
-        
-#         print(f"\n📄 Report saved to: {output_path}")
-        
-#         return self.results
-
-# def main():
-#     """Main evaluation function"""
-#     evaluator = AudioRecorderEvaluator()
-    
-#     # Load applications
-#     before_path = Path("repository_before/audio_recorder_before.py")
-#     after_path = Path("repository_after/audio_recorder_after.py")
-    
-#     if not before_path.exists() or not after_path.exists():
-#         print("Error: Could not find application files")
-#         sys.exit(1)
-    
-#     before_html, after_html = evaluator.load_applications(before_path, after_path)
-    
-#     # Run evaluation
-#     evaluator.evaluate_features(before_html, after_html)
-    
-#     # Generate report
-#     report = evaluator.generate_report()
-    
-#     # Determine pass/fail
-#     if report['score'] >= 80:
-#         print(f"\n🎉 RESULT: PASS (Score: {report['score']:.1f}%)")
-#         return 0
-#     else:
-#         print(f"\n❌ RESULT: FAIL (Score: {report['score']:.1f}%)")
-#         return 1
-
-# if __name__ == "__main__":
-#     sys.exit(main())
 
