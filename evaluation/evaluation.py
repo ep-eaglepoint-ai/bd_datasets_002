@@ -17,14 +17,18 @@ def environment_info():
         "platform": platform.platform()
     }
 
-def run_tests(repo_name: str):
+def run_test_command(repo_name: str, test_path: str, ignore_path: str = None):
     try:
         # Set PYTHONPATH so tests can import 'backend' directly from the target repo
         env = os.environ.copy()
         env["PYTHONPATH"] = str(ROOT / repo_name)
 
+        cmd = [sys.executable, "-m", "pytest", test_path, "-q"]
+        if ignore_path:
+            cmd.extend(["--ignore", ignore_path])
+
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", "tests", "-q"],
+            cmd,
             cwd=ROOT,
             env=env,
             capture_output=True,
@@ -59,20 +63,40 @@ def run_metrics(repo_path: Path):
     
     backend_main = repo_path / "backend" / "main.py"
     if backend_main.exists():
-        metrics["backend_lines"] = len(backend_main.read_text().splitlines())
+        try:
+            metrics["backend_lines"] = len(backend_main.read_text(encoding='utf-8', errors='ignore').splitlines())
+        except Exception:
+            pass
         
     frontend_app = repo_path / "frontend" / "src" / "App.tsx"
     if frontend_app.exists():
-        metrics["frontend_lines"] = len(frontend_app.read_text().splitlines())
+        try:
+            metrics["frontend_lines"] = len(frontend_app.read_text(encoding='utf-8', errors='ignore').splitlines())
+        except Exception:
+            pass
         
     return metrics
 
 def evaluate(repo_name: str):
     repo_path = ROOT / repo_name
-    tests = run_tests(repo_name)
+    
+    # Run metadata tests explicitly
+    metadata_tests = run_test_command(
+        repo_name, 
+        "repository_after/tests/test_meta_repository.py"
+    )
+    
+    # Run functional tests (exclude metadata to keep them separate)
+    functional_tests = run_test_command(
+        repo_name, 
+        "repository_after/tests", 
+        ignore_path="repository_after/tests/test_meta_repository.py"
+    )
+
     metrics = run_metrics(repo_path)
     return {
-        "tests": tests,
+        "metadata_tests": metadata_tests,
+        "functional_tests": functional_tests,
         "metrics": metrics
     }
 
@@ -83,9 +107,12 @@ def run_evaluation():
     before = evaluate("repository_before")
     after = evaluate("repository_after")
     
+    # Success requires both metadata and functional tests to pass in the 'after' repo
+    success = after["metadata_tests"]["passed"] and after["functional_tests"]["passed"]
+    
     comparison = {
-        "passed_gate": after["tests"]["passed"],
-        "improvement_summary": "After implementation passed correctness check." if after["tests"]["passed"] else "After implementation failed correctness check."
+        "passed_gate": success,
+        "improvement_summary": "After implementation passed all correctness and metadata checks." if success else "After implementation failed checks."
     }
     
     end = datetime.utcnow()
@@ -99,7 +126,7 @@ def run_evaluation():
         "before": before,
         "after": after,
         "comparison": comparison,
-        "success": comparison["passed_gate"],
+        "success": success,
         "error": None
     }
     

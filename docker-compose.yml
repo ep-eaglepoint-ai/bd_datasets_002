@@ -1,6 +1,11 @@
 services:
-  app:
+  test:
     build: .
-    command: python evaluation/evaluation.py
     volumes:
       - .:/app
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+    # Override command when running specific tests
+    # docker compose run test <command>
+    command: echo 'Use docker compose run test <command>'

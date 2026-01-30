@@ -1,18 +1,22 @@
-# Spam Detection Demo
+# Spam Detection Demo - Testing Guide
 
-This project implements a production-ready Spam Detection API and UI, supporting real-time training and confidence-based predictions.
+This project includes Docker-based testing to ensure consistent test execution across environments.
 
-### Run tests (before – baseline)
+
+
+#### 1. Verify Before State
 ```bash
-docker compose run --rm -e PYTHONPATH=/app/repository_before app python -m pytest -q tests
+docker compose run --rm test sh -c "PYTHONPATH=/app/repository_before pytest repository_after/tests -q"
 ```
 
-### Run tests (after – implementation)
+#### 2. Verify After State
 ```bash
-docker compose run --rm -e PYTHONPATH=/app/repository_after app python -m pytest -q tests
+docker compose run --rm test sh -c "PYTHONPATH=/app/repository_after pytest repository_after/tests -q"
 ```
 
-#### Run evaluation (compares both implementations)
+#### 3. Run Evaluation
 ```bash
-docker compose run --rm app python evaluation/evaluation.py
+docker compose run --rm test python evaluation/evaluation.py
 ```
+
+
