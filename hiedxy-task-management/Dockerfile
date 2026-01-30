@@ -1,5 +1,10 @@
-FROM python:3.11-slim
+FROM node:20-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN npm install -g ts-node
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Copy source code (optional if mounting volume, but good for image completeness)
+COPY . .
