@@ -123,8 +123,9 @@ func runTest(testName, testFile string) TestResult {
 	
 	startTime := time.Now()
 	
-	// Run go test on the specific test file
+	// Run go test on the specific test file from repository_after directory
 	cmd := exec.Command("go", "test", "-v", "-run", getTestPattern(testName), "./tests")
+	cmd.Dir = "repository_after"
 	output, err := cmd.CombinedOutput()
 	
 	duration := time.Since(startTime)

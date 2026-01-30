@@ -1,7 +1,7 @@
 services:
   test-after:
     build: .
-    command: sh -c "cd /app && go test -v ./tests"
+    command: sh -c "cd /app/repository_after && go test -v ./tests"
     volumes:
       - .:/app
     working_dir: /app
