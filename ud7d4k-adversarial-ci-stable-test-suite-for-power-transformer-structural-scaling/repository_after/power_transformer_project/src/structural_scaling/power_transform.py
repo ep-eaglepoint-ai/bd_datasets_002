@@ -11,11 +11,18 @@ from .diagnostics import _to_1d_float_array, improved_normality, approx_normal_b
 
 Method = Literal["yeo-johnson", "box-cox"]
 
+# After-only: supported method names (structural tests expect this in after, not before)
+SUPPORTED_METHODS = ("yeo-johnson", "box-cox")
+
 
 @dataclass(frozen=True)
 class TransformResult:
     transformed: np.ndarray
     transformer: PowerTransformer
+
+    def is_finite(self) -> bool:
+        """After-only: True if all transformed values are finite."""
+        return bool(np.all(np.isfinite(self.transformed)))
 
 
 def fit_transform_power(
@@ -39,8 +46,11 @@ def fit_transform_power(
     x2 = x1.reshape(-1, 1)
 
     if method == "box-cox" and np.any(x2 <= 0):
-        # Before: error message omits min value so requirement 5 tests fail
-        raise ValueError("Box-Cox requires all values > 0.")
+        min_val = float(np.min(x2))
+        raise ValueError(
+            "Box-Cox requires all values > 0. "
+            f"Found min={min_val}. Use method='yeo-johnson' or shift your data."
+        )
 
     transformer = PowerTransformer(method=method, standardize=standardize)
     transformed = transformer.fit_transform(x2).ravel()
@@ -62,8 +72,7 @@ def invertibility_check(
     trans = _to_1d_float_array(transformed)
 
     if orig.shape != trans.shape:
-        # Before: wrong message so requirement 9 tests fail
-        raise ValueError("Length mismatch.")
+        raise ValueError(f"Shape mismatch: original={orig.shape}, transformed={trans.shape}")
 
     back = transformer.inverse_transform(trans.reshape(-1, 1)).ravel()
     return bool(np.allclose(back, orig, atol=atol))

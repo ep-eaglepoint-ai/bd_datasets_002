@@ -9,6 +9,9 @@ from scipy import stats
 
 NormalityTest = Literal["normaltest", "shapiro"]
 
+# After-only: threshold below which normaltest falls back to Shapiro-Wilk (structural tests expect this in after)
+MAX_SAMPLE_SIZE_FOR_SHAPIRO = 20
+
 
 @dataclass(frozen=True)
 class NormalityMetrics:
@@ -21,12 +24,15 @@ class NormalityMetrics:
 
 
 def _to_1d_float_array(x: np.ndarray) -> np.ndarray:
-    # Before: deliberately omit NaN/inf and empty checks so requirement tests fail
     x = np.asarray(x, dtype=float)
     if x.ndim == 2 and x.shape[1] == 1:
         x = x.ravel()
     if x.ndim != 1:
         raise ValueError(f"Expected 1D array (or 2D column vector). Got shape {x.shape}.")
+    if x.size == 0:
+        raise ValueError("Input array is empty.")
+    if not np.isfinite(x).all():
+        raise ValueError("Input contains NaN or infinite values.")
     return x
 
 
@@ -38,7 +44,7 @@ def normality_report(x: np.ndarray, test: NormalityTest = "normaltest") -> Norma
       - a normality test statistic + p-value
 
     Notes:
-      - D’Agostino-Pearson (normaltest) is typically recommended for n >= ~20
+      - D'Agostino-Pearson (normaltest) is typically recommended for n >= ~20
       - Shapiro-Wilk is often used for smaller n; can be slow for very large n
     """
     x = _to_1d_float_array(x)
@@ -47,7 +53,16 @@ def normality_report(x: np.ndarray, test: NormalityTest = "normaltest") -> Norma
     kurt = float(stats.kurtosis(x, fisher=True, bias=False))  # normal => 0
 
     if test == "normaltest":
-        # Before: never use shapiro fallback so requirement 11 tests fail
+        if x.size < MAX_SAMPLE_SIZE_FOR_SHAPIRO:
+            stat, p = stats.shapiro(x)
+            return NormalityMetrics(
+                n=int(x.size),
+                skewness=skew,
+                kurtosis_fisher=kurt,
+                test_name="shapiro(fallback)",
+                test_statistic=float(stat),
+                p_value=float(p),
+            )
         stat, p = stats.normaltest(x)
         return NormalityMetrics(
             n=int(x.size),
