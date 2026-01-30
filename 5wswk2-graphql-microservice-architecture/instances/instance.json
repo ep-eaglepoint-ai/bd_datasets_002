@@ -1,0 +1,12 @@
+{
+            "instance_id": "5WSWK2",
+            "problem_statement": "Build a GraphQL API gateway in TypeScript/Node.js 20+ using Apollo Server 4 and Apollo Federation v2 to unify and federate multiple microservice subgraphs, handling distributed query planning, authentication, and real‑time subscriptions with graphql‑ws. Implement DataLoader for batching, Redis for distributed caching/rate limiting, and OpenTelemetry for tracing, while providing a CLI tool for schema validation and composition testing. The gateway must support intelligent caching, per‑client rate limiting, and comprehensive request tracing in a production‑ready microservices architecture.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/5wswk2-graphql-microservice-architecture",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
