@@ -176,3 +176,38 @@ abazfc-frontend-only-image-sharpener-cropper-web-application/
 - Reset to original state
 - Keyboard accessibility
 - Error handling for edge cases
+
+### Phase 6: Revision (Reviewer Feedback)
+
+**Issues Identified:**
+1. Cropping tool was visual-only - no mouse drag/resize functionality
+2. Aspect ratio selection didn't constrain crop box dimensions
+3. Download exported full canvas without applying crop region
+
+**Fixes Applied:**
+
+1. **Functional Crop Box (lines 274-337)**
+   - Added `isCropDragging`, `isResizing`, `dragStart`, `cropStart` state
+   - Implemented `handleCropMouseDown` for initiating crop box drag
+   - Implemented `handleResizeMouseDown` for initiating resize via corner handle
+   - Added global `handleMouseMove` with canvas bounds checking and zoom compensation
+   - Added `handleMouseUp` to end drag/resize operations
+   - Used `useEffect` to attach/detach global mouse event listeners
+
+2. **Aspect Ratio Enforcement (lines 244-262, 357-362)**
+   - Added `getAspectRatioValue()` to convert ratio strings to numeric values
+   - Added `enforceAspectRatio()` to recalculate height based on width and ratio
+   - During resize, aspect ratio is enforced when not in 'free' mode
+   - When aspect ratio selection changes, crop box dimensions update immediately
+
+3. **Crop Applied to Download (lines 200-242)**
+   - Created temporary output canvas with cropped dimensions
+   - Used `ctx.drawImage()` with source rectangle parameters to extract crop region
+   - Accounts for devicePixelRatio (DPR) in crop coordinate calculations
+   - Final blob export uses the cropped canvas instead of full canvas
+
+**Updated Test Results:**
+- All 43 tests continue to pass
+- Crop functionality now fully operational
+- Aspect ratio properly constrains crop dimensions
+- Downloaded images include only the cropped region

@@ -29,10 +29,15 @@ const App: React.FC = () => {
   const [showBefore, setShowBefore] = useState<boolean>(false);
   const [cropArea, setCropArea] = useState<CropArea>({ x: 0, y: 0, width: 100, height: 100 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isCropDragging, setIsCropDragging] = useState<boolean>(false);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [cropStart, setCropStart] = useState<CropArea>({ x: 0, y: 0, width: 100, height: 100 });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Validate and load image
   const handleFileSelect = useCallback((file: File) => {
@@ -192,11 +197,36 @@ const App: React.FC = () => {
     }
   }, [image, rotation, sharpening, showBefore]);
 
-  // Download handler
+  // Download handler - applies crop before downloading
   const handleDownload = () => {
     if (!canvasRef.current) return;
 
-    canvasRef.current.toBlob(
+    // Create a temporary canvas to apply the crop
+    const sourceCanvas = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
+
+    // Calculate crop dimensions in actual canvas pixels (accounting for DPR)
+    const cropX = cropArea.x * dpr;
+    const cropY = cropArea.y * dpr;
+    const cropWidth = cropArea.width * dpr;
+    const cropHeight = cropArea.height * dpr;
+
+    // Create output canvas with cropped dimensions
+    const outputCanvas = document.createElement('canvas');
+    outputCanvas.width = cropWidth;
+    outputCanvas.height = cropHeight;
+
+    const ctx = outputCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // Draw only the cropped region from source canvas to output canvas
+    ctx.drawImage(
+      sourceCanvas,
+      cropX, cropY, cropWidth, cropHeight,  // Source rectangle (crop area)
+      0, 0, cropWidth, cropHeight            // Destination rectangle (full output)
+    );
+
+    outputCanvas.toBlob(
       (blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
@@ -210,6 +240,126 @@ const App: React.FC = () => {
       outputFormat === 'image/png' ? undefined : quality / 100
     );
   };
+
+  // Get aspect ratio as numeric value
+  const getAspectRatioValue = (ratio: AspectRatio): number | null => {
+    switch (ratio) {
+      case '1:1': return 1;
+      case '4:3': return 4 / 3;
+      case '16:9': return 16 / 9;
+      default: return null;
+    }
+  };
+
+  // Enforce aspect ratio on crop area
+  const enforceAspectRatio = useCallback((crop: CropArea, ratio: AspectRatio): CropArea => {
+    const ratioValue = getAspectRatioValue(ratio);
+    if (!ratioValue) return crop;
+
+    // Adjust height based on width to maintain ratio
+    const newHeight = crop.width / ratioValue;
+    return { ...crop, height: newHeight };
+  }, []);
+
+  // Get canvas dimensions (accounting for rotation)
+  const getCanvasDimensions = useCallback(() => {
+    if (!image) return { width: 0, height: 0 };
+    const isRotated90or270 = rotation === 90 || rotation === 270;
+    return {
+      width: isRotated90or270 ? image.naturalHeight : image.naturalWidth,
+      height: isRotated90or270 ? image.naturalWidth : image.naturalHeight
+    };
+  }, [image, rotation]);
+
+  // Crop box mouse handlers for dragging
+  const handleCropMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCropDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setCropStart({ ...cropArea });
+  };
+
+  // Resize handle mouse handler
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setCropStart({ ...cropArea });
+  };
+
+  // Mouse move handler (for both dragging and resizing)
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isCropDragging && !isResizing) return;
+
+    const { width: canvasWidth, height: canvasHeight } = getCanvasDimensions();
+    const scale = zoom / 100;
+    const deltaX = (e.clientX - dragStart.x) / scale;
+    const deltaY = (e.clientY - dragStart.y) / scale;
+
+    if (isCropDragging) {
+      // Moving the crop box
+      let newX = Math.max(0, cropStart.x + deltaX);
+      let newY = Math.max(0, cropStart.y + deltaY);
+
+      // Constrain to canvas bounds
+      newX = Math.min(newX, canvasWidth - cropArea.width);
+      newY = Math.min(newY, canvasHeight - cropArea.height);
+
+      setCropArea(prev => ({ ...prev, x: newX, y: newY }));
+    } else if (isResizing) {
+      // Resizing the crop box
+      let newWidth = Math.max(20, cropStart.width + deltaX);
+      let newHeight = Math.max(20, cropStart.height + deltaY);
+
+      // Constrain to canvas bounds
+      newWidth = Math.min(newWidth, canvasWidth - cropArea.x);
+      newHeight = Math.min(newHeight, canvasHeight - cropArea.y);
+
+      let newCrop = { ...cropArea, width: newWidth, height: newHeight };
+
+      // Enforce aspect ratio if not free
+      if (aspectRatio !== 'free') {
+        newCrop = enforceAspectRatio({ ...newCrop, width: newWidth }, aspectRatio);
+        // Re-check height bounds after ratio enforcement
+        if (newCrop.height > canvasHeight - cropArea.y) {
+          newCrop.height = canvasHeight - cropArea.y;
+          const ratioValue = getAspectRatioValue(aspectRatio);
+          if (ratioValue) {
+            newCrop.width = newCrop.height * ratioValue;
+          }
+        }
+      }
+
+      setCropArea(newCrop);
+    }
+  }, [isCropDragging, isResizing, dragStart, cropStart, cropArea, aspectRatio, zoom, getCanvasDimensions, enforceAspectRatio]);
+
+  // Mouse up handler
+  const handleMouseUp = useCallback(() => {
+    setIsCropDragging(false);
+    setIsResizing(false);
+  }, []);
+
+  // Add/remove global mouse event listeners
+  useEffect(() => {
+    if (isCropDragging || isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isCropDragging, isResizing, handleMouseMove, handleMouseUp]);
+
+  // Update crop area when aspect ratio changes
+  useEffect(() => {
+    if (aspectRatio !== 'free' && image) {
+      setCropArea(prev => enforceAspectRatio(prev, aspectRatio));
+    }
+  }, [aspectRatio, image, enforceAspectRatio]);
 
   // Crop box keyboard navigation
   const handleCropKeyDown = (e: React.KeyboardEvent) => {
@@ -383,7 +533,11 @@ const App: React.FC = () => {
 
       <main className="preview-panel" data-testid="preview-panel" role="main">
         {image ? (
-          <div className="preview-container" style={{ transform: `scale(${zoom / 100})` }}>
+          <div
+            ref={previewContainerRef}
+            className="preview-container"
+            style={{ transform: `scale(${zoom / 100})` }}
+          >
             <canvas
               ref={canvasRef}
               data-testid="image-preview"
@@ -397,14 +551,22 @@ const App: React.FC = () => {
               aria-label="Crop area"
               tabIndex={0}
               onKeyDown={handleCropKeyDown}
+              onMouseDown={handleCropMouseDown}
               style={{
                 left: cropArea.x,
                 top: cropArea.y,
                 width: cropArea.width,
                 height: cropArea.height,
+                cursor: isCropDragging ? 'grabbing' : 'grab',
               }}
             >
-              <div className="crop-resize-handle" data-testid="crop-resize-handle" data-resize="se" />
+              <div
+                className="crop-resize-handle"
+                data-testid="crop-resize-handle"
+                data-resize="se"
+                onMouseDown={handleResizeMouseDown}
+                style={{ cursor: 'se-resize' }}
+              />
             </div>
           </div>
         ) : (
