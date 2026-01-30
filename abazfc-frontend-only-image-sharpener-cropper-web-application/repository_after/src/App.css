@@ -1,0 +1,180 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.app {
+  display: flex;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.control-panel {
+  width: 300px;
+  padding: 20px;
+  background: #f5f5f5;
+  border-right: 1px solid #ddd;
+  overflow-y: auto;
+}
+
+.control-panel h1 {
+  font-size: 1.25rem;
+  margin-bottom: 20px;
+}
+
+.drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.drop-zone.dragging {
+  border-color: #007bff;
+  background: #f0f7ff;
+}
+
+.drop-zone input {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.error-message {
+  color: #dc3545;
+  padding: 10px;
+  background: #f8d7da;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+fieldset {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+fieldset legend {
+  font-weight: 600;
+  padding: 0 5px;
+}
+
+fieldset button {
+  margin: 2px;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+fieldset button.active,
+fieldset button[aria-pressed="true"] {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.control-group {
+  margin-bottom: 15px;
+}
+
+.control-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.control-group input[type="range"] {
+  width: 100%;
+}
+
+.control-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.action-buttons button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.action-buttons button:first-child {
+  background: #28a745;
+  color: white;
+}
+
+.action-buttons button:last-child {
+  background: #6c757d;
+  color: white;
+}
+
+.preview-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2d2d2d;
+  overflow: auto;
+}
+
+.preview-container {
+  position: relative;
+  transform-origin: center;
+}
+
+.preview-container canvas {
+  display: block;
+  max-width: 100%;
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px solid #007bff;
+  background: rgba(0, 123, 255, 0.1);
+  cursor: move;
+}
+
+.crop-box:focus {
+  outline: 2px solid #ffc107;
+  outline-offset: 2px;
+}
+
+.crop-resize-handle {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: #007bff;
+  cursor: se-resize;
+}
+
+.placeholder {
+  color: #aaa;
+  font-size: 1.25rem;
+}
+
+button:focus,
+input:focus,
+select:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
