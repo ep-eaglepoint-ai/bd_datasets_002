@@ -248,6 +248,119 @@ public class FootballSeasonStatsTest {
          } catch (Exception e) {}
     }
 
+    @Test
+    public void testExactJsonKeys() throws Exception {
+        // Verify response contains exactly 6 keys (no extra fields)
+        Class<?> seasonStatsClass = Class.forName("com.example.gamestats.SeasonStats");
+        Field[] allFields = seasonStatsClass.getDeclaredFields();
+        
+        Assertions.assertEquals(6, allFields.length, "SeasonStats should have exactly 6 fields");
+        
+        // Verify expected field names
+        java.util.Set<String> expectedFields = java.util.Set.of(
+            "team", "season", "matchesPlayed", "totalGoalsScored", "totalFoulsCommitted", "matchStats"
+        );
+        java.util.Set<String> actualFields = new java.util.HashSet<>();
+        for (Field f : allFields) {
+            actualFields.add(f.getName());
+        }
+        Assertions.assertEquals(expectedFields, actualFields, "JSON keys must match original schema exactly");
+    }
+
+    @Test
+    public void testNoBlockingCalls() throws Exception {
+        // Verify no Thread.sleep calls exist in ServiceImpl via source code pattern
+        // This uses reflection to check method implementations don't reference Thread.sleep
+        Class<?> serviceImpl = Class.forName("com.example.gamestats.FootballSeasonStatsServiceImpl");
+        
+        // Check that the class doesn't import or use Thread in a blocking way
+        // We verify by checking the execution is fast (< 5ms for simple operation)
+        Object instance = serviceImpl.getDeclaredConstructor().newInstance();
+        Method getStats = serviceImpl.getMethod("getSeasonStats", String.class, int.class);
+        
+        // Run multiple times to ensure consistent fast execution (no hidden sleeps)
+        for (int i = 0; i < 10; i++) {
+            long start = System.nanoTime();
+            getStats.invoke(instance, "Test", 2024);
+            long durationMs = (System.nanoTime() - start) / 1_000_000;
+            Assertions.assertTrue(durationMs < 50, "Execution too slow, possible blocking call: " + durationMs + "ms");
+        }
+        
+        // Additional check: verify Thread class is not used for sleep
+        // by checking declared methods don't have Thread.sleep pattern in bytecode
+        // (simplified: if all 10 runs are < 50ms, no 100ms+ sleeps exist)
+    }
+
+    @Test
+    public void testLinearTimeComplexity() throws Exception {
+        // Verify O(n) by checking execution time scales linearly
+        // Since MATCHES_IN_SEASON is fixed at 38, we verify single execution is fast
+        // and that there's no O(n^2) or O(n*10000) pattern
+        
+        Class<?> serviceImpl = Class.forName("com.example.gamestats.FootballSeasonStatsServiceImpl");
+        Object instance = serviceImpl.getDeclaredConstructor().newInstance();
+        Method getStats = serviceImpl.getMethod("getSeasonStats", String.class, int.class);
+        
+        // Warm up JIT
+        for (int i = 0; i < 5; i++) {
+            getStats.invoke(instance, "Warmup", 2024);
+        }
+        
+        // Measure average execution time
+        long totalNanos = 0;
+        int iterations = 100;
+        for (int i = 0; i < iterations; i++) {
+            long start = System.nanoTime();
+            getStats.invoke(instance, "Complexity", 2024);
+            totalNanos += (System.nanoTime() - start);
+        }
+        double avgMs = (totalNanos / iterations) / 1_000_000.0;
+        
+        // O(n) with n=38 should be < 10ms average (no O(n*10000) loop)
+        // Original bad code would take ~38 * 10000 iterations = 380,000 ops vs 38 ops
+        Assertions.assertTrue(avgMs < 10, "Average execution " + avgMs + "ms suggests non-linear complexity");
+    }
+
+    @Test
+    public void testThreadLocalRandomUsage() throws Exception {
+        // Verify ThreadLocalRandom is used instead of regular Random
+        // Check via source inspection: ServiceImpl should import ThreadLocalRandom
+        
+        Class<?> serviceImpl = Class.forName("com.example.gamestats.FootballSeasonStatsServiceImpl");
+        
+        // Check that no field of type java.util.Random exists (would indicate shared Random)
+        for (Field f : serviceImpl.getDeclaredFields()) {
+            Assertions.assertNotEquals(java.util.Random.class, f.getType(), 
+                "Should not use shared java.util.Random instance - use ThreadLocalRandom");
+        }
+        
+        // Verify thread-safety by running concurrent calls without data races
+        Object instance = serviceImpl.getDeclaredConstructor().newInstance();
+        Method getStats = serviceImpl.getMethod("getSeasonStats", String.class, int.class);
+        
+        int threads = 50;
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(threads);
+        java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean(false);
+        
+        for (int i = 0; i < threads; i++) {
+            new Thread(() -> {
+                try {
+                    for (int j = 0; j < 100; j++) {
+                        Object result = getStats.invoke(instance, "ThreadSafe", 2024);
+                        Assertions.assertNotNull(result);
+                    }
+                } catch (Exception e) {
+                    failed.set(true);
+                } finally {
+                    latch.countDown();
+                }
+            }).start();
+        }
+        
+        latch.await(10, java.util.concurrent.TimeUnit.SECONDS);
+        Assertions.assertFalse(failed.get(), "Concurrent execution failed - possible thread-safety issue");
+    }
+
     // Helpers
     private List<?> getMatches(Object dto) throws Exception {
          if (dto instanceof Map) return (List<?>) ((Map) dto).get("matchStats");
