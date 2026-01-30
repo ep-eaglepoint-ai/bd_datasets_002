@@ -1,6 +1,26 @@
 services:
   app:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    environment:
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+    command: >
+      python repository_after/build_index.py --input /app/tests/fixtures/valid_input.jsonl --index /app/output/search.index --metadata /app/output/metadata.jsonl
+
+  test:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+    command: pytest -v tests/test_build_index.py
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - DOCKER_CONTAINER=true
+    command: python evaluation/evaluation.py
