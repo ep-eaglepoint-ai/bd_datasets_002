@@ -3,9 +3,16 @@ FastAPI application for async resilient chunked AI document analysis.
 
 POST /v1/analyze  -> Returns 202 Accepted with job_id immediately
 GET  /v1/analyze/{job_id} -> Returns job status, progress, and errors
+
+Features:
+- Async background processing with concurrent chunk execution
+- Worker restart resilience via startup recovery
+- Non-blocking DB operations
 """
 
 import asyncio
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -15,11 +22,27 @@ from . import database as db_module
 from .database import get_db
 from .models import AnalysisJob, ChunkRecord, JobStatus, ChunkStatus
 from .schemas import AnalyzeRequest, AnalyzeResponse, JobStatusResponse, ChunkError
-from .processor import process_job
+from .processor import process_job, resume_processing_jobs
+
+logger = logging.getLogger(__name__)
 
 models.Base.metadata.create_all(bind=db_module.engine)
 
-app = FastAPI(title="Document Analysis Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager.
+    On startup: resume any jobs left in PROCESSING state (worker restart resilience).
+    """
+    logger.info("Starting Document Analysis Service...")
+    # Resume stale PROCESSING jobs from previous run (worker restart resilience)
+    asyncio.create_task(resume_processing_jobs())
+    yield
+    logger.info("Shutting down Document Analysis Service...")
+
+
+app = FastAPI(title="Document Analysis Service", lifespan=lifespan)
 
 
 @app.post("/v1/analyze", status_code=202, response_model=AnalyzeResponse)

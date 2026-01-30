@@ -45,7 +45,9 @@
         "tests/test_analysis.py::TestIntegration::test_full_pipeline_with_mock_ai",
         "tests/test_analysis.py::TestAdversarial::test_one_chunk_always_fails_partial_success",
         "tests/test_analysis.py::TestAdversarial::test_all_chunks_fail_transitions_to_failed",
-        "tests/test_analysis.py::TestAdversarial::test_error_summary_populated_on_failure"
+        "tests/test_analysis.py::TestAdversarial::test_error_summary_populated_on_failure",
+        "tests/test_analysis.py::TestWorkerRestartResilience::test_resume_stale_processing_jobs",
+        "tests/test_analysis.py::TestWorkerRestartResilience::test_concurrent_chunk_execution"
     ],
     "PASS_TO_PASS": [
         "tests/test_analysis.py::TestGetEndpoint::test_get_returns_404_for_missing_job",

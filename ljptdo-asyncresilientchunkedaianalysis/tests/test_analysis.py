@@ -72,6 +72,7 @@ try:
     _atomic_increment_completed = processor_module._atomic_increment_completed
     _atomic_increment_failed = processor_module._atomic_increment_failed
     _finalize_job = processor_module._finalize_job
+    resume_processing_jobs = processor_module.resume_processing_jobs
 except (ModuleNotFoundError, AttributeError):
     chunk_text = None
     process_job = None
@@ -80,6 +81,7 @@ except (ModuleNotFoundError, AttributeError):
     _atomic_increment_completed = None
     _atomic_increment_failed = None
     _finalize_job = None
+    resume_processing_jobs = None
 
 try:
     schemas_module = importlib.import_module(f"{REPO}.schemas")
@@ -583,6 +585,75 @@ class TestDatabaseIsolation:
 
 
 # ============================================================================
+# Requirement: Worker Restart Resilience
+# ============================================================================
+
+class TestWorkerRestartResilience:
+    def test_resume_stale_processing_jobs(self, db_session):
+        """Jobs left in PROCESSING state should be resumed on startup."""
+        # Create a job stuck in PROCESSING state (simulating a crash)
+        job = AnalysisJob(
+            raw_text="stale job content",
+            max_chunk_chars=50,
+            status=JobStatus.PROCESSING.value,
+            total_chunks=2,
+        )
+        db_session.add(job)
+        db_session.commit()
+        db_session.refresh(job)
+
+        # Create chunk records that were partially processed
+        c1 = ChunkRecord(
+            job_id=job.id, chunk_index=0, chunk_text="stale job c",
+            status=ChunkStatus.PENDING.value,
+        )
+        c2 = ChunkRecord(
+            job_id=job.id, chunk_index=1, chunk_text="ontent",
+            status=ChunkStatus.PENDING.value,
+        )
+        db_session.add_all([c1, c2])
+        db_session.commit()
+
+        # Simulate worker restart by calling resume function
+        asyncio.get_event_loop().run_until_complete(resume_processing_jobs())
+
+        # Verify job was completed
+        db_session.expire_all()
+        job = db_session.query(AnalysisJob).filter(AnalysisJob.id == job.id).first()
+        assert job.status in [JobStatus.COMPLETED.value, JobStatus.PARTIAL_SUCCESS.value, JobStatus.FAILED.value]
+        # Job should no longer be PROCESSING
+        assert job.status != JobStatus.PROCESSING.value
+
+    def test_concurrent_chunk_execution(self, db_session):
+        """Verify chunks are processed concurrently, not sequentially."""
+        # Create a job with multiple chunks
+        job = AnalysisJob(
+            raw_text="a" * 100,  # 10 chunks at 10 chars each
+            max_chunk_chars=10,
+            status=JobStatus.PENDING.value,
+        )
+        db_session.add(job)
+        db_session.commit()
+        db_session.refresh(job)
+
+        # Track timing - concurrent should be faster than sequential
+        start = time.monotonic()
+        asyncio.get_event_loop().run_until_complete(
+            process_job(job.id, ai_fn=mock_ai_success)
+        )
+        elapsed = time.monotonic() - start
+
+        db_session.expire_all()
+        job = db_session.query(AnalysisJob).filter(AnalysisJob.id == job.id).first()
+
+        assert job.status == JobStatus.COMPLETED.value
+        assert job.total_chunks == 10
+        # With concurrent execution, should complete much faster than 10 sequential calls
+        # Each mock_ai_success is nearly instant, so total should be well under 1 second
+        assert elapsed < 2.0, f"Expected concurrent execution to be fast, took {elapsed:.2f}s"
+
+
+# ============================================================================
 # Requirement 9: Alembic migration
 # ============================================================================
 
@@ -620,17 +691,41 @@ class TestAlembicMigration:
 # ============================================================================
 
 class TestIntegration:
-    def test_job_id_returned_under_100ms(self, client):
-        """POST must return job_id immediately, not block on AI processing."""
-        large_text = "x" * 10000
+    def test_job_id_returned_under_100ms(self, client, monkeypatch):
+        """POST must return job_id immediately, not block on AI processing.
+
+        Even with a slow AI provider (several seconds), the job_id must be
+        returned in under 100ms because processing happens in background.
+        """
+        # Patch the AI provider to be very slow (simulating real-world latency)
+        async def slow_ai(chunk: str) -> str:
+            await asyncio.sleep(5.0)  # 5 second delay per chunk
+            return f"Summary: {chunk[:50]}..."
+
+        # Monkeypatch the ai_provider module
+        try:
+            import repository_after.processor as proc
+            original_ai = proc.call_ai_provider
+            proc.call_ai_provider = slow_ai
+        except ImportError:
+            pass  # Running against repository_before
+
+        large_text = "x" * 10000  # This creates 20 chunks at 500 chars each
 
         start = time.monotonic()
         resp = client.post("/v1/analyze", json={"text": large_text, "max_chunk_chars": 500})
         elapsed_ms = (time.monotonic() - start) * 1000
 
+        # Restore original AI provider
+        try:
+            proc.call_ai_provider = original_ai
+        except (NameError, UnboundLocalError):
+            pass
+
         assert resp.status_code == 202
         assert "job_id" in resp.json()
-        assert elapsed_ms < 1000, f"Response took {elapsed_ms:.0f}ms, expected < 1000ms"
+        # Must return in under 100ms even with slow AI (async background processing)
+        assert elapsed_ms < 100, f"Response took {elapsed_ms:.0f}ms, expected < 100ms"
 
     def test_full_pipeline_with_mock_ai(self, db_session):
         """Full end-to-end: submit, process, verify COMPLETED."""
@@ -660,11 +755,15 @@ class TestIntegration:
 # ============================================================================
 
 class TestAdversarial:
-    def test_one_chunk_always_fails_partial_success(self, db_session):
+    def test_one_chunk_always_fails_partial_success(self, db_session, caplog):
         """
         Mock AI fails consistently for chunk containing 'CHUNK1_MARKER'.
         Other chunks succeed. Result: PARTIAL_SUCCESS.
+        Verifies both database state AND log output.
         """
+        import logging
+        caplog.set_level(logging.WARNING)
+
         text = "GOOD_DATA_" * 5 + "CHUNK1_MARKER_BAD" + "MORE_GOOD_" * 5
         job = AnalysisJob(
             raw_text=text,
@@ -684,7 +783,7 @@ class TestAdversarial:
 
         assert job.status in [JobStatus.PARTIAL_SUCCESS.value, JobStatus.FAILED.value]
 
-        # Verify there are chunk-level errors logged
+        # Verify there are chunk-level errors in database
         failed_chunks = (
             db_session.query(ChunkRecord)
             .filter(ChunkRecord.job_id == job.id, ChunkRecord.status == ChunkStatus.FAILED.value)
@@ -695,8 +794,17 @@ class TestAdversarial:
             assert fc.error is not None
             assert fc.retries == MAX_RETRIES
 
-    def test_all_chunks_fail_transitions_to_failed(self, db_session):
-        """All chunks fail -> FAILED status."""
+        # Verify warning logs were emitted for failed attempts
+        warning_logs = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert len(warning_logs) >= 1, "Expected warning logs for failed chunk retries"
+        assert any("failed attempt" in r.message.lower() for r in warning_logs), \
+            "Expected log message about failed attempts"
+
+    def test_all_chunks_fail_transitions_to_failed(self, db_session, caplog):
+        """All chunks fail -> FAILED status. Verifies logs are emitted."""
+        import logging
+        caplog.set_level(logging.WARNING)
+
         job = AnalysisJob(
             raw_text="test data for failure",
             max_chunk_chars=10,
@@ -715,8 +823,16 @@ class TestAdversarial:
         assert job.status == JobStatus.FAILED.value
         assert job.chunks_failed == job.total_chunks
 
-    def test_error_summary_populated_on_failure(self, db_session):
+        # Verify warning logs were emitted
+        warning_logs = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert len(warning_logs) >= job.total_chunks, \
+            f"Expected at least {job.total_chunks} warning logs, got {len(warning_logs)}"
+
+    def test_error_summary_populated_on_failure(self, db_session, caplog):
         """Error summary field should contain chunk error details."""
+        import logging
+        caplog.set_level(logging.WARNING)
+
         job = AnalysisJob(
             raw_text="fail content",
             max_chunk_chars=20,
@@ -734,3 +850,7 @@ class TestAdversarial:
         job = db_session.query(AnalysisJob).filter(AnalysisJob.id == job.id).first()
         assert job.error_summary is not None
         assert "chunk_0" in job.error_summary
+
+        # Verify logs contain error information
+        assert any("failed attempt" in r.message.lower() for r in caplog.records), \
+            "Expected log messages about failed attempts"

@@ -4,16 +4,18 @@ Background orchestration logic for chunked document analysis.
 Handles:
 - Document chunking by max_chunk_chars
 - Per-chunk retry with exponential backoff
-- Atomic database counter updates with row-level locking
+- Atomic database counter updates (SQL UPDATE for true atomicity)
 - Ordered result reassembly
 - State machine transitions
+- Worker restart resilience
 """
 
 import asyncio
 import logging
 from typing import Callable, Awaitable, Optional
+from functools import partial
 
-from sqlalchemy import update, select
+from sqlalchemy import update, select, text
 from sqlalchemy.orm import Session
 
 from .database import get_background_db
@@ -36,6 +38,20 @@ def chunk_text(text: str, max_chunk_chars: int) -> list[str]:
     return chunks
 
 
+def _sync_db_update(chunk_id: int, values: dict) -> None:
+    """Sync DB update wrapper for use with asyncio.to_thread."""
+    db = get_background_db()
+    try:
+        db.execute(
+            update(ChunkRecord)
+            .where(ChunkRecord.id == chunk_id)
+            .values(**values)
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
 async def process_single_chunk(
     job_id: int,
     chunk_id: int,
@@ -46,36 +62,32 @@ async def process_single_chunk(
     """
     Process a single chunk with retry and exponential backoff.
     Returns True if successful, False if all retries exhausted.
-    Uses its own isolated DB session.
+    Uses isolated DB sessions and runs sync DB ops in thread pool.
     """
     if ai_fn is None:
         ai_fn = call_ai_provider
 
     for attempt in range(1, MAX_RETRIES + 1):
-        db = get_background_db()
         try:
-            # Mark chunk as processing
-            db.execute(
-                update(ChunkRecord)
-                .where(ChunkRecord.id == chunk_id)
-                .values(status=ChunkStatus.PROCESSING.value, retries=attempt)
+            # Mark chunk as processing (non-blocking)
+            await asyncio.to_thread(
+                _sync_db_update,
+                chunk_id,
+                {"status": ChunkStatus.PROCESSING.value, "retries": attempt}
             )
-            db.commit()
 
-            # Call AI provider
+            # Call AI provider (async)
             result = await ai_fn(chunk_text_content)
 
-            # Mark chunk as completed
-            db.execute(
-                update(ChunkRecord)
-                .where(ChunkRecord.id == chunk_id)
-                .values(status=ChunkStatus.COMPLETED.value, result=result)
+            # Mark chunk as completed (non-blocking)
+            await asyncio.to_thread(
+                _sync_db_update,
+                chunk_id,
+                {"status": ChunkStatus.COMPLETED.value, "result": result}
             )
-            db.commit()
             return True
 
         except Exception as e:
-            db.rollback()
             logger.warning(
                 f"Chunk {chunk_index} of job {job_id} failed attempt {attempt}/{MAX_RETRIES}: {e}"
             )
@@ -84,54 +96,58 @@ async def process_single_chunk(
                 backoff = BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
                 await asyncio.sleep(backoff)
             else:
-                # All retries exhausted — mark as failed
+                # All retries exhausted — mark as failed (non-blocking)
                 try:
-                    db.execute(
-                        update(ChunkRecord)
-                        .where(ChunkRecord.id == chunk_id)
-                        .values(
-                            status=ChunkStatus.FAILED.value,
-                            error=str(e),
-                            retries=attempt,
-                        )
+                    await asyncio.to_thread(
+                        _sync_db_update,
+                        chunk_id,
+                        {
+                            "status": ChunkStatus.FAILED.value,
+                            "error": str(e),
+                            "retries": attempt,
+                        }
                     )
-                    db.commit()
                 except Exception:
-                    db.rollback()
+                    pass
                 return False
-        finally:
-            db.close()
 
     return False
 
 
 def _atomic_increment_completed(db: Session, job_id: int) -> int:
-    """Atomically increment chunks_completed using row-level locking and return new value."""
-    # Use SELECT ... FOR UPDATE equivalent via with_for_update()
-    stmt = (
-        select(AnalysisJob)
+    """Atomically increment chunks_completed using SQL UPDATE and return new value.
+
+    Uses UPDATE ... SET col = col + 1 which is atomic in all databases including SQLite.
+    """
+    db.execute(
+        update(AnalysisJob)
         .where(AnalysisJob.id == job_id)
-        .with_for_update()
+        .values(chunks_completed=AnalysisJob.chunks_completed + 1)
     )
-    job = db.execute(stmt).scalar_one()
-    job.chunks_completed += 1
-    new_val = job.chunks_completed
     db.commit()
-    return new_val
+    # Fetch the new value
+    job = db.execute(
+        select(AnalysisJob).where(AnalysisJob.id == job_id)
+    ).scalar_one()
+    return job.chunks_completed
 
 
 def _atomic_increment_failed(db: Session, job_id: int) -> int:
-    """Atomically increment chunks_failed using row-level locking and return new value."""
-    stmt = (
-        select(AnalysisJob)
+    """Atomically increment chunks_failed using SQL UPDATE and return new value.
+
+    Uses UPDATE ... SET col = col + 1 which is atomic in all databases including SQLite.
+    """
+    db.execute(
+        update(AnalysisJob)
         .where(AnalysisJob.id == job_id)
-        .with_for_update()
+        .values(chunks_failed=AnalysisJob.chunks_failed + 1)
     )
-    job = db.execute(stmt).scalar_one()
-    job.chunks_failed += 1
-    new_val = job.chunks_failed
     db.commit()
-    return new_val
+    # Fetch the new value
+    job = db.execute(
+        select(AnalysisJob).where(AnalysisJob.id == job_id)
+    ).scalar_one()
+    return job.chunks_failed
 
 
 def _finalize_job(db: Session, job_id: int) -> None:
@@ -139,12 +155,9 @@ def _finalize_job(db: Session, job_id: int) -> None:
     Finalize the job after all chunks are processed.
     Determines final status and assembles results in order.
     """
-    stmt = (
-        select(AnalysisJob)
-        .where(AnalysisJob.id == job_id)
-        .with_for_update()
-    )
-    job = db.execute(stmt).scalar_one()
+    job = db.execute(
+        select(AnalysisJob).where(AnalysisJob.id == job_id)
+    ).scalar_one()
 
     # Fetch all chunks in order
     chunks = (
@@ -184,57 +197,20 @@ def _finalize_job(db: Session, job_id: int) -> None:
     db.commit()
 
 
-async def process_job(
+async def _process_chunk_with_counter_update(
     job_id: int,
+    chunk_id: int,
+    chunk_index: int,
+    chunk_text_content: str,
     ai_fn: Optional[Callable[[str], Awaitable[str]]] = None,
-) -> None:
-    """
-    Orchestrate the full processing of a job.
-    Creates chunks, processes them independently, and finalizes.
-    """
-    db = get_background_db()
-    try:
-        # Transition to PROCESSING
-        job = db.query(AnalysisJob).filter(AnalysisJob.id == job_id).first()
-        if not job:
-            logger.error(f"Job {job_id} not found")
-            return
+) -> bool:
+    """Process a single chunk and atomically update job counters."""
+    success = await process_single_chunk(
+        job_id, chunk_id, chunk_index, chunk_text_content, ai_fn
+    )
 
-        job.status = JobStatus.PROCESSING.value
-
-        # Chunk the text
-        chunks = chunk_text(job.raw_text, job.max_chunk_chars)
-        job.total_chunks = len(chunks)
-
-        # Create chunk records
-        chunk_records = []
-        for idx, text in enumerate(chunks):
-            record = ChunkRecord(
-                job_id=job_id,
-                chunk_index=idx,
-                chunk_text=text,
-                status=ChunkStatus.PENDING.value,
-            )
-            db.add(record)
-            chunk_records.append(record)
-
-        db.commit()
-
-        # Refresh to get IDs
-        for r in chunk_records:
-            db.refresh(r)
-
-        chunk_ids = [(r.id, r.chunk_index, r.chunk_text) for r in chunk_records]
-    finally:
-        db.close()
-
-    # Process each chunk independently
-    for chunk_id, chunk_index, chunk_text_content in chunk_ids:
-        success = await process_single_chunk(
-            job_id, chunk_id, chunk_index, chunk_text_content, ai_fn
-        )
-
-        # Atomically update counters
+    # Atomically update counters (non-blocking via thread pool)
+    def _update_counter():
         counter_db = get_background_db()
         try:
             if success:
@@ -244,9 +220,112 @@ async def process_job(
         finally:
             counter_db.close()
 
-    # Finalize
-    final_db = get_background_db()
-    try:
-        _finalize_job(final_db, job_id)
-    finally:
-        final_db.close()
+    await asyncio.to_thread(_update_counter)
+    return success
+
+
+async def process_job(
+    job_id: int,
+    ai_fn: Optional[Callable[[str], Awaitable[str]]] = None,
+) -> None:
+    """
+    Orchestrate the full processing of a job.
+    Creates chunks, processes them CONCURRENTLY with asyncio.gather(), and finalizes.
+    """
+    def _setup_chunks():
+        """Sync function to set up job and create chunk records."""
+        db = get_background_db()
+        try:
+            # Transition to PROCESSING
+            job = db.query(AnalysisJob).filter(AnalysisJob.id == job_id).first()
+            if not job:
+                logger.error(f"Job {job_id} not found")
+                return None
+
+            # Only process if PENDING or resuming from PROCESSING
+            if job.status not in [JobStatus.PENDING.value, JobStatus.PROCESSING.value]:
+                logger.info(f"Job {job_id} already in terminal state: {job.status}")
+                return None
+
+            job.status = JobStatus.PROCESSING.value
+
+            # Chunk the text (only if not already chunked)
+            existing_chunks = db.query(ChunkRecord).filter(ChunkRecord.job_id == job_id).count()
+            if existing_chunks == 0:
+                chunks = chunk_text(job.raw_text, job.max_chunk_chars)
+                job.total_chunks = len(chunks)
+
+                # Create chunk records
+                for idx, text_content in enumerate(chunks):
+                    record = ChunkRecord(
+                        job_id=job_id,
+                        chunk_index=idx,
+                        chunk_text=text_content,
+                        status=ChunkStatus.PENDING.value,
+                    )
+                    db.add(record)
+
+            db.commit()
+
+            # Fetch chunks that still need processing (PENDING or PROCESSING)
+            pending_chunks = (
+                db.query(ChunkRecord)
+                .filter(
+                    ChunkRecord.job_id == job_id,
+                    ChunkRecord.status.in_([ChunkStatus.PENDING.value, ChunkStatus.PROCESSING.value])
+                )
+                .all()
+            )
+            chunk_ids = [(r.id, r.chunk_index, r.chunk_text) for r in pending_chunks]
+            return chunk_ids
+        finally:
+            db.close()
+
+    # Setup chunks (non-blocking)
+    chunk_ids = await asyncio.to_thread(_setup_chunks)
+    if chunk_ids is None:
+        return
+
+    if chunk_ids:
+        # Process all chunks CONCURRENTLY with asyncio.gather()
+        tasks = [
+            _process_chunk_with_counter_update(job_id, chunk_id, chunk_index, chunk_text_content, ai_fn)
+            for chunk_id, chunk_index, chunk_text_content in chunk_ids
+        ]
+        await asyncio.gather(*tasks)
+
+    # Finalize (non-blocking)
+    def _finalize():
+        final_db = get_background_db()
+        try:
+            _finalize_job(final_db, job_id)
+        finally:
+            final_db.close()
+
+    await asyncio.to_thread(_finalize)
+
+
+async def resume_processing_jobs() -> None:
+    """
+    Recovery function: Resume all jobs that were left in PROCESSING state.
+    Called on worker startup to handle restart resilience.
+    """
+    def _get_stale_jobs():
+        db = get_background_db()
+        try:
+            jobs = (
+                db.query(AnalysisJob)
+                .filter(AnalysisJob.status == JobStatus.PROCESSING.value)
+                .all()
+            )
+            return [j.id for j in jobs]
+        finally:
+            db.close()
+
+    job_ids = await asyncio.to_thread(_get_stale_jobs)
+
+    if job_ids:
+        logger.info(f"Resuming {len(job_ids)} stale PROCESSING jobs: {job_ids}")
+        # Resume each job concurrently
+        tasks = [process_job(job_id) for job_id in job_ids]
+        await asyncio.gather(*tasks)
