@@ -1,0 +1,11 @@
+{
+            "instance_id": "WWVL0J",
+            "problem_statement": "Build a Markdown note‑taking web application with a live preview panel, tag‑based organization, and full‑text search, using Vue 3 Composition API with TypeScript and Tailwind CSS on the frontend and FastAPI with SQLite on the backend. Implement auto‑save with debouncing, JWT authentication, and libraries like marked and highlight.js for parsing and syntax highlighting, ensuring a distraction‑free writing experience with persistent data. The application must provide a seamless editor‑preview workflow, robust note management, and reliable search while preventing data loss through automatic saving.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wwvl0j-note-taking-application",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
