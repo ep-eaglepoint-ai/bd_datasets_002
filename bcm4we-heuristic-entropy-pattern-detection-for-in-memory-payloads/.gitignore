@@ -1,11 +1,44 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 .venv/
+venv/
+env/
 .env
+*.egg-info/
+dist/
+build/
+*.egg
 
 # Node
 node_modules/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Build artifacts
+*.pkg
+*.module
+*.log
+*.log.*
+logs/
+
+# Evaluation reports (keep directory structure with .gitkeep)
+evaluation/reports/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.pytest_cache/

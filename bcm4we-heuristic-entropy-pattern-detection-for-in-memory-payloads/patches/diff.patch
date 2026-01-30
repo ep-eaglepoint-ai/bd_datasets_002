@@ -1,0 +1,119 @@
+diff --git a/repository_after/__init__.py b/repository_after/__init__.py
+index 44fabb8..12301f3 100644
+--- a/repository_after/__init__.py
++++ b/repository_after/__init__.py
+@@ -6,7 +6,11 @@ by combining statistical analysis (entropy) with structural analysis (assembly p
+ """
+ 
+ import math
+-import struct
++import os
++import struct  # Imported for potential address parsing (Little-Endian requirement)
++                # Currently unused as code tracks file offsets as integers rather than
++                # parsing addresses from binary data. If address parsing is needed
++                # (e.g., jump targets in shellcode), use struct.unpack('<Q', ...) for x64.
+ import sys
+ from typing import Generator, Tuple, List, Optional
+ 
+@@ -17,6 +21,7 @@ class PayloadDetector:
+     CHUNK_SIZE = 4096  # 4KB chunks
+     WINDOW_SIZE = 512  # Sliding window size
+     OVERLAP_SIZE = 256  # Overlap to catch payloads across chunk boundaries
++    NOP_CHECK_RANGE = 64  # Range to check for NOP sleds adjacent to high-entropy zones
+     
+     # High entropy threshold (0-8 scale, where 8 is maximum entropy)
+     HIGH_ENTROPY_THRESHOLD = 6.5
+@@ -79,7 +84,7 @@ class PayloadDetector:
+         Returns:
+             Length of NOP sled if found, None otherwise
+         """
+-        nop_bytes = [0x90, 0x00, 0x4E, 0x4F, 0x50]  # NOP, NULL, and variations
++        nop_bytes = [0x90]  # NOP instruction (0x90) - primary NOP sled indicator
+         max_length = 0
+         current_length = 0
+         
+@@ -148,7 +153,23 @@ class PayloadDetector:
+         has_high_entropy = entropy >= self.HIGH_ENTROPY_THRESHOLD
+         
+         # Check for NOP sled before high entropy region
+-        nop_sled_length = self.detect_nop_sled(data, max(0, window_start - 64))
++        nop_sled_length_before = self.detect_nop_sled(data, max(0, window_start - self.NOP_CHECK_RANGE))
++        
++        # Check for NOP sled after high entropy region
++        nop_sled_length_after = None
++        if window_end < len(data):
++            # detect_nop_sled will handle bounds checking internally
++            nop_sled_length_after = self.detect_nop_sled(data, window_end)
++        
++        # Use the longer NOP sled if both found, otherwise use whichever is available
++        if nop_sled_length_before and nop_sled_length_after:
++            nop_sled_length = max(nop_sled_length_before, nop_sled_length_after)
++        elif nop_sled_length_before:
++            nop_sled_length = nop_sled_length_before
++        elif nop_sled_length_after:
++            nop_sled_length = nop_sled_length_after
++        else:
++            nop_sled_length = None
+         
+         # Check for XOR patterns
+         has_xor_pattern = self.detect_xor_patterns(data, window_start)
+@@ -187,21 +208,28 @@ class PayloadDetector:
+         try:
+             with open(self.file_path, 'rb') as f:
+                 global_offset = 0
+-                previous_chunk = b''
++                previous_chunk_tail = b''
+                 
+                 while True:
+                     chunk = f.read(self.CHUNK_SIZE)
+                     if not chunk:
+                         break
+                     
+-                    # Combine with previous chunk's overlap for analysis
+-                    if previous_chunk:
+-                        combined = previous_chunk[-self.OVERLAP_SIZE:] + chunk
+-                        yield (combined, global_offset - self.OVERLAP_SIZE)
++                    # Combine with previous chunk's tail for overlap analysis
++                    if previous_chunk_tail:
++                        combined = previous_chunk_tail + chunk
++                        yield (combined, global_offset - len(previous_chunk_tail))
++                    else:
++                        # First chunk - no overlap yet
++                        yield (chunk, global_offset)
+                     
+-                    yield (chunk, global_offset)
++                    # Save tail for next chunk overlap
++                    if len(chunk) >= self.OVERLAP_SIZE:
++                        previous_chunk_tail = chunk[-self.OVERLAP_SIZE:]
++                    else:
++                        # Chunk smaller than overlap - combine with previous tail
++                        previous_chunk_tail = (previous_chunk_tail + chunk)[-self.OVERLAP_SIZE:]
+                     
+-                    previous_chunk = chunk
+                     global_offset += len(chunk)
+                     
+         except IOError as e:
+@@ -265,6 +293,20 @@ def main():
+         sys.exit(1)
+     
+     file_path = sys.argv[1]
++    
++    # Validate file path
++    if not os.path.exists(file_path):
++        print(f"Error: File not found: {file_path}", file=sys.stderr)
++        sys.exit(1)
++    
++    if not os.path.isfile(file_path):
++        print(f"Error: Path is not a file: {file_path}", file=sys.stderr)
++        sys.exit(1)
++    
++    if not os.access(file_path, os.R_OK):
++        print(f"Error: File is not readable: {file_path}", file=sys.stderr)
++        sys.exit(1)
++    
+     detector = PayloadDetector(file_path)
+     detections = detector.detect()
+     output = detector.format_output(detections)
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29..0000000
