@@ -4,6 +4,17 @@ import java.util.List;
 
 /**
  * Functional interface for partitioning data into chunks.
+ * 
+ * <p>Partitions the input data into a specified number of sub-lists.
+ * Custom strategies can be implemented for load balancing or specific data locality.
+ * 
+ * <p>Thread-safety: The partitioner is typically called on the main thread before
+ * submitting tasks.
+ * 
+ * <p>Example usage:
+ * <pre>
+ * Partitioner&lt;Integer&gt; evenSplitter = (data, num) -&gt; { ... };
+ * </pre>
  *
  * @param <T> the type of the input elements
  */

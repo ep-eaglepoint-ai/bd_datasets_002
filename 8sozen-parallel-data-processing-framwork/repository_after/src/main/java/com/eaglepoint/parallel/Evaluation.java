@@ -217,7 +217,12 @@ public class Evaluation {
         metrics.put("sequential_time_ms", seqTime);
         metrics.put("parallel_time_ms", parTime);
         metrics.put("speedup", speedup);
-        metrics.put("meets_performance_requirement", parTime < 500); // < 500ms for 10M elements
+        
+        boolean meetsSpeedup = speedup >= 3.0 || Runtime.getRuntime().availableProcessors() < 4;
+        boolean meetslatency = parTime < 500;
+        
+        metrics.put("meets_performance_requirement", meetslatency && meetsSpeedup);
+        metrics.put("speedup_achieved", speedup);
         return metrics;
     }
     

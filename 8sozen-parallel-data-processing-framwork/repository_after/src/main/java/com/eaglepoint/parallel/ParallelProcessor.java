@@ -26,6 +26,7 @@ public class ParallelProcessor<T, M, R> {
     private boolean failFast = false;
     private CancellationToken cancellationToken;
     private Duration timeout;
+    private int threshold = -1; // -1 indicates default
 
     // Execution Modes
     public static <T, M, R> ParallelProcessor<T, M, R> withForkJoin() {
@@ -77,6 +78,11 @@ public class ParallelProcessor<T, M, R> {
     
     public ParallelProcessor<T, M, R> withTimeout(Duration timeout) {
         this.timeout = timeout;
+        return this;
+    }
+
+    public ParallelProcessor<T, M, R> withThreshold(int threshold) {
+        this.threshold = threshold;
         return this;
     }
 
@@ -184,32 +190,30 @@ public class ParallelProcessor<T, M, R> {
 
         try {
             R result;
+            int effectiveThreshold = threshold > 0 ? threshold : 
+                (listData != null ? Math.max(listData.size() / (parallelism * 4), 100) : 100);
+
             if (listData != null && dataSource.supportsRandomAccess()) {
-                // Fork/Join RecursiveTask
-                int threshold = Math.max(listData.size() / (Runtime.getRuntime().availableProcessors() * 4), 100);
-                ParallelTask task = new ParallelTask(listData, 0, listData.size(), threshold, processedCount, exceptions);
-                
                 if (customExecutor != null) {
-                    // Executor mode with fixed partitions
-                    // Requirement: submit partitions as separate tasks
                     Partitioner<T> partitioner = new EvenPartitioner<>();
                     List<List<T>> partitions = partitioner.partition(listData, parallelism);
                     List<Future<R>> futures = new ArrayList<>();
                     
-                    for (List<T> part : partitions) {
+                    for (int pIdx = 0; pIdx < partitions.size(); pIdx++) {
+                        final List<T> part = partitions.get(pIdx);
+                        final int partGlobalStart = pIdx * (listData.size() / partitions.size());
                         futures.add(customExecutor.submit(() -> {
                             R localAcc = reducer.identity();
-                            int startIdx = 0; // Relative index in partition? Or we need global?
-                            // For simplicity, let's just iterate
                             for (int i = 0; i < part.size(); i++) {
                                 if (cancellationToken != null && cancellationToken.isCancelled()) {
                                     throw new CancellationException();
                                 }
                                 try {
                                     localAcc = reducer.reduce(localAcc, mapper.map(part.get(i)));
-                                    processedCount.incrementAndGet();
+                                    long current = processedCount.incrementAndGet();
+                                    triggerProgressIfPercentage(current, totalCount, startTime, progressListener);
                                 } catch (Exception e) {
-                                    handleException(e, part.get(i), i, exceptions); // Index is relative to partition here
+                                    handleException(e, part.get(i), partGlobalStart + i, exceptions);
                                 }
                             }
                             return localAcc;
@@ -224,16 +228,13 @@ public class ParallelProcessor<T, M, R> {
                             exceptions.add(e);
                         }
                     }
-                    
                 } else {
+                    ParallelTask task = new ParallelTask(listData, 0, listData.size(), effectiveThreshold, processedCount, exceptions);
                     ForkJoinPool pool = forkJoinPool != null ? forkJoinPool : ForkJoinPool.commonPool();
                     result = pool.invoke(task);
                 }
-                
             } else {
-                // Buffered processing for Iterator
-                // This logic is complex, simplifying for fitting into file
-                result = executeBuffered(exceptions, processedCount);
+                result = executeBuffered(exceptions, processedCount, effectiveThreshold, totalCount, startTime);
             }
             
             if (!exceptions.isEmpty()) {
@@ -243,6 +244,14 @@ public class ParallelProcessor<T, M, R> {
             return result;
         } finally {
             if (monitor != null) monitor.shutdownNow();
+        }
+    }
+
+    private void triggerProgressIfPercentage(long processed, long totalCount, long startTime, ProgressListener listener) {
+        if (listener == null || totalCount <= 0 || totalCount == Long.MAX_VALUE) return;
+        if (processed % Math.max(1, totalCount / 100) == 0) {
+            double percent = (double) processed / totalCount * 100;
+            listener.onProgress(percent, processed, totalCount);
         }
     }
     
@@ -255,47 +264,47 @@ public class ParallelProcessor<T, M, R> {
         }
     }
 
-    private R executeBuffered(Queue<Throwable> exceptions, AtomicLong processedCount) {
-        // Implement buffering strategy
-        // This effectively needs a producer-consumer setup
-        // For now, implementing a basic version to satisfy requirements
-        // "read elements into fixed-size buffers (default 10,000)"
-        
+    private R executeBuffered(Queue<Throwable> exceptions, AtomicLong processedCount, int threshold, long totalCount, long startTime) {
         ForkJoinPool pool = forkJoinPool != null ? forkJoinPool : ForkJoinPool.commonPool();
-        int bufferSize = 10000;
+        int bufferSize = Math.max(threshold, 10000);
         Iterator<T> it = dataSource.iterator();
         
         List<Future<R>> futures = new ArrayList<>();
+        Semaphore backPressure = new Semaphore(2 * parallelism);
         
         while (it.hasNext()) {
             if (cancellationToken != null && cancellationToken.isCancelled()) break;
+            
+            try {
+                backPressure.acquire();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
             
             List<T> buffer = new ArrayList<>(bufferSize);
             for (int i = 0; i < bufferSize && it.hasNext(); i++) {
                 buffer.add(it.next());
             }
             
-            // Should properly limit pending tasks (backpressure)
-            // Skipping complex backpressure for this step or using simplistic wait
-            // "Stacking" futures is risky for memory, but okay strictly for small data in this context?
-            // "if processing falls behind reading, pause reading until pending task count drops"
-            
-            // To implement back-pressure we can use a Semaphore
-            // Semaphore limit = new Semaphore(2 * parallelism);
-            
             final List<T> taskChunk = buffer;
             futures.add(pool.submit(() -> {
-                R acc = reducer.identity();
-                for (int i=0; i<taskChunk.size(); i++) {
-                     if (cancellationToken != null && cancellationToken.isCancelled()) break;
-                     try {
-                         acc = reducer.reduce(acc, mapper.map(taskChunk.get(i)));
-                         processedCount.incrementAndGet();
-                     } catch (Exception e) {
-                         handleException(e, taskChunk.get(i), i, exceptions);
-                     }
+                try {
+                    R acc = reducer.identity();
+                    for (int i=0; i<taskChunk.size(); i++) {
+                         if (cancellationToken != null && cancellationToken.isCancelled()) break;
+                         try {
+                             acc = reducer.reduce(acc, mapper.map(taskChunk.get(i)));
+                             long current = processedCount.incrementAndGet();
+                             triggerProgressIfPercentage(current, totalCount, startTime, progressListener);
+                         } catch (Exception e) {
+                             handleException(e, taskChunk.get(i), i, exceptions);
+                         }
+                    }
+                    return acc;
+                } finally {
+                    backPressure.release();
                 }
-                return acc;
             }));
         }
         
@@ -336,6 +345,8 @@ public class ParallelProcessor<T, M, R> {
              
              if (end - start <= threshold) {
                  R acc = reducer.identity();
+                 long totalCountForMonitoring = data.size();
+                 long startTimeForMonitoring = System.currentTimeMillis();
                  for (int i = start; i < end; i++) {
                      if (i % 100 == 0 && cancellationToken != null && cancellationToken.isCancelled()) {
                          completeExceptionally(new CancellationException());
@@ -346,7 +357,8 @@ public class ParallelProcessor<T, M, R> {
                      try {
                          M mapped = mapper.map(element);
                          acc = reducer.reduce(acc, mapped);
-                         processedCount.incrementAndGet();
+                         long current = processedCount.incrementAndGet();
+                         triggerProgressIfPercentage(current, totalCountForMonitoring, startTimeForMonitoring, progressListener);
                      } catch (Exception e) {
                          handleException(e, element, i, exceptions);
                      }

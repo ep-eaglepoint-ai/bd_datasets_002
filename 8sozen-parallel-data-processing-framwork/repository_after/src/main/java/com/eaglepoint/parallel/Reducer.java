@@ -1,7 +1,25 @@
 package com.eaglepoint.parallel;
 
 /**
- * Functional interface for reducing intermediate results into a final result.
+ * Interface for reducing intermediate results into a final result.
+ * 
+ * <p>A Reducer must define an identity value, a reduction operation to combine
+ * elements into an accumulator, and a combination operation to merge two partial results.
+ * 
+ * <p>The combine operation must be associative: combine(a, combine(b, c)) == combine(combine(a, b), c).
+ * The identity value must be a neutral element: combine(identity(), x) == x.
+ * 
+ * <p>Thread-safety: The reducer methods themselves are typical functions. The framework
+ * ensures that parallel results are combined correctly.
+ * 
+ * <p>Example usage (Summing integers):
+ * <pre>
+ * Reducer&lt;Integer, Integer&gt; sumReducer = new Reducer&lt;&gt;() {
+ *     public Integer identity() { return 0; }
+ *     public Integer reduce(Integer acc, Integer el) { return acc + el; }
+ *     public Integer combine(Integer left, Integer right) { return left + right; }
+ * };
+ * </pre>
  *
  * @param <M> the type of the intermediate result
  * @param <R> the type of the final result
