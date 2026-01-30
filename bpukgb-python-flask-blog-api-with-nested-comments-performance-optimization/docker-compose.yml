@@ -1,6 +1,8 @@
 services:
-  app:
+  test-runner:
     build: .
-    command: pytest -q tests
+    command: python -m pytest -q tests
     volumes:
       - .:/app
+    environment:
+      INSIDE_DOCKER: "true"
