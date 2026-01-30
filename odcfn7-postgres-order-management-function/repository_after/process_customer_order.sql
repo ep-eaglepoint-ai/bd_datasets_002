@@ -3,7 +3,7 @@ DROP TYPE IF EXISTS order_result CASCADE;
 CREATE TYPE order_result AS (
     success BOOLEAN,
     order_id INTEGER,
-    error_code VARCHAR(50),
+    error_code VARCHAR(5),  -- Changed to 5-char SQLSTATE code
     message TEXT
 );
 
@@ -35,7 +35,7 @@ BEGIN
     -- Initialize result structure with default failure state
     v_result.success := FALSE;
     v_result.order_id := NULL;
-    v_result.error_code := NULL;
+    v_result.error_code := '99999';  -- Default PostgreSQL-style error code
     v_result.message := NULL;
 
     -- Generate fallback UUID for audit logging if request_id is NULL
@@ -44,7 +44,7 @@ BEGIN
 
     -- Validate request_id first (before other validations) since it's required for idempotency
     IF p_request_id IS NULL THEN
-        v_result.error_code := 'SQLITE_MISMATCH';
+        v_result.error_code := '22023';  -- PostgreSQL: invalid parameter value
         v_result.message := 'Invalid input: request_id cannot be null';
         
         -- Use generated fallback UUID for audit log to satisfy NOT NULL constraint
@@ -57,7 +57,7 @@ BEGIN
 
     -- Validate customer_id input parameter
     IF p_customer_id IS NULL THEN
-        v_result.error_code := 'SQLITE_MISMATCH';
+        v_result.error_code := '22023';  -- PostgreSQL: invalid parameter value
         v_result.message := 'Invalid input: customer_id cannot be null';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -69,7 +69,7 @@ BEGIN
 
     -- Validate product_id input parameter
     IF p_product_id IS NULL THEN
-        v_result.error_code := 'SQLITE_MISMATCH';
+        v_result.error_code := '22023';  -- PostgreSQL: invalid parameter value
         v_result.message := 'Invalid input: product_id cannot be null';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -81,7 +81,7 @@ BEGIN
 
     -- Validate order_quantity input parameter
     IF p_order_quantity IS NULL THEN
-        v_result.error_code := 'SQLITE_MISMATCH';
+        v_result.error_code := '22023';  -- PostgreSQL: invalid parameter value
         v_result.message := 'Invalid input: order_quantity cannot be null';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -93,7 +93,7 @@ BEGIN
 
     -- Validate order_timestamp input parameter
     IF p_order_timestamp IS NULL THEN
-        v_result.error_code := 'SQLITE_MISMATCH';
+        v_result.error_code := '22023';  -- PostgreSQL: invalid parameter value
         v_result.message := 'Invalid input: order_timestamp cannot be null';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -105,7 +105,7 @@ BEGIN
 
     -- Validate order_quantity is positive (edge case: negative or zero quantities)
     IF p_order_quantity <= 0 THEN
-        v_result.error_code := 'SQLITE_MISMATCH';
+        v_result.error_code := '2201W';  -- PostgreSQL: invalid parameter value for numeric
         v_result.message := 'Invalid input: order_quantity must be greater than zero';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -119,7 +119,7 @@ BEGIN
     SELECT EXISTS(SELECT 1 FROM orders WHERE request_id = p_request_id) INTO v_duplicate_exists;
     
     IF v_duplicate_exists THEN
-        v_result.error_code := 'SQLITE_CONSTRAINT';
+        v_result.error_code := '23505';  -- PostgreSQL: unique_violation
         v_result.message := 'Duplicate request: order with this request_id already exists';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -133,7 +133,7 @@ BEGIN
     SELECT EXISTS(SELECT 1 FROM customers WHERE customer_id = p_customer_id) INTO v_customer_exists;
     
     IF NOT v_customer_exists THEN
-        v_result.error_code := 'SQLITE_NOTFOUND';
+        v_result.error_code := 'P0002';  -- PostgreSQL: no_data_found
         v_result.message := 'Customer not found: no customer exists with the provided customer_id';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -147,7 +147,7 @@ BEGIN
     SELECT is_active INTO v_customer_active FROM customers WHERE customer_id = p_customer_id;
     
     IF NOT v_customer_active THEN
-        v_result.error_code := 'SQLITE_CONSTRAINT';
+        v_result.error_code := '23514';  -- PostgreSQL: check_violation (customer check constraint)
         v_result.message := 'Customer inactive: the customer account is not active';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -161,7 +161,7 @@ BEGIN
     SELECT EXISTS(SELECT 1 FROM products WHERE product_id = p_product_id) INTO v_product_exists;
     
     IF NOT v_product_exists THEN
-        v_result.error_code := 'SQLITE_NOTFOUND';
+        v_result.error_code := 'P0002';  -- PostgreSQL: no_data_found
         v_result.message := 'Product not found: no product exists with the provided product_id';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -176,7 +176,7 @@ BEGIN
     FROM products WHERE product_id = p_product_id;
     
     IF NOT v_product_available THEN
-        v_result.error_code := 'SQLITE_CONSTRAINT';
+        v_result.error_code := '23514';  -- PostgreSQL: check_violation (product availability check)
         v_result.message := 'Product unavailable: the product is not available for sale';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -193,7 +193,7 @@ BEGIN
     FOR UPDATE;
     
     IF v_current_inventory IS NULL THEN
-        v_result.error_code := 'SQLITE_NOTFOUND';
+        v_result.error_code := 'P0002';  -- PostgreSQL: no_data_found
         v_result.message := 'Inventory not found: no inventory record exists for the product';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -205,7 +205,7 @@ BEGIN
 
     -- Verify sufficient inventory exists (edge case: out-of-stock products)
     IF v_current_inventory < p_order_quantity THEN
-        v_result.error_code := 'SQLITE_BUSY';
+        v_result.error_code := '55000';  -- PostgreSQL: insufficient resources
         v_result.message := 'Insufficient inventory: not enough stock available for the requested quantity';
         
         INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -270,7 +270,7 @@ BEGIN
             p_product_id,
             'PROCESS_ORDER',
             'SUCCESS',
-            'SQLITE_OK',
+            '00000',  -- PostgreSQL: successful completion
             'Order processed successfully',
             jsonb_build_object(
                 'order_id', v_new_order_id,
@@ -285,7 +285,7 @@ BEGIN
         -- All operations succeeded - set success result
         v_result.success := TRUE;
         v_result.order_id := v_new_order_id;
-        v_result.error_code := 'SQLITE_OK';
+        v_result.error_code := '00000';  -- PostgreSQL: successful completion
         v_result.message := 'Order processed successfully';
 
         -- Transaction commits implicitly on successful return
@@ -296,7 +296,7 @@ BEGIN
     EXCEPTION
         -- Handle unique constraint violations (e.g., duplicate request_id race condition)
         WHEN unique_violation THEN
-            v_result.error_code := 'SQLITE_CONSTRAINT';
+            v_result.error_code := '23505';  -- PostgreSQL: unique_violation
             v_result.message := 'Constraint violation: duplicate entry detected';
             
             INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -307,7 +307,7 @@ BEGIN
 
         -- Handle check constraint violations (e.g., negative inventory after update)
         WHEN check_violation THEN
-            v_result.error_code := 'SQLITE_CONSTRAINT';
+            v_result.error_code := '23514';  -- PostgreSQL: check_violation
             v_result.message := 'Constraint violation: check constraint failed';
             
             INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -318,7 +318,7 @@ BEGIN
 
         -- Handle foreign key constraint violations
         WHEN foreign_key_violation THEN
-            v_result.error_code := 'SQLITE_CONSTRAINT';
+            v_result.error_code := '23503';  -- PostgreSQL: foreign_key_violation
             v_result.message := 'Constraint violation: foreign key constraint failed';
             
             INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)
@@ -329,7 +329,7 @@ BEGIN
 
         -- Catch-all handler for any other unexpected errors
         WHEN OTHERS THEN
-            v_result.error_code := 'SQLITE_ERROR';
+            v_result.error_code := SQLSTATE;  -- Use the actual PostgreSQL SQLSTATE
             v_result.message := 'Unexpected error: ' || SQLERRM;
             
             INSERT INTO order_audit_log (request_id, customer_id, product_id, action, status, error_code, message, details)

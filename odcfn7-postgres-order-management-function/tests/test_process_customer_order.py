@@ -164,7 +164,7 @@ class TestSuccessfulOrderProcessing:
         
         assert result["success"] is True
         assert result["order_id"] is not None
-        assert result["error_code"] == "SQLITE_OK"
+        assert result["error_code"] == "00000"
         assert "successfully" in result["message"].lower()
 
     def test_order_has_pending_status(self, db_connection, active_customer, product_with_inventory):
@@ -247,7 +247,7 @@ class TestCustomerValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_NOTFOUND"
+        assert result["error_code"] == "P0002"
         assert "customer" in result["message"].lower()
 
     def test_inactive_customer_rejected(self, db_connection, inactive_customer, product_with_inventory):
@@ -260,7 +260,7 @@ class TestCustomerValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_CONSTRAINT"
+        assert result["error_code"] == "23514"
         assert "inactive" in result["message"].lower() or "not active" in result["message"].lower()
 
 
@@ -278,7 +278,7 @@ class TestProductValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_NOTFOUND"
+        assert result["error_code"] == "P0002"
         assert "product" in result["message"].lower()
 
     def test_unavailable_product_rejected(self, db_connection, active_customer, unavailable_product):
@@ -296,7 +296,7 @@ class TestProductValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_CONSTRAINT"
+        assert result["error_code"] == "23514"
         assert "unavailable" in result["message"].lower() or "not available" in result["message"].lower()
 
 
@@ -313,7 +313,7 @@ class TestInventoryValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_BUSY"
+        assert result["error_code"] == "55000"
         assert "insufficient" in result["message"].lower() or "not enough" in result["message"].lower()
 
     def test_inventory_not_found(self, db_connection, active_customer, available_product):
@@ -327,7 +327,7 @@ class TestInventoryValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_NOTFOUND"
+        assert result["error_code"] == "P0002"
         assert "inventory" in result["message"].lower()
 
     def test_exact_inventory_amount_succeeds(self, db_connection, active_customer, product_with_low_inventory):
@@ -366,7 +366,7 @@ class TestDuplicateRequestPrevention:
         db_connection.commit()
         
         assert result2["success"] is False
-        assert result2["error_code"] == "SQLITE_CONSTRAINT"
+        assert result2["error_code"] == "23505"
         assert "duplicate" in result2["message"].lower()
 
     def test_different_request_ids_succeed(self, db_connection, active_customer, product_with_inventory):
@@ -398,7 +398,7 @@ class TestInputValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_MISMATCH"
+        assert result["error_code"] == "2201W"
         assert "quantity" in result["message"].lower()
 
     def test_zero_quantity_rejected(self, db_connection, active_customer, product_with_inventory):
@@ -411,7 +411,7 @@ class TestInputValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_MISMATCH"
+        assert result["error_code"] == "2201W"
 
     def test_null_customer_id_rejected(self, db_connection, product_with_inventory):
         """Test that null customer_id is rejected."""
@@ -423,7 +423,7 @@ class TestInputValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_MISMATCH"
+        assert result["error_code"] == "22023"
 
     def test_null_product_id_rejected(self, db_connection, active_customer):
         """Test that null product_id is rejected."""
@@ -435,7 +435,7 @@ class TestInputValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_MISMATCH"
+        assert result["error_code"] == "22023"
 
     def test_null_quantity_rejected(self, db_connection, active_customer, product_with_inventory):
         """Test that null quantity is rejected."""
@@ -447,7 +447,7 @@ class TestInputValidation:
         db_connection.commit()
         
         assert result["success"] is False
-        assert result["error_code"] == "SQLITE_MISMATCH"
+        assert result["error_code"] == "22023"
 
 
 class TestAuditLogging:
