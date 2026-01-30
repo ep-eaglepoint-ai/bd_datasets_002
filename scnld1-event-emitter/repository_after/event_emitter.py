@@ -13,18 +13,10 @@ class EventEmitter:
         if not listeners:
             return False
         
-        # Call callbacks in registration order
-        # Use a copy of the list to allow listeners to modify the list (e.g., remove themselves)
-        # without affecting the current emission loop
         for listener in listeners[:]:
             try:
                 listener(*args, **kwargs)
             except Exception:
-                # We do not catch exceptions to allow them to propagate, 
-                # unless requirements said otherwise. "Minimal" usually implies no extra error handling.
-                # However, if one listener fails, should others run? 
-                # Standard Node.js behavior: "If an invalid parameter... or exception... it is thrown."
-                # The loop is interrupted.
                 raise 
         return True
 
@@ -46,11 +38,9 @@ class EventEmitter:
         
         listeners = self._events[event_name]
         
-        # Remove the specific callback (first occurrence)
         for i, listener in enumerate(listeners):
             if listener == callback or getattr(listener, '_original_callback', None) == callback:
                 listeners.pop(i)
-                # Cleanup empty event list to prevent memory leaks
                 if not listeners:
                     del self._events[event_name]
                 break
