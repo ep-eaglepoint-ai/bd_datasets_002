@@ -30,8 +30,8 @@ diff -ruN repository_before/BillSplitter.js repository_after/BillSplitter.js
 \ No newline at end of file
 diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.test.js
 --- repository_before/BillSplitter.test.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/BillSplitter.test.js	2026-01-30 19:17:16.764737169 +0300
-@@ -0,0 +1,346 @@
++++ repository_after/BillSplitter.test.js	2026-01-30 19:56:48.084084056 +0300
+@@ -0,0 +1,374 @@
 +// filename: repository_after/BillSplitter.test.js
 +import { describe, it, expect } from 'vitest';
 +import { splitBill } from '../repository_before/BillSplitter.js';
@@ -45,7 +45,6 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +
 +  // ============================================================
 +  // REQUIREMENT 1: Penny-Perfect Reconciliation
-+  // $100.00 bill split 3 ways with 10% tax and 15% tip = 126.50
 +  // ============================================================
 +  describe('Requirement 1: Penny-Perfect Reconciliation', () => {
 +    it('should split $100.00 bill 3 ways with 10% tax and 15% tip to precisely 126.50', () => {
@@ -67,7 +66,7 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +      expect(Math.round(actualSum * 100)).toBe(Math.round(expectedTotal * 100));
 +    });
 +
-+    it('should be penny-perfect for prime number party sizes (3, 7)', () => {
++    it('should be penny-perfect for prime number party sizes', () => {
 +      [3, 7].forEach(people => {
 +        const result = splitBill(100, 10, 15, people);
 +        const expectedTotal = 100 * 1.10 * 1.15;
@@ -128,20 +127,20 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +  // REQUIREMENT 3: Percentage Boundary Validation
 +  // ============================================================
 +  describe('Requirement 3: Percentage Boundary Validation', () => {
-+    it('should handle 0% tax correctly', () => {
++    it('should handle 0% tax correctly without NaN', () => {
 +      const result = splitBill(100, 0, 15, 4);
 +      const actualSum = result.reduce((acc, val) => acc + val, 0);
 +      
 +      expect(Math.round(actualSum * 100)).toBe(11500);
-+      expect(result.every(val => !isNaN(val))).toBe(true);
++      expect(result.every(val => !isNaN(val) && val > 0)).toBe(true);
 +    });
 +
-+    it('should handle 0% tip correctly', () => {
++    it('should handle 0% tip correctly without NaN', () => {
 +      const result = splitBill(100, 10, 0, 4);
 +      const actualSum = result.reduce((acc, val) => acc + val, 0);
 +      
 +      expect(Math.round(actualSum * 100)).toBe(11000);
-+      expect(result.every(val => !isNaN(val))).toBe(true);
++      expect(result.every(val => !isNaN(val) && val > 0)).toBe(true);
 +    });
 +
 +    it('should handle both 0% tax and 0% tip correctly', () => {
@@ -153,7 +152,7 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +      expect(result.every(val => !isNaN(val) && val > 0)).toBe(true);
 +    });
 +
-+    it('should not return NaN for any zero percentage scenario', () => {
++    it('should not return NaN or zero for any zero percentage scenario', () => {
 +      const scenarios = [
 +        { total: 50, tax: 0, tip: 0, people: 2 },
 +        { total: 75, tax: 0, tip: 10, people: 3 },
@@ -163,7 +162,7 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +      scenarios.forEach(({ total, tax, tip, people }) => {
 +        const result = splitBill(total, tax, tip, people);
 +        expect(result.every(val => !isNaN(val))).toBe(true);
-+        expect(result.every(val => val >= 0)).toBe(true);
++        expect(result.every(val => val > 0)).toBe(true);
 +      });
 +    });
 +  });
@@ -172,7 +171,7 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +  // REQUIREMENT 4: Invalid Input Resilience
 +  // ============================================================
 +  describe('Requirement 4: Invalid Input Resilience', () => {
-+    it('should return empty array for 0 people', () => {
++    it('should return empty array for 0 people (avoid divide by zero)', () => {
 +      const result = splitBill(100, 10, 15, 0);
 +      
 +      expect(Array.isArray(result)).toBe(true);
@@ -204,6 +203,13 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +      expect(result.length).toBe(1);
 +      expect(result[0]).toBe(126.50);
 +    });
++
++    it('should not attempt division by zero', () => {
++      const result = splitBill(100, 10, 15, 0);
++      expect(result).not.toContain(Infinity);
++      expect(result).not.toContain(-Infinity);
++      expect(result).not.toContain(NaN);
++    });
 +  });
 +
 +  // ============================================================
@@ -233,7 +239,7 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +      expect(Math.round(sum * 100)).toBe(30);
 +    });
 +
-+    it('should handle high-volume batch of varying amounts', () => {
++    it('should handle high-volume batch of varying amounts without floating-point errors', () => {
 +      const testAmounts = [
 +        { total: 19.99, tax: 8.25, tip: 18, people: 7 },
 +        { total: 4.32, tax: 6.5, tip: 20, people: 3 },
@@ -248,6 +254,14 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +        const expectedTotal = total * (1 + tax / 100) * (1 + tip / 100);
 +        
 +        expect(Math.round(actualSum * 100)).toBe(Math.round(expectedTotal * 100));
++      });
++    });
++
++    it('should ensure all values are properly rounded to cents', () => {
++      const result = splitBill(19.99, 8.25, 18, 7);
++      result.forEach(val => {
++        const cents = val * 100;
++        expect(Math.abs(cents - Math.round(cents))).toBeLessThan(0.0001);
 +      });
 +    });
 +  });
@@ -310,10 +324,18 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +      expect(result[1]).toBe(0.01);
 +      expect(result[2]).toBe(0.01);
 +    });
++
++    it('should assign all remainder to first index only', () => {
++      const result = splitBill(0.07, 0, 0, 3);
++      // 7 cents / 3 = 2 cents each with 1 remainder
++      expect(result[0]).toBe(0.03);
++      expect(result[1]).toBe(0.02);
++      expect(result[2]).toBe(0.02);
++    });
 +  });
 +
 +  // ============================================================
-+  // REQUIREMENT 8: Code Coverage
++  // REQUIREMENT 8: Code Coverage (100% statement/branch)
 +  // ============================================================
 +  describe('Requirement 8: Code Coverage', () => {
 +    it('should execute early return branch for zero people', () => {
@@ -326,49 +348,55 @@ diff -ruN repository_before/BillSplitter.test.js repository_after/BillSplitter.t
 +      expect(result).toEqual([]);
 +    });
 +
-+    it('should execute main calculation path', () => {
++    it('should execute main calculation path with valid inputs', () => {
 +      const result = splitBill(100, 10, 15, 4);
 +      expect(result.length).toBe(4);
++      expect(result.every(v => typeof v === 'number')).toBe(true);
 +    });
 +
-+    it('should execute remainder allocation when remainder > 0', () => {
++    it('should execute remainder allocation branch when remainder > 0', () => {
 +      const result = splitBill(10, 0, 0, 3);
++      // 1000 cents / 3 = 333 each, remainder = 1
 +      expect(result[0]).toBeGreaterThan(result[1]);
 +    });
 +
-+    it('should execute path where remainder is 0', () => {
++    it('should execute path where remainder is 0 (even division)', () => {
 +      const result = splitBill(10, 0, 0, 2);
 +      expect(result[0]).toBe(result[1]);
 +    });
 +
-+    it('should cover totalWithTax calculation', () => {
++    it('should cover totalWithTax calculation line', () => {
 +      const result = splitBill(100, 10, 0, 1);
 +      expect(result[0]).toBe(110.00);
 +    });
 +
-+    it('should cover finalAmount calculation', () => {
++    it('should cover finalAmount calculation line', () => {
 +      const result = splitBill(100, 0, 20, 1);
 +      expect(result[0]).toBe(120.00);
 +    });
 +
 +    it('should cover combined tax and tip calculation', () => {
 +      const result = splitBill(100, 10, 20, 1);
++      // 100 * 1.10 * 1.20 = 132.00
 +      expect(result[0]).toBe(132.00);
 +    });
 +
 +    it('should cover Math.round in totalCents calculation', () => {
 +      const result = splitBill(10.005, 0, 0, 1);
++      // 10.005 * 100 = 1000.5, rounds to 1001 cents = 10.01
 +      expect(result[0]).toBe(10.01);
 +    });
 +
 +    it('should cover Math.floor in perPersonCents calculation', () => {
 +      const result = splitBill(10, 0, 0, 3);
++      // 1000 / 3 = 333.33..., floor = 333
 +      expect(result[1]).toBe(3.33);
 +    });
 +
 +    it('should cover Array.fill operation', () => {
 +      const result = splitBill(100, 0, 0, 5);
 +      expect(result.length).toBe(5);
++      expect(new Set(result.slice(1)).size).toBe(1); // All others equal
 +    });
 +
 +    it('should cover Array.map cents to dollars conversion', () => {

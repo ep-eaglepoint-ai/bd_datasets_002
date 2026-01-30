@@ -48,7 +48,12 @@ function parseTestResults(output) {
 function parseCoverage(output) {
   const match = output.match(/All files[^|]*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)/);
   if (match) {
-    return { statements: parseFloat(match[1]), branches: parseFloat(match[2]), functions: parseFloat(match[3]), lines: parseFloat(match[4]) };
+    return { 
+      statements: parseFloat(match[1]), 
+      branches: parseFloat(match[2]), 
+      functions: parseFloat(match[3]), 
+      lines: parseFloat(match[4]) 
+    };
   }
   return { statements: 0, branches: 0, functions: 0, lines: 0 };
 }
@@ -56,13 +61,20 @@ function parseCoverage(output) {
 async function runImplementationTests() {
   console.log('\n📋 Running Tests (repository_after tests on repository_before)...\n');
   const result = await runCommand('npx', ['vitest', 'run', 'repository_after/', '--reporter=verbose', '--coverage'], projectRoot);
-  return { testResults: parseTestResults(result.output), coverage: parseCoverage(result.output), output: result.output };
+  return { 
+    testResults: parseTestResults(result.output), 
+    coverage: parseCoverage(result.output), 
+    output: result.output 
+  };
 }
 
 async function runMetaTests() {
   console.log('\n📋 Running Meta-Tests (testing the tests)...\n');
   const result = await runCommand('npx', ['vitest', 'run', 'tests/', '--reporter=verbose'], projectRoot);
-  return { testResults: parseTestResults(result.output), output: result.output };
+  return { 
+    testResults: parseTestResults(result.output), 
+    output: result.output 
+  };
 }
 
 async function cleanupCoverage() {
@@ -72,6 +84,22 @@ async function cleanupCoverage() {
   } catch (e) {
     // Ignore if doesn't exist
   }
+}
+
+function checkRequirements(implResults) {
+  const cov = implResults.coverage;
+  const hasFullCoverage = cov.statements === 100 && cov.branches === 100;
+  
+  return {
+    req1_penny_perfect_reconciliation: implResults.testResults.success,
+    req2_remainder_allocation: implResults.testResults.success,
+    req3_percentage_boundary: implResults.testResults.success,
+    req4_invalid_input_resilience: implResults.testResults.success,
+    req5_floating_point_prevention: implResults.testResults.success,
+    req6_happy_path: implResults.testResults.success,
+    req7_lead_payer_logic: implResults.testResults.success,
+    req8_code_coverage: hasFullCoverage
+  };
 }
 
 async function generateReport() {
@@ -84,15 +112,19 @@ async function generateReport() {
 
   const implResults = await runImplementationTests();
   console.log(`\n   Implementation Tests: ${implResults.testResults.passed} passed, ${implResults.testResults.failed} failed`);
-  console.log(`   Coverage: ${implResults.coverage.statements}% statements, ${implResults.coverage.branches}% branches\n`);
+  console.log(`   Coverage: ${implResults.coverage.statements}% statements, ${implResults.coverage.branches}% branches`);
+  console.log(`   Coverage: ${implResults.coverage.functions}% functions, ${implResults.coverage.lines}% lines\n`);
 
   console.log('═'.repeat(70));
 
   const metaResults = await runMetaTests();
   console.log(`\n   Meta-Tests: ${metaResults.testResults.passed} passed, ${metaResults.testResults.failed} failed\n`);
 
-  // Cleanup temp coverage
   await cleanupCoverage();
+
+  const requirements = checkRequirements(implResults);
+  const requirementsMet = Object.values(requirements).filter(Boolean).length;
+  const hasFullCoverage = implResults.coverage.statements === 100 && implResults.coverage.branches === 100;
 
   const report = {
     evaluation_metadata: {
@@ -112,64 +144,38 @@ async function generateReport() {
       branches_percent: implResults.coverage.branches,
       functions_percent: implResults.coverage.functions,
       lines_percent: implResults.coverage.lines,
-      is_100_percent: implResults.coverage.statements === 100 && implResults.coverage.branches === 100,
-      output: `Statements: ${implResults.coverage.statements}%, Branches: ${implResults.coverage.branches}%`
+      is_100_percent: hasFullCoverage,
+      meets_requirement_8: hasFullCoverage,
+      details: `Statements: ${implResults.coverage.statements}%, Branches: ${implResults.coverage.branches}%, Functions: ${implResults.coverage.functions}%, Lines: ${implResults.coverage.lines}%`
     },
-    before: {
+    implementation_tests: {
       description: "Tests from repository_after running against repository_before/BillSplitter.js",
-      metrics: {
-        total_files: 1,
-        coverage_statements: implResults.coverage.statements,
-        coverage_branches: implResults.coverage.branches
-      },
-      tests: {
-        passed: implResults.testResults.passed,
-        failed: implResults.testResults.failed,
-        total: implResults.testResults.total,
-        success: implResults.testResults.success,
-        tests: implResults.testResults.tests,
-        output: implResults.testResults.output
-      }
+      passed: implResults.testResults.passed,
+      failed: implResults.testResults.failed,
+      total: implResults.testResults.total,
+      success: implResults.testResults.success,
+      tests: implResults.testResults.tests
     },
-    after: {
+    meta_tests: {
       description: "Meta-tests verifying the quality of tests in repository_after",
-      tests: {
-        passed: metaResults.testResults.passed,
-        failed: metaResults.testResults.failed,
-        total: metaResults.testResults.total,
-        success: metaResults.testResults.success,
-        tests: metaResults.testResults.tests,
-        output: metaResults.testResults.output
-      }
+      passed: metaResults.testResults.passed,
+      failed: metaResults.testResults.failed,
+      total: metaResults.testResults.total,
+      success: metaResults.testResults.success,
+      tests: metaResults.testResults.tests
     },
-    requirements_checklist: {
-      req1_penny_perfect_reconciliation: implResults.testResults.success,
-      req2_remainder_allocation: implResults.testResults.success,
-      req3_percentage_boundary: implResults.testResults.success,
-      req4_invalid_input_resilience: implResults.testResults.success,
-      req5_floating_point_prevention: implResults.testResults.success,
-      req6_happy_path: implResults.testResults.success,
-      req7_lead_payer_logic: implResults.testResults.success,
-      req8_code_coverage: implResults.coverage.statements === 100 && implResults.coverage.branches === 100
-    },
+    requirements_checklist: requirements,
     final_verdict: {
-      success: implResults.testResults.success && metaResults.testResults.success,
+      success: implResults.testResults.success && metaResults.testResults.success && hasFullCoverage,
       implementation_tests_passed: implResults.testResults.passed,
       implementation_tests_failed: implResults.testResults.failed,
       meta_tests_passed: metaResults.testResults.passed,
       meta_tests_failed: metaResults.testResults.failed,
-      coverage_met: implResults.coverage.statements === 100 && implResults.coverage.branches === 100,
+      coverage_statements: implResults.coverage.statements,
+      coverage_branches: implResults.coverage.branches,
+      coverage_met: hasFullCoverage,
       success_rate: `${((implResults.testResults.passed / Math.max(implResults.testResults.total, 1)) * 100).toFixed(1)}%`,
-      requirements_met: Object.values({
-        r1: implResults.testResults.success, 
-        r2: implResults.testResults.success, 
-        r3: implResults.testResults.success,
-        r4: implResults.testResults.success, 
-        r5: implResults.testResults.success, 
-        r6: implResults.testResults.success,
-        r7: implResults.testResults.success, 
-        r8: implResults.coverage.statements === 100
-      }).filter(Boolean).length,
+      requirements_met: requirementsMet,
       total_requirements: 8
     }
   };
@@ -182,17 +188,26 @@ async function generateReport() {
   console.log('\n' + '═'.repeat(70));
   console.log('📊 EVALUATION REPORT SUMMARY');
   console.log('═'.repeat(70));
-  console.log(`   BEFORE (Implementation Tests): ${implResults.testResults.passed} passed, ${implResults.testResults.failed} failed`);
-  console.log(`   AFTER (Meta-Tests): ${metaResults.testResults.passed} passed, ${metaResults.testResults.failed} failed`);
-  console.log(`   Coverage: ${implResults.coverage.statements}% statements, ${implResults.coverage.branches}% branches`);
-  console.log(`   Requirements Met: ${report.final_verdict.requirements_met}/8`);
+  console.log(`   Implementation Tests: ${implResults.testResults.passed} passed, ${implResults.testResults.failed} failed`);
+  console.log(`   Meta-Tests: ${metaResults.testResults.passed} passed, ${metaResults.testResults.failed} failed`);
+  console.log(`   Coverage: Statements ${implResults.coverage.statements}% | Branches ${implResults.coverage.branches}%`);
+  console.log(`   Coverage: Functions ${implResults.coverage.functions}% | Lines ${implResults.coverage.lines}%`);
+  console.log(`   Requirements Met: ${requirementsMet}/8`);
+  
+  if (!hasFullCoverage) {
+    console.log(`   ⚠️  Requirement 8 NOT MET: Need 100% statement/branch coverage`);
+  }
+  
   console.log('═'.repeat(70));
   console.log(`\n✅ Report saved to: ${reportPath}`);
 
   if (report.final_verdict.success) {
-    console.log('\n🎉 EVALUATION PASSED: All tests pass');
+    console.log('\n🎉 EVALUATION PASSED: All tests pass with 100% coverage');
   } else {
-    console.log('\n❌ EVALUATION FAILED: Check report for details');
+    console.log('\n❌ EVALUATION INCOMPLETE: Check report for details');
+    if (!implResults.testResults.success) console.log('   - Implementation tests have failures');
+    if (!metaResults.testResults.success) console.log('   - Meta tests have failures');
+    if (!hasFullCoverage) console.log('   - Coverage requirement not met (need 100% statements and branches)');
   }
 
   return report;
