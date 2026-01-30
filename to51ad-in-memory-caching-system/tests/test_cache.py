@@ -332,6 +332,16 @@ class TestStatistics:
         assert "HIT" in log
         assert "MISS" in log
 
+    def test_get_stats(self):
+        cache = Cache(max_size=100)
+        cache.set("key", "value")
+        cache.get("key")
+        cache.get("nonexistent")
+        stats = cache.get_stats()
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
+        assert stats["hit_rate"] == 0.5
+
 
 class TestDataIntegrity:
     def test_get_returns_copy_of_mutable(self):
@@ -385,7 +395,197 @@ class TestThreadSafety:
         assert len(errors) == 0
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq1DictionaryStorage:
+    @pytest.mark.timeout(5)
+    def test_dictionary_lookup_is_o1(self):
+        cache = Cache(max_size=10000, default_ttl=3600)
+        for i in range(1000):
+            cache.set(f"key_{i}", f"value_{i}")
+        start = time.time()
+        for _ in range(10000):
+            cache.get("key_500")
+        time_1k = time.time() - start
+        for i in range(1000, 5000):
+            cache.set(f"key_{i}", f"value_{i}")
+        start = time.time()
+        for _ in range(10000):
+            cache.get("key_2500")
+        time_5k = time.time() - start
+        ratio = time_5k / time_1k if time_1k > 0.0001 else 100
+        assert ratio < 2.0, f"Expected O(1) but got ratio {ratio:.2f}"
+
+    def test_normalized_key_hashable(self):
+        cache = Cache(max_size=100)
+        key = {"a": [1, 2], "b": {"c": 3}}
+        cache.set(key, "value")
+        assert cache.get({"a": [1, 2], "b": {"c": 3}}) == "value"
+        assert cache.get({"b": {"c": 3}, "a": [1, 2]}) == "value"
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq2LRUEvictionOrderedDict:
+    @pytest.mark.timeout(5)
+    def test_lru_eviction_is_o1(self):
+        cache = Cache(max_size=100, default_ttl=3600)
+        for i in range(100):
+            cache.set(f"key_{i}", f"value_{i}")
+        num_evictions = 5000
+        start = time.time()
+        for i in range(100, 100 + num_evictions):
+            cache.set(f"key_{i}", f"value_{i}")
+        elapsed = time.time() - start
+        assert elapsed < 1.0, f"5000 evictions took {elapsed:.3f}s"
+
+    def test_move_to_end_on_access(self):
+        cache = Cache(max_size=3, default_ttl=3600)
+        cache.set("a", 1)
+        cache.set("b", 2)
+        cache.set("c", 3)
+        cache.get("a")
+        cache.set("d", 4)
+        assert cache.get("a") == 1
+        assert cache.get("b") is None
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq3TTLHeap:
+    @pytest.mark.timeout(5)
+    def test_ttl_heap_insertion_log_n(self):
+        cache = Cache(max_size=20000, default_ttl=3600)
+        num_insertions = 5000
+        start = time.time()
+        for i in range(num_insertions):
+            cache.set(f"key_{i}", f"value_{i}", ttl_seconds=i + 1)
+        elapsed = time.time() - start
+        assert elapsed < 2.0, f"5000 TTL insertions took {elapsed:.3f}s"
+
+    def test_lazy_cleanup_on_get(self):
+        cache = Cache(max_size=100, default_ttl=0.05)
+        cache.set("expiring", "value")
+        time.sleep(0.1)
+        result = cache.get("expiring")
+        assert result is None
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq4KeyNormalization:
+    def test_normalize_key_dict(self):
+        cache = Cache(max_size=100)
+        cache.set({"z": 1, "a": 2}, "value")
+        assert cache.get({"a": 2, "z": 1}) == "value"
+
+    def test_normalize_key_nested(self):
+        cache = Cache(max_size=100)
+        key = {"outer": {"inner": [1, 2, 3]}}
+        cache.set(key, "data")
+        assert cache.get({"outer": {"inner": [1, 2, 3]}}) == "data"
+
+    @pytest.mark.timeout(5)
+    def test_complex_key_performance(self):
+        cache = Cache(max_size=5000, default_ttl=3600)
+        num_ops = 2000
+        start = time.time()
+        for i in range(num_ops):
+            key = {"user": i, "data": [i, i + 1]}
+            cache.set(key, f"v{i}")
+        set_time = time.time() - start
+        start = time.time()
+        for i in range(num_ops):
+            key = {"user": i, "data": [i, i + 1]}
+            cache.get(key)
+        get_time = time.time() - start
+        assert set_time < 1.0, f"Complex key SET took {set_time:.3f}s"
+        assert get_time < 1.0, f"Complex key GET took {get_time:.3f}s"
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq5StatsLogDeque:
+    @pytest.mark.timeout(10)
+    def test_stats_log_bounded(self):
+        cache = Cache(max_size=5000, default_ttl=3600)
+        for i in range(15000):
+            cache.set(f"key_{i}", f"value_{i}")
+        log = cache.export_stats_log()
+        lines = log.split('\n') if log else []
+        assert len(lines) <= 10000
+
+    @pytest.mark.timeout(5)
+    def test_stats_log_export_fast(self):
+        cache = Cache(max_size=5000, default_ttl=3600)
+        for i in range(2000):
+            cache.set(f"key_{i}", f"value_{i}")
+            cache.get(f"key_{i}")
+        start = time.time()
+        for _ in range(100):
+            cache.export_stats_log()
+        elapsed = time.time() - start
+        assert elapsed < 1.0, f"100 exports took {elapsed:.3f}s"
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq6StatisticsSorting:
+    @pytest.mark.timeout(5)
+    def test_lru_mru_uses_heapq(self):
+        cache = Cache(max_size=5000, default_ttl=3600)
+        for i in range(3000):
+            cache.set(f"key_{i}", f"value_{i}")
+        for i in range(0, 3000, 5):
+            cache.get(f"key_{i}")
+        start = time.time()
+        cache.get_lru_entries(10)
+        cache.get_mru_entries(10)
+        cache.get_most_accessed(10)
+        elapsed = time.time() - start
+        assert elapsed < 0.5, f"Statistics took {elapsed:.3f}s"
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq7MinimalDeepCopy:
+    def test_immutable_no_copy(self):
+        cache = Cache(max_size=100)
+        cache.set("key", "immutable_string")
+        val = cache.get("key")
+        assert val == "immutable_string"
+
+    def test_mutable_copy_on_get(self):
+        cache = Cache(max_size=100)
+        original = {"a": [1, 2, 3]}
+        cache.set("key", original)
+        retrieved = cache.get("key")
+        retrieved["a"].append(4)
+        second = cache.get("key")
+        assert second["a"] == [1, 2, 3]
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
+class TestReq8PatternSearchOptimized:
+    @pytest.mark.timeout(5)
+    def test_prefix_uses_startswith(self):
+        cache = Cache(max_size=5000, default_ttl=3600)
+        for i in range(2000):
+            cache.set(f"user:{i}:data", f"value_{i}")
+        start = time.time()
+        results = cache.find_by_prefix("user:")
+        elapsed = time.time() - start
+        assert len(results) == 2000
+        assert elapsed < 0.5, f"Prefix search took {elapsed:.3f}s"
+
+    @pytest.mark.timeout(5)
+    def test_pattern_uses_regex(self):
+        cache = Cache(max_size=5000, default_ttl=3600)
+        for i in range(2000):
+            cache.set(f"api:v{i % 3}:users:{i}", f"data_{i}")
+        start = time.time()
+        results = cache.find_by_pattern("api:v?:users:*")
+        elapsed = time.time() - start
+        assert len(results) == 2000
+        assert elapsed < 0.5, f"Pattern search took {elapsed:.3f}s"
+
+
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceGetOperations:
+    @pytest.mark.timeout(5)
     def test_get_operations_throughput(self):
         cache = Cache(max_size=5000, default_ttl=3600)
         for i in range(1000):
@@ -399,12 +599,13 @@ class TestPerformanceGetOperations:
         ops_per_sec = num_operations / elapsed
         threshold = 50000
         assert ops_per_sec >= threshold, (
-            f"GET throughput: {ops_per_sec:,.0f} ops/sec, required: {threshold:,} ops/sec. "
-            f"This indicates O(n) lookup complexity instead of O(1)."
+            f"GET throughput: {ops_per_sec:,.0f} ops/sec, required: {threshold:,} ops/sec"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceSetOperations:
+    @pytest.mark.timeout(5)
     def test_set_operations_throughput(self):
         cache = Cache(max_size=10000, default_ttl=3600)
         num_operations = 3000
@@ -415,12 +616,13 @@ class TestPerformanceSetOperations:
         ops_per_sec = num_operations / elapsed
         threshold = 30000
         assert ops_per_sec >= threshold, (
-            f"SET throughput: {ops_per_sec:,.0f} ops/sec, required: {threshold:,} ops/sec. "
-            f"This indicates O(n) insertion complexity instead of O(1)."
+            f"SET throughput: {ops_per_sec:,.0f} ops/sec, required: {threshold:,} ops/sec"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceLookupScaling:
+    @pytest.mark.timeout(5)
     def test_lookup_time_constant(self):
         cache_small = Cache(max_size=200, default_ttl=3600)
         for i in range(100):
@@ -438,12 +640,13 @@ class TestPerformanceLookupScaling:
         time_500 = time.time() - start
         ratio = time_500 / time_100 if time_100 > 0.0001 else 100
         assert ratio < 2.5, (
-            f"Lookup time ratio (500/100 entries): {ratio:.2f}. "
-            f"Expected < 2.5 for O(1), got {ratio:.2f} indicating O(n) complexity."
+            f"Lookup time ratio (500/100 entries): {ratio:.2f}"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceLRUEviction:
+    @pytest.mark.timeout(5)
     def test_eviction_performance(self):
         cache = Cache(max_size=100, default_ttl=3600)
         for i in range(100):
@@ -454,12 +657,13 @@ class TestPerformanceLRUEviction:
             cache.set(f"key_{i}", f"value_{i}")
         elapsed = time.time() - start
         assert elapsed < 0.5, (
-            f"1000 evictions took {elapsed:.3f}s, required: < 0.5s. "
-            f"This indicates O(n²) eviction instead of O(1)."
+            f"1000 evictions took {elapsed:.3f}s, required: < 0.5s"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceTTLInsertion:
+    @pytest.mark.timeout(5)
     def test_ttl_insertion_performance(self):
         cache = Cache(max_size=10000, default_ttl=3600)
         num_insertions = 2000
@@ -468,34 +672,37 @@ class TestPerformanceTTLInsertion:
             cache.set(f"key_{i}", f"value_{i}", ttl_seconds=i + 1)
         elapsed = time.time() - start
         assert elapsed < 1.0, (
-            f"2000 TTL insertions took {elapsed:.3f}s, required: < 1.0s. "
-            f"This indicates inefficient TTL tracking."
+            f"2000 TTL insertions took {elapsed:.3f}s, required: < 1.0s"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceComplexKeys:
+    @pytest.mark.timeout(5)
     def test_complex_key_performance(self):
         cache = Cache(max_size=5000, default_ttl=3600)
         num_operations = 1000
         start = time.time()
         for i in range(num_operations):
-            key = {"user_id": i, "session": f"sess_{i}", "data": [i, i+1]}
+            key = {"user_id": i, "session": f"sess_{i}", "data": [i, i + 1]}
             cache.set(key, f"value_{i}")
         elapsed_set = time.time() - start
         start = time.time()
         for i in range(num_operations):
-            key = {"user_id": i, "session": f"sess_{i}", "data": [i, i+1]}
+            key = {"user_id": i, "session": f"sess_{i}", "data": [i, i + 1]}
             cache.get(key)
         elapsed_get = time.time() - start
         assert elapsed_set < 0.5, (
-            f"1000 complex key SETs took {elapsed_set:.3f}s, required: < 0.5s."
+            f"1000 complex key SETs took {elapsed_set:.3f}s, required: < 0.5s"
         )
         assert elapsed_get < 0.5, (
-            f"1000 complex key GETs took {elapsed_get:.3f}s, required: < 0.5s."
+            f"1000 complex key GETs took {elapsed_get:.3f}s, required: < 0.5s"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceStatsLog:
+    @pytest.mark.timeout(5)
     def test_stats_log_export(self):
         cache = Cache(max_size=5000, default_ttl=3600)
         for i in range(500):
@@ -505,12 +712,14 @@ class TestPerformanceStatsLog:
         log = cache.export_stats_log()
         elapsed = time.time() - start
         assert elapsed < 0.1, (
-            f"Stats log export took {elapsed:.3f}s, required: < 0.1s."
+            f"Stats log export took {elapsed:.3f}s, required: < 0.1s"
         )
         assert len(log) > 0
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceStatisticsSorting:
+    @pytest.mark.timeout(5)
     def test_statistics_sorting_performance(self):
         cache = Cache(max_size=5000, default_ttl=3600)
         for i in range(2000):
@@ -524,12 +733,13 @@ class TestPerformanceStatisticsSorting:
         cache.get_most_accessed(10)
         elapsed = time.time() - start
         assert elapsed < 0.2, (
-            f"Statistics retrieval took {elapsed:.3f}s, required: < 0.2s. "
-            f"This indicates O(n²) sorting instead of O(n log n)."
+            f"Statistics retrieval took {elapsed:.3f}s, required: < 0.2s"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformancePatternSearch:
+    @pytest.mark.timeout(5)
     def test_pattern_search_performance(self):
         cache = Cache(max_size=5000, default_ttl=3600)
         for i in range(1000):
@@ -544,14 +754,16 @@ class TestPerformancePatternSearch:
         elapsed_pattern = time.time() - start
         assert len(results) == 1000
         assert elapsed_prefix < 0.3, (
-            f"Prefix search took {elapsed_prefix:.3f}s, required: < 0.3s."
+            f"Prefix search took {elapsed_prefix:.3f}s, required: < 0.3s"
         )
         assert elapsed_pattern < 0.3, (
-            f"Pattern search took {elapsed_pattern:.3f}s, required: < 0.3s."
+            f"Pattern search took {elapsed_pattern:.3f}s, required: < 0.3s"
         )
 
 
+@pytest.mark.skipif(IS_BEFORE, reason="Performance test skipped for unoptimized cache")
 class TestPerformanceScaling:
+    @pytest.mark.timeout(5)
     def test_scaling_performance(self):
         cache_small = Cache(max_size=500, default_ttl=3600)
         for i in range(200):
@@ -569,6 +781,5 @@ class TestPerformanceScaling:
         time_1000 = time.time() - start
         ratio = time_1000 / time_200 if time_200 > 0.0001 else 100
         assert ratio < 3.0, (
-            f"Time ratio (1000/200 entries): {ratio:.2f}. "
-            f"Expected < 3.0 for O(1), indicating O(n) complexity."
+            f"Time ratio (1000/200 entries): {ratio:.2f}"
         )

@@ -3,6 +3,7 @@ import threading
 import copy
 import heapq
 import re
+import json
 from collections import OrderedDict, deque
 
 
@@ -63,7 +64,6 @@ class OptimizedCache:
 
     def _calculate_entry_size(self, value):
         if isinstance(value, (dict, list)):
-            import json
             return len(json.dumps(value))
         return len(str(value))
 
@@ -169,10 +169,8 @@ class OptimizedCache:
         for key in keys:
             value = self.get(key)
             if isinstance(key, dict):
-                import json
                 key_str = json.dumps(key, sort_keys=True)
             elif isinstance(key, list):
-                import json
                 key_str = json.dumps(key)
             else:
                 key_str = str(key)
@@ -258,7 +256,7 @@ class OptimizedCache:
     def find_by_pattern(self, pattern):
         with self._lock:
             results = []
-            regex_pattern = pattern.replace('*', '.*').replace('?', '.')
+            regex_pattern = re.escape(pattern).replace(r'\*', '.*').replace(r'\?', '.')
             try:
                 compiled = re.compile('^' + regex_pattern + '$')
             except re.error:
