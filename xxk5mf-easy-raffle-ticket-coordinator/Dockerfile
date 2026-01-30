@@ -1,5 +1,21 @@
-FROM python:3.11-slim
+FROM node:22
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+ENV NODE_ENV=test
+ENV DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raffle_test
+ENV ADMIN_SECRET=test-admin-secret
+
+# Run all tests (server, UI, functional/concurrency) then generate evaluation report
+CMD ["sh", "-c", "npm test -- --runInBand && npx ts-node evaluation/evaluation.ts"]
