@@ -2,6 +2,7 @@
   "name": "raffle-ticket-coordinator",
   "version": "1.0.0",
   "private": true,
+  "description": "Single package.json for repository_after client (React/Vite) and server (Express). Install once at root; no package.json or node_modules in subfolders.",
   "scripts": {
     "test": "npx jest --config tests/jest.config.js --runInBand",
     "test:watch": "npx jest --config tests/jest.config.js --watch",
@@ -9,8 +10,8 @@
     "evaluate": "npx ts-node evaluation/evaluation.ts",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd repository_after/server && npx ts-node index.ts",
-    "dev:client": "cd repository_after/client && npm run dev",
-    "build:client": "cd repository_after/client && npm run build"
+    "dev:client": "cd repository_after/client && npx vite",
+    "build:client": "cd repository_after/client && npx tsc && npx vite build"
   },
   "dependencies": {
     "cors": "^2.8.5",
