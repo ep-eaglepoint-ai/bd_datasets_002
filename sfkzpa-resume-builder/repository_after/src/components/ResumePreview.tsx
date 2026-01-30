@@ -3,7 +3,7 @@ import type { ResumeData } from '../types';
 import { Mail, Phone, MapPin, Linkedin, Globe, Link as LinkIcon } from 'lucide-react';
 
 export const ResumePreview: React.FC<{ resume: ResumeData }> = ({ resume }) => {
-    const renderSection = (type: string) => {
+    const renderSection = (type: string, sectionId: string) => {
         switch (type) {
             case 'personal':
                 return (
@@ -135,6 +135,18 @@ export const ResumePreview: React.FC<{ resume: ResumeData }> = ({ resume }) => {
                     </div>
                 );
 
+            case 'custom':
+                const customSection = (resume.customSections || []).find(s => s.id === sectionId);
+                if (!customSection) return null;
+                return (
+                    <div className="mb-6">
+                        <h2 className="text-sm font-bold text-gray-900 border-b border-gray-300 pb-1 mb-3 uppercase tracking-wider">{customSection.title}</h2>
+                        <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            {customSection.content}
+                        </div>
+                    </div>
+                );
+
             default:
                 return null;
         }
@@ -144,7 +156,7 @@ export const ResumePreview: React.FC<{ resume: ResumeData }> = ({ resume }) => {
         <div className="h-full w-full bg-white font-sans text-gray-800">
             {resume.sections.filter(s => s.isVisible).map(s => (
                 <div key={s.id}>
-                    {renderSection(s.type)}
+                    {renderSection(s.type, s.id)}
                 </div>
             ))}
         </div>

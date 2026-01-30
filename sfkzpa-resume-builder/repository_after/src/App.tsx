@@ -18,6 +18,7 @@ const initialResume: ResumeData = {
   education: [],
   skills: '',
   projects: [],
+  customSections: [],
   sections: [
     { id: 'personal', title: 'Personal Info', isVisible: true, type: 'personal' },
     { id: 'summary', title: 'Professional Summary', isVisible: true, type: 'summary' },

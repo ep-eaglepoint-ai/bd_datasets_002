@@ -88,13 +88,44 @@ describe('Resume Builder Application', () => {
         expect(screen.getByText(/Editor/i)).toBeInTheDocument();
     });
 
-    test('Validation - required fields', async () => {
+    test('Validation - required fields shows error', async () => {
         render(<App />);
-        const nameInput = screen.getByLabelText(/Full Name/i);
-        expect(nameInput).toBeRequired();
+        // Initially empty, should show errors
+        expect(screen.getByText('Full name is required')).toBeInTheDocument();
+        expect(screen.getByText('Email is required')).toBeInTheDocument();
 
-        const emailInput = screen.getByLabelText(/Email/i);
-        expect(emailInput).toBeRequired();
+        const nameInput = screen.getByLabelText(/Full Name/i);
+        await userEvent.type(nameInput, 'Valid Name');
+        expect(screen.queryByText('Full name is required')).not.toBeInTheDocument();
+    });
+
+    test('Add and Remove Custom Sections', async () => {
+        const user = userEvent.setup();
+        render(<App />);
+
+        const addSectionBtn = screen.getByRole('button', { name: /Add Custom Section/i });
+        await user.click(addSectionBtn);
+
+        const titleInput = screen.getByLabelText('Section Title');
+        const contentInput = screen.getByLabelText('Content');
+
+        expect(titleInput).toBeInTheDocument();
+        expect(contentInput).toBeInTheDocument();
+
+        // Check it appears in preview
+        expect(screen.getByText('Custom Section', { selector: 'h2' })).toBeInTheDocument();
+
+        await user.clear(titleInput);
+        await user.type(titleInput, 'My Languages');
+        await user.type(contentInput, 'English, Spanish');
+
+        expect(screen.getByText('My Languages', { selector: 'h2' })).toBeInTheDocument();
+        expect(screen.getByText('English, Spanish', { selector: 'div' })).toBeInTheDocument();
+
+        const removeBtn = screen.getByRole('button', { name: /Remove Section/i });
+        await user.click(removeBtn);
+
+        expect(screen.queryByText('My Languages')).not.toBeInTheDocument();
     });
 
     test('Empty sections handled gracefully', async () => {

@@ -23,11 +23,17 @@ export interface ProjectItem {
     link: string;
 }
 
+export interface CustomSectionItem {
+    id: string;
+    title: string;
+    content: string;
+}
+
 export interface SectionConfig {
     id: string;
     title: string;
     isVisible: boolean;
-    type: 'personal' | 'summary' | 'experience' | 'education' | 'skills' | 'projects';
+    type: 'personal' | 'summary' | 'experience' | 'education' | 'skills' | 'projects' | 'custom';
 }
 
 export interface ResumeData {
@@ -44,5 +50,6 @@ export interface ResumeData {
     education: EducationItem[];
     skills: string;
     projects: ProjectItem[];
+    customSections: CustomSectionItem[];
     sections: SectionConfig[];
 }
