@@ -17,6 +17,6 @@ services:
   evaluation:
     build: .
     working_dir: /app/repository_after
-    command: sh -c "npm install @rollup/rollup-linux-x64-gnu --save-optional --no-audit --no-fund || true && npm run evaluation"
+    command: sh -c "npm install @rollup/rollup-linux-x64-gnu --save-optional --no-audit --no-fund || true && npx nuxt prepare && npm run evaluation"
     volumes:
       - ./repository_after:/app/repository_after

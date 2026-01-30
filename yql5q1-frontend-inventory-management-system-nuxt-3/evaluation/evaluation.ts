@@ -170,6 +170,29 @@ function runVitestTests(repositoryPath: string, label: string): TestRunResult {
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "vitest-json-"));
   const outputFile = path.join(outputDir, "results.json");
 
+  const env = { ...process.env };
+
+  // Step 1: Prepare Nuxt (generates .nuxt directory and tsconfig.json)
+  console.log("Preparing Nuxt (generating .nuxt directory)...");
+  try {
+    const prepareResult = spawnSync("npx", ["nuxt", "prepare"], {
+      cwd: repositoryFullPath,
+      env,
+      encoding: "utf-8",
+      timeout: 60000,
+    });
+    
+    if (prepareResult.status !== 0) {
+      console.log(`Warning: nuxt prepare exited with code ${prepareResult.status}`);
+      console.log(`stdout: ${prepareResult.stdout}`);
+      console.log(`stderr: ${prepareResult.stderr}`);
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.log(`Warning: Failed to run nuxt prepare: ${errorMessage}`);
+  }
+
+  // Step 2: Run tests
   const cmd = [
     "npx",
     "vitest",
@@ -177,8 +200,6 @@ function runVitestTests(repositoryPath: string, label: string): TestRunResult {
     "--reporter=json",
     `--outputFile=${outputFile}`,
   ];
-
-  const env = { ...process.env };
 
   try {
     const result = spawnSync(cmd[0], cmd.slice(1), {
