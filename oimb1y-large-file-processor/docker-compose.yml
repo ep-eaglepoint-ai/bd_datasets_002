@@ -1,11 +1,10 @@
 services:
   app:
     build: .
-    command: [ "true" ]
-    entrypoint: /app/entrypoint.sh
     volumes:
       - .:/app
-    working_dir: /app
+    command: tail -f /dev/null
+    entrypoint: /app/entrypoint.sh
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -16,8 +15,53 @@ services:
       - MEDIA_ROOT=/app/media
       - MEDIA_URL=/media/
       - SECRET_KEY=django-insecure-test-key
-      - PYTHONPATH=/app/repository_after:/app/repository_before
+      - PYTHONPATH=/app/repository_after:/app/repository_before:/app
       - SQLITE_DB_PATH=/tmp/db.sqlite3
+    depends_on:
+      - redis
+
+  tests:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - TEST_REPO_DIR=repository_after
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=True
+      - CELERY_TASK_EAGER_PROPAGATES=True
+      - STORAGE_BACKEND=local
+      - MEDIA_ROOT=/app/media
+      - MEDIA_URL=/media/
+      - SECRET_KEY=django-insecure-test-key
+      - PYTHONPATH=/app/repository_after:/app/repository_before:/app
+      - SQLITE_DB_PATH=/tmp/db.sqlite3
+    entrypoint: /app/entrypoint.sh
+    command: >
+      pytest -v -s tests/test_processor.py
+    depends_on:
+      - redis
+
+  test-before:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - TEST_REPO_DIR=repository_before
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=True
+      - CELERY_TASK_EAGER_PROPAGATES=True
+      - STORAGE_BACKEND=local
+      - MEDIA_ROOT=/app/media
+      - MEDIA_URL=/media/
+      - SECRET_KEY=django-insecure-test-key
+      - PYTHONPATH=/app/repository_before:/app/repository_after:/app
+      - SQLITE_DB_PATH=/tmp/db.sqlite3
+    entrypoint: /app/entrypoint.sh
+    command: sh -c "pytest -v -s tests/test_processor.py || true"
     depends_on:
       - redis
 
@@ -36,7 +80,7 @@ services:
       - MEDIA_ROOT=/app/media
       - MEDIA_URL=/media/
       - SECRET_KEY=django-insecure-test-key
-      - PYTHONPATH=/app/repository_after:/app/repository_before
+      - PYTHONPATH=/app/repository_after:/app/repository_before:/app
       - SQLITE_DB_PATH=/tmp/db.sqlite3
     depends_on:
       - redis
