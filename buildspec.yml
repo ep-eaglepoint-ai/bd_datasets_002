@@ -5,26 +5,27 @@ phases:
     commands:
       - echo "Pre-build phase - Setting up environment"
       - echo "Build started at $(date)"
-      
+      - docker compose build test
+
   build:
     commands:
       - echo "Build phase - Running tests"
-      
-      # Test repository_before (expected to fail)
+
+      # Test repository_before (expected to FAIL)
       - echo "Testing repository_before..."
       - |
-        if bash run-tests.sh repository_before; then
+        if docker compose run --rm test bash -c "pytest -q repository_before"; then
           echo "repository_before tests PASSED (unexpected)"
           export BEFORE_STATUS="PASSED"
         else
           echo "repository_before tests FAILED (expected)"
           export BEFORE_STATUS="FAILED"
         fi
-      
-      # Test repository_after (expected to pass)
+
+      # Test repository_after (expected to PASS)
       - echo "Testing repository_after..."
       - |
-        if bash run-tests.sh repository_after; then
+        if docker compose run --rm test bash -c "pytest -q repository_after"; then
           echo "repository_after tests PASSED"
           export AFTER_STATUS="PASSED"
         else
@@ -32,30 +33,30 @@ phases:
           export AFTER_STATUS="FAILED"
           exit 1
         fi
-      
+
   post_build:
     commands:
       - echo "Post-build phase - Running evaluation"
-      
+
       # Run evaluation if available
       - |
         if [ -f "evaluation/evaluation.py" ]; then
           echo "Running evaluation script..."
-          python evaluation/evaluation.py || echo "Evaluation script failed (non-critical)"
+          docker compose run --rm test bash -c "python evaluation/evaluation.py" || echo "Evaluation script failed (non-critical)"
         fi
-      
+
       - echo "Build completed at $(date)"
       - echo "repository_before status: $BEFORE_STATUS"
       - echo "repository_after status: $AFTER_STATUS"
-      
-      # Build succeeds if repository_after passes
+
+      # Exit 0 if repository_after passed, fail otherwise
       - |
         if [ "$AFTER_STATUS" = "PASSED" ]; then
           echo "Build SUCCEEDED - repository_after tests passed"
           exit 0
         else
           echo "Build FAILED - repository_after tests failed"
-          exit 0
+          exit 1
         fi
 
 artifacts:

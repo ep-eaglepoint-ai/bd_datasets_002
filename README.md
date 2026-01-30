@@ -18,3 +18,5 @@ docker compose run --rm test sh -c "PYTHONPATH=/app/repository_after pytest repo
 ```bash
 docker compose run --rm test python evaluation/evaluation.py
 ```
+
+
