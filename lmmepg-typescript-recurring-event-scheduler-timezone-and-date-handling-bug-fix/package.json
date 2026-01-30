@@ -1,0 +1,14 @@
+{
+  "name": "scheduler-validation",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "evaluate": "node evaluation/evaluation.js --verbose",
+    "test": "node tests/run_validation.js",
+    "test:before": "node tests/run_validation.js repository_before",
+    "test:after": "node tests/run_validation.js repository_after"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
