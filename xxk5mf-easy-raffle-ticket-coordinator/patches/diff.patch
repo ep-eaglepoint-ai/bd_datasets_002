@@ -1,3 +1,6 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29bb..000000000
 diff --git a/repository_after/client/index.html b/repository_after/client/index.html
 new file mode 100644
 index 000000000..3023f5ccd
@@ -16,6 +19,35 @@ index 000000000..3023f5ccd
 +    <script type="module" src="/src/main.tsx"></script>
 +  </body>
 +</html>
+diff --git a/repository_after/client/package.json b/repository_after/client/package.json
+new file mode 100644
+index 000000000..4c1770850
+--- /dev/null
++++ b/repository_after/client/package.json
+@@ -0,0 +1,23 @@
++{
++  "name": "raffle-client",
++  "version": "1.0.0",
++  "private": true,
++  "description": "Raffle dashboard client (React + Vite)",
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "tsc && vite build",
++    "preview": "vite preview"
++  },
++  "dependencies": {
++    "react": "^18.2.0",
++    "react-dom": "^18.2.0"
++  },
++  "devDependencies": {
++    "@types/react": "^18.2.48",
++    "@types/react-dom": "^18.2.18",
++    "@vitejs/plugin-react": "^4.2.1",
++    "typescript": "^5.3.3",
++    "vite": "^5.0.10"
++  }
++}
 diff --git a/repository_after/client/src/App.tsx b/repository_after/client/src/App.tsx
 new file mode 100644
 index 000000000..01e691ad5
@@ -215,6 +247,77 @@ index 000000000..2339d59cf
 +    <App />
 +  </React.StrictMode>
 +);
+diff --git a/repository_after/client/src/vite-env.d.ts b/repository_after/client/src/vite-env.d.ts
+new file mode 100644
+index 000000000..11f02fe2a
+--- /dev/null
++++ b/repository_after/client/src/vite-env.d.ts
+@@ -0,0 +1 @@
++/// <reference types="vite/client" />
+diff --git a/repository_after/client/tsconfig.json b/repository_after/client/tsconfig.json
+new file mode 100644
+index 000000000..3934b8f6d
+--- /dev/null
++++ b/repository_after/client/tsconfig.json
+@@ -0,0 +1,21 @@
++{
++  "compilerOptions": {
++    "target": "ES2020",
++    "useDefineForClassFields": true,
++    "lib": ["ES2020", "DOM", "DOM.Iterable"],
++    "module": "ESNext",
++    "skipLibCheck": true,
++    "moduleResolution": "bundler",
++    "allowImportingTsExtensions": true,
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "noEmit": true,
++    "jsx": "react-jsx",
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "noFallthroughCasesInSwitch": true
++  },
++  "include": ["src"],
++  "references": [{ "path": "./tsconfig.node.json" }]
++}
+diff --git a/repository_after/client/tsconfig.node.json b/repository_after/client/tsconfig.node.json
+new file mode 100644
+index 000000000..42872c59f
+--- /dev/null
++++ b/repository_after/client/tsconfig.node.json
+@@ -0,0 +1,10 @@
++{
++  "compilerOptions": {
++    "composite": true,
++    "skipLibCheck": true,
++    "module": "ESNext",
++    "moduleResolution": "bundler",
++    "allowSyntheticDefaultImports": true
++  },
++  "include": ["vite.config.ts"]
++}
+diff --git a/repository_after/client/vite.config.ts b/repository_after/client/vite.config.ts
+new file mode 100644
+index 000000000..d58ebdb7e
+--- /dev/null
++++ b/repository_after/client/vite.config.ts
+@@ -0,0 +1,15 @@
++import { defineConfig } from 'vite';
++import react from '@vitejs/plugin-react';
++
++export default defineConfig({
++  plugins: [react()],
++  server: {
++    port: 3000,
++    proxy: {
++      '/api': {
++        target: 'http://localhost:5000',
++        changeOrigin: true,
++      },
++    },
++  },
++});
 diff --git a/repository_after/server/adminAuth.ts b/repository_after/server/adminAuth.ts
 new file mode 100644
 index 000000000..960374754
@@ -320,6 +423,36 @@ index 000000000..388f6ed79
 +
 +export default app;
 +export { initSchema, getPool };
+diff --git a/repository_after/server/package.json b/repository_after/server/package.json
+new file mode 100644
+index 000000000..3355d5ca4
+--- /dev/null
++++ b/repository_after/server/package.json
+@@ -0,0 +1,24 @@
++{
++  "name": "raffle-server",
++  "version": "1.0.0",
++  "private": true,
++  "description": "Raffle API server (Express + PostgreSQL)",
++  "scripts": {
++    "dev": "ts-node index.ts",
++    "build": "tsc",
++    "start": "node dist/index.js"
++  },
++  "dependencies": {
++    "cors": "^2.8.5",
++    "express": "^4.18.2",
++    "pg": "^8.11.3"
++  },
++  "devDependencies": {
++    "@types/cors": "^2.8.17",
++    "@types/express": "^4.17.21",
++    "@types/node": "^20.11.5",
++    "@types/pg": "^8.10.9",
++    "ts-node": "^10.9.2",
++    "typescript": "^5.3.3"
++  }
++}
 diff --git a/repository_after/server/raffleService.ts b/repository_after/server/raffleService.ts
 new file mode 100644
 index 000000000..ededcf4f8
@@ -592,3 +725,22 @@ index 000000000..c8a8e48e2
 +-- Seed single raffle row if not present
 +INSERT INTO raffle_meta (id, status) VALUES (1, 'OPEN')
 +ON CONFLICT (id) DO NOTHING;
+diff --git a/repository_after/server/tsconfig.json b/repository_after/server/tsconfig.json
+new file mode 100644
+index 000000000..aac291534
+--- /dev/null
++++ b/repository_after/server/tsconfig.json
+@@ -0,0 +1,13 @@
++{
++  "compilerOptions": {
++    "target": "ES2020",
++    "module": "commonjs",
++    "strict": true,
++    "esModuleInterop": true,
++    "skipLibCheck": true,
++    "outDir": "./dist",
++    "rootDir": "."
++  },
++  "include": ["./**/*.ts"],
++  "exclude": ["node_modules", "dist"]
++}
