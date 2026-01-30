@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Toast } from './Toast';
 
 const API_BASE = '/api';
 
@@ -113,11 +114,7 @@ export default function App() {
           </button>
         </>
       )}
-      {error && (
-        <div role="alert" data-testid="error-message" style={{ marginTop: 16, color: '#c00' }}>
-          {error}
-        </div>
-      )}
+      {error && <Toast message={error} variant="error" />}
     </div>
   );
 }

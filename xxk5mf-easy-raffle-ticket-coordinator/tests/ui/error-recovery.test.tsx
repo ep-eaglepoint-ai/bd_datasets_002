@@ -11,11 +11,11 @@ beforeEach(() => {
 });
 
 /**
- * REQ-7: Error handling — React shows descriptive error and re-enables purchase
- *        button when server transaction fails (e.g. 409) or network timeout.
+ * REQ-7: Error handling — React shows a descriptive error toast and re-enables
+ *        the purchase button when server transaction fails (e.g. 409) or network timeout.
  */
 describe('Error recovery', () => {
-  it('shows error message and re-enables button when purchase fails with 409', async () => {
+  it('shows error toast and re-enables button when purchase fails with 409', async () => {
     global.fetch = jest.fn((url: string, opts?: { method?: string }) => {
       if (url.includes('/raffle/state') && !opts?.method) {
         return Promise.resolve({
@@ -47,7 +47,9 @@ describe('Error recovery', () => {
     fireEvent.click(screen.getByTestId('purchase-button'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toHaveTextContent('Limit Reached');
+      const toast = screen.getByTestId('error-toast');
+      expect(toast).toHaveTextContent('Limit Reached');
+      expect(toast).toHaveAttribute('role', 'alert');
     });
 
     await waitFor(() => {
@@ -57,7 +59,7 @@ describe('Error recovery', () => {
     });
   });
 
-  it('shows error and re-enables button when purchase fails due to network timeout (REQ-7)', async () => {
+  it('shows error toast and re-enables button when purchase fails due to network timeout (REQ-7)', async () => {
     global.fetch = jest.fn((url: string, opts?: { method?: string }) => {
       if (url.includes('/raffle/state') && !opts?.method) {
         return Promise.resolve({
@@ -85,7 +87,10 @@ describe('Error recovery', () => {
     fireEvent.click(screen.getByTestId('purchase-button'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('error-message')).toBeInTheDocument();
+      const toast = screen.getByTestId('error-toast');
+      expect(toast).toBeInTheDocument();
+      expect(toast).toHaveTextContent('Network timeout');
+      expect(toast).toHaveAttribute('role', 'alert');
     });
 
     await waitFor(() => {
