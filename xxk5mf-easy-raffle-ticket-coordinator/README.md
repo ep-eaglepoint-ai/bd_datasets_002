@@ -1,9 +1,8 @@
 # XXK5MF - Easy-Raffle-ticket-Coordinator
 
-
-### Run tests (only for repository_after)
+### Run tests (repository_after)
 ```bash
-docker compose run --rm app npm run test
+docker compose run --rm app npm test
 ```
 
 ### Generate a report
