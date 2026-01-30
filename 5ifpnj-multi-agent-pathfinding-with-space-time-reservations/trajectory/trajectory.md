@@ -59,13 +59,22 @@
 
    The three-level map structure `map[t][x][y]` ensures reservations include the time step. This satisfies REQ-01: reservation checks must include time (t).
 
-5. Protect Concurrent Access with Mutex (Thread-Safe Operations)
-   I implemented mutex protection for the reservation table to handle concurrent path planning requests from multiple robots. The system uses sync.RWMutex to allow concurrent reads while protecting writes:
+5. Protect Concurrent Access with Global Lock (Atomic Planning)
+   I implemented a global lock on the entire PlanPath operation to ensure atomicity of planning and reservation. The system acquires the reservation table's mutex at the start of path planning and holds it through both the search phase and reservation phase:
 
    ```go
-   func (rt *ReservationTable) IsReserved(x, y, t int) bool {
-       rt.mu.RLock()
-       defer rt.mu.RUnlock()
+   func (wd *WarehouseDispatcher) PlanPath(robotID int, start, end Coord, startTime int) []Coord {
+       wd.Table.mu.Lock()
+       defer wd.Table.mu.Unlock()
+       
+       // ... A* search using lock-free internal methods ...
+   }
+   ```
+
+   Internal lock-free methods are used during the search to avoid deadlock:
+   ```go
+   func (rt *ReservationTable) isReservedUnsafe(x, y, t int) bool {
+       // No locking - caller holds lock
        if tm, ok := rt.reservations[t]; ok {
            if xm, ok := tm[x]; ok {
                return xm[y]
@@ -73,21 +82,9 @@
        }
        return false
    }
-
-   func (rt *ReservationTable) Reserve(x, y, t int) {
-       rt.mu.Lock()
-       defer rt.mu.Unlock()
-       if rt.reservations[t] == nil {
-           rt.reservations[t] = make(map[int]map[int]bool)
-       }
-       if rt.reservations[t][x] == nil {
-           rt.reservations[t][x] = make(map[int]bool)
-       }
-       rt.reservations[t][x][y] = true
-   }
    ```
 
-   This satisfies REQ-08: access to ReservationTable must be protected by a Mutex.
+   This satisfies REQ-08: access to ReservationTable must be protected by a Mutex, and ensures atomicity of plan+reserve operations.
 
 6. Implement Edge Conflict Detection (Prevent Swapping)
    The system explicitly checks for the swapping scenario: if Robot A moves 1→2 and Robot B moves 2→1 at the same tick, it must be flagged as a collision. I track edge reservations separately and check the reverse direction:
@@ -169,33 +166,34 @@
    This satisfies REQ-06: the system must use Manhattan distance or similar heuristic.
 
 9. Atomic Path Calculation and Reservation
-   The path calculation and the reservation of that path in the table must be atomic or synchronized. If the path is returned without marking the table, subsequent robots will crash. I ensure both operations happen in the same critical section:
+   The path calculation and the reservation of that path in the table must be atomic or synchronized. The global lock acquired at the start of PlanPath ensures no other robot can read or modify the reservation table during the entire plan+reserve sequence:
 
    ```go
    func (wd *WarehouseDispatcher) PlanPath(robotID int, start, end Coord, startTime int) []Coord {
-       // ... A* pathfinding logic ...
+       wd.Table.mu.Lock()  // Acquire global lock
+       defer wd.Table.mu.Unlock()
+       
+       // ... A* pathfinding using isReservedUnsafe/isEdgeReservedUnsafe ...
        
        if current.X == end.X && current.Y == end.Y {
-           // Reconstruct path
            path := []Coord{}
            for n := current; n != nil; n = n.Parent {
                path = append([]Coord{{n.X, n.Y}}, path...)
            }
            
-           // Reserve path atomically (same function, no return until reserved)
+           // Reserve using lock-free methods (lock already held)
            for i := 0; i < len(path); i++ {
-               wd.Table.Reserve(path[i].X, path[i].Y, startTime+i)
+               wd.Table.reserveUnsafe(path[i].X, path[i].Y, startTime+i)
                if i > 0 {
-                   wd.Table.ReserveEdge(path[i-1].X, path[i-1].Y, path[i].X, path[i].Y, startTime+i)
+                   wd.Table.reserveEdgeUnsafe(path[i-1].X, path[i-1].Y, path[i].X, path[i].Y, startTime+i)
                }
            }
            return path
        }
-       // ...
    }
    ```
 
-   This satisfies REQ-05: path calculation and reservation must be atomic.
+   This satisfies REQ-05: path calculation and reservation must be atomic, preventing race conditions where two robots plan conflicting paths.
 
 10. Automated Collision Prevention Testing
     I implemented a comprehensive test suite that verifies all safety constraints. The tests specifically check vertex conflicts (two robots at same cell at same time), edge conflicts (swapping detection), wait actions, obstacle avoidance, and thread safety:

@@ -55,9 +55,7 @@ func NewReservationTable() *ReservationTable {
 	}
 }
 
-func (rt *ReservationTable) IsReserved(x, y, t int) bool {
-	rt.mu.RLock()
-	defer rt.mu.RUnlock()
+func (rt *ReservationTable) isReservedUnsafe(x, y, t int) bool {
 	if tm, ok := rt.reservations[t]; ok {
 		if xm, ok := tm[x]; ok {
 			return xm[y]
@@ -66,9 +64,7 @@ func (rt *ReservationTable) IsReserved(x, y, t int) bool {
 	return false
 }
 
-func (rt *ReservationTable) IsEdgeReserved(fromX, fromY, toX, toY, t int) bool {
-	rt.mu.RLock()
-	defer rt.mu.RUnlock()
+func (rt *ReservationTable) isEdgeReservedUnsafe(fromX, fromY, toX, toY, t int) bool {
 	if tm, ok := rt.edges[t]; ok {
 		from := Coord{fromX, fromY}
 		to := Coord{toX, toY}
@@ -79,9 +75,7 @@ func (rt *ReservationTable) IsEdgeReserved(fromX, fromY, toX, toY, t int) bool {
 	return false
 }
 
-func (rt *ReservationTable) Reserve(x, y, t int) {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
+func (rt *ReservationTable) reserveUnsafe(x, y, t int) {
 	if rt.reservations[t] == nil {
 		rt.reservations[t] = make(map[int]map[int]bool)
 	}
@@ -91,9 +85,7 @@ func (rt *ReservationTable) Reserve(x, y, t int) {
 	rt.reservations[t][x][y] = true
 }
 
-func (rt *ReservationTable) ReserveEdge(fromX, fromY, toX, toY, t int) {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
+func (rt *ReservationTable) reserveEdgeUnsafe(fromX, fromY, toX, toY, t int) {
 	if rt.edges[t] == nil {
 		rt.edges[t] = make(map[Coord]map[Coord]bool)
 	}
@@ -136,6 +128,9 @@ func manhattan(x1, y1, x2, y2 int) int {
 }
 
 func (wd *WarehouseDispatcher) PlanPath(robotID int, start, end Coord, startTime int) []Coord {
+	wd.Table.mu.Lock()
+	defer wd.Table.mu.Unlock()
+	
 	pq := &PriorityQueue{}
 	heap.Init(pq)
 	
@@ -153,11 +148,10 @@ func (wd *WarehouseDispatcher) PlanPath(robotID int, start, end Coord, startTime
 				path = append([]Coord{{n.X, n.Y}}, path...)
 			}
 			
-			// Reserve path atomically
 			for i := 0; i < len(path); i++ {
-				wd.Table.Reserve(path[i].X, path[i].Y, startTime+i)
+				wd.Table.reserveUnsafe(path[i].X, path[i].Y, startTime+i)
 				if i > 0 {
-					wd.Table.ReserveEdge(path[i-1].X, path[i-1].Y, path[i].X, path[i].Y, startTime+i)
+					wd.Table.reserveEdgeUnsafe(path[i-1].X, path[i-1].Y, path[i].X, path[i].Y, startTime+i)
 				}
 			}
 			return path
@@ -174,9 +168,8 @@ func (wd *WarehouseDispatcher) PlanPath(robotID int, start, end Coord, startTime
 		}
 		visited[current.T][current.X][current.Y] = true
 		
-		// Generate neighbors: 4 directions + wait
 		neighbors := []struct{ dx, dy int }{
-			{0, 1}, {1, 0}, {0, -1}, {-1, 0}, {0, 0}, // wait action
+			{0, 1}, {1, 0}, {0, -1}, {-1, 0}, {0, 0},
 		}
 		
 		for _, dir := range neighbors {
@@ -189,11 +182,10 @@ func (wd *WarehouseDispatcher) PlanPath(robotID int, start, end Coord, startTime
 			if wd.Obstacles[Coord{nx, ny}] {
 				continue
 			}
-			if wd.Table.IsReserved(nx, ny, nt) {
+			if wd.Table.isReservedUnsafe(nx, ny, nt) {
 				continue
 			}
-			// Check edge conflict (swapping)
-			if wd.Table.IsEdgeReserved(nx, ny, current.X, current.Y, nt) {
+			if wd.Table.isEdgeReservedUnsafe(nx, ny, current.X, current.Y, nt) {
 				continue
 			}
 			
