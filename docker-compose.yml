@@ -1,4 +1,28 @@
 services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+    command: tail -f /dev/null
+
+  tests:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - TEST_REPO_DIR=repository_after
+      - PYTHONPATH=/app/repository_after
+    command: pytest -v -s tests/test_cache_meta.py
+
+  test-before:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - TEST_REPO_DIR=repository_before
+      - PYTHONPATH=/app/repository_before
+    command: sh -c "pytest -v -s tests/test_cache_meta.py || true"
+
   test:
     build: .
     volumes:
@@ -6,6 +30,3 @@ services:
     working_dir: /app
     environment:
       - PYTHONPATH=/app
-    # Override command when running specific tests
-    # docker compose run test <command>
-    command: echo 'Use docker compose run test <command>'

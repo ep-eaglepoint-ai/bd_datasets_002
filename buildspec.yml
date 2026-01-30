@@ -5,7 +5,7 @@ phases:
     commands:
       - echo "Pre-build phase - Setting up environment"
       - echo "Build started at $(date)"
-      - docker compose build test
+      - docker compose build tests test-before
 
   build:
     commands:
@@ -14,7 +14,7 @@ phases:
       # Test repository_before (expected to FAIL)
       - echo "Testing repository_before..."
       - |
-        if docker compose run --rm test bash -c "pytest -q repository_before"; then
+        if docker compose run --rm test-before; then
           echo "repository_before tests PASSED (unexpected)"
           export BEFORE_STATUS="PASSED"
         else
@@ -25,7 +25,7 @@ phases:
       # Test repository_after (expected to PASS)
       - echo "Testing repository_after..."
       - |
-        if docker compose run --rm test bash -c "pytest -q repository_after"; then
+        if docker compose run --rm tests; then
           echo "repository_after tests PASSED"
           export AFTER_STATUS="PASSED"
         else
@@ -42,7 +42,7 @@ phases:
       - |
         if [ -f "evaluation/evaluation.py" ]; then
           echo "Running evaluation script..."
-          docker compose run --rm test bash -c "python evaluation/evaluation.py" || echo "Evaluation script failed (non-critical)"
+          docker compose run --rm tests bash -c "python evaluation/evaluation.py" || echo "Evaluation script failed (non-critical)"
         fi
 
       - echo "Build completed at $(date)"
