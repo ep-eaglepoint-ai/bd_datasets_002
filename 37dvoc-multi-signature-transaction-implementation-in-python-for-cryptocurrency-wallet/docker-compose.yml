@@ -1,6 +1,17 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
+    command: pytest -v tests/ --tb=short
+    environment:
+      - TARGET_REPOSITORY=repository_after
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    environment:
+      - PYTHONPATH=/app
     volumes:
       - .:/app
