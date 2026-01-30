@@ -191,14 +191,17 @@ const main = async () => {
   const end = new Date();
   const durationSeconds = (end.getTime() - start.getTime()) / 1000;
 
+  const beforeStats = parseTestOutput(before.tests.output);
+  const afterStats = parseTestOutput(after.tests.output);
+
   const report = {
     run_id: runId,
     started_at: start.toISOString(),
     finished_at: end.toISOString(),
     duration_seconds: durationSeconds,
     environment: environmentInfo(),
-    before,
-    after,
+    before: { ...before, stats: beforeStats },
+    after: { ...after, stats: afterStats },
     comparison,
     success: passedGate,
     error: null,
