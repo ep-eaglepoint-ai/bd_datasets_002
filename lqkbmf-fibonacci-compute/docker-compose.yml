@@ -4,7 +4,7 @@ services:
     working_dir: /app
     environment:
       - REPO_PATH=${REPO_PATH:-repository_after}
-    command: pytest tests/test_main.py -v
+    command: pytest tests/test_main.py -v --tb=no
   evaluation:
     build: .
     working_dir: /app
