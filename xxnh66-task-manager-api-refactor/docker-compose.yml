@@ -1,6 +1,8 @@
 services:
-  app:
+  evaluation:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    environment:
+      - GOCACHE=/tmp/gocache
+    working_dir: /app

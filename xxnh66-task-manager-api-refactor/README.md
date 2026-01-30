@@ -1,56 +1,32 @@
 # XXNH66 - Task Manager API Refactor
 
-**Category:** sft
+### Run tests (before – expected some failures)
+```bash
+# Run Go tests for the baseline implementation
+docker run --rm -w /app/repository_before hailu3548/jr2pzv-app:latest go test -v ./...
+```
 
-## Overview
-- Task ID: XXNH66
-- Title: Task Manager API Refactor
-- Category: sft
-- Repository: ep-eaglepoint-ai/bd_datasets_002
-- Branch: xxnh66-task-manager-api-refactor
+**Expected behavior:**
+- Functional tests: ❌ FAIL (expected - concurrency and data integrity issues)
+- Race detector: ❌ FAIL (expected - data races detected)
 
-## Requirements
-- All operations must be safe under concurrent load.
-- Must pass Go race detector (go test -race) with zero warnings.
-- No unbounded goroutines or channel deadlocks.
-- Each task must have a unique ID.
-- Title and description cannot be empty.
-- Status must be exactly "Pending", "In Progress", or "Completed".
-- Due dates must be realistic (≥ Jan 1, 2000 and ≤ 10 years from now).
-- Deleted tasks must be fully removed from memory, never reappear.
-- POST /tasks → returns full task object (ID, Title, Description, DueDate, Status).
-- PUT /tasks/:id → returns updated full task object.
-- GET endpoints must return consistent results, no phantom or duplicate tasks.
-- All lookups and updates must maintain consistent response times regardless of task volume.
-- Memory usage must remain stable under sustained operations.
-- No O(n²) complexity in critical paths; no unbounded slices/maps.
-- In-memory storage only; no external DB.
-- Cannot change HTTP paths, methods, or JSON field names.
+### Run tests (after – expected all pass)
+```bash
+# Run Go tests for the refactored implementation
+docker run --rm -w /app/repository_after hailu3548/jr2pzv-app:latest go test -v ./...
+```
 
-## Metadata
-- Programming Languages: Go
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+**Expected behavior:**
+- Functional tests: ✅ PASS (All 16 requirements met)
+- Race detector: ✅ PASS (Zero race warnings)
 
-## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
-- patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
+#### Run evaluation (compares both implementations)
+```bash
+# Runs the evaluation suite and outputs results to stdout for CI capture
+docker run --rm hailu3548/jr2pzv-app:latest python evaluation/evaluation.py
+```
 
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
-
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+This will:
+- Run tests for both before and after implementations
+- Run structure and equivalence tests
+- Output a full JSON report to the console logs for automated capture
