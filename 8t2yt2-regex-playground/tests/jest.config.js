@@ -1,7 +1,6 @@
 const path = require('path');
 const nextJest = require('next/jest');
 
-// Config lives in tests/ but Jest should use project root as rootDir
 const projectRoot = path.join(__dirname, '..');
 
 const createJestConfig = nextJest({
