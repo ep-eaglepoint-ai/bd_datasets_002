@@ -1,0 +1,103 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_before/__pycache__/main.cpython-312.pyc b/repository_after/__pycache__/main.cpython-312.pyc
+index 7447b8b..7cba44a 100644
+Binary files a/repository_before/__pycache__/main.cpython-312.pyc and b/repository_after/__pycache__/main.cpython-312.pyc differ
+diff --git a/repository_before/__pycache__/main.cpython-314.pyc b/repository_after/__pycache__/main.cpython-314.pyc
+index fd729fc..25a73ee 100644
+Binary files a/repository_before/__pycache__/main.cpython-314.pyc and b/repository_after/__pycache__/main.cpython-314.pyc differ
+diff --git a/repository_before/main.py b/repository_after/main.py
+index 153cc39..be3aae3 100644
+--- a/repository_before/main.py
++++ b/repository_after/main.py
+@@ -9,22 +9,35 @@ def fib(n: int) -> int:
+         return 0
+     if n == 1:
+         return 1
+-    return fib(n - 1) + fib(n - 2)
++    a, b = 0, 1
++    for _ in range(2, n + 1):
++        a, b = b, a + b
++    return b
+ 
+ 
+ def fib_sequence(count: int) -> List[int]:
+     """Generate first 'count' Fibonacci numbers."""
+-    result = []
+-    for i in range(count):
+-        result.append(fib(i))
++    if count == 0:
++        return []
++    if count == 1:
++        return [0]
++    result = [0, 1]
++    for i in range(2, count):
++        result.append(result[i - 1] + result[i - 2])
+     return result
+ 
+ 
+ def fib_sum(count: int) -> int:
+     """Sum of first 'count' Fibonacci numbers."""
+-    total = 0
+-    for i in range(count):
+-        total = total + fib(i)
++    if count == 0:
++        return 0
++    if count == 1:
++        return 0
++    total = 1
++    a, b = 0, 1
++    for _ in range(2, count):
++        a, b = b, a + b
++        total += b
+     return total
+ 
+ 
+@@ -32,14 +45,16 @@ def find_fib_index(target: int) -> Optional[int]:
+     """Find index of Fibonacci number equal to target, or None if not a Fib number."""
+     if target < 0:
+         return None
+-    i = 0
+-    while True:
+-        f = fib(i)
+-        if f == target:
+-            return i
+-        if f > target:
+-            return None
+-        i = i + 1
++    if target == 0:
++        return 0
++    if target == 1:
++        return 1
++    a, b = 0, 1
++    i = 1
++    while b < target:
++        a, b = b, a + b
++        i += 1
++    return i if b == target else None
+ 
+ 
+ def is_fibonacci(n: int) -> bool:
+@@ -49,12 +64,13 @@ def is_fibonacci(n: int) -> bool:
+ 
+ def fib_up_to(limit: int) -> List[int]:
+     """Return all Fibonacci numbers less than or equal to limit."""
+-    result = []
+-    i = 0
+-    while True:
+-        f = fib(i)
+-        if f > limit:
+-            break
+-        result.append(f)
+-        i = i + 1
++    if limit < 0:
++        return []
++    result = [0]
++    if limit == 0:
++        return result
++    a, b = 0, 1
++    while b <= limit:
++        result.append(b)
++        a, b = b, a + b
+     return result
