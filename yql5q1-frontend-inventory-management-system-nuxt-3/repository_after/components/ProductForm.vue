@@ -87,6 +87,8 @@
 </template>
 
 <script setup lang="ts">
+import { reactive, watch, computed } from 'vue'
+import { useProductsStore } from '~/stores/products'
 import type { Product, StockStatus } from '~/stores/products'
 
 const props = defineProps<{
@@ -96,7 +98,7 @@ const props = defineProps<{
   reservedSkus: string[]
 }>()
 
-defineEmits<{ (e: 'submit', payload: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): void; (e: 'cancel'): void }>()
+const emit = defineEmits<{ (e: 'submit', payload: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): void; (e: 'cancel'): void }>()
 
 const store = useProductsStore()
 

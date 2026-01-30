@@ -6,7 +6,7 @@ import ProductsPage from '~/pages/products/index.vue'
 import { useProductsStore, type Product } from '~/stores/products'
 
 const addToastSpy = vi.fn()
-const confirmSpy = vi.fn().mockResolvedValue(true)
+const confirmSpy = vi.fn(() => Promise.resolve(true))
 
 vi.mock('~/composables/useToasts', () => ({
   useToasts: () => ({

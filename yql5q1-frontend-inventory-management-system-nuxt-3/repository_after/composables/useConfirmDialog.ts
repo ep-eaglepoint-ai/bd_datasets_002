@@ -1,3 +1,5 @@
+import { ref } from 'vue'
+
 type ConfirmPayload = {
   title: string
   message: string
@@ -5,10 +7,17 @@ type ConfirmPayload = {
 
 let resolver: ((value: boolean) => void) | null = null
 
+// Create shared state for the composable
+const isOpenState = ref(false)
+const titleState = ref('Confirm action')
+const messageState = ref('Are you sure?')
+
 export const useConfirmDialog = () => {
-  const isOpen = useState<boolean>('confirm_open', () => false)
-  const title = useState<string>('confirm_title', () => 'Confirm action')
-  const message = useState<string>('confirm_message', () => 'Are you sure?')
+  // Use ref for compatibility with both Nuxt runtime and tests
+  // In Nuxt, this could be replaced with useState for SSR safety
+  const isOpen = isOpenState
+  const title = titleState
+  const message = messageState
 
   const confirm = (payload: ConfirmPayload) => {
     title.value = payload.title

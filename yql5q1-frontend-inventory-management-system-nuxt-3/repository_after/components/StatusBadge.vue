@@ -8,12 +8,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { StockStatus } from '~/stores/products'
 
-defineProps<{ status: StockStatus }>()
+const props = defineProps<{ status: StockStatus }>()
 
 const badgeClass = computed(() => {
-  switch (status) {
+  switch (props.status) {
     case 'In Stock':
       return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
     case 'Low Stock':
