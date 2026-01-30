@@ -1,6 +1,23 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    working_dir: /app/repository_after
+    command: npm run dev -- --host
     volumes:
       - .:/app
+    ports:
+      - "5173:5173"
+
+  tests:
+    build: .
+    working_dir: /app/repository_after
+    volumes:
+      - .:/app
+    command: npx vitest run
+
+  evaluation:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: node evaluation/evaluation.js

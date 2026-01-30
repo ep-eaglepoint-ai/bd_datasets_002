@@ -1,5 +1,7 @@
-FROM python:3.11-slim
+FROM node:20-alpine
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+COPY . .
+WORKDIR /app/repository_after
+RUN npm install
+EXPOSE 5173
+CMD ["echo", "build successful"]
