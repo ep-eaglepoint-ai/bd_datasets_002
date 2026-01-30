@@ -295,9 +295,9 @@ function runJestTestsAdapated(testProject, testName, expectSuccess = true) {
   }
 }
 
-const afterResults = runJestTestsAdapated(
-  "repository_after",
-  "Chat Application Tests",
+const metaResults = runJestTests(
+  "tests",
+  "Meta Tests",
   true,
 );
 
@@ -314,48 +314,48 @@ function mapTestsToPythonic(tests, repoName) {
 }
 
 const allTests = [
-  ...mapTestsToPythonic(afterResults.tests, "repository_after"),
+  ...mapTestsToPythonic(metaResults.tests, "tests"),
 ];
 
 const unit_tests = {
-  success: afterResults.success,
-  exit_code: afterResults.success ? 0 : 1,
+  success: metaResults.success,
+  exit_code: metaResults.success ? 0 : 1,
   tests: allTests,
   summary: {
-    total: afterResults.summary.total,
-    passed: afterResults.summary.passed,
-    failed: afterResults.summary.failed,
-    errors: afterResults.summary.errors,
-    skipped: afterResults.summary.skipped,
+    total: metaResults.summary.total,
+    passed: metaResults.summary.passed,
+    failed: metaResults.summary.failed,
+    errors: metaResults.summary.errors,
+    skipped: metaResults.summary.skipped,
   },
-  repository_after: {
+  meta_tests: {
     expected: "PASS",
-    actual: afterResults.summary.failed === 0 ? "PASS" : "FAIL",
-    met_expectation: afterResults.success,
-    summary: afterResults.summary,
+    actual: metaResults.summary.failed === 0 ? "PASS" : "FAIL",
+    met_expectation: metaResults.success,
+    summary: metaResults.summary,
   },
   stdout: "",
   stderr: "",
 };
 
 const algorithm_validation = {
-  success: afterResults.success,
-  description: "Chat Application Requirement Verification",
+  success: metaResults.success,
+  description: "Meta Test Validation",
   criteria: {
-    message_sending: "Messages are sent and inputs cleared",
-    async_behavior: "Typing indicators and delayed responses",
-    response_patterns: "Keywords trigger correct responses",
-    auto_scroll: "View scrolls on new messages",
-    ui_ux: "UI elements update (disabled states, avatars)",
-    integration: "Complete conversation flows work",
+    test_structure: "Tests organized with describe blocks",
+    browser_mocks: "Browser APIs mocked in setupTests.js",
+    fake_timers: "Async tests use jest.useFakeTimers()",
+    react_testing: "Uses act() and waitFor() for state updates",
+    parameterized: "Keyword tests use test.each",
+    best_practices: "Proper cleanup and test isolation",
   },
   runs: [],
   statistics: {
-    requirements_met: afterResults.summary.failed === 0,
+    requirements_met: metaResults.summary.failed === 0,
   },
 };
 
-const overallSuccess = afterResults.success;
+const overallSuccess = metaResults.success;
 const summary = {
   unit_tests_passed: unit_tests.success,
   validation_passed: algorithm_validation.success,
@@ -363,7 +363,7 @@ const summary = {
   total_tests: unit_tests.summary.total,
   tests_passed: unit_tests.summary.passed,
   tests_failed: unit_tests.summary.failed,
-  repository_after_met_expectation: afterResults.success,
+  meta_tests_met_expectation: metaResults.success,
 };
 
 const report = {
@@ -399,11 +399,11 @@ console.log("\n" + "=".repeat(60));
 console.log("EVALUATION RESULTS");
 console.log("=".repeat(60));
 
-console.log(`\nChat Application (expected to PASS):`);
+console.log(`\nMeta Tests (expected to PASS):`);
 console.log(
-  `  Tests: ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`,
+  `  Tests: ${metaResults.summary.passed} passed, ${metaResults.summary.failed} failed`,
 );
-console.log(`  Met expectation: ${afterResults.success ? "✅ YES" : "❌ NO"}`);
+console.log(`  Met expectation: ${metaResults.success ? "✅ YES" : "❌ NO"}`);
 
 console.log("\n" + "=".repeat(60));
 console.log("EVALUATION COMPLETE");
