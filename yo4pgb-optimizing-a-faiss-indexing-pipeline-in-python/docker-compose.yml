@@ -1,6 +1,27 @@
+x-common: &common
+  build: .
+  volumes:
+    - ./tests:/app/tests
+    - ./evaluation/reports:/app/evaluation/reports
+
 services:
-  app:
-    build: .
-    command: pytest -q tests
-    volumes:
-      - .:/app
+  # Command: docker-compose run test-after
+  test-after:
+    <<: *common
+    environment:
+      - PYTHONPATH=/app/repository_after:/app
+    command: /bin/sh -c "pytest /app/tests/comprehensive -v; exit 0"
+
+  # Command: docker-compose run test-before
+  test-before:
+    <<: *common
+    environment:
+      - PYTHONPATH=/app/repository_before:/app
+    command: /bin/sh -c "pytest /app/tests/comprehensive -v; exit 0"
+
+  # Command: docker-compose run evaluation
+  evaluation:
+    <<: *common
+    environment:
+      - PYTHONPATH=/app
+    command: python evaluation/evaluation.py

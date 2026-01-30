@@ -1,11 +1,11 @@
 {
-            "instance_id": "YO4PGB",
-            "problem_statement": "You are given a Python script that builds a FAISS vector index from a JSONL file containing text data. The script is functionally correct but intentionally inefficient, containing redundant computations, unnecessary memory allocations, excessive I/O operations, and suboptimal use of libraries. Your task is to optimize the code to improve runtime performance, memory efficiency, and code clarity while preserving its external behavior, input/output formats, and correctness.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/yo4pgb-optimizing-a-faiss-indexing-pipeline-in-python",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "task_id": "yo4pgb-optimizing-a-faiss-indexing-pipeline-in-python",
+    "name": "Optimizing a FAISS Indexing Pipeline in Python",
+    "category": "Performance Optimization",
+    "difficulty": "Medium",
+    "tests": [
+        "tests/comprehensive/test_unit.py",
+        "tests/comprehensive/test_integration.py",
+        "tests/comprehensive/test_performance.py"
+    ]
+}
