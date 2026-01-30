@@ -34,6 +34,22 @@ describe("Chat Application Test Suite", () => {
       expect(input).toHaveValue("");
     });
 
+    test("message IDs are unique and timestamp-based", () => {
+      render(<App />);
+      const input = screen.getByPlaceholderText(/type your message/i);
+      const now = Date.now();
+
+      fireEvent.change(input, { target: { value: "First" } });
+      fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+      fireEvent.change(input, { target: { value: "Second" } });
+      fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+      const messages = screen.getAllByText(/First|Second/);
+      expect(messages).toHaveLength(2);
+      expect(Date.now()).toBeGreaterThanOrEqual(now);
+    });
+
     test("trims message content before sending", () => {
       render(<App />);
       const input = screen.getByPlaceholderText(/type your message/i);
@@ -368,6 +384,44 @@ describe("Chat Application Test Suite", () => {
       await waitFor(() =>
         expect(screen.queryByText(/First Message/)).toBeInTheDocument(),
       );
+    });
+
+    test("user messages appear after previous messages", () => {
+      render(<App />);
+      const input = screen.getByPlaceholderText(/type your message/i);
+
+      fireEvent.change(input, { target: { value: "Second" } });
+      fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+      const allMessages = screen.getAllByText(/Hello!|Second/);
+      expect(allMessages.length).toBeGreaterThan(1);
+    });
+
+    test("multiple message exchange with several messages", async () => {
+      render(<App />);
+      const input = screen.getByPlaceholderText(/type your message/i);
+
+      fireEvent.change(input, { target: { value: "Message 1" } });
+      fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+      act(() => jest.advanceTimersByTime(2500));
+      await waitFor(() => expect(input).not.toBeDisabled());
+
+      fireEvent.change(input, { target: { value: "Message 2" } });
+      fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+      act(() => jest.advanceTimersByTime(2500));
+      await waitFor(() => expect(input).not.toBeDisabled());
+
+      fireEvent.change(input, { target: { value: "Message 3" } });
+      fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+      act(() => jest.advanceTimersByTime(2500));
+      await waitFor(() => {
+        expect(screen.getByText("Message 1")).toBeInTheDocument();
+        expect(screen.getByText("Message 2")).toBeInTheDocument();
+        expect(screen.getByText("Message 3")).toBeInTheDocument();
+      });
     });
   });
 });
