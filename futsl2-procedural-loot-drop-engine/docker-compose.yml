@@ -3,5 +3,11 @@ services:
     build: .
     command: ["mvn", "-f", "repository_after/pom.xml", "test"]
 
+  evaluate:
+    build: .
+    command: ["sh", "-c", "javac evaluation/Evaluation.java && java evaluation.Evaluation"]
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+
 volumes:
   maven-cache:

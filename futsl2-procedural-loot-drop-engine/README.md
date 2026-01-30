@@ -1,10 +1,13 @@
 # FUTSL2 - Procedural Loot Drop Engine
 
-# Docker Commands
+## Docker Commands
 
-# Run test on Repository After
+### Run tests on Repository After
 ```bash
- docker compose run app   
+docker compose build --no-cache && docker compose run app
 ```
 
-# Run Evaluation
+### Run Evaluation
+```bash
+docker compose build --no-cache && docker compose run evaluate
+```
