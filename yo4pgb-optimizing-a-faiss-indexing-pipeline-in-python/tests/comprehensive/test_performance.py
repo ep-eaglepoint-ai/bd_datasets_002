@@ -3,7 +3,6 @@ import time
 import os
 import json
 import tempfile
-import numpy as np
 from build_index import main
 from unittest.mock import patch
 

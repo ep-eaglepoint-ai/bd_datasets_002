@@ -1,8 +1,5 @@
 import pytest
-import os
-import json
 import numpy as np
-import faiss
 from build_index import (
     _stringify,
     _parse_json_multiple_times,

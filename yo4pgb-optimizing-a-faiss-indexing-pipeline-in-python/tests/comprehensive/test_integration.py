@@ -2,10 +2,8 @@ import pytest
 import os
 import json
 import tempfile
-import numpy as np
 import faiss
 from build_index import main
-import argparse
 from unittest.mock import patch
 
 def test_full_pipeline_success():

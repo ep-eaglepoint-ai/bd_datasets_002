@@ -6,7 +6,7 @@ import uuid
 import platform
 import subprocess
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent.parent
 REPORTS = ROOT / "evaluation" / "reports"
@@ -43,7 +43,7 @@ def run_tests(repo_name: str) -> dict:
         return {
             "passed": False,
             "return_code": -1,
-            "output": "pytest timeout (>180s)"
+            "output": "pytest timeout (>360s)"
         }
 
 def run_metrics(repo_path: Path) -> dict:
@@ -59,7 +59,7 @@ def run_evaluation() -> dict:
     Returns: Standard report structure
     """
     run_id = str(uuid.uuid4())
-    start = datetime.utcnow()
+    start = datetime.now(timezone.utc)
     
     before = {
         "tests": run_tests("repository_before"),

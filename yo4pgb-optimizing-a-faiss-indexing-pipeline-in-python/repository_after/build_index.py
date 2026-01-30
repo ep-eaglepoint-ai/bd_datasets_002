@@ -92,7 +92,7 @@ class Embedder:
         if not texts:
             return []
         # Batch encode is significantly faster
-        return self.model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+        return self.model.encode(texts, normalize_embeddings=True, show_progress_bar=False).tolist()
 
 
 def _parse_json_multiple_times(line: str) -> Dict[str, Any]:
