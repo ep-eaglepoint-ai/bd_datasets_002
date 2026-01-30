@@ -31,7 +31,7 @@ for p in potential_paths:
 try:
     from aml.config import MonitoringConfig
     from aml.engine import TransactionMonitor
-    from aml.models import CustomerProfile, Transaction, TxnType, Alert
+    from aml.models import CustomerProfile, Transaction, TxnType
     from aml.rules import (
         StructuringSmurfingRule,
         RapidInOutTurnoverRule,
@@ -57,6 +57,10 @@ class TestAMLSystem(unittest.TestCase):
         ]
         self.monitor = TransactionMonitor(self.config, self.rules)
         self.base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    def tearDown(self):
+        """Ensure test isolation by cleaning up monitor state after each test."""
+        self.monitor = None
 
     def make_customer(self, id="C001", risk=0.5, segment="retail", country="US"):
         return CustomerProfile(
@@ -111,7 +115,7 @@ class TestAMLSystem(unittest.TestCase):
         # Should trigger eventually (min_count=5)
         
         # Verify Alert Content (Req 5)
-        structuring_alerts = [a for a in alerts if isinstance(a.rule_id, str) and "structuring" in a.rule_id.lower() or "smurf" in a.rule_id.lower()]
+        structuring_alerts = [a for a in alerts if isinstance(a.rule_id, str) and ("structuring" in a.rule_id.lower() or "smurf" in a.rule_id.lower())]
         self.assertTrue(len(structuring_alerts) > 0, "Structuring rule failed to trigger")
         
         a = structuring_alerts[0]
@@ -153,7 +157,8 @@ class TestAMLSystem(unittest.TestCase):
         # Positive
         c = self.make_customer()
         # Min amount is 5000
-        t = self.make_txn("T_HighRisk", 0, 6000.0, country="IR") # Iran usually high risk
+        # Note: Test assumes 'IR' is in the system's configured high-risk country list
+        t = self.make_txn("T_HighRisk", 0, 6000.0, country="IR")
         alerts = self.monitor.process(t, c)
         self.assertTrue(any("geo" in a.rule_id.lower() for a in alerts))
 

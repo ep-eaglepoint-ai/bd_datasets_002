@@ -4,18 +4,18 @@ import subprocess
 import os
 import sys
 import ast
+from pathlib import Path
 
 class TestMetaEval(unittest.TestCase):
+    # Use relative path for portability across environments
+    TEST_FILE_PATH = Path(__file__).resolve().parent.parent / "test_aml_monitoring.py"
     def test_student_solution_exists(self):
         """Verify that the student created the test file."""
-        # Check absolute path in container
-        # The docker-compose mounts ./tests to /app/tests
-        self.assertTrue(os.path.exists("/app/tests/test_aml_monitoring.py"), "Solution file not found in /app/tests/ directory")
+        self.assertTrue(self.TEST_FILE_PATH.exists(), f"Solution file not found at {self.TEST_FILE_PATH}")
 
     def test_solution_executes_successfully(self):
         """Verify the student's test suite passes via unittest."""
-        # Executing absolute path
-        cmd = [sys.executable, "/app/tests/test_aml_monitoring.py"]
+        cmd = [sys.executable, str(self.TEST_FILE_PATH)]
         
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         print("Stdout:", proc.stdout)
@@ -24,10 +24,10 @@ class TestMetaEval(unittest.TestCase):
 
     def test_no_random_usage(self):
         """Verify strictly no random module usage without seeding (or better, no random at all)."""
-        if not os.path.exists("/app/tests/test_aml_monitoring.py"):
-            return 
+        if not self.TEST_FILE_PATH.exists():
+            return
 
-        with open("/app/tests/test_aml_monitoring.py", "r", encoding="utf-8") as f:
+        with open(self.TEST_FILE_PATH, "r", encoding="utf-8") as f:
             tree = ast.parse(f.read())
         
         for node in ast.walk(tree):
@@ -41,10 +41,10 @@ class TestMetaEval(unittest.TestCase):
 
     def test_required_rules_covered(self):
         """Check if test methods cover the required rules (naive string check)."""
-        if not os.path.exists("/app/tests/test_aml_monitoring.py"):
+        if not self.TEST_FILE_PATH.exists():
             return
 
-        with open("/app/tests/test_aml_monitoring.py", "r", encoding="utf-8") as f:
+        with open(self.TEST_FILE_PATH, "r", encoding="utf-8") as f:
             content = f.read().lower()
         
         required_terms = [
