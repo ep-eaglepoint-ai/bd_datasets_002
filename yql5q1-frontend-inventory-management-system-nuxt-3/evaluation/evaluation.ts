@@ -2,8 +2,6 @@ import { execSync, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { v4 as uuidv4 } from "uuid";
-import { Command } from "commander";
 
 interface TestResult {
   nodeid: string;
@@ -33,6 +31,7 @@ interface TestRunResult {
 interface ComparisonResult {
   before_tests_passed: boolean;
   after_tests_passed: boolean;
+  after_all_tests_passed: boolean;
   before_total: number;
   before_passed: number;
   before_failed: number;
@@ -70,7 +69,7 @@ interface Report {
 }
 
 function generateRunId(): string {
-  return uuidv4().replace(/-/g, "").substring(0, 8);
+  return Math.random().toString(36).substring(2, 10);
 }
 
 function getGitInfo(): { git_commit: string; git_branch: string } {
@@ -161,12 +160,13 @@ function parseVitestJson(jsonPath: string): { summary: TestSummary; tests: TestR
   };
 }
 
-function runVitestTests(label: string): TestRunResult {
+function runVitestTests(repositoryPath: string, label: string): TestRunResult {
   console.log(`\n${"=".repeat(60)}`);
   console.log(`RUNNING TESTS: ${label.toUpperCase()}`);
   console.log("=".repeat(60));
 
   const projectRoot = path.resolve(__dirname, "..");
+  const repositoryFullPath = path.join(projectRoot, repositoryPath);
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "vitest-json-"));
   const outputFile = path.join(outputDir, "results.json");
 
@@ -182,7 +182,7 @@ function runVitestTests(label: string): TestRunResult {
 
   try {
     const result = spawnSync(cmd[0], cmd.slice(1), {
-      cwd: projectRoot,
+      cwd: repositoryFullPath,
       env,
       encoding: "utf-8",
       timeout: 120000,
@@ -269,11 +269,12 @@ function runEvaluation(): EvaluationResults {
     stderr: "",
   };
 
-  const afterResults = runVitestTests("after (repository_after)");
+  const afterResults = runVitestTests("repository_after", "after (repository_after)");
 
   const comparison: ComparisonResult = {
     before_tests_passed: beforeResults.success,
     after_tests_passed: afterResults.success,
+    after_all_tests_passed: afterResults.summary.total > 0 && afterResults.summary.failed === 0,
     before_total: beforeResults.summary.total,
     before_passed: beforeResults.summary.passed,
     before_failed: beforeResults.summary.failed,
@@ -325,14 +326,15 @@ function generateOutputPath(): string {
 }
 
 function main(): number {
-  const program = new Command();
-
-  program
-    .description("Run inventory management evaluation")
-    .option("--output <path>", "Output JSON file path (default: evaluation/YYYY-MM-DD/HH-MM-SS/report.json)");
-
-  program.parse(process.argv);
-  const options = program.opts();
+  // Parse command line arguments manually (simpler than commander)
+  const args = process.argv.slice(2);
+  let outputPath: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--output" && i + 1 < args.length) {
+      outputPath = args[i + 1];
+      break;
+    }
+  }
 
   const runId = generateRunId();
   const startedAt = new Date();
@@ -368,24 +370,23 @@ function main(): number {
     run_id: runId,
     started_at: startedAt.toISOString(),
     finished_at: finishedAt.toISOString(),
-    duration_seconds: Math.round(duration * 1000000) / 1000000,
+    duration_seconds: parseFloat(duration.toFixed(6)),
     success,
     error: errorMessage,
     environment,
     results,
   };
 
-  const outputPath = options.output ? options.output : generateOutputPath();
-  const outputDir = path.dirname(outputPath);
+  const finalOutputPath = outputPath ? outputPath : generateOutputPath();
+  const outputDir = path.dirname(finalOutputPath);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
-  console.log(`\n✅ Report saved to: ${outputPath}`);
+  fs.writeFileSync(finalOutputPath, JSON.stringify(report, null, 2));
+  console.log(`\n✅ Report saved to: ${finalOutputPath}`);
 
   console.log(`\n${"=".repeat(60)}`);
   console.log("EVALUATION COMPLETE");
   console.log("=".repeat(60));
-  console.log(`Run ID: ${runId}`);
   console.log(`Duration: ${duration.toFixed(2)}s`);
   console.log(`Success: ${success ? "✅ YES" : "❌ NO"}`);
 
