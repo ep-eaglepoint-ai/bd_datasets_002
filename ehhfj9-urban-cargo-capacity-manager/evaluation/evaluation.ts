@@ -224,26 +224,23 @@ async function runTests(
   };
 }
 
-function timestampPathFragment(date: Date) {
-  const yyyy = String(date.getFullYear());
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mi = String(date.getMinutes()).padStart(2, "0");
-  const ss = String(date.getSeconds()).padStart(2, "0");
-
-  return { datePart: `${yyyy}-${mm}-${dd}`, timePart: `${hh}-${mi}-${ss}` };
-}
-
 async function main() {
   const args = parseArgs(process.argv);
   const rootDir = path.resolve(args.root);
   const run_id = generateRunID();
   const startedAt = new Date();
 
-  console.log(`Evaluation Start | Run ID: ${run_id}`);
+  const defaultOutputPath = path.join(
+    rootDir,
+    "evaluation",
+    "reports",
+    "report.json"
+  );
+  const outputPath = args.output
+    ? path.resolve(args.output)
+    : defaultOutputPath;
 
+  let exitCode = 0;
   const environment = {
     node_version: process.version,
     platform: process.platform,
@@ -251,78 +248,85 @@ async function main() {
     hostname: os.hostname(),
   };
 
-  // Always generate Prisma client once before running vitest.
-  await execCapture("npm", ["run", "prisma:generate"], rootDir, args.verbose);
-
-  const beforeExists = repoHasCore(rootDir, "repository_before");
-
-  const before = beforeExists
-    ? await runTests(rootDir, "BEFORE (Provided)", args.verbose, {
-        targetRepo: "repository_before",
-      })
-    : {
-        skipped: true,
-        reason: "repository_before has no implementation to evaluate",
-        success: false,
-        exit_code: 0,
-        tests: [],
-        metrics: { total: 0, passed: 0, failed: 0, skipped: 0 },
-        stdout_snippet: "",
-      };
-
-  const after = await runTests(
-    rootDir,
-    "AFTER (repository_after)",
-    args.verbose,
-    {
-      targetRepo: "repository_after",
-    }
-  );
-
-  const finishedAt = new Date();
-  const duration_seconds = (finishedAt.getTime() - startedAt.getTime()) / 1000;
-
-  const report = {
+  const report: any = {
     run_id,
     started_at: startedAt.toISOString(),
-    finished_at: finishedAt.toISOString(),
-    duration_seconds,
+    finished_at: null,
+    duration_seconds: null,
     environment,
-    before,
-    after,
-    comparison: {
+    before: null,
+    after: null,
+    comparison: null,
+    success: false,
+    error: null,
+  };
+
+  console.log(`Evaluation Start | Run ID: ${run_id}`);
+
+  try {
+    // Always generate Prisma client once before running vitest.
+    await execCapture(
+      "npm",
+      ["run", "prisma:generate"],
+      rootDir,
+      args.verbose
+    );
+
+    const beforeExists = repoHasCore(rootDir, "repository_before");
+
+    const before = beforeExists
+      ? await runTests(rootDir, "BEFORE (Provided)", args.verbose, {
+          targetRepo: "repository_before",
+        })
+      : {
+          skipped: true,
+          reason: "repository_before has no implementation to evaluate",
+          success: false,
+          exit_code: 0,
+          tests: [],
+          metrics: { total: 0, passed: 0, failed: 0, skipped: 0 },
+          stdout_snippet: "",
+        };
+
+    const after = await runTests(
+      rootDir,
+      "AFTER (repository_after)",
+      args.verbose,
+      {
+        targetRepo: "repository_after",
+      }
+    );
+
+    report.before = before;
+    report.after = after;
+    report.comparison = {
       after_passed: after.metrics.passed,
       before_available: beforeExists,
       improvement_detected: beforeExists
         ? after.metrics.passed > (before as any).metrics.passed
         : null,
-    },
-    success: after.exit_code === 0,
-  };
+    };
+    report.success = after.exit_code === 0;
+    exitCode = after.exit_code;
+  } catch (err) {
+    exitCode = 1;
+    report.success = false;
+    report.error = {
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+    };
+  } finally {
+    const finishedAt = new Date();
+    report.finished_at = finishedAt.toISOString();
+    report.duration_seconds =
+      (finishedAt.getTime() - startedAt.getTime()) / 1000;
 
-  const { datePart, timePart } = timestampPathFragment(startedAt);
-  const defaultOutputPath = path.join(
-    rootDir,
-    "evaluation",
-    "reports",
-    datePart,
-    timePart,
-    "report.json"
-  );
-  const outputPath = args.output
-    ? path.resolve(args.output)
-    : defaultOutputPath;
-
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
-
-  console.log(`Report saved to ${outputPath}`);
-  if (after.exit_code !== 0) {
-    process.exit(after.exit_code);
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
+    console.log(`Report saved to ${outputPath}`);
   }
+
+  process.exit(exitCode);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+void main();

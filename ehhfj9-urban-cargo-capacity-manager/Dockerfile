@@ -10,8 +10,7 @@ RUN apt-get update -y \
 COPY package.json package-lock.json* /app/
 COPY repository_after/package.json /app/repository_after/package.json
 
-RUN npm install
+RUN npm ci
 
 COPY . /app
-
 CMD ["npm", "test"]
