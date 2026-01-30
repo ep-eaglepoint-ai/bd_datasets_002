@@ -1,8 +1,8 @@
 {
-  "run_id": "x5hwiz9l",
-  "started_at": "2026-01-30T11:26:06.939Z",
-  "finished_at": "2026-01-30T11:26:17.732Z",
-  "duration_seconds": 10.793,
+  "run_id": "u4ysi2dv",
+  "started_at": "2026-01-30T12:11:58.303Z",
+  "finished_at": "2026-01-30T12:12:06.961Z",
+  "duration_seconds": 8.658,
   "success": true,
   "error": null,
   "environment": {
@@ -11,7 +11,7 @@
     "os": "Linux",
     "os_release": "6.6.87.2-microsoft-standard-WSL2",
     "architecture": "x64",
-    "hostname": "710d5f24dfdc",
+    "hostname": "7611acb94626",
     "git_commit": "unknown",
     "git_branch": "unknown"
   },
@@ -66,26 +66,6 @@
           "outcome": "passed"
         },
         {
-          "nodeid": "useConfirmDialog > resolves with user confirmation",
-          "name": "resolves with user confirmation",
-          "outcome": "passed"
-        },
-        {
-          "nodeid": "useConfirmDialog > resolves with false on cancel",
-          "name": "resolves with false on cancel",
-          "outcome": "passed"
-        },
-        {
-          "nodeid": "useToasts > adds toast messages and removes them after timeout",
-          "name": "adds toast messages and removes them after timeout",
-          "outcome": "passed"
-        },
-        {
-          "nodeid": "useToasts > manually removes a toast",
-          "name": "manually removes a toast",
-          "outcome": "passed"
-        },
-        {
           "nodeid": "DashboardPage > renders properly",
           "name": "renders properly",
           "outcome": "passed"
@@ -113,6 +93,26 @@
         {
           "nodeid": "Products page logic > handles JSON import success and failure paths",
           "name": "handles JSON import success and failure paths",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useConfirmDialog > resolves with user confirmation",
+          "name": "resolves with user confirmation",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useConfirmDialog > resolves with false on cancel",
+          "name": "resolves with false on cancel",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useToasts > adds toast messages and removes them after timeout",
+          "name": "adds toast messages and removes them after timeout",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useToasts > manually removes a toast",
+          "name": "manually removes a toast",
           "outcome": "passed"
         },
         {
@@ -148,7 +148,7 @@
         "errors": 0,
         "skipped": 0
       },
-      "stdout": "JSON report written to /tmp/vitest-json-TlO65b/results.json\n",
+      "stdout": "JSON report written to /tmp/vitest-json-ESId29/results.json\n",
       "stderr": ""
     },
     "comparison": {
