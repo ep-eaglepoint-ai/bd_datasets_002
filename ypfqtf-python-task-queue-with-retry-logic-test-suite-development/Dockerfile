@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
-ENV PYTHONPATH=/app/repository_after
+ENV PYTHONPATH=/app/repository_after/tests

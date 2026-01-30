@@ -4,4 +4,4 @@ services:
     volumes:
       - .:/app
     environment:
-      PYTHONPATH: /app/repository_after
+      PYTHONPATH: /app/repository_after/tests

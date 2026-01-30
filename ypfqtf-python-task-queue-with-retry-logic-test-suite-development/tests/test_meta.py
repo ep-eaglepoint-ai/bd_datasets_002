@@ -12,13 +12,35 @@ class TestMetaDiscovery:
     """Meta-tests for test discovery."""
 
     def test_primary_test_file_exists(self):
-        """Assert that the primary test file exists."""
-        test_file = os.path.join(
+        """Assert that the primary test files exist."""
+        base_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
-            "repository_after",
-            "test_task_queue.py"
+            "repository_after/tests"
         )
-        assert os.path.exists(test_file), f"Primary test file not found: {test_file}"
+        
+        # List of expected test files
+        expected_files = [
+            "test_successful_execution.py",
+            "test_retry_backoff.py",
+            "test_dead_letter_queue.py",
+            "test_timeout_handling.py",
+            "test_priority_ordering.py",
+            "test_cancellation.py",
+            "test_idempotent_enqueue.py",
+            "test_backoff_overflow.py",
+            "test_concurrent_processing.py",
+            "test_worker_recovery.py",
+            "test_graceful_shutdown.py",
+            "test_process_one.py"
+        ]
+        
+        missing_files = []
+        for filename in expected_files:
+            test_file = os.path.join(base_path, filename)
+            if not os.path.exists(test_file):
+                missing_files.append(test_file)
+        
+        assert len(missing_files) == 0, f"Missing test files: {missing_files}"
 
     def test_models_file_exists(self):
         """Assert that models.py exists."""
