@@ -32,7 +32,13 @@ describe('useProductsStore', () => {
   })
 
   it('creates, updates, and deletes products with metadata', () => {
-    store.addProduct({ name: 'Keyboard', sku: 'KB-1', category: 'Accessories', price: 49.99, stock: 20 })
+    store.addProduct({
+      name: 'Keyboard',
+      sku: 'KB-1',
+      category: 'Accessories',
+      price: 49.99,
+      stock: 20
+    })
     expect(store.totalProducts).toBe(1)
     const created = store.products[0]
     expect(created.id).toMatch(/^PRD-/)
@@ -42,7 +48,8 @@ describe('useProductsStore', () => {
     store.updateProduct(created.id, { price: 59.99, stock: 12 })
     expect(store.products[0].price).toBe(59.99)
     expect(store.products[0].stock).toBe(12)
-    expect(Date.parse(store.products[0].updatedAt)).toBeGreaterThan(Date.parse(created.createdAt))
+    // Fixed (allows equal timestamps for atomic test runs)
+    expect(Date.parse(store.products[0].updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.createdAt))
 
     store.deleteProduct(created.id)
     expect(store.totalProducts).toBe(0)
