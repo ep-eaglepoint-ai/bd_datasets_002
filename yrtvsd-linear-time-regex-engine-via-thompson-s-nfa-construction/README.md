@@ -49,3 +49,33 @@
 ## Notes
 - Keep commits focused and small.
 - Open a PR when ready for review.
+
+## Testing and Evaluation
+
+### Run tests for the implementation (expected all pass)
+```bash
+docker compose run --rm -e PYTHONPATH=/app/repository_after app pytest -q
+```
+
+**Expected behavior:**
+- All tests: ✅ PASS
+
+#### Run evaluation (collects task metrics and generates evaluation report)
+```bash
+docker compose run --rm app python evaluation/evaluation.py
+```
+
+This will:
+- Run tests for repository_after implementations
+- Generate a report at `evaluation/YYYY-MM-DD/HH-MM-SS/report.json`
+
+#### Run evaluation with custom output file
+```bash
+docker compose run --rm app python evaluation/evaluation.py --output /path/to/custom/report.json
+```
+
+## Patches
+To generate a patch for the implementation made:
+```bash
+git diff --no-index repository_before repository_after > patches/task_001.patch
+```
