@@ -20,10 +20,10 @@ class Pallet(Base):
     pallet_uuid = Column(String(36), nullable=False)
     
     # Stock Keeping Unit - queried thousands of times per minute
-    sku = Column(String(20), nullable=False, index=True)
+    sku = Column(String(20), nullable=False)
     
     # Geographic warehouse code (e.g., 'ZONE-NORTH-B')
-    zone_code = Column(String(50), nullable=False, index=True)
+    zone_code = Column(String(50), nullable=False)
     
     # Current shelf level (1-15)
     shelf_level = Column(Integer)

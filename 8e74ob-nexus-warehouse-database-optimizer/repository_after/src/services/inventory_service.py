@@ -84,7 +84,13 @@ class InventoryService:
         Returns:
             Dict with 'uses_index' boolean and 'explain_output' string
         """
-        explain_query = text("EXPLAIN QUERY PLAN SELECT * FROM pallets WHERE sku = :sku")
+        dialect = self.db.bind.dialect.name
+        if dialect == 'sqlite':
+            explain_query = text("EXPLAIN QUERY PLAN SELECT * FROM pallets WHERE sku = :sku")
+        elif dialect == 'postgresql':
+            explain_query = text("EXPLAIN SELECT * FROM pallets WHERE sku = :sku")
+        else:
+            return {'uses_index': False, 'explain_output': 'EXPLAIN not implemented for dialect: ' + dialect}
         result = self.db.execute(explain_query, {'sku': target_sku})
         rows = result.fetchall()
         explain_output = '\n'.join([str(row) for row in rows])

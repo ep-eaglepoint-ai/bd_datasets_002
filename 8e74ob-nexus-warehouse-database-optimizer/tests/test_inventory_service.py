@@ -248,23 +248,25 @@ class TestRequirement6Benchmarking:
     
     @pytest.fixture
     def large_db(self, db_session):
-        """Create larger dataset for benchmarking"""
         pallets = []
-        for i in range(5000):
-            pallet = Pallet(
-                pallet_uuid=str(uuid.uuid4()),
-                sku=f'SKU-{i:06d}',
-                zone_code=f'ZONE-{i % 10}',
-                shelf_level=(i % 15) + 1
+
+        for i in range(200_000):
+            pallets.append(
+                Pallet(
+                    pallet_uuid=str(uuid.uuid4()),
+                    sku=f"SKU-{random.randint(0, 10_000_000):08d}",
+                    zone_code=f"ZONE-{random.randint(0, 50)}",
+                    shelf_level=random.randint(1, 15),
+                )
             )
-            pallets.append(pallet)
-        db_session.add_all(pallets)
+
+        db_session.bulk_save_objects(pallets)
         db_session.commit()
         return pallets
     
     def test_sku_lookup_p99_performance(self, service, large_db):
         """Benchmark 5000 randomized SKU lookups for p99 latency"""
-        skus = [f'SKU-{random.randint(0, 4999):06d}' for _ in range(5000)]
+        skus = [f'SKU-{random.randint(0, 7999):06d}' for _ in range(5000)]
         latencies = []
         
         for sku in skus:
@@ -277,9 +279,9 @@ class TestRequirement6Benchmarking:
         p99_latency = latencies[p99_index]
         
         if is_after_implementation():
-            assert p99_latency < 10.0, f"p99 latency should be <10ms, got {p99_latency:.2f}ms"
+            assert p99_latency < 1, f"p99 latency should be <1ms, got {p99_latency:.2f}ms"
         else:
-            pass  # Before implementation may be slower
+            assert p99_latency < 1, f"p99 latency should be <1ms, got {p99_latency:.2f}ms"
 
 
 class TestRequirement7MemoryFootprint:
