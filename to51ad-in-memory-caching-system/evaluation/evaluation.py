@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parent.parent
 REPORTS = ROOT / "evaluation" / "reports"
 
 
+
+
 def environment_info():
     return {
         "python_version": platform.python_version(),
@@ -80,7 +82,7 @@ def run_tests_direct(repo_type: str):
     env['REPO_TYPE'] = repo_type
     try:
         proc = subprocess.run(
-            ["pytest", "tests/test_cache.py", "-v", "--tb=short"],
+            ["pytest", "tests/test_cache.py", "-v", "--tb=short", "--timeout=3"],
             cwd=ROOT,
             capture_output=True,
             text=True,
