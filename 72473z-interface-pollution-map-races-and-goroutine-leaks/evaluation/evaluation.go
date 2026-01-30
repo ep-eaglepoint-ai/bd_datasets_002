@@ -65,9 +65,9 @@ type Comparison struct {
 }
 
 type Results struct {
-	Before     RepositoryTestResult `json:"before,omitempty"`
-	After      RepositoryTestResult `json:"after,omitempty"`
-	Comparison *Comparison          `json:"comparison,omitempty"`
+	Before     *RepositoryTestResult `json:"before,omitempty"`
+	After      *RepositoryTestResult `json:"after,omitempty"`
+	Comparison *Comparison           `json:"comparison,omitempty"`
 }
 
 type EvaluationReport struct {
@@ -117,7 +117,7 @@ func getGitInfo() (commit string, branch string) {
 	return commit, branch
 }
 
-func runTests(repoPath string) RepositoryTestResult {
+func runTests(repoPath string) *RepositoryTestResult {
 	startTime := time.Now()
 	fmt.Printf("\n%s\n", strings.Repeat("=", 60))
 	fmt.Printf("RUNNING TESTS: %s\n", strings.ToUpper(repoPath))
@@ -186,7 +186,7 @@ func runTests(repoPath string) RepositoryTestResult {
 	fmt.Printf("\nResults: %d passed, %d failed, %d errors, %d skipped (total: %d)\n",
 		summary.Passed, summary.Failed, summary.Errors, summary.Skipped, summary.Total)
 
-	return RepositoryTestResult{
+	return &RepositoryTestResult{
 		Success:         summary.Failed == 0 && summary.Total > 0,
 		ExitCode:        exitCode,
 		Tests:           tests,
@@ -210,7 +210,7 @@ func main() {
 	fmt.Printf("Run ID: %s\n", runID)
 	fmt.Printf("Started at: %s\n", startAll.Format(time.RFC3339))
 
-	var resBefore, resAfter RepositoryTestResult
+	var resBefore, resAfter *RepositoryTestResult
 	var results Results
 
 	if *targetFlag == "before" || *targetFlag == "all" {
@@ -227,9 +227,17 @@ func main() {
 
 	success := true
 	if *targetFlag == "all" || *targetFlag == "after" {
-		success = resAfter.Success
+		if resAfter != nil {
+			success = resAfter.Success
+		} else {
+			success = false
+		}
 	} else if *targetFlag == "before" {
-		success = resBefore.Success
+		if resBefore != nil {
+			success = resBefore.Success
+		} else {
+			success = false
+		}
 	}
 
 	var errorMsg string
@@ -237,7 +245,7 @@ func main() {
 		errorMsg = "Target implementation tests failed"
 	}
 
-	if *targetFlag == "all" {
+	if *targetFlag == "all" && resBefore != nil && resAfter != nil {
 		results.Comparison = &Comparison{
 			BeforeTestsPassed: resBefore.Success,
 			AfterTestsPassed:  resAfter.Success,
@@ -273,6 +281,7 @@ func main() {
 	if *outputFlag != "" {
 		reportPath = *outputFlag
 	} else {
+		// Dated report
 		reportDir := filepath.Join("evaluation", startAll.Format("2006-01-02"), startAll.Format("15-04-05"))
 		os.MkdirAll(reportDir, 0755)
 		reportPath = filepath.Join(reportDir, "report.json")
@@ -281,12 +290,15 @@ func main() {
 	data, _ := json.MarshalIndent(report, "", "  ")
 	os.WriteFile(reportPath, data, 0644)
 
-	fmt.Printf("\n✅ Report saved to: %s\n", reportPath)
+	// CRITICAL FIX: Also write a copy to a fixed location for CI to always find the latest report easily.
+	os.WriteFile("report.json", data, 0644)
+
+	fmt.Printf("\n✅ Report saved to: %s (and also to root report.json)\n", reportPath)
 	fmt.Printf("\n%s\n", strings.Repeat("=", 60))
 	fmt.Println("EVALUATION SUMMARY")
 	fmt.Printf("%s\n", strings.Repeat("=", 60))
 
-	if *targetFlag == "before" || *targetFlag == "all" {
+	if resBefore != nil {
 		fmt.Printf("\nBefore Implementation (repository_before):\n")
 		fmt.Printf("  Overall: %s\n", func() string {
 			if resBefore.Success {
@@ -297,7 +309,7 @@ func main() {
 		fmt.Printf("  Tests: %d/%d passed\n", resBefore.Summary.Passed, resBefore.Summary.Total)
 	}
 
-	if *targetFlag == "after" || *targetFlag == "all" {
+	if resAfter != nil {
 		fmt.Printf("\nAfter Implementation (repository_after):\n")
 		fmt.Printf("  Overall: %s\n", func() string {
 			if resAfter.Success {
@@ -319,7 +331,6 @@ func main() {
 		fmt.Println("Success: ❌ NO")
 	}
 
-	// We always exit with 0 to ensure CI environments can collect reports
-	// even when tests fail (especially for repository_before).
+	// Always exit 0 for CI
 	os.Exit(0)
 }
