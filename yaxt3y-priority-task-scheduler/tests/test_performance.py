@@ -29,7 +29,8 @@ class TestPerformance(unittest.TestCase):
         dur = time.time() - start
         
         print(f"Optimized (N={N_LARGE}) took {dur:.4f}s")
-        self.assertLess(dur, 5.0, "Optimized scheduler too slow") # Should be sub-second likely
+        # Trajectory claims < 0.2s. We allow 0.5s for CI variance.
+        self.assertLess(dur, 0.5, f"Optimized scheduler too slow: {dur}s")
 
     def test_compare_baseline_timeout(self):
         """Probe: Baseline fails on medium dataset"""
@@ -38,11 +39,19 @@ class TestPerformance(unittest.TestCase):
         tasks_unopt = self.generate_large_dataset(N_MED, TaskBefore)
         scheduler_unopt = UnoptimizedScheduler(tasks_unopt, {})
         
-        # We expect a timeout on unoptimized code.
-        
+        # We expect a timeout on unoptimized code if N is large.
+        # Even with N=500, O(N^3) will be slow.
         start = time.time()
-        # scheduler_unopt.generate_schedule(datetime.now()) # Heavy op (O(n^3))
-        pass
+        # We don't want to hang the CI, so we use a smaller N if we want a fast fail,
+        # or we just rely on pytest-timeout or manual check.
+        # But for evaluation, we want it to fail correctly.
+        
+        # To avoid the 'lying' claim, let's actually run it but with a smaller N that shows the gap.
+        scheduler_unopt.generate_schedule(datetime.now()) 
+        dur = time.time() - start
+        print(f"Unoptimized (N={N_MED}) took {dur:.4f}s")
+        # Even for 500 tasks, unoptimized is likely > 0.5s.
+        self.assertGreater(dur, 0.1, "Baseline should have been slow")
 
 if __name__ == '__main__':
     unittest.main()
