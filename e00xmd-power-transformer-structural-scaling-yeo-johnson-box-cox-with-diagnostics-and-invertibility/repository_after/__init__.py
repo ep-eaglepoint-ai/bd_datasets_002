@@ -17,7 +17,10 @@ def fit_transform_power(array, method="yeo-johnson"):
         raise ValueError("Input array contains NaN or inf values.")
     
     # Shape validation
-    if array.ndim > 2 or (array.ndim == 2 and array.shape[1] != 1):
+    # Reject non-1D arrays except (n, 1) column vectors.
+    # ndim == 1 is OK. ndim == 2 with shape[1] == 1 is OK.
+    # ndim == 0 (scalar), ndim == 2 with shape[1] != 1, or ndim > 2 are NOT OK.
+    if not (array.ndim == 1 or (array.ndim == 2 and array.shape[1] == 1)):
         raise ValueError("Input must be a 1D array or an (n, 1) column vector.")
     
     # Consistent flattening to (n,)
@@ -71,12 +74,11 @@ def improved_normality(before, after):
     
     skew_improved = abs(metrics_after["skewness"]) < abs(metrics_before["skewness"])
     kurt_improved = abs(metrics_after["kurtosis"]) < abs(metrics_before["kurtosis"])
+    p_not_worsened = metrics_after["p_value"] >= metrics_before["p_value"]
     
-    # Optionallly: p-value does not worsen (p_after >= p_before)
-    # We'll stick to the "at minimum" requirements first, but can include p-value check.
-    # The requirement says: "at minimum: |skew| decreases and |kurtosis| decreases, and optionally p-value does not worsen"
-    
-    improved = skew_improved and kurt_improved
+    # Requirement: at minimum |skew| and |kurt| decrease.
+    # Optionally: p-value does not worsen.
+    improved = skew_improved and kurt_improved and p_not_worsened
     
     return improved, {
         "before": metrics_before,

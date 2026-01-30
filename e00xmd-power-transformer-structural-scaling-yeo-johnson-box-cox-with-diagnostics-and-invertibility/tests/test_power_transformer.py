@@ -20,6 +20,14 @@ def test_fit_transform_power_wrong_dimension():
     # 2D matrix (2, 2) should be rejected
     with pytest.raises(ValueError):
         fit_transform_power(np.array([[1, 2], [3, 4]]))
+    
+    # 0D scalar should be rejected
+    with pytest.raises(ValueError):
+        fit_transform_power(np.array(5))
+        
+    # 3D array should be rejected
+    with pytest.raises(ValueError):
+        fit_transform_power(np.ones((2, 2, 2)))
 
 def test_fit_transform_power_column_vector():
     # (n, 1) column vector should be accepted and flattened
