@@ -1,5 +1,19 @@
-FROM python:3.11-slim
+# Start from Node.js
+FROM node:18-alpine AS builder
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+COPY . .
+
+RUN npm install
+RUN npm run build
+
+FROM node:18-alpine AS runner
+
+WORKDIR /app
+
+COPY --from=builder /app ./
+
+EXPOSE 3000
+
+CMD [ "node", ".output/server/index.mjs" ]
