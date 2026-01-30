@@ -9,7 +9,7 @@ services:
     command: >
       sh -c "
         sed -i 's|./repository_after|./repository_before|' go.mod &&
-        go test -v ./...
+        go test -v ./... || true
       "
 
   test-after:
