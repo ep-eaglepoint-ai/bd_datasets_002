@@ -64,13 +64,18 @@ public class FootballSeasonStatsTest {
         Object result = getStatsMethod.invoke(controller, "TestTeam", 2024);
         Assertions.assertNotNull(result, "Response should not be null");
         
-        // Verify JSON fields exist via getters
-        assertMethodExists(result, "getTeam");
-        assertMethodExists(result, "getSeason");
-        assertMethodExists(result, "getToMatchesPlayed", "getMatchesPlayed"); // Handle both variants if needed
-        assertMethodExists(result, "getTotalGoalsScored");
-        assertMethodExists(result, "getTotalFoulsCommitted");
-        assertMethodExists(result, "getMatchStats");
+        // Controller returns Map<String, Object> to match original API
+        Assertions.assertTrue(result instanceof Map, "Response should be Map<String, Object>");
+        Map<?, ?> map = (Map<?, ?>) result;
+        
+        // Verify exact JSON keys
+        Assertions.assertTrue(map.containsKey("team"));
+        Assertions.assertTrue(map.containsKey("season"));
+        Assertions.assertTrue(map.containsKey("matchesPlayed"));
+        Assertions.assertTrue(map.containsKey("totalGoalsScored"));
+        Assertions.assertTrue(map.containsKey("totalFoulsCommitted"));
+        Assertions.assertTrue(map.containsKey("matchStats"));
+        Assertions.assertEquals(6, map.size(), "Response must have exactly 6 keys");
     }
     
     private void assertMethodExists(Object obj, String... possibleNames) {
