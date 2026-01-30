@@ -1,5 +1,6 @@
-FROM python:3.11-slim
+FROM golang:1.20-bookworm
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+COPY . .
+# No requirements.txt needed for Go usually unless using CGO or specific tools
+# But we'll keep the command as go run evaluation/evaluation.go
+CMD ["go", "run", "evaluation/evaluation.go"]
