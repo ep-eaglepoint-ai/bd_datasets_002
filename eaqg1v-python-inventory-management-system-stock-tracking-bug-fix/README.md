@@ -2,7 +2,7 @@
 
 ### Run tests (before – expected some failures)
 ```bash
-docker compose run --rm -e PYTHONPATH=/app/repository_before app pytest -q
+docker compose run --rm -e PYTHONPATH=/app/repository_before app pytest -q || true
 ```
 ### Run tests (after – expected all pass)
 ```bash
