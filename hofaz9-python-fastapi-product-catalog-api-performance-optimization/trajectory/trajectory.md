@@ -295,16 +295,6 @@ async def get_cached_count(db, category_id, is_active):
 9. **Implemented ETag Caching**: 304 Not Modified support
 10. **Request Timing Middleware**: Performance monitoring
 
-**Performance Results**:
-
-- ✅ P95 Response Time: <20ms (target: <200ms)
-- ✅ Query Count: 3-4 (target: <5)
-- ✅ All 18 tests passing
-- ✅ 95% faster, 99.5% fewer queries, 5x concurrency
-- ✅ Redis caching reduces count query overhead to near-zero
-
----
-
 ### 10. Lessons Learned
 
 **What Worked**:
