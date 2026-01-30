@@ -15,7 +15,7 @@ node_modules/
 *.test
 *.out
 bin/
-
+evaluation/*.mod
 # Logs and temporary files
 *.log
 *.tmp

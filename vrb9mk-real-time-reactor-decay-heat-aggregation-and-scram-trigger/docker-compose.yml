@@ -8,7 +8,7 @@ services:
 
   evaluation:
     build: .
-    command: sh -c "cd evaluation && go mod tidy && go run Evaluation.go"
+    command: sh -c "cd repository_after && go mod tidy && go run ../evaluation/Evaluation.go"
     volumes:
       - .:/app
     working_dir: /app

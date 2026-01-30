@@ -101,7 +101,7 @@ func checkLockFreeAggregation() Requirement {
 	}
 
 	// Check code for global mutex usage in aggregation
-	codePath := filepath.Join("..", "repository_after", "reactor", "reactor.go")
+	codePath := filepath.Join("reactor", "reactor.go")
 	_, err := os.ReadFile(codePath)
 	if err != nil {
 		req.Status = "FAILED"
@@ -123,7 +123,7 @@ func checkDecayCalculation() Requirement {
 		Details:     "Code review: Uses math.Exp with exponent checking to avoid underflow",
 	}
 
-	codePath := filepath.Join("..", "repository_after", "reactor", "reactor.go")
+	codePath := filepath.Join("reactor", "reactor.go")
 	content, err := os.ReadFile(codePath)
 	if err != nil {
 		req.Status = "FAILED"
@@ -151,7 +151,7 @@ func checkSCRAMBroadcast() Requirement {
 		Details:     "Code review: Uses context.CancelFunc for SCRAM broadcast",
 	}
 
-	codePath := filepath.Join("..", "repository_after", "reactor", "reactor.go")
+	codePath := filepath.Join("reactor", "reactor.go")
 	content, err := os.ReadFile(codePath)
 	if err != nil {
 		req.Status = "FAILED"
@@ -178,7 +178,7 @@ func checkSeparateGoroutinePools() Requirement {
 		Details:     "Code review: Has separate ingestionWorkers and processingWorkers",
 	}
 
-	codePath := filepath.Join("..", "repository_after", "reactor", "reactor.go")
+	codePath := filepath.Join("reactor", "reactor.go")
 	content, err := os.ReadFile(codePath)
 	if err != nil {
 		req.Status = "FAILED"
@@ -217,7 +217,7 @@ func checkBufferedChannels() Requirement {
 		Details:     "Code review: Uses buffered channels with drop oldest strategy",
 	}
 
-	codePath := filepath.Join("..", "repository_after", "reactor", "reactor.go")
+	codePath := filepath.Join("reactor", "reactor.go")
 	content, err := os.ReadFile(codePath)
 	if err != nil {
 		req.Status = "FAILED"
@@ -277,7 +277,7 @@ func generateReport(report EvaluationReport) {
 	// Create reports directory.
 	// Note: some filesystems may not support characters like ':' in directory names,
 	// so we sanitize the timestamp before using it as a directory name.
-	reportsDir := filepath.Join("reports")
+	reportsDir := filepath.Join("..", "evaluation", "reports")
 
 	// Sanitize timestamp for filesystem usage
 	safeTimestamp := report.Timestamp
