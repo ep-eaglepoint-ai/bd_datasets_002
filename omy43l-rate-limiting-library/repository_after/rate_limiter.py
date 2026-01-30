@@ -26,6 +26,21 @@ class RateLimitExceeded(Exception):
         super().__init__(f"Rate limit exceeded for client {client_id} on {limiter_name}. Retry after {limit_result.retry_after}s")
 
 class RateLimiter(ABC):
+    """
+    Base class for all rate limiting algorithms.
+    
+    Locking Strategy:
+    This implementation uses lock sharding to minimize lock contention in multi-threaded environments. 
+    Instead of a single global lock for all clients, the state is partitioned into multiple shards 
+    based on the hash of the client_id. This significantly reduces the probability of threads 
+    blocking each other when processing requests for different clients.
+    
+    Sharding Rationale:
+    A default shard count of 1024 is chosen to provide a high degree of parallelism. 
+    In a typical high-throughput system, this allows hundreds of concurrent threads to operate 
+    with minimal collision probability (assuming a uniform distribution of client IDs), 
+    while keeping the memory overhead of the locks manageable (around 64KB on most systems).
+    """
     def __init__(self, shard_count: int = 1024, ttl: float = 3600.0):
         # Implementation of Lock Sharding to prevent master lock bottleneck
         self._shard_count = shard_count
@@ -86,6 +101,13 @@ class RateLimiter(ABC):
         return RateLimiterFactory.create(config)
 
 class TokenBucketLimiter(RateLimiter):
+    """
+    Token Bucket algorithm.
+    Tokens are added at a fixed refill_rate up to a maximum capacity.
+    Each request consumes one token.
+    
+    Inherits lock sharding from RateLimiter for thread-safe access to client buckets.
+    """
     def __init__(self, capacity: int, refill_rate: float):
         super().__init__()
         self._capacity = capacity
@@ -130,6 +152,13 @@ class TokenBucketLimiter(RateLimiter):
         return {"algorithm": "token_bucket", "capacity": self._capacity, "refill_rate": self._refill_rate}
 
 class SlidingWindowLogLimiter(RateLimiter):
+    """
+    Sliding Window Log algorithm.
+    Maintains a log of timestamps for each client request within the window_size.
+    Provides precise rate limiting but has higher memory cost per client (O(limit)).
+    
+    Inherits lock sharding from RateLimiter for thread-safe log manipulation.
+    """
     def __init__(self, limit: int, window_size: float):
         super().__init__()
         self._limit = limit
@@ -172,6 +201,13 @@ class SlidingWindowLogLimiter(RateLimiter):
         return {"algorithm": "sliding_window", "limit": self._limit, "window_size": self._window_size}
 
 class FixedWindowLimiter(RateLimiter):
+    """
+    Fixed Window Counters (with optional sliding approximation).
+    Counts requests in fixed time windows. Sliding approximation uses a weighted 
+    average of the current and previous window to smooth out burstiness at window boundaries.
+    
+    Inherits lock sharding from RateLimiter for thread-safe counter updates.
+    """
     def __init__(self, limit: int, window_size: float, use_sliding_approximation: bool = False):
         super().__init__()
         self._limit = limit
@@ -227,13 +263,43 @@ class FixedWindowLimiter(RateLimiter):
 class RateLimiterFactory:
     @classmethod
     def create(cls, config: Dict[str, Any]) -> RateLimiter:
+        if not isinstance(config, dict):
+            raise ValueError(f"Config must be a dictionary, got {type(config).__name__}")
+        
         algo = config.get("algorithm")
+        if not algo:
+            raise ValueError("Missing 'algorithm' key in config")
+            
         if algo == "token_bucket":
+            # Check required keys
+            for key in ["capacity", "refill_rate"]:
+                if key not in config:
+                    raise ValueError(f"Missing required key '{key}' for token_bucket algorithm")
+                if not isinstance(config[key], (int, float)):
+                    raise ValueError(f"Invalid type for '{key}': expected int or float, got {type(config[key]).__name__}")
             return TokenBucketLimiter(int(config["capacity"]), float(config["refill_rate"]))
+            
         if algo == "sliding_window":
+            for key in ["limit", "window_size"]:
+                if key not in config:
+                    raise ValueError(f"Missing required key '{key}' for sliding_window algorithm")
+                if not isinstance(config[key], (int, float)):
+                    raise ValueError(f"Invalid type for '{key}': expected int or float, got {type(config[key]).__name__}")
             return SlidingWindowLogLimiter(int(config["limit"]), float(config["window_size"]))
+            
         if algo == "fixed_window":
-            return FixedWindowLimiter(int(config["limit"]), float(config["window_size"]), bool(config.get("sliding_approximation", False)))
+            for key in ["limit", "window_size"]:
+                if key not in config:
+                    raise ValueError(f"Missing required key '{key}' for fixed_window algorithm")
+                if not isinstance(config[key], (int, float)):
+                    raise ValueError(f"Invalid type for '{key}': expected int or float, got {type(config[key]).__name__}")
+            
+            sliding_approx = config.get("sliding_approximation", False)
+            if not isinstance(sliding_approx, bool):
+                 raise ValueError(f"Invalid type for 'sliding_approximation': expected bool, got {type(sliding_approx).__name__}")
+                 
+            return FixedWindowLimiter(int(config["limit"]), float(config["window_size"]), sliding_approx)
+            
         raise ValueError(f"Unknown algorithm: {algo}")
 
     @classmethod
