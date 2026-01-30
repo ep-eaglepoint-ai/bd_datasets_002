@@ -1,26 +1,22 @@
-version: '3.8'
 services:
   app:
     build: .
+    working_dir: /app/repository_after
     ports:
       - "3000:3000"
     environment:
       - HOST=0.0.0.0
 
-  test-before:
-    build: .
-    command: pnpm test
-    volumes:
-      - .:/app
-
   test-after:
     build: .
-    command: pnpm test
+    working_dir: /app/repository_after
+    command: npm test
     volumes:
-      - .:/app
+      - ./repository_after:/app/repository_after
 
   evaluation:
     build: .
-    command: pnpm run evaluation -- --reporter=json --output=report.json
+    working_dir: /app/repository_after
+    command: npm run evaluation -- --reporter=json --output=report.json
     volumes:
-      - .:/app
+      - ./repository_after:/app/repository_after

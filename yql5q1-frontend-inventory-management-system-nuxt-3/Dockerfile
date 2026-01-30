@@ -1,17 +1,15 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
-WORKDIR /app
-COPY . .
+WORKDIR /app/repository_after
 
-# Install pnpm globally
-RUN npm install -g pnpm
+COPY repository_after/package.json ./package.json
+COPY repository_after/package-lock.json ./package-lock.json
 
-# Install dependencies
-RUN pnpm install
+COPY repository_after/ ./
 
-# Build the app for production
-RUN pnpm build
+RUN npm install --omit=optional
+RUN npm run build
 
 EXPOSE 3000
 
-CMD ["pnpm", "start"]
+CMD ["npm", "start"]
