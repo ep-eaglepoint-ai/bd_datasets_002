@@ -1,6 +1,11 @@
 ## commands
 
-### Run repository_before
+### docker build
+```bash
+docker compose build
+```
+
+### Run repository_after
 ```bash
 docker compose run --rm test-after
 ```
