@@ -65,7 +65,8 @@ class TestBulkImportTool:
         """Create a new page for each test"""
         _, context = browser_context
         page = context.new_page()
-        page.goto("http://localhost:3000")
+        app_url = os.environ.get("APP_URL", "http://localhost:3000")
+        page.goto(app_url)
         page.wait_for_load_state("networkidle")
         yield page
         page.close()
@@ -271,7 +272,8 @@ class TestAPIEndpoint:
     def test_api_revalidates_server_side(self, page: Page):
         """Test that API re-validates data server-side"""
         # Send data directly to API with tampered invalid data marked as valid
-        response = page.request.post("http://localhost:3000/api/import", data={
+        app_url = os.environ.get("APP_URL", "http://localhost:3000")
+        response = page.request.post(f"{app_url}/api/import", data={
             "rows": [
                 {"rowNumber": 1, "data": {"name": "", "email": "invalid", "age": "abc"}}
             ]
@@ -285,7 +287,8 @@ class TestAPIEndpoint:
     
     def test_api_imports_valid_rows(self, page: Page):
         """Test that API successfully imports valid rows"""
-        response = page.request.post("http://localhost:3000/api/import", data={
+        app_url = os.environ.get("APP_URL", "http://localhost:3000")
+        response = page.request.post(f"{app_url}/api/import", data={
             "rows": [
                 {"rowNumber": 1, "data": {"name": "Test User", "email": "test@example.com", "age": "25"}}
             ]
