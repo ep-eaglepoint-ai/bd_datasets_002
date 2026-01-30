@@ -3,7 +3,8 @@ services:
   test-before:
     build:
       context: .
-      dockerfile: Dockerfile.before
+      dockerfile: Dockerfile
+      target: before
     container_name: entitlement-test-before
     volumes:
       - ./tests:/app/tests
@@ -14,7 +15,8 @@ services:
   test-after:
     build:
       context: .
-      dockerfile: Dockerfile.after
+      dockerfile: Dockerfile
+      target: after
     container_name: entitlement-test-after
     volumes:
       - ./tests:/app/tests
@@ -22,11 +24,11 @@ services:
     command: npm run test:after
 
   # Run evaluation and generate reports
-  evaluation:
+  test-evaluation:
     build:
       context: .
-      dockerfile: Dockerfile.eval
-    container_name: entitlement-evaluation
+      dockerfile: Dockerfile
+      target: eval
     volumes:
       - ./evaluation:/app/evaluation
       - ./repository_before:/app/repository_before
