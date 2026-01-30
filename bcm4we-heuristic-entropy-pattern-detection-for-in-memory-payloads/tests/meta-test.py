@@ -102,10 +102,17 @@ def test_repository_after_has_required_methods():
 
 def test_repository_after_uses_chunks():
     """Test that repository_after reads files in chunks."""
+    import os
     import repository_after
-    import inspect
     
-    source = inspect.getsource(repository_after.PayloadDetector.read_file_chunks)
+    # Check file_reader.py for chunked reading implementation
+    repo_path = os.path.join(os.path.dirname(__file__), '..', 'repository_after')
+    file_reader_path = os.path.join(repo_path, 'file_reader.py')
+    
+    assert os.path.exists(file_reader_path), "file_reader.py should exist"
+    
+    with open(file_reader_path, 'r') as f:
+        source = f.read()
     
     # Should use generator (yield) or while loop with chunked reading
     assert 'yield' in source or ('while' in source and 'read' in source), \
@@ -114,30 +121,42 @@ def test_repository_after_uses_chunks():
 
 def test_repository_after_no_full_file_load():
     """Test that repository_after doesn't load entire file into memory."""
+    import os
     import repository_after
-    import inspect
+    import ast
     
-    source = inspect.getsource(repository_after.PayloadDetector)
-    
-    # Should not have patterns that load entire file
+    # Check all Python files in repository_after
+    repo_path = os.path.join(os.path.dirname(__file__), '..', 'repository_after')
     bad_patterns = [
         'read()',  # Without size parameter
         'readlines()',
         'readall()',
     ]
     
-    for pattern in bad_patterns:
-        # Allow if it's in a comment or string, but check if it's actual code
-        if pattern in source:
-            # Check if it's in a string literal (comment or docstring)
-            tree = ast.parse(source)
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
-                    if pattern in node.value.s:
-                        continue
-            # If we get here and pattern is in source, it might be problematic
-            # But we'll be lenient and just check for explicit chunk reading
-            pass
+    for root, dirs, files in os.walk(repo_path):
+        for file in files:
+            if file.endswith('.py'):
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file_path, 'r') as f:
+                        source = f.read()
+                    
+                    # Check for bad patterns
+                    for pattern in bad_patterns:
+                        if pattern in source:
+                            # Check if it's in a string literal (comment or docstring)
+                            try:
+                                tree = ast.parse(source)
+                                for node in ast.walk(tree):
+                                    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+                                        if pattern in node.value.s:
+                                            continue
+                                # If pattern is in actual code, it's problematic
+                                # But we'll be lenient for now
+                            except:
+                                pass
+                except:
+                    pass
 
 
 def test_resource_files_exist():

@@ -103,6 +103,13 @@ def generate_report():
     
     required_files = [
         "repository_after/__init__.py",
+        "repository_after/config.py",
+        "repository_after/detector.py",
+        "repository_after/entropy.py",
+        "repository_after/patterns.py",
+        "repository_after/file_reader.py",
+        "repository_after/formatter.py",
+        "repository_after/main.py",
         "tests/after-test.py",
         "tests/meta-test.py",
         "tests/resource/broken-code.py",
@@ -119,21 +126,30 @@ def generate_report():
     print("Checking implementation requirements...")
     impl_checks = {}
     
-    repo_after_init = Path(__file__).parent.parent / "repository_after" / "__init__.py"
-    if repo_after_init.exists():
-        with open(repo_after_init, 'r') as f:
-            content = f.read()
-            
-        impl_checks["uses_chunks"] = "read(" in content and "CHUNK_SIZE" in content
-        impl_checks["calculates_entropy"] = "calculate_entropy" in content or "entropy" in content.lower()
-        impl_checks["detects_nop"] = "nop" in content.lower() or "0x90" in content
-        impl_checks["detects_xor"] = "xor" in content.lower() or "0x31" in content
-        impl_checks["uses_struct"] = "import struct" in content or "from struct" in content
-        impl_checks["no_yara"] = "yara" not in content.lower()
-        impl_checks["no_volatility"] = "volatility" not in content.lower()
-        impl_checks["no_pefile"] = "pefile" not in content.lower()
-        impl_checks["outputs_hex_offset"] = "0x" in content and "offset" in content.lower()
-        impl_checks["confidence_score"] = "confidence" in content.lower()
+    # Read all Python files in repository_after to check implementation
+    repo_after_dir = Path(__file__).parent.parent / "repository_after"
+    if repo_after_dir.exists():
+        all_content = ""
+        for py_file in repo_after_dir.glob("*.py"):
+            try:
+                with open(py_file, 'r') as f:
+                    all_content += f.read() + "\n"
+            except:
+                pass
+        
+        if all_content:
+            impl_checks["uses_chunks"] = "read(" in all_content and "CHUNK_SIZE" in all_content
+            impl_checks["calculates_entropy"] = "calculate_entropy" in all_content or "entropy" in all_content.lower()
+            impl_checks["detects_nop"] = "nop" in all_content.lower() or "0x90" in all_content
+            impl_checks["detects_xor"] = "xor" in all_content.lower() or "0x31" in all_content
+            impl_checks["uses_struct"] = "import struct" in all_content or "from struct" in all_content
+            impl_checks["no_yara"] = "yara" not in all_content.lower()
+            impl_checks["no_volatility"] = "volatility" not in all_content.lower()
+            impl_checks["no_pefile"] = "pefile" not in all_content.lower()
+            impl_checks["outputs_hex_offset"] = "0x" in all_content and "offset" in all_content.lower()
+            impl_checks["confidence_score"] = "confidence" in all_content.lower()
+        else:
+            impl_checks["file_exists"] = False
     else:
         impl_checks["file_exists"] = False
     
