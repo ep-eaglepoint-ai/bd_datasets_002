@@ -11,6 +11,7 @@ const customJestConfig = {
   testEnvironment: "jest-environment-jsdom",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    "^date-fns$": "<rootDir>/node_modules/date-fns",
   },
   // Add support for tests outside of rootDir
   roots: ["<rootDir>", "<rootDir>/../tests"],
@@ -19,6 +20,7 @@ const customJestConfig = {
     "<rootDir>/../tests/**/*.test.tsx",
   ],
   transformIgnorePatterns: ["node_modules/(?!(idb)/)"],
+  moduleDirectories: ["node_modules", "<rootDir>/node_modules"],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

@@ -7,6 +7,15 @@ import {
 import { useTaskStore } from "../repository_after/store/useTaskStore";
 import { useTimeStore } from "../repository_after/store/useTimeStore";
 import { db } from "../repository_after/lib/db";
+import {
+  aggregateTime,
+  generateBurnDown,
+  computeFocusMetrics,
+  analyzeEstimation,
+  TimeLog,
+  Task,
+} from "../repository_after/lib/analytics";
+import { startOfDay, addDays, format, subDays } from "date-fns";
 
 describe("Requirement 1: Task CRUD Operations", () => {
   beforeEach(async () => {
@@ -19,6 +28,7 @@ describe("Requirement 1: Task CRUD Operations", () => {
     });
     await db.clearTasks();
     await db.clearTimeLogs();
+    localStorage.clear();
   });
 
   test("creates task with all fields", async () => {
@@ -137,6 +147,9 @@ describe("Requirement 1: Task CRUD Operations", () => {
 });
 
 describe("Requirement 2: Time Tracking", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
   beforeEach(async () => {
     useTaskStore.setState({ tasks: [], isLoading: false, error: null });
     useTimeStore.setState({
@@ -233,21 +246,34 @@ describe("Requirement 2: Time Tracking", () => {
   });
 
   test("records precise time intervals", async () => {
+    jest.useFakeTimers();
+    const startTime = new Date("2024-01-01T10:00:00Z");
+    jest.setSystemTime(startTime);
+
     const { addTask } = useTaskStore.getState();
     await addTask({ title: "Task" });
     const taskId = useTaskStore.getState().tasks[0].id;
 
     const { startTimer, stopTimer } = useTimeStore.getState();
-    const startTime = new Date();
     await startTimer(taskId);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Advance exactly 5.5 seconds
+    const endTime = new Date(startTime.getTime() + 5500);
+    jest.setSystemTime(endTime);
+
     await stopTimer();
 
     const log = useTimeStore.getState().logs[0];
     expect(log.startTime).toBeInstanceOf(Date);
     expect(log.endTime).toBeInstanceOf(Date);
-    expect(log.duration).toBeGreaterThanOrEqual(0);
-    expect(log.duration).toBeLessThan(2); // Should be ~0.5 seconds
+    expect(log.duration).toBe(5); // Math.floor(5.5) = 5
+
+    const diff = Math.floor(
+      (log.endTime!.getTime() - log.startTime.getTime()) / 1000,
+    );
+    expect(diff).toBe(5);
+
+    jest.useRealTimers();
   });
 });
 
@@ -305,6 +331,195 @@ describe("Requirement 3: Work Sessions", () => {
     await loadLogs(task1Id);
     const logs = useTimeStore.getState().logs;
     expect(logs.every((log) => log.taskId === task1Id)).toBe(true);
+  });
+});
+
+describe("Requirement 4: Time Aggregation", () => {
+  const taskId = "test-task-id";
+  const today = new Date();
+
+  const mockLogs: TimeLog[] = [
+    {
+      id: "1",
+      taskId,
+      startTime: today,
+      endTime: new Date(today.getTime() + 3600000),
+      duration: 3600,
+      notes: "",
+    }, // 1 hour
+    {
+      id: "2",
+      taskId,
+      startTime: today,
+      endTime: new Date(today.getTime() + 1800000),
+      duration: 1800,
+      notes: "",
+    }, // 30 mins
+    {
+      id: "3",
+      taskId,
+      startTime: subDays(today, 1),
+      endTime: subDays(today, 1),
+      duration: 7200,
+      notes: "",
+    }, // 2 hours YESTERDAY
+  ];
+
+  test("aggregates total duration correctly", () => {
+    const result = aggregateTime(mockLogs);
+    expect(result.totalDuration).toBe(3600 + 1800 + 7200);
+  });
+
+  test("groups by day correctly", () => {
+    const result = aggregateTime(mockLogs);
+    const todayKey = format(today, "yyyy-MM-dd");
+    const yesterdayKey = format(subDays(today, 1), "yyyy-MM-dd");
+
+    expect(result.daily[todayKey]).toBe(5400);
+    expect(result.daily[yesterdayKey]).toBe(7200);
+  });
+
+  test("handles empty logs", () => {
+    const result = aggregateTime([]);
+    expect(result.totalDuration).toBe(0);
+    expect(Object.keys(result.daily)).toHaveLength(0);
+  });
+});
+
+describe("Requirement 5: Burn-down Charts", () => {
+  test("generates correct burn-down data", () => {
+    const now = new Date();
+    const tasks: Task[] = [
+      {
+        id: "1",
+        title: "T1",
+        priority: "medium",
+        status: "completed",
+        estimatedDuration: 60,
+        createdAt: subDays(now, 2),
+        updatedAt: subDays(now, 1),
+        tags: [],
+      },
+      {
+        id: "2",
+        title: "T2",
+        priority: "medium",
+        status: "pending",
+        estimatedDuration: 120,
+        createdAt: subDays(now, 2),
+        updatedAt: now,
+        tags: [],
+      },
+    ];
+
+    const data = generateBurnDown(tasks);
+    expect(data.length).toBeGreaterThan(0);
+
+    // Check initial state (2 tasks created)
+    const initial = data[0];
+    expect(initial.remainingMinutes).toBe(60); // T1 created first, wait.
+    // logic: sorted by date. T1 and T2 created same time (subDays(now, 2)).
+
+    const last = data[data.length - 1];
+    expect(last.remainingMinutes).toBe(120); // 180 total - 60 completed = 120 remaining
+  });
+});
+
+describe("Requirement 6: Focus Metrics", () => {
+  test("computes focus metrics", () => {
+    const logs: TimeLog[] = [
+      {
+        id: "1",
+        taskId: "t1",
+        startTime: new Date(),
+        duration: 3000,
+        notes: "",
+      }, // 50 mins (Deep work)
+      {
+        id: "2",
+        taskId: "t1",
+        startTime: new Date(),
+        duration: 600,
+        notes: "",
+      }, // 10 mins (Shallow)
+    ];
+
+    const metrics = computeFocusMetrics(logs);
+    expect(metrics.totalSessions).toBe(2);
+    expect(metrics.averageSessionDuration).toBe(1800);
+    expect(metrics.longStreaks).toBe(1); // One session > 25m
+    expect(metrics.deepWorkRatio).toBeCloseTo(3000 / 3600);
+  });
+
+  test("handles empty focus metrics", () => {
+    const metrics = computeFocusMetrics([]);
+    expect(metrics.totalSessions).toBe(0);
+    expect(metrics.averageSessionDuration).toBe(0);
+  });
+});
+
+describe("Requirement 7: Estimation Analysis", () => {
+  test("identifies estimation accuracy", () => {
+    const task1: Task = {
+      id: "t1",
+      title: "Under",
+      estimatedDuration: 60,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: "completed",
+      priority: "medium",
+      tags: [],
+    }; // Est 60m
+    const task2: Task = {
+      id: "t2",
+      title: "Over",
+      estimatedDuration: 60,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: "completed",
+      priority: "medium",
+      tags: [],
+    }; // Est 60m
+    const task3: Task = {
+      id: "t3",
+      title: "Perfect",
+      estimatedDuration: 60,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: "completed",
+      priority: "medium",
+      tags: [],
+    }; // Est 60m
+
+    // Logs
+    const logs: TimeLog[] = [
+      {
+        id: "l1",
+        taskId: "t1",
+        duration: 7200,
+        startTime: new Date(),
+        notes: "",
+      }, // 120m (Underestimated)
+      {
+        id: "l2",
+        taskId: "t2",
+        duration: 1800,
+        startTime: new Date(),
+        notes: "",
+      }, // 30m (Overestimated)
+      {
+        id: "l3",
+        taskId: "t3",
+        duration: 3600,
+        startTime: new Date(),
+        notes: "",
+      }, // 60m (Accurate)
+    ];
+
+    const analysis = analyzeEstimation([task1, task2, task3], logs);
+    expect(analysis.underestimatedTasks).toBe(1);
+    expect(analysis.overestimatedTasks).toBe(1);
+    expect(analysis.accurateTasks).toBe(1);
   });
 });
 
