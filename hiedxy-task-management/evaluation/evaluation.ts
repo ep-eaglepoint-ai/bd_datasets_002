@@ -45,11 +45,6 @@ const runTests = async (): Promise<TestResult> => {
               output.substring(output.length - 16000)
             : output;
 
-        console.log("----------------------------------------");
-        console.log("RAW TEST OUTPUT DEBUG:");
-        console.log(truncatedOutput);
-        console.log("----------------------------------------");
-
         let passed = 0;
         let failed = 0;
 
@@ -139,9 +134,17 @@ const printReport = (report: any, reportPath: string) => {
 
   console.log("AFTER (repository_after):");
   console.log(`  Tests passed: ${report.after.tests.passed}`);
-  console.log(
-    `  Output snippet: ${report.after.tests.output.substring(0, 200)}...`,
+  // Extract and display only the relevant test summary lines
+  const outputLines = report.after.tests.output.split("\n");
+  const summaryLine = outputLines.find((line: string) =>
+    line.trim().startsWith("Tests:"),
   );
+  const suitesLine = outputLines.find((line: string) =>
+    line.trim().startsWith("Test Suites:"),
+  );
+
+  if (summaryLine) console.log(`  ${summaryLine.trim()}`);
+  if (suitesLine) console.log(`  ${suitesLine.trim()}`);
   console.log();
   console.log("COMPARISON:");
   console.log(`  Passed gate: ${report.comparison.passed_gate}`);
