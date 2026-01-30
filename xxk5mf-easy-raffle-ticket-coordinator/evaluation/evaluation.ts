@@ -125,7 +125,7 @@ function runTests(repositoryPath: string, repositoryName: string): RepositoryRes
   }
 
   const cwd = process.cwd();
-  const spawnResult = spawnSync('npx', ['jest', '--config', 'tests/jest.config.js', '--json', '--no-coverage', '--runInBand'], {
+  const spawnResult = spawnSync('npm', ['run', 'test:ci', '--prefix', 'tests'], {
     encoding: 'utf8',
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],

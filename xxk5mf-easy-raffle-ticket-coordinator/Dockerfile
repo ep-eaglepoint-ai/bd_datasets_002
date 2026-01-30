@@ -9,7 +9,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm install
+COPY repository_after/client/package.json repository_after/client/
+COPY repository_after/server/package.json repository_after/server/
+COPY tests/package.json tests/
+RUN npm run install:all
 
 COPY . .
 
