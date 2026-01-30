@@ -1,0 +1,11 @@
+{
+            "instance_id": "J1P4VF",
+            "problem_statement": "Refactor a monolithic, synchronous order processing function into a decoupled, service-oriented architecture. The legacy implementation violates the Single Responsibility Principle by mixing payment validation, inventory management, and tax calculation into a single high-risk transaction block.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/j1p4vf-ecommerce-order-processing-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
