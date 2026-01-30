@@ -6,7 +6,7 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "start": "nuxt start",
-    "test": "vitest",
+    "test": "vitest run",
     "evaluation": "vitest run"
   },
   "dependencies": {

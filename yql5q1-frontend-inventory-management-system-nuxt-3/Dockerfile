@@ -1,25 +1,26 @@
 FROM node:20
 
+WORKDIR /app/repository_after
+
+COPY repository_after/package.json ./package.json
+COPY repository_after/package-lock.json ./package-lock.json
+COPY repository_after/ ./
+
+# Evaluation runner (used by docker-compose evaluation)
 WORKDIR /app
-
-# Copy repository_after files
-COPY repository_after/package.json ./repository_after/package.json
-COPY repository_after/package-lock.json ./repository_after/package-lock.json
-COPY repository_after/ ./repository_after/
-
-# Copy evaluation script
 COPY evaluation/ ./evaluation/
 
 WORKDIR /app/repository_after
 
-# Install all dependencies including optional native bindings required by oxc-parser and rollup
-RUN npm install --include=optional --no-audit --no-fund
-# Explicitly install rollup's optional native binding for Linux x64 (fixes npm optional deps bug)
-RUN npm install @rollup/rollup-linux-x64-gnu --save-optional --no-audit --no-fund || true
-# Install tsx for running TypeScript evaluation script
-RUN npm install tsx --save-dev --no-audit --no-fund || true
+RUN npm ci --no-audit --no-fund
+
+# Nuxt/Vite can depend on oxc-parser native bindings that are declared as optional.
+# In some CI environments (and with some lockfiles) npm may skip these; install explicitly.
+RUN OXC_VER=$(node -e "const fs=require('fs'); const p='node_modules/oxc-parser/package.json'; if(!fs.existsSync(p)) process.exit(0); const pkg=JSON.parse(fs.readFileSync(p,'utf8')); process.stdout.write((pkg.optionalDependencies&&pkg.optionalDependencies['@oxc-parser/binding-linux-x64-gnu'])||'')") \
+	&& if [ -n "$OXC_VER" ]; then npm i --no-save --no-audit --no-fund @oxc-parser/binding-linux-x64-gnu@$OXC_VER; fi
+
 RUN npm run build
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["npm", "run", "start"]

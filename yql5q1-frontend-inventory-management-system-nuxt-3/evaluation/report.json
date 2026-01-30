@@ -1,0 +1,166 @@
+{
+  "run_id": "x5hwiz9l",
+  "started_at": "2026-01-30T11:26:06.939Z",
+  "finished_at": "2026-01-30T11:26:17.732Z",
+  "duration_seconds": 10.793,
+  "success": true,
+  "error": null,
+  "environment": {
+    "node_version": "v20.20.0",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x64",
+    "os": "Linux",
+    "os_release": "6.6.87.2-microsoft-standard-WSL2",
+    "architecture": "x64",
+    "hostname": "710d5f24dfdc",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": -1,
+      "tests": [],
+      "summary": {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "note": "Skipped"
+      },
+      "stdout": "",
+      "stderr": ""
+    },
+    "after": {
+      "success": true,
+      "exit_code": -1,
+      "tests": [
+        {
+          "nodeid": "PaginationControl > disables navigation at boundaries and emits change events",
+          "name": "disables navigation at boundaries and emits change events",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "ProductForm > validates required fields",
+          "name": "validates required fields",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "ProductForm > emits submit payload when form is valid",
+          "name": "emits submit payload when form is valid",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "ProductForm > prevents duplicate SKUs and negative values",
+          "name": "prevents duplicate SKUs and negative values",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "ProductForm > reflects auto-calculated status badge values",
+          "name": "reflects auto-calculated status badge values",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "StatusBadge > applies semantic colors per status",
+          "name": "applies semantic colors per status",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useConfirmDialog > resolves with user confirmation",
+          "name": "resolves with user confirmation",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useConfirmDialog > resolves with false on cancel",
+          "name": "resolves with false on cancel",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useToasts > adds toast messages and removes them after timeout",
+          "name": "adds toast messages and removes them after timeout",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useToasts > manually removes a toast",
+          "name": "manually removes a toast",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "DashboardPage > renders properly",
+          "name": "renders properly",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "Products page logic > filters by search, category, and status while sorting results",
+          "name": "filters by search, category, and status while sorting results",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "Products page logic > paginates results",
+          "name": "paginates results",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "Products page logic > prevents negative stock adjustments and emits success otherwise",
+          "name": "prevents negative stock adjustments and emits success otherwise",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "Products page logic > confirms deletions before mutating state",
+          "name": "confirms deletions before mutating state",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "Products page logic > handles JSON import success and failure paths",
+          "name": "handles JSON import success and failure paths",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useProductsStore > seeds demo data only when empty",
+          "name": "seeds demo data only when empty",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useProductsStore > creates, updates, and deletes products with metadata",
+          "name": "creates, updates, and deletes products with metadata",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useProductsStore > manages stock adjustments with validation",
+          "name": "manages stock adjustments with validation",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useProductsStore > derives stock status and aggregate metrics",
+          "name": "derives stock status and aggregate metrics",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "useProductsStore > tracks categories and import/export operations",
+          "name": "tracks categories and import/export operations",
+          "outcome": "passed"
+        }
+      ],
+      "summary": {
+        "total": 21,
+        "passed": 21,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "JSON report written to /tmp/vitest-json-TlO65b/results.json\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": true,
+      "after_all_tests_passed": true,
+      "before_total": 0,
+      "before_passed": 0,
+      "before_failed": 0,
+      "after_total": 21,
+      "after_passed": 21,
+      "after_failed": 0
+    }
+  }
+}
