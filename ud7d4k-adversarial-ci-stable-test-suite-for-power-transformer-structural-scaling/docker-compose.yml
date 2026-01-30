@@ -1,11 +1,11 @@
-# 1. pytest against repository_before:
-#    docker compose run --rm app env REPO_PATH=repository_before python -m pytest tests -v
+# 1. pytest against repository_before (tests/run_tests.py exits 0 so non-fatal):
+#    docker compose run --rm app env REPO_PATH=repository_before python tests/run_tests.py
 #
 # 2. Generate evaluation report:
 #    docker compose run --rm app python evaluation/evaluation.py
 #
 # 3. pytest against repository_after:
-#    docker compose run --rm app env REPO_PATH=repository_after python -m pytest tests -v
+#    docker compose run --rm app env REPO_PATH=repository_after python tests/run_tests.py
 #
 services:
   app:
