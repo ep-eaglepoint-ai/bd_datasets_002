@@ -1,5 +1,15 @@
-FROM python:3.11-slim
+FROM golang:1.21-alpine
+
 WORKDIR /app
+
+# Copy go mod files if they exist
+COPY go.mod go.sum* ./
+
+# Download dependencies
+RUN go mod download || true
+
+# Copy the rest of the application
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+# Default command (will be overridden by docker-compose)
+CMD ["go", "test", "./tests"]

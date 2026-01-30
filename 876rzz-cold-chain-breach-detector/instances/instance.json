@@ -1,5 +1,5 @@
 {
-            "instance_id": "876RZZ",
+            "instance_id": "876rzz-cold-chain-breach-detector",
             "problem_statement": "Implement a 'Cumulative Heat Exposure' monitor in Go for pharmaceutical logistics. The system must track if a vaccine shipment exceeded its safe temperature (8°C) for a total of 30 minutes over any 24-hour window.",
             "base_commit": "repository_before/",
             "test_patch": "tests/",
