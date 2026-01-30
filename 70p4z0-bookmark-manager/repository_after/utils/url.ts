@@ -38,26 +38,12 @@ export function normalizeUrl(input: string): string | null {
     // Hostname must exist for web URLs
     if (!url.hostname) return null;
 
-    const hostname = url.hostname.toLowerCase();
-
-    const isDefaultPort =
-      (protocol === 'https:' && url.port === '443') ||
-      (protocol === 'http:' && url.port === '80');
-
-    const port = !isDefaultPort && url.port ? `:${url.port}` : '';
-
-    const pathname = url.pathname === '/' ? '' : url.pathname;
-
-    return (
-      `${protocol}//${hostname}` +
-      `${port}` +
-      `${pathname}` +
-      `${url.search}` +
-      `${url.hash}` 
-    );
+    // For valid URLs, return the original (preserves international chars, auth, etc.)
+    return hasScheme ? trimmed : candidate;
   }
 
   // 6. Non-http(s) but valid scheme → store safely, unmodified
   // (requirement: safely store unusual or edge-case URLs)
-  return url.href;
+  const href = url.href;
+  return href.endsWith('/') && href !== '/' ? href.slice(0, -1) : href;
 }

@@ -1,0 +1,27 @@
+{
+  "name": "bookmark-manager-tests",
+  "version": "1.0.0",
+  "description": "Testing setup for bookmark manager",
+  "scripts": {
+    "test": "vitest",
+    "evaluate": "node evaluation/evaluation.js",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.6",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "jsdom": "^23.0.1",
+    "typescript": "^5.3.3",
+    
+    "vitest": "^1.1.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "@vitest/ui": "^1.1.0"
+  }
+}

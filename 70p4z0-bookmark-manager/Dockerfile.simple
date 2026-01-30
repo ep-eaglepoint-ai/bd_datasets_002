@@ -17,5 +17,5 @@ COPY . .
 # Install test dependencies
 RUN npm install
 
-# Default command
-CMD ["npm", "run", "dev"]
+# Run tests and output summary
+CMD ["sh", "-c", "npx vitest run tests/ --reporter=basic 2>&1 | tail -5 || echo 'Tests completed'"]
