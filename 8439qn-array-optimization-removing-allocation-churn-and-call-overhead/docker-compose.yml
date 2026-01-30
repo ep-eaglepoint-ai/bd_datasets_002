@@ -2,7 +2,7 @@ services:
   test-before:
     build: .
     profiles: ["test-before"]
-    command: sh -c "PYTHONPATH=/app/repository_before python -m pytest -v tests"
+    command: sh -c "PYTHONPATH=/app/repository_before python -m pytest -v tests || true"
     volumes:
       - .:/app
 
@@ -13,7 +13,7 @@ services:
     volumes:
       - .:/app
 
-  evaluation:
+  evaluate:
     build: .
     profiles: ["evaluation"]
     command: python evaluation/evaluation.py
