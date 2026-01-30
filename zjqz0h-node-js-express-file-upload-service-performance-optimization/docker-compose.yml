@@ -1,6 +1,72 @@
+version: '3'
 services:
   app:
     build: .
-    command: pytest -q tests
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      - db
     volumes:
-      - .:/app
+      - ./repository_after:/app
+      - ./tests:/app/tests
+      - /app/node_modules
+
+  test-after:
+    build: .
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      - db
+    volumes:
+      - ./repository_after:/app
+      - ./tests:/app/tests
+      - /app/node_modules
+    command: npm test
+
+  test-before:
+    build: .
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      - db
+    volumes:
+      - ./repository_before:/app
+      - ./tests:/app/tests
+      - /app/node_modules
+    command: sh -c "./node_modules/.bin/jest --forceExit || true"
+
+  evaluation:
+    build: .
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      - db
+    volumes:
+      - .:/app_root
+      - /app/node_modules
+    working_dir: /app_root
+    command: node evaluation/evaluation.js
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: uploads_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
