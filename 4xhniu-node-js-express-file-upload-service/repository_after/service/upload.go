@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	MaxFileSize = 100 * 1024 * 1024 // 100MB limit
+var (
+	MaxFileSize int64 = 100 * 1024 * 1024 // 100MB limit, var for testing
 )
 
 // HandleUpload is the http.HandlerFunc logic

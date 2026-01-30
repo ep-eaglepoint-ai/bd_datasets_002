@@ -38,10 +38,12 @@ If invalid, the stream is aborted immediately (HTTP 415), saving bandwidth and p
 ### 6. Use Chunked Writes Instead of Full Buffers
 
 File writing uses `io.Copy` which handles buffering internally (default 32KB chunks), preventing the "blocking event loop" issue seen in `fs.writeFileSync` for large files.
+I also integrated **In-Memory Progress Tracking** (Req 9) here by wrapping the reader, avoiding database writes for intermediate progress.
 
 ### 7. Stable Storage + Directory Distribution
 
 I implemented a date-based directory structure (`uploads/YYYY/MM/DD/`) to prevent file system degradation from having thousands of files in a single flat directory.
+I also added **Cleanup Logic** (Req 10) to remove incomplete files from failed streams to prevent orphan accumulation.
 
 ### 8. Eliminate Connection Overhead
 
