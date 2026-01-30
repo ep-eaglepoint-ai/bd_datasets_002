@@ -1,6 +1,5 @@
 services:
   app:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
