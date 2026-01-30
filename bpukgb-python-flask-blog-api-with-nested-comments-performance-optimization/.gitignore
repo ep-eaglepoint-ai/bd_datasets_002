@@ -1,11 +1,59 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 .venv/
 .env
+env/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Node
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.o
+*.obj
+*.a
+*.lib
+*.out
 
 # OS
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker
+**/Dockerfile.*
+**/docker-compose.*.yml
+**/docker-compose.*.yaml
+*.tar
+*.tar.gz
+*.tgz
+*.log
+
+# Evaluation
+evaluation/reports/
