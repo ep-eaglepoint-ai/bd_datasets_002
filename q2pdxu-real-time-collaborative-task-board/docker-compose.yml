@@ -65,7 +65,7 @@ services:
   client:
     build:
       context: .
-      target: node-builder
+      target: node-base
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
     working_dir: /app
     ports:
