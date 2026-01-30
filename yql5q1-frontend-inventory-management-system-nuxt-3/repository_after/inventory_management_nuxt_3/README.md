@@ -1,75 +1,21 @@
-# Nuxt Minimal Starter
+# 5CD1IB - file organizer
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+## Commands
 
-## Setup
-
-Make sure to install dependencies:
+### Run tests on repository_before
 
 ```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+docker compose run --rm test-before
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+### Run tests on repository_after
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
+docker compose run --rm test-after
 ```
 
-## Production
-
-Build the application for production:
+### Run evaluation
 
 ```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+docker compose run --rm evaluation
 ```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.

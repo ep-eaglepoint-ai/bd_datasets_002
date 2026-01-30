@@ -77,15 +77,15 @@ describe('Dashboard page', () => {
   })
 
   it('summarizes totals and status breakdowns', async () => {
-    const { wrapper } = await mountDashboard()
+    const { wrapper, store } = await mountDashboard()
 
-    expect(wrapper.vm.store.totalProducts).toBe(3)
-    expect(wrapper.vm.store.lowStockCount).toBe(1)
-    expect(wrapper.vm.store.outOfStockCount).toBe(1)
-    expect(wrapper.vm.inStockCount).toBe(1)
-    expect(wrapper.vm.inStockPercentage).toBe('33%')
-    expect(wrapper.vm.lowStockPercentage).toBe('33%')
-    expect(wrapper.vm.outOfStockPercentage).toBe('33%')
+    expect(store.totalProducts).toBe(3)
+    expect(store.lowStockCount).toBe(1)
+    expect(store.outOfStockCount).toBe(1)
+    expect(store.inStockCount).toBe(1)
+    expect(store.inStockPercentage).toBe('33%')
+    expect(store.lowStockPercentage).toBe('33%')
+    expect(store.outOfStockPercentage).toBe('33%')
   })
 
   it('exports data and notifies users', async () => {
