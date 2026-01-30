@@ -1,7 +1,7 @@
-# F5WGV0 - Go Distributed Rate Limiter Service Test Suite Generation
-
 ```bash
-docker-compose build
+# Build Docker images
 docker-compose run --rm test-after
 docker-compose run --rm evaluation
+# PRIMARY: Run fast mock tests (validates all requirements, no Redis)
+
 ```

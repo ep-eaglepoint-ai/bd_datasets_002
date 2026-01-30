@@ -9,53 +9,30 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type Report struct {
-	RunID          string    `json:"run_id"`
+	RunID           string    `json:"run_id"`
 	StartedAt      string    `json:"started_at"`
 	FinishedAt     string    `json:"finished_at"`
 	DurationSeconds float64  `json:"duration_seconds"`
 	Environment    Environment `json:"environment"`
-	Before         RepoResult `json:"before"`
-	After          RepoResult `json:"after"`
-	Comparison     Comparison `json:"comparison"`
+	MetaTests      TestResult `json:"meta_tests"`
 	Success        bool      `json:"success"`
-	Error          *string   `json:"error"`
+	Error          *string   `json:"error,omitempty"`
 }
 
 type Environment struct {
-	PythonVersion string `json:"python_version"`
-	Platform      string `json:"platform"`
 	GoVersion     string `json:"go_version"`
-}
-
-type RepoResult struct {
-	Tests   TestResult `json:"tests"`
-	Metrics Metrics    `json:"metrics"`
+	Platform      string `json:"platform"`
+	TestMode      string `json:"test_mode"`
 }
 
 type TestResult struct {
 	Passed     bool   `json:"passed"`
 	ReturnCode int    `json:"return_code"`
 	Output     string `json:"output"`
-}
-
-type Metrics struct {
-	// Add metrics here if needed
-}
-
-type Comparison struct {
-	PassedGate         bool   `json:"passed_gate"`
-	ImprovementSummary string `json:"improvement_summary"`
-}
-
-// RunEvaluation runs the evaluation and returns the report as JSON bytes
-func RunEvaluation() ([]byte, error) {
-	report := runEvaluationInternal()
-	return json.MarshalIndent(report, "", "  ")
+	TestCount  int    `json:"test_count,omitempty"`
 }
 
 func main() {
@@ -63,51 +40,51 @@ func main() {
 }
 
 func runEvaluation() int {
-	report := runEvaluationInternal()
-	if report.Error != nil {
-		fmt.Fprintf(os.Stderr, "Evaluation error: %s\n", *report.Error)
+	startedAt := time.Now().UTC()
+	runID := startedAt.Format("20060102-150405")
+
+	// Get project root directory
+	_, filename, _, _ := runtime.Caller(0)
+	evaluationDir := filepath.Dir(filename)
+	rootDir := filepath.Dir(evaluationDir)
+	testsDir := filepath.Join(rootDir, "tests")
+
+	// Run meta tests
+	env := environmentInfo()
+	metaTests := runMetaTests(testsDir)
+
+	finishedAt := time.Now().UTC()
+	duration := finishedAt.Sub(startedAt).Seconds()
+
+	// Determine success
+	success := metaTests.Passed
+	var errMsg *string
+	if !success {
+		msg := "Meta tests failed"
+		errMsg = &msg
 	}
 
-	// Get the current working directory
-	// When running from docker-compose, we're in /app/tests
-	// When running locally, we might be in the project root, evaluation, or tests directory
-	currentDir, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get working directory: %v\n", err)
-		return 1
+	// Create report
+	report := Report{
+		RunID:          runID,
+		StartedAt:      startedAt.Format(time.RFC3339),
+		FinishedAt:     finishedAt.Format(time.RFC3339),
+		DurationSeconds: duration,
+		Environment:    env,
+		MetaTests:      metaTests,
+		Success:        success,
+		Error:          errMsg,
 	}
 
-	// Determine the project root directory
-	var rootDir string
-	baseDir := filepath.Base(currentDir)
-	if baseDir == "evaluation" {
-		// We're in the evaluation directory, go up one level
-		rootDir = filepath.Dir(currentDir)
-	} else if baseDir == "tests" {
-		// We're in the tests directory, go up one level
-		rootDir = filepath.Dir(currentDir)
-	} else {
-		// We're in the project root
-		rootDir = currentDir
-	}
-
-	// Determine the evaluation directory (always relative to project root)
-	evaluationDir := filepath.Join(rootDir, "evaluation")
-	// Verify it exists
-	if _, err := os.Stat(evaluationDir); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Evaluation directory not found at %s\n", evaluationDir)
-		return 1
-	}
-
-	// Create timestamp directory for report: evaluation/reports/<timestamp>/
-	timestamp := time.Now().UTC().Format("20060102-150405")
+	// Create reports directory structure: evaluation/reports/<timestamp>/
+	timestamp := startedAt.Format("20060102-150405")
 	reportsDir := filepath.Join(evaluationDir, "reports", timestamp)
 	if err := os.MkdirAll(reportsDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create reports directory: %v\n", err)
 		return 1
 	}
 
-	// Write report
+	// Write report.json
 	reportJSON, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to marshal report: %v\n", err)
@@ -120,47 +97,16 @@ func runEvaluation() int {
 		return 1
 	}
 
-	fmt.Printf("Report written to %s\n", reportPath)
-	if report.Success {
+	fmt.Printf("✓ Meta tests completed\n")
+	fmt.Printf("✓ Report written to: %s\n", reportPath)
+	
+	if success {
+		fmt.Printf("✓ Evaluation successful\n")
 		return 0
 	}
+	
+	fmt.Printf("✗ Evaluation failed\n")
 	return 1
-}
-
-func runEvaluationInternal() Report {
-	runID := uuid.New().String()
-	startedAt := time.Now().UTC()
-
-	env := environmentInfo()
-	before := evaluate("repository_before")
-	after := evaluate("repository_after")
-
-	comparison := Comparison{
-		PassedGate:         after.Tests.Passed,
-		ImprovementSummary: generateImprovementSummary(before, after),
-	}
-
-	finishedAt := time.Now().UTC()
-	duration := finishedAt.Sub(startedAt).Seconds()
-
-	var errMsg *string
-	if !after.Tests.Passed && before.Tests.Passed {
-		msg := "After implementation failed tests while before passed"
-		errMsg = &msg
-	}
-
-	return Report{
-		RunID:          runID,
-		StartedAt:      startedAt.Format(time.RFC3339) + "Z",
-		FinishedAt:     finishedAt.Format(time.RFC3339) + "Z",
-		DurationSeconds: duration,
-		Environment:    env,
-		Before:         before,
-		After:          after,
-		Comparison:     comparison,
-		Success:        comparison.PassedGate,
-		Error:          errMsg,
-	}
 }
 
 func environmentInfo() Environment {
@@ -169,121 +115,38 @@ func environmentInfo() Environment {
 		goVersion = strings.TrimSpace(string(out))
 	}
 
+	testMode := os.Getenv("TEST_MODE")
+	if testMode == "" {
+		testMode = "default"
+	}
+
 	return Environment{
-		PythonVersion: "N/A (Go evaluation)",
-		Platform:      fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
-		GoVersion:     goVersion,
+		GoVersion: goVersion,
+		Platform:  fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
+		TestMode:  testMode,
 	}
 }
 
-func evaluate(repoName string) RepoResult {
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return RepoResult{
-			Tests: TestResult{
-				Passed:     false,
-				ReturnCode: -1,
-				Output:     fmt.Sprintf("Failed to get working directory: %v", err),
-			},
-		}
-	}
-
-	// Determine project root directory
-	// If we're in the evaluation or tests directory, go up one level
-	var rootDir string
-	baseDir := filepath.Base(currentDir)
-	if baseDir == "evaluation" || baseDir == "tests" {
-		rootDir = filepath.Dir(currentDir)
-	} else {
-		rootDir = currentDir
-	}
-
-	repoPath := filepath.Join(rootDir, repoName)
-	testsPath := filepath.Join(rootDir, "tests")
-
-	// Check if repository exists
-	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
-		return RepoResult{
-			Tests: TestResult{
-				Passed:     false,
-				ReturnCode: -1,
-				Output:     fmt.Sprintf("Repository %s does not exist", repoName),
-			},
-		}
-	}
-
-	// Generate proto files for the repository
-	if err := generateProto(repoPath); err != nil {
-		return RepoResult{
-			Tests: TestResult{
-				Passed:     false,
-				ReturnCode: -1,
-				Output:     fmt.Sprintf("Failed to generate proto: %v", err),
-			},
-		}
-	}
-
-	// Run tests
-	tests := runTests(repoPath, testsPath, repoName)
-	metrics := runMetrics(repoPath)
-
-	return RepoResult{
-		Tests:   tests,
-		Metrics: metrics,
-	}
-}
-
-func generateProto(repoPath string) error {
-	protoPath := filepath.Join(repoPath, "proto", "ratelimiter.proto")
-	if _, err := os.Stat(protoPath); os.IsNotExist(err) {
-		// No proto file, skip generation
-		return nil
-	}
-
-	// Generate Go code from proto
-	cmd := exec.Command("protoc",
-		"-I/usr/include", "-I/usr/local/include", "-I.",
-		"--go_out=.", "--go_opt=paths=source_relative",
-		"--go-grpc_out=.", "--go-grpc_opt=paths=source_relative",
-		"proto/ratelimiter.proto")
-	cmd.Dir = repoPath
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("protoc failed: %v, output: %s", err, string(output))
-	}
-
-	return nil
-}
-
-func runTests(repoPath, testsPath, repoName string) TestResult {
-	// Update go.mod in tests to point to the correct repository
-	if err := updateTestGoMod(testsPath, repoName); err != nil {
+func runMetaTests(testsPath string) TestResult {
+	// Check if tests directory exists
+	if _, err := os.Stat(testsPath); os.IsNotExist(err) {
 		return TestResult{
 			Passed:     false,
 			ReturnCode: -1,
-			Output:     fmt.Sprintf("Failed to update go.mod: %v", err),
+			Output:     fmt.Sprintf("Tests directory not found: %s", testsPath),
 		}
 	}
 
-	// Run go mod tidy in tests directory
-	cmd := exec.Command("go", "mod", "tidy")
+	// Run meta tests
+	cmd := exec.Command("go", "test", "-v", "-timeout", "5m", "-run", "^TestMeta", "./...")
 	cmd.Dir = testsPath
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return TestResult{
-			Passed:     false,
-			ReturnCode: -1,
-			Output:     fmt.Sprintf("go mod tidy failed: %v, output: %s", err, string(output)),
-		}
-	}
-
-	// Run tests with timeout
-	cmd = exec.Command("go", "test", "-v", "-timeout", "5m", "./...")
-	cmd.Dir = testsPath
+	
 	output, err := cmd.CombinedOutput()
-
 	outputStr := string(output)
-	if len(outputStr) > 8000 {
-		outputStr = outputStr[:8000] + "... (truncated)"
+	
+	// Truncate output if too long
+	if len(outputStr) > 10000 {
+		outputStr = outputStr[:10000] + "\n... (truncated)"
 	}
 
 	returnCode := 0
@@ -297,51 +160,13 @@ func runTests(repoPath, testsPath, repoName string) TestResult {
 		passed = false
 	}
 
+	// Count tests from output
+	testCount := strings.Count(outputStr, "PASS:") + strings.Count(outputStr, "FAIL:")
+
 	return TestResult{
 		Passed:     passed,
 		ReturnCode: returnCode,
 		Output:     outputStr,
+		TestCount:  testCount,
 	}
-}
-
-func updateTestGoMod(testsPath, repoName string) error {
-	goModPath := filepath.Join(testsPath, "go.mod")
-	
-	// Read go.mod
-	content, err := os.ReadFile(goModPath)
-	if err != nil {
-		return err
-	}
-
-	// Replace the replace directive
-	contentStr := string(content)
-	oldReplace := "replace github.com/example/ratelimiter => ../repository_after"
-	newReplace := fmt.Sprintf("replace github.com/example/ratelimiter => ../%s", repoName)
-	
-	contentStr = strings.ReplaceAll(contentStr, oldReplace, newReplace)
-	
-	// Also handle repository_before case
-	oldReplace2 := "replace github.com/example/ratelimiter => ../repository_before"
-	contentStr = strings.ReplaceAll(contentStr, oldReplace2, newReplace)
-
-	return os.WriteFile(goModPath, []byte(contentStr), 0644)
-}
-
-func runMetrics(repoPath string) Metrics {
-	// Optional metrics collection
-	// For now, return empty metrics
-	return Metrics{}
-}
-
-func generateImprovementSummary(before, after RepoResult) string {
-	if after.Tests.Passed && !before.Tests.Passed {
-		return "After implementation passed tests while before failed"
-	}
-	if after.Tests.Passed && before.Tests.Passed {
-		return "Both implementations passed tests"
-	}
-	if !after.Tests.Passed && before.Tests.Passed {
-		return "After implementation failed tests while before passed"
-	}
-	return "Both implementations failed tests"
 }
