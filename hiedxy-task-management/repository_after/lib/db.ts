@@ -78,6 +78,18 @@ export class Database {
     const db = await this.dbPromise;
     await db.put("timeLogs", log);
   }
+
+  async clearTasks(): Promise<void> {
+    if (typeof window === "undefined") return;
+    const db = await this.dbPromise;
+    await db.clear("tasks");
+  }
+
+  async clearTimeLogs(): Promise<void> {
+    if (typeof window === "undefined") return;
+    const db = await this.dbPromise;
+    await db.clear("timeLogs");
+  }
 }
 
 export const db = new Database();

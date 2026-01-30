@@ -64,6 +64,8 @@ function wrapIDB(db: any) {
       promisify(
         db.transaction(store).objectStore(store).index(index).getAll(key),
       ),
+    clear: (store: string) =>
+      promisify(db.transaction(store, "readwrite").objectStore(store).clear()),
     close: () => db.close(),
   };
 }
