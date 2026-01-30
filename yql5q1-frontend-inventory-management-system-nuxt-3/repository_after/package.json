@@ -10,7 +10,7 @@
     "evaluation": "vitest run"
   },
   "dependencies": {
-    "nuxt": "^3.10.0",
+    "nuxt": "^3.18.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.21"
   },
