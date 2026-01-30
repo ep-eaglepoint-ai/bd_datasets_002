@@ -16,19 +16,16 @@ const (
 	headerSize   = checksumSize + typeSize + lengthSize
 )
 
-// JournalEngine manages the persistence of binary records to an append-only log.
 type JournalEngine struct {
 	file *os.File
 	mu   sync.Mutex
 }
 
-// Record represents a single entry in the journal.
 type Record struct {
 	Type    uint32
 	Payload []byte
 }
 
-// NewJournalEngine opens or creates a journal at the given path and performs recovery.
 func NewJournalEngine(path string) (*JournalEngine, error) {
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -47,9 +44,6 @@ func NewJournalEngine(path string) (*JournalEngine, error) {
 	return je, nil
 }
 
-// Append serializes and writes a record to the journal.
-// It is thread-safe and ensures the record is flushed to the OS, but not necessarily physical media.
-// Use Sync() to ensure durability against power loss.
 func (je *JournalEngine) Append(recordType uint32, payload []byte) error {
 	je.mu.Lock()
 	defer je.mu.Unlock()
@@ -57,12 +51,10 @@ func (je *JournalEngine) Append(recordType uint32, payload []byte) error {
 	payloadLen := uint32(len(payload))
 	frame := make([]byte, headerSize+len(payload))
 
-	// Layout: Checksum (4) | Type (4) | Length (4) | Payload (N)
 	binary.BigEndian.PutUint32(frame[4:8], recordType)
 	binary.BigEndian.PutUint32(frame[8:12], payloadLen)
 	copy(frame[12:], payload)
 
-	// Calculate checksum over Type, Length, and Payload
 	checksum := crc32.ChecksumIEEE(frame[4:])
 	binary.BigEndian.PutUint32(frame[0:4], checksum)
 
@@ -73,21 +65,18 @@ func (je *JournalEngine) Append(recordType uint32, payload []byte) error {
 	return nil
 }
 
-// Sync flushes the file's contents to stable storage.
 func (je *JournalEngine) Sync() error {
 	je.mu.Lock()
 	defer je.mu.Unlock()
 	return je.file.Sync()
 }
 
-// Close closes the underlying journal file.
 func (je *JournalEngine) Close() error {
 	je.mu.Lock()
 	defer je.mu.Unlock()
 	return je.file.Close()
 }
 
-// recover scans the log and truncates any partial or corrupted records at the tail.
 func (je *JournalEngine) recover() error {
 	je.mu.Lock()
 	defer je.mu.Unlock()
@@ -103,11 +92,9 @@ func (je *JournalEngine) recover() error {
 
 	for {
 		if currentPos+headerSize > fileSize {
-			// Incomplete header at the end
 			break
 		}
 
-		// Read header
 		header := make([]byte, headerSize)
 		if _, err := je.file.ReadAt(header, currentPos); err != nil {
 			if err == io.EOF {
@@ -120,7 +107,6 @@ func (je *JournalEngine) recover() error {
 		payloadLen := binary.BigEndian.Uint32(header[8:12])
 
 		if currentPos+headerSize+int64(payloadLen) > fileSize {
-			// Incomplete payload at the end
 			break
 		}
 
@@ -129,7 +115,6 @@ func (je *JournalEngine) recover() error {
 			return err
 		}
 
-		// Validate checksum
 		hasher := crc32.NewIEEE()
 		hasher.Write(header[4:])
 		hasher.Write(payload)
@@ -139,7 +124,6 @@ func (je *JournalEngine) recover() error {
 			break
 		}
 
-		// Valid record
 		currentPos += headerSize + int64(payloadLen)
 		lastValidPos = currentPos
 	}
@@ -150,7 +134,6 @@ func (je *JournalEngine) recover() error {
 		}
 	}
 
-	// Move file pointer to the end for appending
 	if _, err := je.file.Seek(0, io.SeekEnd); err != nil {
 		return fmt.Errorf("failed to seek to end: %w", err)
 	}
@@ -158,15 +141,12 @@ func (je *JournalEngine) recover() error {
 	return nil
 }
 
-// Iterator provides a way to replay records one by one.
 type Iterator struct {
 	file *os.File
 	pos  int64
 	size int64
 }
 
-// NewIterator creates a new recovery iterator for the journal.
-// It assumes the journal has been recovered/truncated to a clean state.
 func (je *JournalEngine) NewIterator() (*Iterator, error) {
 	je.mu.Lock()
 	defer je.mu.Unlock()
@@ -176,14 +156,6 @@ func (je *JournalEngine) NewIterator() (*Iterator, error) {
 		return nil, err
 	}
 
-	// We open a new read-only file handle for consistency or just use the existing one if we handle seek correctly.
-	// But the prompt says "iterator", and we might want to iterate while others append (though risky without locking).
-	// However, "recovery iterator" usually means it's used during startup.
-
-	// I'll create a new file handle to avoid interfering with the main file pointer's current position if needed,
-	// but the simplest is to just use a separate pos tracker.
-
-	// Actually, let's open the file again in read-only mode for the iterator.
 	f, err := os.Open(je.file.Name())
 	if err != nil {
 		return nil, err
@@ -196,7 +168,6 @@ func (je *JournalEngine) NewIterator() (*Iterator, error) {
 	}, nil
 }
 
-// Next returns the next valid record from the journal. Returns io.EOF when done.
 func (it *Iterator) Next() (*Record, error) {
 	if it.pos+headerSize > it.size {
 		return nil, io.EOF
@@ -235,7 +206,6 @@ func (it *Iterator) Next() (*Record, error) {
 	}, nil
 }
 
-// Close closes the iterator's file handle.
 func (it *Iterator) Close() error {
 	return it.file.Close()
 }

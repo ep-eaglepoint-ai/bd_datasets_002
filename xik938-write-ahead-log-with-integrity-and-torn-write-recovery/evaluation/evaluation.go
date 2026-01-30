@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-// Data Structures
-
 type TestResult struct {
 	NodeID   string  `json:"nodeid"`
 	Name     string  `json:"name"`
@@ -106,8 +104,6 @@ func runTestsAndParse(repoName string) RepositoryTestResult {
 	fmt.Printf("Evaluating Target: %s\n", repoName)
 	fmt.Printf("%s\n\n", strings.Repeat("=", 60))
 
-	// Run tests using go test directly
-	// We run the tests in ./tests/... which verify the implementation
 	cmd := exec.Command("go", "test", "-v", "-json", "./tests/...")
 	cmd.Env = os.Environ()
 

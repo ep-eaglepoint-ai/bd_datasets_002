@@ -14,7 +14,6 @@ func TestJournalCriteria(t *testing.T) {
 	tmpDir := t.TempDir()
 	logPath := filepath.Join(tmpDir, "journal_criteria.log")
 
-	// 1. Header and CRC32 check (Criteria 1 & 2)
 	je, err := wal.NewJournalEngine(logPath)
 	if err != nil {
 		t.Fatalf("Failed to create JournalEngine: %v", err)
@@ -33,7 +32,6 @@ func TestJournalCriteria(t *testing.T) {
 	f.Write([]byte{1, 2, 3})
 	f.Close()
 
-	// Re-open. It should truncate the extra 3 bytes.
 	je2, err := wal.NewJournalEngine(logPath)
 	if err != nil {
 		t.Fatalf("Failed to open corrupted journal: %v", err)
@@ -41,17 +39,14 @@ func TestJournalCriteria(t *testing.T) {
 	defer je2.Close()
 
 	stat, _ := os.Stat(logPath)
-	// Expected size: headerSize (12) + len("test-payload") (12) = 24
 	if stat.Size() != 24 {
 		t.Errorf("Expected truncated size 24, got %d", stat.Size())
 	}
 
-	// 3. Sync persistence (Criteria 5)
 	if err := je2.Sync(); err != nil {
 		t.Errorf("Sync failed: %v", err)
 	}
 
-	// 4. Verify data integrity
 	it, err := je2.NewIterator()
 	if err != nil {
 		t.Fatalf("Failed to create iterator: %v", err)
@@ -92,14 +87,12 @@ func TestJournalChecksumCorruption(t *testing.T) {
 		t.Fatalf("Failed to write corrupted file: %v", err)
 	}
 
-	t.Log("Opening for recovery...")
 	je2, err := wal.NewJournalEngine(logPath)
 	if err != nil {
 		t.Fatalf("Failed to recover: %v", err)
 	}
 	defer je2.Close()
 
-	t.Log("Checking iterator...")
 	it, err := je2.NewIterator()
 	if err != nil {
 		t.Fatalf("Failed to create iterator: %v", err)
@@ -114,7 +107,6 @@ func TestJournalChecksumCorruption(t *testing.T) {
 		t.Errorf("Expected valid1, got %s", rec.Payload)
 	}
 
-	t.Log("Checking second record (should be EOF)...")
 	if n, err := it.Next(); err != io.EOF {
 		t.Errorf("Expected EOF after corruption, got record %v, error %v", n, err)
 	}
@@ -123,7 +115,6 @@ func TestJournalChecksumCorruption(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stat failed: %v", err)
 	}
-	t.Logf("Final file size: %d", stat.Size())
 	if stat.Size() != 18 {
 		t.Errorf("Expected truncated size 18, got %d", stat.Size())
 	}
@@ -232,7 +223,6 @@ func TestJournalEngine_Recovery(t *testing.T) {
 	tmpDir := t.TempDir()
 	logPath := filepath.Join(tmpDir, "recovery_ext.log")
 
-	// 1. Write some valid records
 	je, err := wal.NewJournalEngine(logPath)
 	if err != nil {
 		t.Fatalf("failed to create journal: %v", err)
@@ -241,23 +231,19 @@ func TestJournalEngine_Recovery(t *testing.T) {
 	je.Append(2, []byte("valid2"))
 	je.Close()
 
-	// 2. Append garbage to simulate torn write
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		t.Fatalf("failed to open for corruption: %v", err)
 	}
-	// Partial header
 	f.Write([]byte{0xDE, 0xAD, 0xBE, 0xEF})
 	f.Close()
 
-	// 3. Open and recover
 	je2, err := wal.NewJournalEngine(logPath)
 	if err != nil {
 		t.Fatalf("failed to open for recovery: %v", err)
 	}
 	defer je2.Close()
 
-	// Verify we can read valid ones
 	it, err := je2.NewIterator()
 	if err != nil {
 		t.Fatalf("failed to create iterator: %v", err)
@@ -282,7 +268,6 @@ func TestJournalEngine_Recovery(t *testing.T) {
 		t.Errorf("expected EOF after recovery, got %v", err)
 	}
 
-	// 4. Verify we can still write
 	if err := je2.Append(3, []byte("new")); err != nil {
 		t.Fatalf("failed to append after recovery: %v", err)
 	}
@@ -299,15 +284,13 @@ func TestJournalEngine_CorruptedPayload(t *testing.T) {
 	je.Append(1, []byte("valid"))
 	je.Close()
 
-	// Append valid-looking header but short payload
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		t.Fatalf("failed to open for corruption: %v", err)
 	}
-	// Checksum(4), Type(4), Length(4=10)
 	header := []byte{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 10}
 	f.Write(header)
-	f.Write([]byte("short")) // 5 bytes instead of 10
+	f.Write([]byte("short"))
 	f.Close()
 
 	je2, err := wal.NewJournalEngine(logPath)
@@ -344,7 +327,7 @@ func TestJournalEngine_LargePayload(t *testing.T) {
 	}
 	defer je.Close()
 
-	payload := make([]byte, 1024*1024) // 1MB
+	payload := make([]byte, 1024*1024)
 	for i := range payload {
 		payload[i] = byte(i % 256)
 	}
