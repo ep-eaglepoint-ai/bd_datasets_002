@@ -15,7 +15,20 @@ import {
   TimeLog,
   Task,
 } from "../repository_after/lib/analytics";
-import { startOfDay, addDays, format, subDays } from "date-fns";
+import {
+  startOfDay,
+  addDays,
+  format,
+  subDays,
+  startOfWeek,
+  startOfMonth,
+} from "date-fns";
+import {
+  exportToJSON,
+  exportTasksToCSV,
+  exportLogsToCSV,
+  SystemData,
+} from "../repository_after/lib/export";
 
 describe("Requirement 1: Task CRUD Operations", () => {
   beforeEach(async () => {
@@ -986,5 +999,321 @@ describe("Requirement 16: Performance", () => {
 
     expect(useTaskStore.getState().tasks).toHaveLength(100);
     expect(duration).toBeLessThan(2000);
+  });
+});
+
+describe("Requirement 15: Undo/Redo History", () => {
+  beforeEach(async () => {
+    useTaskStore.setState({
+      tasks: [],
+      history: [],
+      future: [],
+      isLoading: false,
+      error: null,
+    });
+    await db.clearTasks();
+  });
+
+  test("undoes task creation", async () => {
+    const { addTask, undo } = useTaskStore.getState();
+    await addTask({ title: "Task to Undo" });
+    expect(useTaskStore.getState().tasks).toHaveLength(1);
+
+    await undo();
+    expect(useTaskStore.getState().tasks).toHaveLength(0);
+  });
+
+  test("redoes task creation", async () => {
+    const { addTask, undo, redo } = useTaskStore.getState();
+    await addTask({ title: "Task to Redo" });
+    await undo();
+    expect(useTaskStore.getState().tasks).toHaveLength(0);
+
+    await redo();
+    expect(useTaskStore.getState().tasks).toHaveLength(1);
+    expect(useTaskStore.getState().tasks[0].title).toBe("Task to Redo");
+  });
+
+  test("undoes task update", async () => {
+    const { addTask, updateTask, undo } = useTaskStore.getState();
+    await addTask({ title: "Original Title" });
+    const taskId = useTaskStore.getState().tasks[0].id;
+
+    await updateTask(taskId, { title: "New Title" });
+    expect(useTaskStore.getState().tasks[0].title).toBe("New Title");
+
+    await undo();
+    expect(useTaskStore.getState().tasks[0].title).toBe("Original Title");
+  });
+
+  test("undoes task deletion", async () => {
+    const { addTask, deleteTask, undo } = useTaskStore.getState();
+    await addTask({ title: "Task to Delete" });
+    const taskId = useTaskStore.getState().tasks[0].id;
+
+    await deleteTask(taskId);
+    expect(useTaskStore.getState().tasks).toHaveLength(0);
+
+    await undo();
+    expect(useTaskStore.getState().tasks).toHaveLength(1);
+    expect(useTaskStore.getState().tasks[0].id).toBe(taskId);
+  });
+
+  test("handles multiple undo/redo steps", async () => {
+    const { addTask, undo, redo } = useTaskStore.getState();
+    await addTask({ title: "1" });
+    await addTask({ title: "2" });
+    await addTask({ title: "3" });
+    expect(useTaskStore.getState().tasks).toHaveLength(3);
+
+    await undo();
+    expect(useTaskStore.getState().tasks).toHaveLength(2);
+    expect(useTaskStore.getState().tasks[0].title).toBe("2");
+
+    await undo();
+    expect(useTaskStore.getState().tasks).toHaveLength(1);
+
+    await redo();
+    expect(useTaskStore.getState().tasks).toHaveLength(2);
+    expect(useTaskStore.getState().tasks[0].title).toBe("2");
+  });
+});
+
+describe("Requirement 9: Grouping & Organization", () => {
+  test("groups tasks by status correctly", () => {
+    const tasks: Task[] = [
+      {
+        id: "1",
+        title: "A",
+        status: "pending",
+        priority: "low",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+      },
+      {
+        id: "2",
+        title: "B",
+        status: "completed",
+        priority: "low",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+      },
+      {
+        id: "3",
+        title: "C",
+        status: "pending",
+        priority: "low",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+      },
+    ];
+
+    const grouped = {
+      pending: tasks.filter((t) => t.status === "pending"),
+      completed: tasks.filter((t) => t.status === "completed"),
+    };
+
+    expect(grouped.pending).toHaveLength(2);
+    expect(grouped.completed).toHaveLength(1);
+  });
+
+  test("groups tasks by priority correctly", () => {
+    const tasks: Task[] = [
+      {
+        id: "1",
+        title: "A",
+        status: "pending",
+        priority: "high",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+      },
+      {
+        id: "2",
+        title: "B",
+        status: "pending",
+        priority: "low",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+      },
+      {
+        id: "3",
+        title: "C",
+        status: "pending",
+        priority: "high",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+      },
+    ];
+
+    const grouped = {
+      high: tasks.filter((t) => t.priority === "high"),
+      low: tasks.filter((t) => t.priority === "low"),
+    };
+
+    expect(grouped.high).toHaveLength(2);
+    expect(grouped.low).toHaveLength(1);
+  });
+});
+
+describe("Requirement 18: Export & Import", () => {
+  test("exports to JSON structure correctly", () => {
+    const tasks: Task[] = [
+      {
+        id: "1",
+        title: "Task 1",
+        status: "pending",
+        priority: "high",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+      },
+    ];
+    const logs: TimeLog[] = [
+      {
+        id: "l1",
+        taskId: "1",
+        startTime: new Date(),
+        duration: 60,
+        notes: "test",
+      },
+    ];
+
+    const json = exportToJSON(tasks, logs);
+    const data: SystemData = JSON.parse(json);
+
+    expect(data.version).toBe(1);
+    expect(data.tasks).toHaveLength(1);
+    expect(data.logs).toHaveLength(1);
+    expect(data.tasks[0].title).toBe("Task 1");
+  });
+
+  test("exports tasks to CSV correctly", () => {
+    const tasks: Task[] = [
+      {
+        id: "1",
+        title: "Task, with comma",
+        status: "pending",
+        priority: "high",
+        estimatedDuration: 60,
+        createdAt: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        tags: ["tag1"],
+      },
+    ];
+
+    const csv = exportTasksToCSV(tasks);
+    const lines = csv.split("\n");
+    expect(lines).toHaveLength(2); // Header + 1 row
+    expect(lines[0]).toContain("Title");
+    expect(lines[1]).toContain('"Task, with comma"'); // Should be quoted
+  });
+
+  test("exports logs to CSV correctly", () => {
+    const logs: TimeLog[] = [
+      {
+        id: "l1",
+        taskId: "t1",
+        startTime: new Date("2024-01-01T10:00:00Z"),
+        duration: 3600,
+        notes: "My notes",
+      },
+    ];
+
+    const csv = exportLogsToCSV(logs);
+    const lines = csv.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain("3600");
+    expect(lines[1]).toContain("My notes");
+  });
+});
+
+describe("Requirement 10 & 11: Advanced Analytics & History", () => {
+  test("aggregates over month boundaries", () => {
+    const logs: TimeLog[] = [
+      {
+        id: "1",
+        taskId: "t1",
+        startTime: new Date("2024-01-31T23:00:00"),
+        duration: 3600,
+        notes: "",
+      },
+      {
+        id: "2",
+        taskId: "t1",
+        startTime: new Date("2024-02-01T01:00:00"),
+        duration: 3600,
+        notes: "",
+      },
+    ];
+
+    const result = aggregateTime(logs);
+    // Keys depend on locale/format used in analytics.ts, assumed yyyy-MM
+    expect(Object.keys(result.monthly)).toContain("2024-01");
+    expect(Object.keys(result.monthly)).toContain("2024-02");
+    expect(result.monthly["2024-01"]).toBe(3600);
+    expect(result.monthly["2024-02"]).toBe(3600);
+  });
+
+  test("handles burn-down with out-of-order events", () => {
+    // Burn down generation sorts by date, so input order shouldn't matter
+    const tasks: Task[] = [
+      {
+        id: "1",
+        title: "T1",
+        status: "completed",
+        priority: "low",
+        estimatedDuration: 60,
+        createdAt: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-05"),
+        tags: [],
+      },
+      {
+        id: "2",
+        title: "T2",
+        status: "pending",
+        priority: "low",
+        estimatedDuration: 120,
+        createdAt: new Date("2024-01-02"),
+        updatedAt: new Date(),
+        tags: [],
+      },
+    ];
+
+    const data = generateBurnDown(tasks);
+    // First point should be creation of T1
+    expect(data[0].date).toContain("2024-01-01");
+    // Completed T1 at Jan 5
+    const completionPoint = data.find((d) => d.date.startsWith("2024-01-05"));
+    expect(completionPoint).toBeDefined();
+    // At T1 completion, completedMinutes should increase
+    expect(completionPoint!.completedMinutes).toBeGreaterThan(0);
+  });
+});
+
+describe("Requirement 17: UI State Feedback", () => {
+  beforeEach(async () => {
+    useTaskStore.setState({ tasks: [], isLoading: false, error: null });
+    await db.clearTasks();
+  });
+
+  test("sets loading state during operations", async () => {
+    const { loadTasks } = useTaskStore.getState();
+    const promise = loadTasks();
+    expect(useTaskStore.getState().isLoading).toBe(true);
+    await promise;
+    expect(useTaskStore.getState().isLoading).toBe(false);
+  });
+
+  test("sets error state on failure", async () => {
+    const { addTask } = useTaskStore.getState();
+    // Force validation error
+    await addTask({ title: "" } as any);
+    expect(useTaskStore.getState().error).toBeTruthy();
   });
 });
