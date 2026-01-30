@@ -1,6 +1,21 @@
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    profiles: ["test-before"]
+    command: sh -c "PYTHONPATH=/app/repository_before python -m pytest -v tests"
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    profiles: ["test-after"]
+    command: sh -c "PYTHONPATH=/app/repository_after python -m pytest -v tests"
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    profiles: ["evaluation"]
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app
