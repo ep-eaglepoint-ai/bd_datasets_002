@@ -1,6 +1,22 @@
+version: '3.8'
+
 services:
-  app:
+  test-before:
     build: .
-    command: pytest -q tests
+    command: pytest /app/tests/comprehensive -v
+    working_dir: /app/repository_before
     volumes:
-      - .:/app
+      - ./tests:/app/tests
+
+  test-after:
+    build: .
+    command: pytest /app/tests/comprehensive -v
+    working_dir: /app/repository_after
+    volumes:
+      - ./tests:/app/tests
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
