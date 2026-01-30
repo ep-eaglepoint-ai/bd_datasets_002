@@ -1,0 +1,11 @@
+{
+            "instance_id": "DW4EBE",
+            "problem_statement": "Refactor a monolithic Python-based IoT data processing script into a modular, strategy-driven pipeline. The current implementation violates the Single Responsibility Principle by mixing raw data validation, unit conversion, and sensor-specific calibration in a single high-complexity function.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/dw4ebe-python-iot-environmental-stream-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
