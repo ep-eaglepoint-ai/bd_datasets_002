@@ -397,3 +397,22 @@ class TestDependencyResolver:
         assert result[-1] == 'root'
         assert duration < 2.0
 
+
+    def test_deep_recursion_cycle_detection(self):
+        # Create a graph with a very deep cycle to test stack overflow issues
+        # 0 -> 1 -> 2 ... -> N -> 0
+        import sys
+        
+        # Increase recursion depth to ensure the test would fail if still recursive
+        # but keep it reasonable for the test runtime
+        n = 5000  # Default recursion limit is usually 1000
+        
+        # Build graph: { '0': ['1'], '1': ['2'], ..., 'N': ['0'] }
+        graph = {}
+        for i in range(n):
+            graph[str(i)] = [str((i + 1) % n)]
+            
+        with pytest.raises(CircularDependencyError) as excinfo:
+            resolve_execution_order(graph)
+            
+        assert "Circular dependency detected" in str(excinfo.value)

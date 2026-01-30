@@ -71,49 +71,57 @@ def resolve_execution_order(dependency_graph: dict) -> list:
                     if v in remaining_nodes:
                         remaining_adj[u].append(v)
         
-        # Find a cycle using DFS
-        # We need to sort nodes to ensure deterministic error reporting if needed,
-        # though identifying *any* cycle is usually sufficient. 
-        # But for stability, let's just iterate sorted.
-        visited = set()
-        recursion_stack = []
-        path_set = set() # For O(1) lookup in recursion stack
+        # Find a cycle using Iterative DFS
+        # We need to sort nodes to ensure deterministic error reporting
+        # We maintain a stack for DFS and a way to track the current path for cycle detection.
         
-        def find_cycle(u):
-            visited.add(u)
-            recursion_stack.append(u)
-            path_set.add(u)
+        # Iterative DFS State
+        # stack elements: (node, parent, neighbors_iterator)
+        # path_index: node -> index in the current path (for O(1) cycle check)
+        
+        visited = set()
+        
+        for start_node in sorted(remaining_nodes):
+            if start_node in visited:
+                continue
+                
+            # Start DFS from this node
+            stack = [(start_node, iter(sorted(remaining_adj[start_node])))]
+            path_indices = {start_node: 0} # map node -> depth/index in stack
+            visited.add(start_node)
             
-            # Sort neighbors for deterministic cycle finding
-            for v in sorted(remaining_adj[u]):
-                if v not in visited:
-                    if find_cycle(v):
-                        return True
-                elif v in path_set:
-                    # Cycle detected!
-                    # The cycle is from v to ... to u and back to v
-                    # slice the stack
-                    try:
-                        idx = recursion_stack.index(v)
-                        cycle = recursion_stack[idx:] + [v]
+            while stack:
+                parent, children = stack[-1]
+                
+                try:
+                    child = next(children)
+                    
+                    if child in path_indices:
+                        # Cycle detected!
+                        # The cycle is from child ... -> parent -> child
+                        # We can reconstruct it using path_indices[child]
+                        
+                        # Reconstruct the current path from the stack
+                        current_path = [node for node, _ in stack]
+                        cycle_start_index = path_indices[child]
+                        
+                        # Extract the cycle portion
+                        cycle = current_path[cycle_start_index:] + [child]
+                        
                         # The cycle found is in the "enables" graph (prereq -> dependent).
                         # The user expectation is likely the "depends on" chain (dependent -> prereq).
                         # So we reverse the cycle path.
                         raise CircularDependencyError(cycle[::-1])
-                    except ValueError:
-                        # Should not happen if logic is correct
-                        pass
-            
-            path_set.remove(u)
-            recursion_stack.pop()
-            return False
-
-        for node in sorted(remaining_nodes):
-            if node not in visited:
-                try:
-                    find_cycle(node)
-                except CircularDependencyError:
-                    raise
+                    
+                    if child not in visited:
+                        visited.add(child)
+                        path_indices[child] = len(stack)
+                        stack.append((child, iter(sorted(remaining_adj[child]))))
+                        
+                except StopIteration:
+                    # All children processed, backtrack
+                    stack.pop()
+                    del path_indices[parent]
 
         # Fallback if logic misses (should not happen given in_degree checks)
         raise CircularDependencyError(["Unknown cycle"])
