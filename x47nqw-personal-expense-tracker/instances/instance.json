@@ -1,0 +1,11 @@
+{
+            "instance_id": "X47NQW",
+            "problem_statement": "Build a personal expense‑tracking web application using Next.js 14 App Router with TypeScript, Tailwind CSS, and shadcn/ui components, featuring transaction logging, categorization, and visual spending analytics via Chart.js. Implement backend API routes, PostgreSQL with Prisma ORM, and NextAuth.js for authentication, supporting date/category filtering, monthly breakdowns, and localized currency formatting with Intl.NumberFormat. The application must provide intuitive expense management, real‑time summaries, and clear visualizations to help users monitor and analyze their spending habits.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/x47nqw-personal-expense-tracker",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
