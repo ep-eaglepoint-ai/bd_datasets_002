@@ -59,6 +59,13 @@ type ISafetyMonitor interface {
 // State Management
 //////////////////////////////////////////////////////////////////////////////
 
+// IArmState defines the interface for arm state management.
+// This allows for mocking state in tests and future extensions.
+type IArmState interface {
+	GetCurrentX() float64
+	setCurrentX(value float64)
+}
+
 // ArmState represents the current state of the robotic arm.
 type ArmState struct {
 	mu       sync.RWMutex
@@ -204,11 +211,41 @@ func (cp *CommandProcessor) ProcessMoveCommand(rawBuffer []byte, units string) e
 	return nil
 }
 
+// packageProcessor is a singleton processor for backward-compatible package-level functions
+// This ensures state is preserved between calls
+var packageProcessor *CommandProcessor
+
+var processorMu sync.Mutex
+
+// getPackageProcessor returns the singleton processor, creating it if needed
+func getPackageProcessor() *CommandProcessor {
+	processorMu.Lock()
+	defer processorMu.Unlock()
+
+	if packageProcessor == nil {
+		packageProcessor = DefaultCommandProcessor()
+	}
+	return packageProcessor
+}
+
 // ProcessMoveCommand is a package-level wrapper for backward compatibility.
-// It creates a default CommandProcessor and processes the command.
+// It uses a singleton processor to preserve state between calls.
 func ProcessMoveCommand(rawBuffer []byte, units string) error {
-	processor := DefaultCommandProcessor()
+	processor := getPackageProcessor()
 	return processor.ProcessMoveCommand(rawBuffer, units)
+}
+
+// GetCurrentPosition returns the current X position using the package-level processor.
+func GetCurrentPosition() float64 {
+	processor := getPackageProcessor()
+	return processor.GetCurrentPosition()
+}
+
+// ResetProcessor resets the package-level processor (useful for testing)
+func ResetProcessor() {
+	processorMu.Lock()
+	defer processorMu.Unlock()
+	packageProcessor = nil
 }
 
 // GetCurrentPosition returns the current X position.
