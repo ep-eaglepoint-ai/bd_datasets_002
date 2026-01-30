@@ -24,7 +24,7 @@ class TestPaymentProcessing:
         result = db_cursor.fetchone()
         
         assert result is not None
-        assert result[0] == 'SQLITE_OK'
+        assert result[0] == 'OK'
         
         # Verify DB state
         db_cursor.execute("SELECT status FROM orders WHERE id = %s", (order_id,))
@@ -47,7 +47,7 @@ class TestPaymentProcessing:
         )
         result = db_cursor.fetchone()
         
-        assert result[0] == 'SQLITE_NOTFOUND'
+        assert result[0] == 'ORDER_NOT_FOUND'
         assert 'Order not found' in result[1]
 
     def test_order_already_paid(self, db_cursor):
@@ -64,7 +64,7 @@ class TestPaymentProcessing:
         )
         result = db_cursor.fetchone()
         
-        assert result[0] == 'SQLITE_CONSTRAINT'
+        assert result[0] == 'ORDER_NOT_PENDING'
         assert 'Order is not pending' in result[1]
 
     def test_payment_amount_mismatch(self, db_cursor):
@@ -81,7 +81,7 @@ class TestPaymentProcessing:
         )
         result = db_cursor.fetchone()
         
-        assert result[0] == 'SQLITE_CONSTRAINT'
+        assert result[0] == 'PAYMENT_AMOUNT_MISMATCH'
         assert 'Payment amount mismatch' in result[1]
 
     def test_idempotency_duplicate_request(self, db_cursor):
@@ -98,7 +98,7 @@ class TestPaymentProcessing:
             (order_id, 100.00, 'credit_card', timestamp, request_id)
         )
         result1 = db_cursor.fetchone()
-        assert result1[0] == 'SQLITE_OK'
+        assert result1[0] == 'OK'
         
         # Second call (same request_id)
         db_cursor.execute(
@@ -108,7 +108,7 @@ class TestPaymentProcessing:
         result2 = db_cursor.fetchone()
         
         # Should be success but message indicates existing
-        assert result2[0] == 'SQLITE_OK'
+        assert result2[0] == 'OK'
         assert 'Payment already processed' in result2[1]
         
         # Ensure only one payment record
@@ -138,7 +138,7 @@ class TestPaymentProcessing:
         
         # Update: I will update the function to reject non-pending orders.
         # So I expect this to fail with a constraint message.
-        assert result[0] == 'SQLITE_CONSTRAINT'
+        assert result[0] == 'ORDER_NOT_PENDING'
         # assert 'Order not pending' or similar. 
 
     def test_negative_amount(self, db_cursor):
@@ -189,7 +189,7 @@ class TestPaymentProcessing:
         # But wait, logic: `IF p_amount <> v_order_record.total_amount`.
         # So I should check for that.
         
-        assert result[0] == 'SQLITE_CONSTRAINT'
+        assert result[0] == 'PAYMENT_AMOUNT_MISMATCH'
 
     def test_payment_success(self, db_cursor):
         """Test successful payment processing."""
@@ -205,7 +205,7 @@ class TestPaymentProcessing:
         )
         result = db_cursor.fetchone()
         
-        assert result[0] == 'SQLITE_OK'
+        assert result[0] == 'OK'
         assert result[1] == 'Payment processed successfully'
         
         # Ensure payment record was created

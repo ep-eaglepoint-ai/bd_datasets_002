@@ -19,21 +19,21 @@ BEGIN
     SELECT id INTO v_existing_payment_id FROM payments WHERE request_id = p_request_id;
     
     IF v_existing_payment_id IS NOT NULL THEN
-        RETURN ROW('SQLITE_OK', 'Payment already processed')::payment_result;
+        RETURN ROW('OK', 'Payment already processed')::payment_result;
     END IF;
 
     SELECT * INTO v_order_record FROM orders WHERE id = p_order_id FOR UPDATE;
     
     IF NOT FOUND THEN
-        RETURN ROW('SQLITE_NOTFOUND', 'Order not found')::payment_result;
+        RETURN ROW('ORDER_NOT_FOUND', 'Order not found')::payment_result;
     END IF;
 
     IF v_order_record.status != 'pending' THEN
-        RETURN ROW('SQLITE_CONSTRAINT', 'Order is not pending')::payment_result;
+        RETURN ROW('ORDER_NOT_PENDING', 'Order is not pending')::payment_result;
     END IF;
 
     IF p_amount <> v_order_record.total_amount THEN
-        RETURN ROW('SQLITE_CONSTRAINT', 'Payment amount mismatch')::payment_result;
+        RETURN ROW('PAYMENT_AMOUNT_MISMATCH', 'Payment amount mismatch')::payment_result;
     END IF;
 
     BEGIN
@@ -41,7 +41,7 @@ BEGIN
         VALUES (p_order_id, p_amount, p_method, p_timestamp, p_request_id)
         RETURNING id INTO v_payment_id;
     EXCEPTION WHEN unique_violation THEN
-        RETURN ROW('SQLITE_OK', 'Payment already processed')::payment_result;
+        RETURN ROW('OK', 'Payment already processed')::payment_result;
     END;
 
     UPDATE orders SET status = 'paid' WHERE id = p_order_id;
@@ -49,9 +49,9 @@ BEGIN
     INSERT INTO payment_audit_log (order_id, payment_id, action, log_timestamp)
     VALUES (p_order_id, v_payment_id, 'PAYMENT_PROCESSED', CURRENT_TIMESTAMP);
 
-    RETURN ROW('SQLITE_OK', 'Payment processed successfully')::payment_result;
+    RETURN ROW('OK', 'Payment processed successfully')::payment_result;
 
 EXCEPTION WHEN OTHERS THEN
-    RETURN ROW('SQLITE_ERROR', SQLERRM)::payment_result;
+    RETURN ROW('ERROR', SQLERRM)::payment_result;
 END;
 $$ LANGUAGE plpgsql;
