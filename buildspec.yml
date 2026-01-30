@@ -1,0 +1,57 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Installing requirements..."
+      - pip install -r requirements.txt
+      - pip install pytest httpx  # Ensure test dependencies are present
+
+  pre_build:
+    commands:
+      - echo "Checking project structure..."
+      - ls -R repository_after/tests
+
+  build:
+    commands:
+      - echo "Running tests for 'repository_before' state (expected to fail)..."
+      - |
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/repository_before
+        if pytest repository_after/tests -q; then
+          echo "WARNING: repository_before passed tests unexpectedly"
+          export BEFORE_STATE="PASSED"
+        else
+          echo "SUCCESS: repository_before failed tests as expected"
+          export BEFORE_STATE="FAILED"
+        fi
+
+      - echo "Running tests for 'repository_after' state (expected to pass)..."
+      - |
+        export PYTHONPATH=$(pwd)/repository_after
+        if pytest repository_after/tests -q; then
+          echo "SUCCESS: repository_after passed all tests"
+          export AFTER_STATE="PASSED"
+        else
+          echo "FAILURE: repository_after failed tests"
+          export AFTER_STATE="FAILED"
+          exit 1
+        fi
+
+  post_build:
+    commands:
+      - echo "Running final evaluation..."
+      - |
+        if [ -f "evaluation/evaluation.py" ]; then
+          python evaluation/evaluation.py
+        fi
+      - echo "Build Results Summary:"
+      - echo " - Repository Before: $BEFORE_STATE"
+      - echo " - Repository After:  $AFTER_STATE"
+      - echo "Build completed on $(date)"
+
+artifacts:
+  files:
+    - '**/*'
+  name: spam-detection-demo-$(date +%Y-%m-%d)
