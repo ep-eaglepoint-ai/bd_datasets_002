@@ -95,10 +95,10 @@ index 00000000..42c078db
 +}
 diff --git a/repository_after/FootballSeasonStatsServiceImpl.java b/repository_after/FootballSeasonStatsServiceImpl.java
 new file mode 100644
-index 00000000..5db61136
+index 00000000..e746a536
 --- /dev/null
 +++ b/repository_after/FootballSeasonStatsServiceImpl.java
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,47 @@
 +package com.example.gamestats;
 +
 +import org.springframework.stereotype.Service;
@@ -106,7 +106,7 @@ index 00000000..5db61136
 +import java.util.Comparator;
 +import java.util.List;
 +import java.util.concurrent.ThreadLocalRandom;
-+import java.util.stream.Collectors;
++
 +
 +@Service
 +public class FootballSeasonStatsServiceImpl implements FootballSeasonStatsService {
@@ -118,13 +118,11 @@ index 00000000..5db61136
 +
 +    @Override
 +    public SeasonStats getSeasonStats(String teamName, int seasonYear) {
-+        // Efficient data generation (O(N) with no repeated DB latency simulation)
 +        List<MatchStats> matches = new ArrayList<>(MATCHES_IN_SEASON);
 +        int totalGoals = 0;
 +        int totalFouls = 0;
 +
 +        for (int i = 1; i <= MATCHES_IN_SEASON; i++) {
-+            // Using ThreadLocalRandom for thread safety and performance
 +            int goalsFor = ThreadLocalRandom.current().nextInt(MAX_GOALS);
 +            int goalsAgainst = ThreadLocalRandom.current().nextInt(MAX_GOALS);
 +            int shots = ThreadLocalRandom.current().nextInt(MAX_SHOTS);
@@ -132,12 +130,10 @@ index 00000000..5db61136
 +
 +            matches.add(new MatchStats(i, goalsFor, goalsAgainst, shots, fouls));
 +
-+            // Aggregation during generation to keep it O(N) and avoid second loop
 +            totalGoals += goalsFor;
 +            totalFouls += fouls;
 +        }
 +
-+        // Efficient sorting without side effects
 +        matches.sort(Comparator.comparingInt(MatchStats::getGoalsFor).reversed());
 +
 +        return new SeasonStats(
@@ -195,7 +191,7 @@ index 00000000..bc8946c7
 +}
 diff --git a/repository_after/SeasonStats.java b/repository_after/SeasonStats.java
 new file mode 100644
-index 00000000..31f6cf01
+index 00000000..f1621425
 --- /dev/null
 +++ b/repository_after/SeasonStats.java
 @@ -0,0 +1,45 @@
@@ -241,6 +237,6 @@ index 00000000..31f6cf01
 +    }
 +
 +    public List<MatchStats> getMatchStats() {
-+        return matchStats;
++        return java.util.Collections.unmodifiableList(matchStats);
 +    }
 +}
