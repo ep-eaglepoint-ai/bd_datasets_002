@@ -1,6 +1,7 @@
 {
   "name": "recurring-event-scheduler",
   "version": "1.0.0",
+  "type": "module",
   "description": "A robust recurring event scheduler with proper timezone handling",
   "main": "dist/index.js",
   "scripts": {

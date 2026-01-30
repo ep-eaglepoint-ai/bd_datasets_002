@@ -1,5 +1,5 @@
-import { Event, Occurrence, SchedulerOptions } from './types';
-import { RecurrenceRule } from './recurrence';
+import { Event, Occurrence, SchedulerOptions } from './types.js';
+import { RecurrenceRule } from './recurrence.js';
 
 export class Scheduler {
     private options: SchedulerOptions;

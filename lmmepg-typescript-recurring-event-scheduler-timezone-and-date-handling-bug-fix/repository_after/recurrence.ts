@@ -1,4 +1,4 @@
-import { RecurrencePattern } from './types';
+import { RecurrencePattern } from './types.js';
 
 export class RecurrenceRule {
     private pattern: RecurrencePattern;
