@@ -1,6 +1,10 @@
 services:
-  app:
+  app:  # Renamed from 'evaluator' to 'app' to match your commands
     build: .
-    command: pytest -q tests
+    image: bitedance-trainer-eval
     volumes:
       - .:/app
+    environment:
+      - PYTEST_ADDOPTS=-v -p no:cacheprovider
+      - PYTHONPATH=/app
+      - TEST_SUITE_PATH=repository_after/my_lora_project/tests/test_lora_sft.py
