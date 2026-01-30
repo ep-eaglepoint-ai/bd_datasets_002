@@ -1,0 +1,11 @@
+{
+            "instance_id": "F1DC5T",
+            "problem_statement": "The document ingestion script ingest_and_chunk.py processes raw PDF and text documents by cleaning their contents, splitting them into overlapping chunks, and exporting the results as JSONL records for downstream retrieval and evaluation workflows. To ensure correctness, reliability, and long-term maintainability, a comprehensive automated test suite is required to validate individual functions as well as the script’s end-to-end behavior when executed as a standalone program.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/f1dc5t-standalone-pytest-test-suite-for-document-ingestion-and-chunking-script",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

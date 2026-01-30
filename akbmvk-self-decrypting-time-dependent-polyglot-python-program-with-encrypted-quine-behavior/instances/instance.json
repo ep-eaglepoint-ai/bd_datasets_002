@@ -1,0 +1,11 @@
+{
+            "instance_id": "AKBMVK",
+            "problem_statement": "Design a fully self‑contained Python program that embeds a single encrypted payload and dynamically decrypts and executes different logic based on the system clock minute. The program must demonstrate reasoning over time‑based conditions, self‑reference, encryption/decryption, and dynamic code execution, while remaining deterministic, sandbox‑safe, and compliant with strict implementation constraints. The system must also act as a quine with respect to its encrypted form by printing its own encrypted payload before execution.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/akbmvk-self-decrypting-time-dependent-polyglot-python-program-with-encrypted-quine-behavior",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
