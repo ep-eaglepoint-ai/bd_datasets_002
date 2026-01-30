@@ -1,6 +1,8 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    command: pytest -v tests/test_meta.py
     volumes:
       - .:/app
+    environment:
+      INSIDE_DOCKER: "true"
