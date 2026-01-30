@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { hashPassword, verifyPassword, generateToken, verifyToken } from '../src/lib/auth';
+import { hashPassword, verifyPassword, generateToken, verifyToken } from '../repository_after/src/lib/auth';
 
 describe('Authentication utilities', () => {
   describe('Password hashing', () => {
