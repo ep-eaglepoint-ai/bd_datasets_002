@@ -1,6 +1,59 @@
+version: '3.8'
+
 services:
+  # Main application service
   app:
     build: .
-    command: pytest -q tests
+    container_name: music-library-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Development service (with hot reload)
+  dev:
+    build: .
+    container_name: music-library-dev
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
     volumes:
-      - .:/app
+      - ./repository_after/src:/app/src
+      - ./repository_after/public:/app/public
+    command: npm run dev
+    profiles:
+      - dev
+
+  # Test runner service
+  test:
+    build: .
+    container_name: music-library-test
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - ./tests:/app/../tests
+      - ./evaluation:/app/../evaluation
+    command: npm test
+    profiles:
+      - test
+
+  # Evaluation service
+  evaluation:
+    build: .
+    container_name: music-library-evaluation
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - ./evaluation/reports:/app/../evaluation/reports
+    command: npm run evaluate
+    profiles:
+      - evaluation
