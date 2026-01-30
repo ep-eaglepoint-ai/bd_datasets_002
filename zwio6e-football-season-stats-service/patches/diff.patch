@@ -1,12 +1,16 @@
 diff --git a/repository_before/FootballSeasonStatsController.java b/repository_after/FootballSeasonStatsController.java
-index 70770208..74d5da3c 100644
+index 70770208..62f59529 100644
 --- a/repository_before/FootballSeasonStatsController.java
 +++ b/repository_after/FootballSeasonStatsController.java
-@@ -4,71 +4,20 @@ import org.springframework.web.bind.annotation.GetMapping;
+@@ -4,71 +4,48 @@ import org.springframework.web.bind.annotation.GetMapping;
  import org.springframework.web.bind.annotation.RequestParam;
  import org.springframework.web.bind.annotation.RestController;
  
 -import java.util.*;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.stream.Collectors;
  
  @RestController
  public class FootballSeasonStatsController {
@@ -18,11 +22,13 @@ index 70770208..74d5da3c 100644
 +    }
 +
      @GetMapping("/api/football/season/stats")
--    public Map<String, Object> getSeasonStats(
-+    public SeasonStats getSeasonStats(
+     public Map<String, Object> getSeasonStats(
              @RequestParam String teamName,
              @RequestParam int seasonYear) {
--
++        SeasonStats stats = service.getSeasonStats(teamName, seasonYear);
++        return toMap(stats);
++    }
+ 
 -        // Simulate slow configuration lookup
 -        try {
 -            Thread.sleep(1500); // BAD: blocking thread
@@ -30,7 +36,8 @@ index 70770208..74d5da3c 100644
 -            e.printStackTrace();
 -        }
 -
--        Map<String, Object> response = new HashMap<>();
++    private Map<String, Object> toMap(SeasonStats stats) {
+         Map<String, Object> response = new HashMap<>();
 -        response.put("team", teamName);
 -        response.put("season", seasonYear);
 -
@@ -78,9 +85,26 @@ index 70770208..74d5da3c 100644
 -        response.put("totalFoulsCommitted", totalFouls);
 -        response.put("matchStats", matches);
 -
--        return response;
-+        return service.getSeasonStats(teamName, seasonYear);
++        response.put("team", stats.getTeam());
++        response.put("season", stats.getSeason());
++        response.put("matchesPlayed", stats.getMatchesPlayed());
++        response.put("totalGoalsScored", stats.getTotalGoalsScored());
++        response.put("totalFoulsCommitted", stats.getTotalFoulsCommitted());
++        response.put("matchStats", stats.getMatchStats().stream()
++                .map(this::toMatchMap)
++                .collect(Collectors.toList()));
+         return response;
      }
++
++    private Map<String, Object> toMatchMap(MatchStats match) {
++        Map<String, Object> map = new HashMap<>();
++        map.put("matchDay", match.getMatchDay());
++        map.put("goalsFor", match.getGoalsFor());
++        map.put("goalsAgainst", match.getGoalsAgainst());
++        map.put("shots", match.getShots());
++        map.put("fouls", match.getFouls());
++        return map;
++    }
  }
 diff --git a/repository_after/FootballSeasonStatsService.java b/repository_after/FootballSeasonStatsService.java
 new file mode 100644
