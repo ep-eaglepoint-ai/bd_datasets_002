@@ -1,6 +1,12 @@
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    command: go test -v ./tests/...
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    command: go run evaluation/evaluation.go
