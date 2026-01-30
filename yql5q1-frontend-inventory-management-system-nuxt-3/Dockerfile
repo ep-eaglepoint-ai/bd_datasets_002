@@ -1,10 +1,9 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app/repository_after
 
 COPY repository_after/package.json ./package.json
 COPY repository_after/package-lock.json ./package-lock.json
-
 COPY repository_after/ ./
 
 RUN npm install --omit=optional
