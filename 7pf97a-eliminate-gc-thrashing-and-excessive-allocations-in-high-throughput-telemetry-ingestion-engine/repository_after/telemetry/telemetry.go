@@ -35,11 +35,13 @@ func (b *IngestionBuffer) Push(p TelemetryPacket) {
 	}
 }
 
+// Flush returns packets from the buffer. The returned slice shares the backing
+// array; the caller must consume it before calling Push again, or data may be overwritten.
 func (b *IngestionBuffer) Flush() []TelemetryPacket {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	batch := b.data[:b.head] 
-	b.head = 0    
+	batch := b.data[:b.head]
+	b.head = 0
 	return batch
 }
