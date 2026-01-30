@@ -1,6 +1,19 @@
 services:
-  app:
+  app-after:
     build: .
-    command: pytest -q tests
+    working_dir: /app
+    environment:
+      - REPO=repository_after
+      - PYTHONPATH=/app
+    command: sh -c "python -m pip install -q pytest && python -m pytest -q tests"
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+    command: sh -c "python -m pip install -q pytest && python evaluation/evaluation.py"
     volumes:
       - .:/app

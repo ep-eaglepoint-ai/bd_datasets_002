@@ -1,12 +1,18 @@
 {
-            "instance_id": "WIM9UT",
-            "problem_statement": "Implement a thread‑safe CircuitBreaker class in Python that wraps callable functions, tracks success/failure rates, and transitions between CLOSED (normal), OPEN (fail‑fast), and HALF‑OPEN (test) states based on configurable thresholds and timeouts. The circuit must prevent cascading failures by immediately rejecting requests when open, automatically testing recovery in half‑open state, and resuming normal operation when healthy. Support both synchronous functions and a decorator interface for easy integration into distributed systems to protect against unavailable or slow dependencies.
-",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wim9ut-circuit-breaker-class",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "WIM9UT",
+    "problem_statement": "Implement a thread-safe CircuitBreaker class in Python that wraps callable functions, tracks success/failure rates, and transitions between CLOSED (normal), OPEN (fail-fast), and HALF-OPEN (test) states based on configurable thresholds and timeouts. The circuit must prevent cascading failures by immediately rejecting requests when open, automatically testing recovery in half-open state, and resuming normal operation when healthy. Support both synchronous functions and a decorator interface for easy integration into distributed systems to protect against unavailable or slow dependencies.",
+    "base_commit": "repository_after/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wim9ut-circuit-breaker-class",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "tests/test_circuit_breaker.py::test_closed_to_open_and_reject",
+        "tests/test_circuit_breaker.py::test_failure_window_resets",
+        "tests/test_circuit_breaker.py::test_half_open_success_closes",
+        "tests/test_circuit_breaker.py::test_half_open_failure_reopens",
+        "tests/test_circuit_breaker.py::test_exceptions_filtering",
+        "tests/test_circuit_breaker.py::test_decorator_interface",
+        "tests/test_circuit_breaker.py::test_thread_safety"
+    ],
+    "PASS_TO_PASS": []
+}
