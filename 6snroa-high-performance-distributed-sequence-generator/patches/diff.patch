@@ -1,0 +1,61 @@
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/__init__.py b/repository_after/__init__.py
+new file mode 100644
+index 0000000..84b3d51
+--- /dev/null
++++ b/repository_after/__init__.py
+@@ -0,0 +1 @@
++# Package initializer for repository_after
+diff --git a/repository_after/__pycache__/__init__.cpython-311.pyc b/repository_after/__pycache__/__init__.cpython-311.pyc
+new file mode 100644
+index 0000000..1a32bd3
+Binary files /dev/null and b/repository_after/__pycache__/__init__.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/__init__.cpython-39.pyc b/repository_after/__pycache__/__init__.cpython-39.pyc
+new file mode 100644
+index 0000000..5b040d6
+Binary files /dev/null and b/repository_after/__pycache__/__init__.cpython-39.pyc differ
+diff --git a/repository_after/__pycache__/chrono_sequence.cpython-311.pyc b/repository_after/__pycache__/chrono_sequence.cpython-311.pyc
+new file mode 100644
+index 0000000..02f3853
+Binary files /dev/null and b/repository_after/__pycache__/chrono_sequence.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/chrono_sequence.cpython-39.pyc b/repository_after/__pycache__/chrono_sequence.cpython-39.pyc
+new file mode 100644
+index 0000000..90059cc
+Binary files /dev/null and b/repository_after/__pycache__/chrono_sequence.cpython-39.pyc differ
+diff --git a/repository_after/chrono_sequence.py b/repository_after/chrono_sequence.py
+new file mode 100644
+index 0000000..f6a23c6
+--- /dev/null
++++ b/repository_after/chrono_sequence.py
+@@ -0,0 +1,29 @@
++import time
++
++
++CUSTOM_EPOCH = 1704067200  # Jan 1, 2024 00:00:00 UTC
++
++
++class ChronoSequence:
++    def __init__(self, worker_id):
++        self.worker_id = worker_id
++        self.last_timestamp = -1
++        self.sequence = 0
++
++    def next_id(self) -> int:
++        # compute milliseconds since custom epoch
++        timestamp = int((time.time() - CUSTOM_EPOCH) * 1000)
++        if timestamp < 0:
++            timestamp = 0
++
++        prev = self.last_timestamp
++        if timestamp == prev:
++            self.sequence += 1
++        elif timestamp > prev:
++            self.sequence = 0
++
++        # update state for tests and future logic
++        self.last_timestamp = timestamp
++        # assemble 64-bit ID: [1 bit 0][41 bits timestamp][10 bits worker_id][12 bits sequence]
++        id64 = (timestamp << (10 + 12)) | (self.worker_id << 12) | self.sequence
++        return id64

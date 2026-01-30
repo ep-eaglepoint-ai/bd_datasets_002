@@ -3,9 +3,17 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.pytest_cache/
+
+#IDEs
+.vscode/
+.idea/
 
 # Node
 node_modules/
 
 # OS
 .DS_Store
+
+# Evlauation
+evaluation/????-??-??/
