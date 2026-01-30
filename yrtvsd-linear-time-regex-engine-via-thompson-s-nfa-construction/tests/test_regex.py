@@ -6,11 +6,14 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'repository_after')))
 
 try:
-    from repository_after import match, State
+    from repository_after import match, State, get_epsilon_closure, shunting_yard, preprocess_regex
 except ImportError:
     # Handle this in tests so they can be run even before implementation is ready
     match = None
     State = None
+    get_epsilon_closure = None
+    shunting_yard = None
+    preprocess_regex = None
 
 def test_basic_literals():
     assert match("a", "a") is True
@@ -127,3 +130,39 @@ def test_active_states_set_efficiency_refined():
     source = inspect.getsource(repository_after.match)
     assert "set()" in source or "Set()" in source
     assert "current_states = []" not in source
+
+def test_shunting_yard_ir():
+    # Requirement: a|b* -> a, b, *, |
+    # Preprocessing ab -> a.b
+    pattern = preprocess_regex("a|b*")
+    postfix = shunting_yard(pattern)
+    assert "".join(postfix) == "ab*|"
+    
+    pattern2 = preprocess_regex("(ab)*")
+    postfix2 = shunting_yard(pattern2)
+    assert "".join(postfix2) == "ab.*"
+
+def test_epsilon_closure_implementation():
+    # Requirement: Specific helper function to find reachable states via None transitions
+    assert get_epsilon_closure is not None
+    
+    # Requirement: Maintain a visited set to avoid loops
+    import repository_after
+    import inspect
+    source = inspect.getsource(repository_after.get_epsilon_closure)
+    assert "visited" in source
+    assert "set()" in source
+    
+    # Functional check for epsilon reachable states
+    s1 = State()
+    s2 = State()
+    s3 = State()
+    s1.epsilon_edges.append(s2)
+    s2.epsilon_edges.append(s3)
+    s3.epsilon_edges.append(s1) # Cycle
+    
+    closure = get_epsilon_closure([s1])
+    assert s1 in closure
+    assert s2 in closure
+    assert s3 in closure
+    assert len(closure) == 3
