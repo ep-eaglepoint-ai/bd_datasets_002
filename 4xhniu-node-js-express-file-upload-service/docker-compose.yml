@@ -1,6 +1,14 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    command: go test -v ./tests/...
     volumes:
       - .:/app
+
+  evaluation:
+    build: .
+    command: python3 evaluation/evaluation.py
+    volumes:
+      - .:/app
+    environment:
+      - CGO_ENABLED=1
