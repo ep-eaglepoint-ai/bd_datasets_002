@@ -1,6 +1,10 @@
 services:
-  app:
+  test:
     build: .
-    command: pytest -q tests
+    command: sh -c "cd /app/tests && go test -v ."
+
+  evaluation:
+    build: .
+    command: sh -c "cd /app/evaluation && go run evaluation.go"
     volumes:
-      - .:/app
+      - ./evaluation:/host/evaluation

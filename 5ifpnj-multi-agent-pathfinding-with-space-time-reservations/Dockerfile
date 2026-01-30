@@ -1,5 +1,15 @@
-FROM python:3.11-slim
+FROM golang:1.18-alpine
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+COPY tests/ /app/tests/
+COPY repository_after/ /app/repository_after/
+COPY evaluation/ /app/evaluation/
+
+WORKDIR /app/tests
+RUN go mod download || true
+
+WORKDIR /app/evaluation
+RUN go mod download || true
+
+WORKDIR /app
