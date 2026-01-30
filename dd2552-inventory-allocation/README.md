@@ -14,7 +14,3 @@ docker compose run --rm -e PYTHONPATH=/app/repository_after:/app app pytest -v t
 ```bash
 docker compose run --rm app python evaluation/evaluation.py
 ```
-
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
