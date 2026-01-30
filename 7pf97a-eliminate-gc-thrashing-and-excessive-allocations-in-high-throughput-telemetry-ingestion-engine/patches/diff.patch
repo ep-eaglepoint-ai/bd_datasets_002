@@ -1,16 +1,14 @@
 diff --git a/repository_before/go.mod b/repository_after/go.mod
-index 106cdbd..57ed88c 100644
+index 106cdbdf4..57ed88cc4 100644
 --- a/repository_before/go.mod
 +++ b/repository_after/go.mod
 @@ -1,3 +1,3 @@
 -module scenario-008-go-slice-realloc
 +module repository_after
- 
--go 1.21
-+go 1.21 
-\ No newline at end of file
++
++go 1.21
 diff --git a/repository_before/main.go b/repository_after/main.go
-index c615f31..fe43164 100644
+index c615f3161..fe43164a8 100644
 --- a/repository_before/main.go
 +++ b/repository_after/main.go
 @@ -3,35 +3,32 @@ package main
@@ -79,10 +77,10 @@ index c615f31..fe43164 100644
 +	fmt.Printf("Flushed %d packets\n", len(finalBatch))
  }
 diff --git a/repository_before/telemetry/buffer.go b/repository_after/telemetry/telemetry.go
-similarity index 63%
+similarity index 51%
 rename from repository_before/telemetry/buffer.go
 rename to repository_after/telemetry/telemetry.go
-index 6edae01..ea136da 100644
+index 6edae01a7..8a0615bb7 100644
 --- a/repository_before/telemetry/buffer.go
 +++ b/repository_after/telemetry/telemetry.go
 @@ -8,14 +8,18 @@ type TelemetryPacket struct {
@@ -106,7 +104,7 @@ index 6edae01..ea136da 100644
  	}
  }
  
-@@ -23,13 +27,19 @@ func (b *IngestionBuffer) Push(p TelemetryPacket) {
+@@ -23,13 +27,21 @@ func (b *IngestionBuffer) Push(p TelemetryPacket) {
  	b.mu.Lock()
  	defer b.mu.Unlock()
  
@@ -119,10 +117,15 @@ index 6edae01..ea136da 100644
 +	}
  }
 +
++// Flush returns packets from the buffer. The returned slice shares the backing
++// array; the caller must consume it before calling Push again, or data may be overwritten.
  func (b *IngestionBuffer) Flush() []TelemetryPacket {
  	b.mu.Lock()
  	defer b.mu.Unlock()
  
 -	batch := b.data
 -	b.data = make([]TelemetryPacket, 0)
++	batch := b.data[:b.head]
++	b.head = 0
+ 	return batch
  }
