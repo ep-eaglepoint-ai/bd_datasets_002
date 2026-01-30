@@ -21,16 +21,19 @@ function getEnvironmentInfo() {
   };
 }
 
-function runTests() {
+/**
+ * Runs the Jest test suite with a specific REPO_PATH environment variable
+ */
+function runTests(repoPath) {
   return new Promise((resolve) => {
-    // Run Jest with --json flag to get machine-readable output
+    // Spawn Jest process
     const jestProc = spawn("npx", ["jest", "--json"], {
       cwd: ROOT,
       env: {
         ...process.env,
-        CI: "true", // FORCE the evaluation to test the solution
-        REPO_PATH: "repository_after",
-      }, // CI=true prevents interactive watch mode
+        CI: "true",
+        REPO_PATH: repoPath, // Dynamically set which folder to test
+      },
     });
 
     let stdout = "";
@@ -45,25 +48,30 @@ function runTests() {
 
     jestProc.on("close", (code) => {
       let passed = code === 0;
-      let outputDetails = stderr || stdout; // Jest usually prints summaries to stderr
+      let outputDetails = stderr || stdout;
+      let jsonOutput = null;
 
-      // Try to parse Jest's JSON output for cleaner details
+      // Attempt to parse Jest JSON output
       try {
-        const jsonResult = JSON.parse(stdout);
-        passed = jsonResult.success;
-        // If passed, we can say so; if failed, capture the failure messages
-        outputDetails = passed ? "All tests passed." : stderr;
+        // Jest JSON sometimes has console logs prepended, find the start of JSON
+        const jsonStartIndex = stdout.indexOf("{");
+        if (jsonStartIndex !== -1) {
+          const cleanJson = stdout.substring(jsonStartIndex);
+          jsonOutput = JSON.parse(cleanJson);
+          passed = jsonOutput.success; // Jest JSON property
+        }
+        
+        outputDetails = passed ? "All tests passed." : (stderr || "Tests failed");
       } catch (e) {
-        // Fallback if JSON parsing fails (e.g. if jest crashes hard)
-        console.warn(
-          "Could not parse Jest JSON output, falling back to raw output.",
-        );
+        console.warn(`[${repoPath}] Could not parse Jest JSON, using raw output.`);
       }
 
       resolve({
         passed,
         return_code: code,
         output: outputDetails,
+        // Optional: include detailed jest results if needed in the future
+        // details: jsonOutput 
       });
     });
   });
@@ -71,22 +79,63 @@ function runTests() {
 
 async function runEvaluation() {
   const runId = uuidv4();
-  const startTime = new Date().toISOString();
+  const startTime = new Date();
+  const startTimeIso = startTime.toISOString();
 
   console.log(`Starting evaluation (Run ID: ${runId})...`);
 
-  // Run the tests
-  const testResults = await runTests();
+  // 1. Run Tests against "repository_before" (Baseline)
+  // We assume this might fail because the original code doesn't have Redis
+  console.log("Running baseline tests (before)...");
+  const beforeResult = await runTests("repository_before");
 
-  const endTime = new Date().toISOString();
+  // 2. Run Tests against "repository_after" (Refactor)
+  console.log("Running refactor tests (after)...");
+  const afterResult = await runTests("repository_after");
 
+  const endTime = new Date();
+  const endTimeIso = endTime.toISOString();
+  const durationSeconds = (endTime - startTime) / 1000;
+
+  // 3. Generate Comparison Summary
+  let improvementSummary = "No improvement detected.";
+  if (!beforeResult.passed && afterResult.passed) {
+    improvementSummary = "Refactor fixed failing tests and met distributed requirements.";
+  } else if (beforeResult.passed && afterResult.passed) {
+    improvementSummary = "Tests passed in both states (Verify baseline expectation).";
+  } else if (!afterResult.passed) {
+    improvementSummary = "Refactored code failed to pass requirements.";
+  }
+
+  // 4. Construct the Final Report Object
   const report = {
     run_id: runId,
-    started_at: startTime,
-    finished_at: endTime,
+    started_at: startTimeIso,
+    finished_at: endTimeIso,
+    duration_seconds: durationSeconds,
     environment: getEnvironmentInfo(),
-    tests: testResults,
-    success: testResults.passed,
+    before: {
+      tests: {
+        passed: beforeResult.passed,
+        return_code: beforeResult.return_code,
+        output: beforeResult.output.substring(0, 500) // Truncate if too long
+      },
+      metrics: {} // Placeholders for future metrics (e.g. memory usage)
+    },
+    after: {
+      tests: {
+        passed: afterResult.passed,
+        return_code: afterResult.return_code,
+        output: afterResult.output.substring(0, 500)
+      },
+      metrics: {}
+    },
+    comparison: {
+      passed_gate: afterResult.passed,
+      improvement_summary: improvementSummary
+    },
+    success: afterResult.passed,
+    error: null
   };
 
   // Write the report to disk
@@ -96,7 +145,7 @@ async function runEvaluation() {
   console.log(`Evaluation complete. Success: ${report.success}`);
   console.log(`Report written to: ${reportPath}`);
 
-  // Exit with status code for Docker/CI
+  // Exit with status code based on the 'After' result
   process.exit(report.success ? 0 : 1);
 }
 

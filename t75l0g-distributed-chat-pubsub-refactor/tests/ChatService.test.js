@@ -54,7 +54,7 @@ describe(`ChatService (${repoFolder})`, () => {
     if (serverB) serverB.close();
   });
 
-  test('Req 7.2: Message published on Node A is broadcast to Node B', (done) => {
+  test('Message published on Node A is broadcast to Node B', (done) => {
     if (!serviceA) return done(new Error('Service failed to initialize'));
 
     clientA = Client(`http://localhost:${portA}`);
@@ -79,7 +79,7 @@ describe(`ChatService (${repoFolder})`, () => {
     });
   });
 
-  test('Req 7.3: Room Activity is tracked via TTL and expired', async () => {
+  test('Room Activity is tracked via TTL and expired', async () => {
     if (!serviceA) throw new Error('Service failed to initialize');
     
     const room = 'ttl-room';

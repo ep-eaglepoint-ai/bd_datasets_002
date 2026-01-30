@@ -1,23 +1,40 @@
-# Trajectory: Refactoring for Distributed Chat
+# Trajectory: Making Chat Work Across Multiple Servers
 
-## Analysis
-The initial `ChatService` relied on `this.rooms = new Map()`. This is a classic local state bottleneck. In a Kubernetes environment with multiple pods (ReplicaSet), User A on Pod 1 cannot communicate with User B on Pod 2 because Pod 1's memory is isolated.
+## The Problem: "Islands" of Data
+Right now, the chat app works like a single room in a house. If everyone is in that room (connected to one server), they can hear each other.
 
-To solve this, we must externalize the state and the messaging bus. Redis is the industry standard for this due to its low-latency Pub/Sub capabilities and ephemeral key storage.
+But in production, we use **multiple servers** to handle the load. This creates "islands." If User A connects to Server 1 and User B connects to Server 2, they are in different rooms. Server 1 has no idea that User B exists on Server 2. We need a way to connect these islands.
 
-## Strategy: Redis Pub/Sub
-1.  **Decoupling:** Instead of `socket.to(room).emit()`, which is a local operation, we will `redis.publish()`.
-2.  **Global Listener:** Every instance must subscribe to a wildcard `chat:*`. This ensures that no matter where the message originates, all instances receive it.
-3.  **Local Fan-out:** Once an instance receives a Redis message, it checks its *local* socket connections for that room and emits to them. This bridges the distributed gap while maintaining Socket.io's connection management.
+## The Solution: Redis Pub/Sub
+We use Redis as a central "Megaphone."
+1.  **Publish:** When a user sends a message, the server doesn't show it immediately. Instead, it sends the message to Redis.
+2.  **Subscribe:** All servers are constantly listening to Redis.
+3.  **Broadcast:** When Redis receives a message, it shouts it out to all servers. The servers then pass that message to the users connected to them.
 
-## Implementation Details & Constraints
-*   **Separation of Concerns:** We need two Redis clients. One for publishing (commands) and one strictly for subscribing (blocking mode).
-*   **Resilience:** Connection drops in distributed systems are common. We rely on `ioredis`'s built-in reconnection logic but add error logging to satisfy the resilience requirement.
-*   **State Management (Occupancy):** The prompt requires tracking if a room is active. A full persistent storage isn't required, just "active" status. I chose to use a Redis Key `room:{name}:active` with a TTL (Time To Live). Every time a user joins or speaks, we refresh the TTL. If no one interacts, the key expires, effectively "closing" the room globally.
+## Implementation Steps
+1.  **Two Connections:** We use two Redis links. One for *talking* (Publishing) and one specifically for *listening* (Subscribing).
+2.  **Room Tracking:** Since we can't simply check a variable to see if a room is active globally, we use a Redis key with a **TTL (Time To Live)**. Think of it like a timer: every time someone joins or speaks, we reset the timer to 5 minutes. If the timer runs out, the room is considered empty.
+3.  **Safety:** We add a unique ID to every server instance. This helps us track where messages came from in logs.
 
-## Self-Correction / Refinement
-*   *Initial thought:* Should I filter messages by `instanceId` to prevent the sender from receiving their own message?
-*   *Correction:* While efficient, the requirement explicitly says "Publish... instead of emitting directly". If I emit locally AND publish, I risk race conditions or code duplication. The cleanest architectural pattern is "Fire and Forget" to Redis. The instance (even the sender's instance) receives the message back from Redis and emits it. This adds a millisecond of latency but guarantees strict ordering and simplifies the logic. I added the `instanceId` to the payload to satisfy Requirement 6, allowing for future filtering if optimization is needed.
+## Why I did it this way (Refinement)
+I initially thought about showing the message to the sender immediately to make it feel faster.
+*   **Correction:** I decided against this. It's cleaner to treat *every* message the same way: Send to Redis -> Wait for Redis -> Show to User. This ensures everyone sees the messages in the exact same order.
 
-## Testing Strategy
-Since this is a hermetic build, we cannot rely on a running Redis container in the test environment. I used `jest.mock` to simulate the `ioredis` class. The mock includes an `EventEmitter` that acts as the "Redis Server", passing messages from the `publish` mock to the `subscribe` mock. This proves the logic works without external dependencies.
+## Testing
+Since we can't easily spin up a real Redis database in our testing code, we "mock" it. We create a fake Redis inside the test that acts just like the real one—if you put data in, it spits data out. This proves our code works without needing the real database running.
+
+---
+
+### 📚 Recommended Resources
+
+**1. Watch: Redis Pub/Sub in 5 Minutes**
+A quick visual guide on how the Publish/Subscribe pattern works.
+*   [YouTube: Redis Pub/Sub Explained](https://www.youtube.com/watch?v=Hbt56gFj998)
+
+**2. Watch: Scaling Socket.io**
+A specific guide on why Socket.io needs Redis when you have more than one server.
+*   [YouTube: Scaling Socket.io with Redis](https://www.youtube.com/watch?v=UV7k1a3EaLY)
+
+**3. Read: Horizontal vs. Vertical Scaling**
+Understanding *why* we are adding more servers instead of just making one server bigger.
+*   [Article: DigitalOcean - Horizontal vs Vertical Scaling](https://www.digitalocean.com/community/tutorials/horizontal-vs-vertical-scaling-what-is-the-difference)
