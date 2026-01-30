@@ -138,6 +138,8 @@ def test_very_short_ttl():
         # Just after expiry
         mock_time.return_value = 101.1
         assert cache.get("A") is None
+        assert "A" not in cache.cache
+        assert "A" not in cache.expiry_map
 
 def test_alternating_put_get_operations():
     """Test alternating put and get operations maintain consistency."""
@@ -211,9 +213,42 @@ def test_requirement_prune_expired_count():
 def test_requirement_zero_capacity():
     """Requirement: Handle zero capacity. (Expected to FAIL in current impl)"""
     cache = LRUCacheWithTTL(capacity=0, ttl=10)
-    # Will crash with KeyError here
+    # Will crash with KeyError here in current implementation
     cache.put("A", 1) 
     assert len(cache.cache) == 0
+
+def test_requirement_negative_capacity():
+    """Requirement: Handle negative capacity. (Expected to FAIL in current impl)"""
+    cache = LRUCacheWithTTL(capacity=-1, ttl=10)
+    # Will crash with KeyError here in current implementation
+    cache.put("A", 1)
+    assert len(cache.cache) == 0
+
+def test_requirement_zero_ttl():
+    """Requirement: Handle zero TTL (items should expire immediately)."""
+    cache = LRUCacheWithTTL(capacity=5, ttl=0)
+    with patch('time.time') as mock_time:
+        mock_time.return_value = 100
+        cache.put("A", 1)
+        assert cache.get("A") is None
+        assert "A" not in cache.cache
+
+def test_requirement_negative_ttl():
+    """Requirement: Handle negative TTL (items should expire immediately)."""
+    cache = LRUCacheWithTTL(capacity=5, ttl=-10)
+    with patch('time.time') as mock_time:
+        mock_time.return_value = 100
+        cache.put("A", 1)
+        assert cache.get("A") is None
+        assert "A" not in cache.cache
+
+def test_explicit_delete_non_existent():
+    """Verify _delete handles non-existent keys safely (for coverage)."""
+    cache = LRUCacheWithTTL(capacity=3, ttl=100)
+    cache.put("A", 1)
+    cache._delete("B") # Should not raise error
+    assert "A" in cache.cache
+    assert len(cache.cache) == 1
 
 def test_requirement_high_load():
     """Requirement: 1000+ operations, verify size never exceeds capacity."""
