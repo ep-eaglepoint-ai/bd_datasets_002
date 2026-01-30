@@ -1,0 +1,11 @@
+{
+            "instance_id": "M5PT43",
+            "problem_statement": "Build an event‑sourcing and CQRS framework in Go 1.21+ that provides aggregate reconstruction from event streams, optimistic concurrency control, and read‑model projections with checkpointing using PostgreSQL/JSONB for event persistence. Integrate NATS JetStream for reliable cross‑service event distribution via the outbox pattern, support schema evolution with Protocol Buffers, and enforce eventual consistency for event‑driven applications. Package as a Go module with full documentation and examples, enabling complete audit trails, temporal queries, and robust event‑driven architecture.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/m5pt43-event-sourcing-go",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
