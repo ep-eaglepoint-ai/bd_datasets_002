@@ -1,1 +1,4 @@
-# Add your Python dependencies here
+pytest>=7.4.0
+pytest-playwright>=0.4.3
+playwright>=1.40.0
+pytest-json-report>=1.5.0
