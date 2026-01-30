@@ -1,19 +1,17 @@
-# Start from Node.js
-FROM node:18-alpine AS builder
+FROM node:18-alpine
 
 WORKDIR /app
-
 COPY . .
 
-RUN npm install
-RUN npm run build
+# Install pnpm globally
+RUN npm install -g pnpm
 
-FROM node:18-alpine AS runner
+# Install dependencies
+RUN pnpm install
 
-WORKDIR /app
-
-COPY --from=builder /app ./
+# Build the app for production
+RUN pnpm build
 
 EXPOSE 3000
 
-CMD [ "node", ".output/server/index.mjs" ]
+CMD ["pnpm", "start"]

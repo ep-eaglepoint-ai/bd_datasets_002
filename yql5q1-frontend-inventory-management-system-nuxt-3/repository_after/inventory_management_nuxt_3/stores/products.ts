@@ -11,32 +11,41 @@ export type Product = {
   updatedAt: string
 }
 
-interface State {
-  products: Product[]
-}
-
 export const useProductsStore = defineStore('products', {
-  state: (): State => ({
-    products: []
+  state: () => ({
+    products: [] as Product[]
   }),
   actions: {
-    initialize(data: Product[]) {
-      this.products = data
+    addProduct(product: Product) {
+      this.products.push(product)
+      // Optionally update LocalStorage here
+    },
+    updateProduct(updated: Product) {
+      const idx = this.products.findIndex(p => p.id === updated.id)
+      if (idx !== -1) this.products[idx] = updated
+    },
+    deleteProduct(id: string) {
+      this.products = this.products.filter(p => p.id !== id)
+    },
+    initialize(products: Product[]) {
+      this.products = products
     }
   },
   getters: {
-    totalProducts: (state) => state.products.length,
-    lowStockCount: (state) => state.products.filter(p => p.stock > 0 && p.stock < 10).length,
-    outOfStockCount: (state) => state.products.filter(p => p.stock === 0).length,
-    inStockCount: (state) => state.products.filter(p => p.stock >= 10).length,
-    inStockPercentage(): string {
-      return this.totalProducts ? Math.round((this.inStockCount / this.totalProducts) * 100) + '%' : '0%'
-    },
-    lowStockPercentage(): string {
-      return this.totalProducts ? Math.round((this.lowStockCount / this.totalProducts) * 100) + '%' : '0%'
-    },
-    outOfStockPercentage(): string {
-      return this.totalProducts ? Math.round((this.outOfStockCount / this.totalProducts) * 100) + '%' : '0%'
+    totalProducts: state => state.products.length,
+    inStockCount: state => state.products.filter(p => p.stock > 5).length,
+    lowStockCount: state => state.products.filter(p => p.stock > 0 && p.stock <= 5).length,
+    outOfStockCount: state => state.products.filter(p => p.stock === 0).length,
+    inStockPercentage: (state: any, getters: { totalProducts: number; inStockCount: number }) =>
+      getters.totalProducts ? Math.round((getters.inStockCount / getters.totalProducts) * 100) + '%' : '0%',
+    lowStockPercentage: (state: any, getters: { totalProducts: number; lowStockCount: number }) =>
+      getters.totalProducts ? Math.round((getters.lowStockCount / getters.totalProducts) * 100) + '%' : '0%',
+    outOfStockPercentage: (state: any, getters: { totalProducts: number; outOfStockCount: number }) =>
+      getters.totalProducts ? Math.round((getters.outOfStockCount / getters.totalProducts) * 100) + '%' : '0%',
+    categories: state => {
+      const cats = new Set<string>();
+      state.products.forEach(p => cats.add(p.category));
+      return Array.from(cats);
     }
   }
-})
+});

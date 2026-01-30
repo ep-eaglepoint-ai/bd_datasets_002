@@ -1,6 +1,26 @@
+version: '3.8'
 services:
   app:
     build: .
-    command: pytest -q tests
+    ports:
+      - "3000:3000"
+    environment:
+      - HOST=0.0.0.0
+
+  test-before:
+    build: .
+    command: pnpm test
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    command: pnpm test
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: pnpm run evaluation -- --reporter=json --output=report.json
     volumes:
       - .:/app
