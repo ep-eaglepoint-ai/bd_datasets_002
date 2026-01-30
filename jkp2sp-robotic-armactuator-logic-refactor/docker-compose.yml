@@ -19,4 +19,8 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: go test -v -tags=after ./...
+    command: >
+      sh -c "
+        sed -i 's|./repository_before|./repository_after|' go.mod &&
+        go test -v -tags=after ./...
+      "
