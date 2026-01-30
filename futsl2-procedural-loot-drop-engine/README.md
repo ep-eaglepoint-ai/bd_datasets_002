@@ -4,10 +4,10 @@
 
 ### Run tests on Repository After
 ```bash
-docker compose build --no-cache && docker compose run app
+docker compose run app
 ```
 
 ### Run Evaluation
 ```bash
-docker compose build --no-cache && docker compose run evaluate
+docker compose run evaluate
 ```
