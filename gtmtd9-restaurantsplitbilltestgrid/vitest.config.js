@@ -4,13 +4,16 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/**/*.test.js'],
+    include: [
+      'repository_after/**/*.test.js',
+      'tests/**/*.test.js'
+    ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov'],
-      include: ['BillSplitter.js'],
-      all: true
-    },
-    testTimeout: 10000
+      reporter: ['text'],
+      include: ['repository_before/BillSplitter.js'],
+      all: true,
+      reportsDirectory: './node_modules/.coverage-temp'
+    }
   }
 });

@@ -1,13 +1,11 @@
 {
   "name": "gtmtd9-restaurantsplitbilltestgrid",
   "version": "1.0.0",
-  "description": "Bill Splitter Test Suite for Bistro Connect POS",
   "type": "module",
   "scripts": {
     "test": "vitest run --reporter=verbose",
-    "test:coverage": "vitest run --coverage --reporter=verbose",
-    "test:before": "cp repository_before/BillSplitter.js ./BillSplitter.js && vitest run --reporter=verbose",
-    "test:after": "cp repository_after/BillSplitter.js ./BillSplitter.js && vitest run --reporter=verbose",
+    "test:impl": "vitest run repository_after/ --reporter=verbose --coverage",
+    "test:meta": "vitest run tests/ --reporter=verbose",
     "evaluate": "node evaluation/evaluation.js"
   },
   "devDependencies": {

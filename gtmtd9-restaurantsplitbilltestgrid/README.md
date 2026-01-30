@@ -5,15 +5,15 @@ docker-compose build
 
 ### Test BEFORE version 
 ```bash
-docker-compose run --rm repository-before
+docker compose run --rm app npm run test:impl
 ```
 
 ### Test AFTER version 
 ```bash
-docker-compose run --rm repository-after
+docker compose run --rm app npm run test:meta
 ```
 
 ### Run full evaluation
 ```bash
-docker-compose run --rm evaluation
+docker compose run --rm app npm run evaluate
 ```
