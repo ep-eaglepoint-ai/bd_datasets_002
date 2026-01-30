@@ -42,7 +42,7 @@ func ValidateAssignment(existingSchedule []Assignment, proposed Assignment) erro
 	windowEnd := proposed.End
 	windowStart := windowEnd.Add(-RollingWindowDuration)
 
-	var totalHours float64
+	var totalDuration time.Duration
 	var lastPriorEnd time.Time
 	var hasPrior bool
 
@@ -87,7 +87,7 @@ func ValidateAssignment(existingSchedule []Assignment, proposed Assignment) erro
 
 		// Only add if there is a positive intersection
 		if iEnd.After(iStart) {
-			totalHours += iEnd.Sub(iStart).Hours()
+			totalDuration += iEnd.Sub(iStart)
 		}
 	}
 
@@ -110,12 +110,12 @@ func ValidateAssignment(existingSchedule []Assignment, proposed Assignment) erro
 	pEnd := proposed.End // same as windowEnd
 
 	if pEnd.After(pStart) {
-		totalHours += pEnd.Sub(pStart).Hours()
+		totalDuration += pEnd.Sub(pStart)
 	}
 
-	if totalHours > MaxHours {
+	if totalDuration.Hours() > MaxHours {
 		// Prompt requires a specific error message about the 40-hour limit and returning StatusPolicyViolation
-		return fmt.Errorf("%w: total hours %.2f exceeds 40 hours limit", ErrStatusPolicyViolation, totalHours)
+		return fmt.Errorf("%w: total hours %.2f exceeds 40 hours limit", ErrStatusPolicyViolation, totalDuration.Hours())
 	}
 
 	return nil
