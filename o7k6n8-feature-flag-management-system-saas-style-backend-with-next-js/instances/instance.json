@@ -5,8 +5,7 @@
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/o7k6n8-feature-flag-management-system-saas-style-backend-with-next-js",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": [
+            "FAIL_TO_PASS": [
                 "should hash password",
                 "should verify correct password",
                 "should reject incorrect password",
@@ -19,14 +18,25 @@
                 "should be deterministic for same user and flag",
                 "should handle user overrides",
                 "should return evaluated flags for user",
-                "should login with valid credentials",
-                "should create flag as admin",
-                "should update flag",
-                "should delete flag",
+                "should reject requests without token",
+                "should reject invalid tokens",
+                "should generate valid role",
+                "should create flag as admin (direct DB for isolation)",
+                "should update flag as admin",
+                "should delete flag as admin",
+                "should require unique key",
+                "should require key and description",
+                "should support global toggle",
+                "should enforce rollout 0-100",
                 "should create user override",
                 "should delete user override",
-                "should verify audit log is created when flag is created via API",
-                "should verify audit log is created when flag is updated via API"
-            ]
+                "should evaluate flags deterministically",
+                "should return evaluated flags for user",
+                "should list all users",
+                "should list all flags with overrides",
+                "should create audit log for CREATE",
+                "should create audit log for UPDATE",
+                "should retrieve audit logs"
+            ],
+            "PASS_TO_PASS": []
         }
-        

@@ -65,19 +65,23 @@ function runTests(): TestResult {
     };
 
     const output = execSync('npm test 2>&1', options).toString();
-    const passed = output.includes('20 passed') || output.includes('Tests:       20 passed');
+    
+    // Check if tests passed (look for passed count in output)
+    const passedMatch = output.match(/Tests:\s+\d+ passed/);
+    const hasPassed = passedMatch !== null && !output.includes('FAIL');
 
     return {
-      passed,
-      return_code: passed ? 0 : 1,
+      passed: hasPassed,
+      return_code: hasPassed ? 0 : 1,
       output: output.slice(0, 8000)
     };
   } catch (error: any) {
     const output = error.stdout?.toString() || error.message || '';
-    const passed = output.includes('20 passed');
+    const passedMatch = output.match(/Tests:\s+\d+ passed/);
+    const hasPassed = passedMatch !== null && !output.includes('FAIL');
 
     return {
-      passed,
+      passed: hasPassed,
       return_code: error.status || -1,
       output: output.slice(0, 8000)
     };

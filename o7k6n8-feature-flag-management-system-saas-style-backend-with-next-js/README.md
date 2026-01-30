@@ -7,3 +7,7 @@
 docker-compose run --rm test
 ```
 
+## Run Evaluation
+```bash
+docker-compose run --rm test npm run eval 
+```
