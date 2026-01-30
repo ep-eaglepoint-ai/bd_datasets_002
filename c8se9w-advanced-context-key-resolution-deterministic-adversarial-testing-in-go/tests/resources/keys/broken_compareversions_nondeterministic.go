@@ -185,8 +185,9 @@ func parseVersionParts(v string) []int {
 	for _, r := range raw {
 		n, err := strconv.Atoi(r)
 		if err != nil {
-			h := sha1.Sum([]byte(r))
-			out = append(out, int(h[0]))
+			// MUTATION: non-deterministic mapping for non-numeric parts.
+			// Use only the low byte so ordering can vary across calls even when computed sequentially.
+			out = append(out, int(time.Now().UnixNano()&0xff))
 			continue
 		}
 		out = append(out, n)
@@ -446,3 +447,5 @@ func LookupHashed(m map[string]string, ctx Context, n Normalizer) (string, error
 	sum := sha1.Sum([]byte(nctx.String()))
 	return m[hex.EncodeToString(sum[:])], nil
 }
+
+

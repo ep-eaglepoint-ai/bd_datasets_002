@@ -2,7 +2,7 @@ services:
   test-before:
     build: .
     working_dir: /app/tests
-    command: sh -c "/usr/local/bin/run-tests.sh /app/repository_before || exit 0"
+    command: /usr/local/bin/run-tests.sh /app/repository_before
     volumes:
       - .:/app
   test-after:

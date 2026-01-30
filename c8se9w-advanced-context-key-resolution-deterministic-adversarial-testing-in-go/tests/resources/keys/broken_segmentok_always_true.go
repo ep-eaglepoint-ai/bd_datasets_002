@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -146,9 +145,9 @@ func ParseContextKey(key string, allowWildcards bool) (Context, error) {
 	}, nil
 }
 
-func segmentOK(s string) bool {
-	re := regexp.MustCompile(`^[a-z0-9_.]+$`)
-	return re.MatchString(s)
+func segmentOK(string) bool {
+	// MUTATION: allow any segment
+	return true
 }
 
 func CompareVersions(a, b string) int {
@@ -446,3 +445,5 @@ func LookupHashed(m map[string]string, ctx Context, n Normalizer) (string, error
 	sum := sha1.Sum([]byte(nctx.String()))
 	return m[hex.EncodeToString(sum[:])], nil
 }
+
+

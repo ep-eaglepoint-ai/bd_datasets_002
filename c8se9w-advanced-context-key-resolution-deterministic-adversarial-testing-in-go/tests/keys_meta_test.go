@@ -171,7 +171,9 @@ func isInfraFailure(res goTestSummary) bool {
 func runInnerGoTests(t *testing.T, pkgDir string, extraArgs ...string) goTestSummary {
 	t.Helper()
 
-	args := []string{"test", "-json", "-count=1"}
+	// We care about unit-test semantics here; disable `go vet` to avoid false negatives / toolchain drift
+	// (especially when the implementation is overlaid).
+	args := []string{"test", "-json", "-vet=off", "-count=1"}
 	args = append(args, extraArgs...)
 	args = append(args, ".")
 	cmd := exec.Command("go", args...)
@@ -265,36 +267,39 @@ func runKeysSuiteWithImpl(t *testing.T, keysDir, targetKeysGo string, impl []byt
 	return runInnerGoTests(t, keysDir, args...)
 }
 
-func mutateKeysGo(src []byte, oldPattern, newPattern string) ([]byte, error) {
-	// Try the exact pattern first
-	if bytes.Contains(src, []byte(oldPattern)) {
-		return bytes.Replace(src, []byte(oldPattern), []byte(newPattern), -1), nil
-	}
-	// Try with "keys." prefix (for repository_after structure)
-	keysPrefixedOld := strings.Replace(oldPattern, "Context", "keys.Context", -1)
-	keysPrefixedOld = strings.Replace(keysPrefixedOld, "Pattern", "keys.Pattern", -1)
-	keysPrefixedOld = strings.Replace(keysPrefixedOld, "Result", "keys.Result", -1)
-	keysPrefixedOld = strings.Replace(keysPrefixedOld, "Normalizer", "keys.Normalizer", -1)
-	keysPrefixedOld = strings.Replace(keysPrefixedOld, "ErrInvalid", "keys.ErrInvalid", -1)
-	keysPrefixedOld = strings.Replace(keysPrefixedOld, "ErrNoMatch", "keys.ErrNoMatch", -1)
-	keysPrefixedNew := strings.Replace(newPattern, "Context", "keys.Context", -1)
-	keysPrefixedNew = strings.Replace(keysPrefixedNew, "Pattern", "keys.Pattern", -1)
-	keysPrefixedNew = strings.Replace(keysPrefixedNew, "Result", "keys.Result", -1)
-	keysPrefixedNew = strings.Replace(keysPrefixedNew, "Normalizer", "keys.Normalizer", -1)
-	keysPrefixedNew = strings.Replace(keysPrefixedNew, "ErrInvalid", "keys.ErrInvalid", -1)
-	keysPrefixedNew = strings.Replace(keysPrefixedNew, "ErrNoMatch", "keys.ErrNoMatch", -1)
-	if bytes.Contains(src, []byte(keysPrefixedOld)) {
-		return bytes.Replace(src, []byte(keysPrefixedOld), []byte(keysPrefixedNew), -1), nil
-	}
-	return nil, &mutationError{pattern: oldPattern}
+func runKeysSuiteWithFixture(t *testing.T, keysDir, targetKeysGo, fixturePath string, extraArgs ...string) goTestSummary {
+	t.Helper()
+	impl := mustReadFile(t, fixturePath)
+	return runKeysSuiteWithImpl(t, keysDir, targetKeysGo, impl, extraArgs...)
 }
 
-type mutationError struct {
-	pattern string
+func requireSuiteFails(t *testing.T, name string, res goTestSummary) {
+	t.Helper()
+	if isInfraFailure(res) {
+		t.Fatalf("infra failure while running %s\nstdout:\n%s\nstderr:\n%s", name, res.stdout, res.stderr)
+	}
+	// Prefer asserting real test failures (Action=="fail") for broken implementations.
+	if res.failed == 0 {
+		t.Fatalf("expected inner suite to report at least one failing test for %s; got exit=%d failed=%d errors=%d (passed=%d skipped=%d)\nstdout:\n%s\nstderr:\n%s",
+			name, res.exitCode, res.failed, res.errors, res.passed, res.skipped, res.stdout, res.stderr)
+	}
 }
 
-func (e *mutationError) Error() string {
-	return "mutation pattern not found: " + e.pattern
+func requireSuitePasses(t *testing.T, name string, res goTestSummary) {
+	t.Helper()
+	if isInfraFailure(res) {
+		t.Fatalf("infra failure while running %s\nstdout:\n%s\nstderr:\n%s", name, res.stdout, res.stderr)
+	}
+	// A "pass" must mean tests actually ran. `go test` returns exit=0 for packages with no tests,
+	// but that should not satisfy this meta requirement.
+	if res.passed == 0 && res.failed == 0 && res.skipped == 0 {
+		t.Fatalf("expected inner suite to execute at least one test for %s; got none (package likely has no tests)\nstdout:\n%s\nstderr:\n%s",
+			name, res.stdout, res.stderr)
+	}
+	if res.exitCode != 0 || res.failed != 0 || res.errors != 0 {
+		t.Fatalf("expected inner suite to pass for %s; got exit=%d failed=%d errors=%d (passed=%d skipped=%d)\nstdout:\n%s\nstderr:\n%s",
+			name, res.exitCode, res.failed, res.errors, res.passed, res.skipped, res.stdout, res.stderr)
+	}
 }
 
 // TestMeta_KeysSuite_Requirements is the main meta-test that validates all 10 requirements.
@@ -303,6 +308,7 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 	keysDir := filepath.Join(repo, "context-resolver", "keys")
 	keysTestPath := findKeysTestPath(t)
 	keysGoPath := filepath.Join(keysDir, "keys.go")
+	fixturesDir := filepath.Join(findProjectRoot(t), "tests", "resources", "keys")
 
 	// Standard testing only - no third-party frameworks
 	t.Run("stdlib_only", func(t *testing.T) {
@@ -324,16 +330,18 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 		}
 
 		src := mustReadFile(t, keysTestPath)
-		for _, needle := range [][]byte{
-			[]byte("type mockClock struct"),
-			[]byte("func (m *mockClock) Now() time.Time"),
-			[]byte("type mockMetrics struct"),
-			[]byte("func (m *mockMetrics) Inc("),
-			[]byte("func (m *mockMetrics) Observe("),
-		} {
-			if !bytes.Contains(src, needle) {
-				t.Fatalf("expected keys_test.go to contain %q", string(needle))
-			}
+		// Evidence-based checks (less brittle than hard-coding exact names like mockClock/mockMetrics).
+		clockTypeRe := regexp.MustCompile(`(?m)^\s*type\s+\w*Clock\w*\s+struct\b`)
+		clockNowRe := regexp.MustCompile(`(?m)^\s*func\s*\(\s*\w+\s+\*?\w*Clock\w*\s*\)\s*Now\(\)\s*time\.Time`)
+		metricsTypeRe := regexp.MustCompile(`(?m)^\s*type\s+\w*Metrics\w*\s+struct\b`)
+		metricsIncRe := regexp.MustCompile(`(?m)^\s*func\s*\(\s*\w+\s+\*?\w*Metrics\w*\s*\)\s*Inc\(\s*\w+\s+string\s*\)`)
+		metricsObsRe := regexp.MustCompile(`(?m)^\s*func\s*\(\s*\w+\s+\*?\w*Metrics\w*\s*\)\s*Observe\(\s*\w+\s+string\s*,\s*\w+\s+float64\s*\)`)
+
+		if !clockTypeRe.Match(src) || !clockNowRe.Match(src) {
+			t.Fatalf("expected keys_test.go to define a controllable Clock fake (struct + Now() time.Time)")
+		}
+		if !metricsTypeRe.Match(src) || !metricsIncRe.Match(src) || !metricsObsRe.Match(src) {
+			t.Fatalf("expected keys_test.go to define a controllable Metrics fake (struct + Inc(string) + Observe(string,float64))")
 		}
 
 		// Check that fakes are actually used (ResolverOptions with Clock/Metrics)
@@ -369,24 +377,6 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 		if !hasNormalize {
 			t.Fatalf("expected keys_test.go to test normalization")
 		}
-
-		// Run a mutation: remove case-folding in NormalizeContext
-		keysGoSrc := mustReadFile(t, keysGoPath)
-		// Match the exact pattern with tabs
-		mutated, err := mutateKeysGo(keysGoSrc, "\tv = strings.ToLower(v)", "\tv = v // MUTATED: removed case-folding")
-		if err != nil {
-			t.Skipf("could not create normalization mutation (pattern not found): %v", err)
-		}
-
-		res := runKeysSuiteWithImpl(t, keysDir, keysGoPath, mutated)
-		if isInfraFailure(res) {
-			t.Fatalf("infra failure while running mutated impl\nstdout:\n%s\nstderr:\n%s", res.stdout, res.stderr)
-		}
-		// Accept either test failures or build errors as detection
-		if res.failed == 0 && res.errors == 0 {
-			t.Fatalf("expected inner suite to fail for normalization mutation (no case-folding); got exit=%d failed=%d errors=%d (passed=%d)\nstdout:\n%s\nstderr:\n%s",
-				res.exitCode, res.failed, res.errors, res.passed, res.stdout, res.stderr)
-		}
 	})
 
 	// Parsing rules
@@ -401,39 +391,6 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 		if !hasParse {
 			t.Fatalf("expected keys_test.go to test parsing")
 		}
-
-		// Run a mutation: allow too many segments
-		keysGoSrc := mustReadFile(t, keysGoPath)
-		mutated, err := mutateKeysGo(keysGoSrc, "\tif len(parts) != 6 {", "\tif len(parts) < 6 { // MUTATED: allow too many segments")
-		if err != nil {
-			t.Skipf("could not create parsing mutation (pattern not found): %v", err)
-		}
-
-		res := runKeysSuiteWithImpl(t, keysDir, keysGoPath, mutated)
-		if isInfraFailure(res) {
-			t.Fatalf("infra failure while running mutated impl\nstdout:\n%s\nstderr:\n%s", res.stdout, res.stderr)
-		}
-		// Accept either test failures or build errors as detection
-		if res.failed == 0 && res.errors == 0 {
-			t.Fatalf("expected inner suite to fail for parsing mutation (allows too many segments); got exit=%d failed=%d errors=%d (passed=%d)\nstdout:\n%s\nstderr:\n%s",
-				res.exitCode, res.failed, res.errors, res.passed, res.stdout, res.stderr)
-		}
-
-		// Run another mutation: segmentOK always returns true
-		mutated2, err := mutateKeysGo(keysGoSrc, "\tre := regexp.MustCompile(`^[a-z0-9_.]+$`)\n\treturn re.MatchString(s)", "\t// MUTATED: always return true\n\treturn true")
-		if err != nil {
-			t.Skipf("could not create segmentOK mutation (pattern not found): %v", err)
-		}
-
-		res2 := runKeysSuiteWithImpl(t, keysDir, keysGoPath, mutated2)
-		if isInfraFailure(res2) {
-			t.Fatalf("infra failure while running mutated impl\nstdout:\n%s\nstderr:\n%s", res2.stdout, res2.stderr)
-		}
-		// Accept either test failures or build errors as detection
-		if res2.failed == 0 && res2.errors == 0 {
-			t.Fatalf("expected inner suite to fail for parsing mutation (segmentOK always true); got exit=%d failed=%d errors=%d (passed=%d)\nstdout:\n%s\nstderr:\n%s",
-				res2.exitCode, res2.failed, res2.errors, res2.passed, res2.stdout, res2.stderr)
-		}
 	})
 
 	// Version comparison determinism
@@ -447,23 +404,6 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 		hasCompare := bytes.Contains(src, []byte("CompareVersions")) || bytes.Contains(src, []byte("Compare"))
 		if !hasCompare {
 			t.Fatalf("expected keys_test.go to test version comparison")
-		}
-
-		// Run a mutation: use time.Now() instead of sha1 for non-numeric parts
-		keysGoSrc := mustReadFile(t, keysGoPath)
-		mutated, err := mutateKeysGo(keysGoSrc, "\t\t\th := sha1.Sum([]byte(r))\n\t\t\tout = append(out, int(h[0]))", "\t\t\t// MUTATED: use time instead of sha1\n\t\t\tout = append(out, int(time.Now().UnixNano()%256))")
-		if err != nil {
-			t.Skipf("could not create version determinism mutation (pattern not found): %v", err)
-		}
-
-		res := runKeysSuiteWithImpl(t, keysDir, keysGoPath, mutated)
-		if isInfraFailure(res) {
-			t.Fatalf("infra failure while running mutated impl\nstdout:\n%s\nstderr:\n%s", res.stdout, res.stderr)
-		}
-		// Accept either test failures or build errors as detection
-		if res.failed == 0 && res.errors == 0 {
-			t.Fatalf("expected inner suite to fail for version determinism mutation (uses time.Now()); got exit=%d failed=%d errors=%d (passed=%d)\nstdout:\n%s\nstderr:\n%s",
-				res.exitCode, res.failed, res.errors, res.passed, res.stdout, res.stderr)
 		}
 	})
 
@@ -493,23 +433,6 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 		if !hasLRU {
 			t.Fatalf("expected keys_test.go to test LRUCache")
 		}
-
-		// Run a mutation: remove MoveToFront on Get
-		keysGoSrc := mustReadFile(t, keysGoPath)
-		mutated, err := mutateKeysGo(keysGoSrc, "\t\tc.ll.MoveToFront(el)", "\t\t// MUTATED: removed MoveToFront")
-		if err != nil {
-			t.Skipf("could not create LRU promotion mutation (pattern not found): %v", err)
-		}
-
-		res := runKeysSuiteWithImpl(t, keysDir, keysGoPath, mutated)
-		if isInfraFailure(res) {
-			t.Fatalf("infra failure while running mutated impl\nstdout:\n%s\nstderr:\n%s", res.stdout, res.stderr)
-		}
-		// Accept either test failures or build errors as detection
-		if res.failed == 0 && res.errors == 0 {
-			t.Fatalf("expected inner suite to fail for LRU mutation (no promotion on Get); got exit=%d failed=%d errors=%d (passed=%d)\nstdout:\n%s\nstderr:\n%s",
-				res.exitCode, res.failed, res.errors, res.passed, res.stdout, res.stderr)
-		}
 	})
 
 	// Resolver end-to-end
@@ -530,22 +453,46 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 		if !hasCallOrder {
 			t.Fatalf("expected keys_test.go to assert call ordering (cache hit/miss, metrics)")
 		}
+	})
 
-		// Run a mutation: cache hit doesn't mark FromCache
-		keysGoSrc := mustReadFile(t, keysGoPath)
-		mutated, err := mutateKeysGo(keysGoSrc, "\t\tv.FromCache = true", "\t\t// MUTATED: removed FromCache assignment")
-		if err != nil {
-			t.Skipf("could not create cache flag mutation (pattern not found): %v", err)
-		}
+	// Meta assertions: run the inner keys suite against explicit fixtures via -overlay.
+	t.Run("suite_detects_normalization_casefold", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_no_casefold.go"))
+		requireSuiteFails(t, "broken_no_casefold.go", res)
+	})
 
-		res := runKeysSuiteWithImpl(t, keysDir, keysGoPath, mutated)
-		if isInfraFailure(res) {
-			t.Fatalf("infra failure while running mutated impl\nstdout:\n%s\nstderr:\n%s", res.stdout, res.stderr)
-		}
-		// Accept either test failures or build errors as detection
-		if res.failed == 0 && res.errors == 0 {
-			t.Fatalf("expected inner suite to fail for Resolver mutation (cache hit doesn't mark FromCache); got exit=%d failed=%d errors=%d (passed=%d)\nstdout:\n%s\nstderr:\n%s",
-				res.exitCode, res.failed, res.errors, res.passed, res.stdout, res.stderr)
-		}
+	t.Run("suite_detects_parsing_len_check", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_allow_too_many_segments.go"))
+		requireSuiteFails(t, "broken_allow_too_many_segments.go", res)
+	})
+
+	t.Run("suite_detects_parsing_segment_validation", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_segmentok_always_true.go"))
+		requireSuiteFails(t, "broken_segmentok_always_true.go", res)
+	})
+
+	t.Run("suite_detects_version_nondeterminism", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_compareversions_nondeterministic.go"))
+		requireSuiteFails(t, "broken_compareversions_nondeterministic.go", res)
+	})
+
+	t.Run("suite_detects_lru_promotion", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_lru_no_promote_on_get.go"))
+		requireSuiteFails(t, "broken_lru_no_promote_on_get.go", res)
+	})
+
+	t.Run("suite_detects_cachehit_flag", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_cachehit_missing_fromcache.go"))
+		requireSuiteFails(t, "broken_cachehit_missing_fromcache.go", res)
+	})
+
+	t.Run("suite_accepts_correct_impl", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "correct.go"))
+		requireSuitePasses(t, "correct.go", res)
+	})
+
+	t.Run("suite_accepts_correct_impl_under_race", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "correct.go"), "-race")
+		requireSuitePasses(t, "correct.go (race)", res)
 	})
 }

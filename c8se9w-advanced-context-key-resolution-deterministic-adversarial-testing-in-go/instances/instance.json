@@ -6,6 +6,7 @@
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/c8se9w-advanced-context-key-resolution-deterministic-adversarial-testing-in-go",
             "environment_setup": "Dockerfile",
             "FAIL_TO_PASS": [
+                "TestMeta_KeysSuite_Requirements",
                 "TestMeta_KeysSuite_Requirements/stdlib_only",
                 "TestMeta_KeysSuite_Requirements/controllable_fakes",
                 "TestMeta_KeysSuite_Requirements/table_driven_subtests",
@@ -14,7 +15,15 @@
                 "TestMeta_KeysSuite_Requirements/version_comparison_determinism",
                 "TestMeta_KeysSuite_Requirements/matchscore_correctness",
                 "TestMeta_KeysSuite_Requirements/lrucache_behavior",
-                "TestMeta_KeysSuite_Requirements/resolver_end_to_end"
+                "TestMeta_KeysSuite_Requirements/resolver_end_to_end",
+                "TestMeta_KeysSuite_Requirements/suite_detects_normalization_casefold",
+                "TestMeta_KeysSuite_Requirements/suite_detects_parsing_len_check",
+                "TestMeta_KeysSuite_Requirements/suite_detects_parsing_segment_validation",
+                "TestMeta_KeysSuite_Requirements/suite_detects_version_nondeterminism",
+                "TestMeta_KeysSuite_Requirements/suite_detects_lru_promotion",
+                "TestMeta_KeysSuite_Requirements/suite_detects_cachehit_flag",
+                "TestMeta_KeysSuite_Requirements/suite_accepts_correct_impl",
+                "TestMeta_KeysSuite_Requirements/suite_accepts_correct_impl_under_race"
             ],
             "PASS_TO_PASS": []
         }

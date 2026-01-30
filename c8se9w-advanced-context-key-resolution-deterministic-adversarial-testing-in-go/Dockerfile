@@ -1,4 +1,4 @@
-FROM golang:1.23
+FROM golang:1.25.5
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ REPO_PATH=$1\n\
 cd /app/tests\n\
 go mod edit -replace gocode=$REPO_PATH\n\
 go mod tidy\n\
-go test -v .\n\
+go test -race -v .\n\
 ' > /usr/local/bin/run-tests.sh && \
     chmod +x /usr/local/bin/run-tests.sh
 

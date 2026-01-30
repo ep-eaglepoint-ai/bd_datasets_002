@@ -377,7 +377,7 @@ func (r *Resolver) Lookup(ctx Context) (Result, error) {
 	}
 	key := nctx.String()
 	if v, ok := r.cache.Get(key); ok {
-		v.FromCache = true
+		// MUTATION: cache hit does not mark FromCache=true
 		return v, nil
 	}
 
@@ -446,3 +446,5 @@ func LookupHashed(m map[string]string, ctx Context, n Normalizer) (string, error
 	sum := sha1.Sum([]byte(nctx.String()))
 	return m[hex.EncodeToString(sum[:])], nil
 }
+
+

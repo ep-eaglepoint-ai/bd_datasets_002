@@ -289,7 +289,7 @@ func (c *LRUCache) Get(k string) (Result, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if el, ok := c.items[k]; ok {
-		c.ll.MoveToFront(el)
+		// MUTATION: no promotion on Get (should MoveToFront)
 		return el.Value.(cacheEntry).value, true
 	}
 	return Result{}, false
@@ -446,3 +446,5 @@ func LookupHashed(m map[string]string, ctx Context, n Normalizer) (string, error
 	sum := sha1.Sum([]byte(nctx.String()))
 	return m[hex.EncodeToString(sum[:])], nil
 }
+
+

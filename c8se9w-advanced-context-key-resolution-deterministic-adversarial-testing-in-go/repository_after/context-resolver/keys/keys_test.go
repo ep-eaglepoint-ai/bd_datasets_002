@@ -271,11 +271,47 @@ func TestCompareVersions_Basic(t *testing.T) {
 }
 
 func TestCompareVersions_NonNumeric(t *testing.T) {
-	// Non-numeric parts should be hashed deterministically
-	result1 := CompareVersions("1.0.alpha", "1.0.beta")
-	result2 := CompareVersions("1.0.alpha", "1.0.beta")
-	if result1 != result2 {
-		t.Error("CompareVersions() should be deterministic for non-numeric versions")
+	// Non-numeric parts must be compared deterministically (i.e., no time.Now/randomness).
+
+	cases := []struct {
+		name string
+		a    string
+		b    string
+	}{
+		{name: "alpha_vs_beta", a: "1.0.alpha", b: "1.0.beta"},
+		{name: "gamma_vs_delta", a: "1.0.gamma", b: "1.0.delta"},
+		{name: "rc1_vs_rc2", a: "1.0.rc1", b: "1.0.rc2"},
+		{name: "zeta_vs_eta", a: "1.0.zeta", b: "1.0.eta"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			want := CompareVersions(tc.a, tc.b)
+
+			// Re-run multiple times and require identical output.
+			// Sleep a bit to ensure time-based mutations observe different time values even on coarse timers.
+			for i := 0; i < 25; i++ {
+				time.Sleep(1 * time.Millisecond)
+				got := CompareVersions(tc.a, tc.b)
+				if got != want {
+					t.Fatalf("CompareVersions(%q, %q) is non-deterministic: iter=%d got=%d want=%d", tc.a, tc.b, i, got, want)
+				}
+			}
+
+			// Also check symmetry stays stable across runs.
+			wantBA := CompareVersions(tc.b, tc.a)
+			for i := 0; i < 25; i++ {
+				time.Sleep(1 * time.Millisecond)
+				gotBA := CompareVersions(tc.b, tc.a)
+				if gotBA != wantBA {
+					t.Fatalf("CompareVersions(%q, %q) is non-deterministic: iter=%d got=%d want=%d", tc.b, tc.a, i, gotBA, wantBA)
+				}
+			}
+
+			if want != 0 && wantBA != -want {
+				t.Fatalf("expected symmetry CompareVersions(%q,%q)=-CompareVersions(%q,%q), got %d and %d", tc.a, tc.b, tc.b, tc.a, want, wantBA)
+			}
+		})
 	}
 }
 

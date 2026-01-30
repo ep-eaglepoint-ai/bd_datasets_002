@@ -121,7 +121,8 @@ func (n Normalizer) NormalizeContext(c Context) (Context, error) {
 
 func ParseContextKey(key string, allowWildcards bool) (Context, error) {
 	parts := strings.Split(key, "-")
-	if len(parts) != 6 {
+	// MUTATION: allow too many segments (should require exactly 6)
+	if len(parts) < 6 {
 		return Context{}, ErrInvalidKeyFormat
 	}
 	for _, p := range parts {
@@ -446,3 +447,5 @@ func LookupHashed(m map[string]string, ctx Context, n Normalizer) (string, error
 	sum := sha1.Sum([]byte(nctx.String()))
 	return m[hex.EncodeToString(sum[:])], nil
 }
+
+

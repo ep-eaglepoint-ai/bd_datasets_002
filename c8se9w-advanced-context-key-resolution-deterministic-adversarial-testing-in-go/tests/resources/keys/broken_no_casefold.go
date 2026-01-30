@@ -76,7 +76,8 @@ func (n Normalizer) NormalizeContext(c Context) (Context, error) {
 		if v == "" && n.FillUnknown {
 			v = "unknown"
 		}
-		v = strings.ToLower(v)
+		// MUTATION: removed case-folding (no strings.ToLower here)
+		v = v
 		if v == "*" {
 			return "", ErrInvalidSegment
 		}
@@ -446,3 +447,5 @@ func LookupHashed(m map[string]string, ctx Context, n Normalizer) (string, error
 	sum := sha1.Sum([]byte(nctx.String()))
 	return m[hex.EncodeToString(sum[:])], nil
 }
+
+
