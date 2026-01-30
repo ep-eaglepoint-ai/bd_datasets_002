@@ -1,7 +1,7 @@
 services:
   test-before:
     build: .
-    command: pytest -v tests
+    command: sh -c "pytest -v tests || true"
     environment:
       - TARGET_REPOSITORY=repository_before
       - PYTHONPATH=/app
