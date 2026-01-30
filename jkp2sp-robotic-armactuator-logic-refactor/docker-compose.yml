@@ -1,6 +1,22 @@
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  test-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - .:/app
+    working_dir: /app
+    command: >
+      sh -c "
+        sed -i 's|./repository_after|./repository_before|' go.mod &&
+        go test -v ./...
+      "
+
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: go test -v -tags=after ./...

@@ -5,7 +5,18 @@
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/jkp2sp-robotic-armactuator-logic-refactor",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
+            "FAIL_TO_PASS": [
+                "TestUnsupportedUnitReturnsProtocolError",
+                "TestMockSafetyMonitorPreventsStateMutation",
+                "TestCustomErrorTypesReturned",
+                "TestMalformedBufferShortCircuitsSafety"
+            ],
+            "PASS_TO_PASS": [
+                "TestMalformedBufferReturnsError",
+                "TestInchesToMMCalculation",
+                "TestSafetyThresholdViolation",
+                "TestStateNotCorruptedAfterRejectedMove",
+                "TestThreadSafeStateAccess",
+                "TestProtocolDecoding"
+            ]
         }
-        
