@@ -79,11 +79,13 @@ Many high-level libraries abstract away stream control, making it difficult to i
 
 **The Streaming Pipeline**:
 
-1. **Producer**: `Busboy` receives file chunks from the network.
-2. **Transform**: `csv-parse` converts raw bytes to JavaScript objects.
+1. **Producer**: `Busboy` receives file chunks from the network and streams directly to parser.
+2. **Transform**: `csv-parse` converts raw bytes to JavaScript objects in streaming mode.
 3. **Accumulator**: Logic collects 1000 objects in a generic array.
 4. **Consumer (The Bottleneck)**: `pg` client sends a single transaction to PostgreSQL.
-5. **Backpressure Signal**: The `await` on the database call pauses the `for await` loop, causing `Busboy`'s internal buffer to fill, which triggers TCP backpressure back to the client.
+5. **Backpressure Signal**: The `await` on the database call pauses the `for await` loop, preventing the parser from consuming more data from the stream, which triggers TCP backpressure back to the client.
+
+**Critical**: File is never buffered in memory. The stream flows directly from upload → parser → batch processor.
 
 ---
 
@@ -119,7 +121,7 @@ Many high-level libraries abstract away stream control, making it difficult to i
 
 1. **Step 1: Database Schema**: Create `customers` and `failed_imports` with necessary indexes.
 2. **Step 2: Socket setup**: Establish the progress reporting infrastructure.
-3. **Step 3: Streaming Skeleton**: Implement file upload with `Busboy` and row counting.
+3. **Step 3: Streaming Skeleton**: Implement file upload with `Busboy` streaming directly to parser (no buffering).
 4. **Step 4: Backpressure Loop**: Implement the `for await` loop with `BATCH_SIZE` logic.
 5. **Step 5: Database Driver**: Optimize the `unnest()` query for bulk inserts.
 
@@ -142,8 +144,3 @@ Many high-level libraries abstract away stream control, making it difficult to i
 **Problem**: Large CSV uploads were causing memory crashes and database contention.
 
 **Solution**: Built a custom streaming pipeline using `Busboy`, `csv-parse`, and `Async Iterators` to manage backpressure. Implemented batched PostgreSQL inserts (1000 rows) with individual transaction rollbacks and automated error logging.
-
-**Trade-offs**:
-
-- **Pro**: Massive scalability (5GB+ files supported), stable memory footprint, real-time progress UI.
-- **Con**: More complex logic than simple `Array.map` or `COPY` approaches.

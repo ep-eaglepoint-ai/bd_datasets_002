@@ -6,7 +6,6 @@ import Busboy from "busboy";
 import { parse } from "csv-parse";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
-import { Readable } from "stream";
 
 const BATCH_SIZE = 1000;
 const PORT = process.env.PORT || 3000;
@@ -116,34 +115,11 @@ async function processBatch(jobId, batch, startRow) {
   }
 }
 
-// Count lines in the uploaded file for progress calculation
-async function countLines(fileBuffer) {
-  return new Promise((resolve) => {
-    let lineCount = 0;
-    const readable = Readable.from(fileBuffer);
-    const parser = parse({ columns: true, skip_empty_lines: true });
 
-    parser.on("data", () => {
-      lineCount++;
-    });
-
-    parser.on("end", () => {
-      resolve(lineCount);
-    });
-
-    parser.on("error", () => {
-      resolve(0);
-    });
-
-    readable.pipe(parser);
-  });
-}
 
 // Main upload endpoint with streaming and backpressure
 app.post("/upload", async (req, res) => {
   const jobId = uuidv4();
-  let fileBuffer = [];
-  let totalBytes = 0;
 
   const busboy = Busboy({
     headers: req.headers,
@@ -156,18 +132,8 @@ app.post("/upload", async (req, res) => {
       `Receiving file: ${filename}, type: ${mimeType}, jobId: ${jobId}`,
     );
 
-    // Collect file chunks for two-pass processing
-    file.on("data", (chunk) => {
-      fileBuffer.push(chunk);
-      totalBytes += chunk.length;
-    });
-
-    file.on("end", async () => {
-      console.log(`File received: ${totalBytes} bytes`);
-
-      // Start async processing
-      processFile(jobId, Buffer.concat(fileBuffer));
-    });
+    // Start streaming processing immediately
+    processFile(jobId, file);
   });
 
   busboy.on("finish", () => {
@@ -184,27 +150,14 @@ app.post("/upload", async (req, res) => {
 });
 
 // Process file with streaming, backpressure, and batching
-async function processFile(jobId, fileBuffer) {
+async function processFile(jobId, fileStream) {
   let processed = 0;
   let batch = [];
   let batchStartRow = 1;
-  let total = 0;
 
   try {
-    // First pass: count total rows for progress
-    total = await countLines(fileBuffer);
-    console.log(`Total rows to process: ${total}`);
+    emitProgress(jobId, 0, 0, "processing");
 
-    if (total === 0) {
-      emitProgress(jobId, 0, 0, "failed", "No valid rows found in CSV");
-      activeJobs.delete(jobId);
-      return;
-    }
-
-    emitProgress(jobId, 0, total, "processing");
-
-    // Second pass: process with backpressure
-    const readable = Readable.from(fileBuffer);
     const parser = parse({
       columns: true,
       skip_empty_lines: true,
@@ -212,47 +165,33 @@ async function processFile(jobId, fileBuffer) {
       relax_column_count: true,
     });
 
-    // Create async iterator for backpressure control
-    const processRows = async () => {
-      for await (const row of readable.pipe(parser)) {
-        batch.push(row);
+    // Stream directly with backpressure control
+    for await (const row of fileStream.pipe(parser)) {
+      batch.push(row);
 
-        if (batch.length >= BATCH_SIZE) {
-          const result = await processBatch(jobId, batch, batchStartRow);
-
-          if (result.success) {
-            processed += batch.length;
-          } else {
-            processed += batch.length;
-          }
-
-          emitProgress(jobId, processed, total, "processing");
-          batchStartRow += batch.length;
-          batch = [];
-        }
+      if (batch.length >= BATCH_SIZE) {
+        await processBatch(jobId, batch, batchStartRow);
+        processed += batch.length;
+        emitProgress(jobId, processed, processed, "processing");
+        batchStartRow += batch.length;
+        batch = [];
       }
+    }
 
-      // Process remaining rows
-      if (batch.length > 0) {
-        const result = await processBatch(jobId, batch, batchStartRow);
-        if (result.success) {
-          processed += batch.length;
-        } else {
-          processed += batch.length;
-        }
-      }
+    // Process remaining rows
+    if (batch.length > 0) {
+      await processBatch(jobId, batch, batchStartRow);
+      processed += batch.length;
+    }
 
-      emitProgress(jobId, processed, total, "completed");
-      console.log(`Job ${jobId} completed: ${processed}/${total} rows`);
+    emitProgress(jobId, processed, processed, "completed");
+    console.log(`Job ${jobId} completed: ${processed} rows`);
 
-      // Clean up job after a delay
-      setTimeout(() => activeJobs.delete(jobId), 60000);
-    };
-
-    await processRows();
+    // Clean up job after a delay
+    setTimeout(() => activeJobs.delete(jobId), 60000);
   } catch (error) {
     console.error(`Job ${jobId} failed:`, error);
-    emitProgress(jobId, processed, total, "failed", error.message);
+    emitProgress(jobId, processed, processed, "failed", error.message);
     activeJobs.delete(jobId);
   }
 }
