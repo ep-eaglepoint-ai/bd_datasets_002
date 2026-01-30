@@ -1,5 +1,11 @@
-# Python
+# Add your Python dependencies here
 __pycache__/
+.pytest_cache/
+reports/
+evaluation/2*
+test_out.txt
+test_result.txt
+test_err.txt
 *.pyc
 .venv/
 .env
