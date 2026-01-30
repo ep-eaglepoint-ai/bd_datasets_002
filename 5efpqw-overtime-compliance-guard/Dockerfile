@@ -1,5 +1,7 @@
-FROM python:3.11-slim
+FROM golang:1.23
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+
+COPY . .
+
+CMD ["go", "run", "evaluation/evaluation.go"]
