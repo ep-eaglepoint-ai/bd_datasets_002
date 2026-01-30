@@ -1,6 +1,22 @@
+version: "3.8"
+
 services:
-  app:
+  test:
     build: .
-    command: pytest -q tests
     volumes:
-      - .:/app
+      - ./repository_after:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL="file:./dev.db"
+    command: npm test
+
+  evaluation:
+    build: .
+    volumes:
+      - ./repository_after:/app
+      - ./evaluation:/app/evaluation
+      - /app/node_modules
+    environment:
+      - DATABASE_URL="file:./dev.db"
+    # Install ts-node to run the typescript evaluation script, then run it
+    command: sh -c "npm install -g ts-node && ts-node evaluation/evaluation.ts"
