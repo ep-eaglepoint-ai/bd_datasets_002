@@ -1,6 +1,52 @@
+version: '3.8'
+
 services:
-  app:
-    build: .
-    command: pytest -q tests
+  repository-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
+    command: >
+      sh -c "
+        echo '================================================' &&
+        echo '🔴 Testing BEFORE version (Original Code)' &&
+        echo '================================================' &&
+        cp repository_before/BillSplitter.js ./BillSplitter.js &&
+        npm run test 2>&1 || echo '⚠️  Some tests failed on BEFORE version'
+      "
+    environment:
+      - NODE_ENV=test
+
+  repository-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: >
+      sh -c "
+        echo '================================================' &&
+        echo '🟢 Testing AFTER version (Optimized Code)' &&
+        echo '================================================' &&
+        cp repository_after/BillSplitter.js ./BillSplitter.js &&
+        npm run test:coverage
+      "
+    environment:
+      - NODE_ENV=test
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: >
+      sh -c "
+        echo '================================================' &&
+        echo '📊 Running Full Evaluation' &&
+        echo '================================================' &&
+        node evaluation/evaluation.js
+      "
+    environment:
+      - NODE_ENV=test
