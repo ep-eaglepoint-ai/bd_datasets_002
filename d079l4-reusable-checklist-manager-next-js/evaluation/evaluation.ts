@@ -63,12 +63,10 @@ const runTests = async (): Promise<TestResult> => {
 
         // Fallback: Check for standard Jest output
         if (!passedMatch) {
-          const standardPassedMatch = output.match(/Tests:\s+(\d+)\s+passed/s);
+          const standardPassedMatch = output.match(/Tests:\s+(\d+)\s+passed/);
           if (standardPassedMatch) passed = parseInt(standardPassedMatch[1]);
 
-          const standardFailedMatch = output.match(
-            /Tests:.*\s+(\d+)\s+failed/s,
-          );
+          const standardFailedMatch = output.match(/Tests:.*\s+(\d+)\s+failed/);
           if (standardFailedMatch) failed = parseInt(standardFailedMatch[1]);
         }
 

@@ -1,3 +1,11 @@
+/** @jest-environment node */
+jest.mock("next/cache", () => ({
+  revalidatePath: jest.fn(),
+}));
+jest.mock("next/navigation", () => ({
+  redirect: jest.fn(),
+}));
+
 import {
   createTemplate,
   getTemplates,
