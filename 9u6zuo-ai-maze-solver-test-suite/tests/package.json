@@ -1,16 +1,10 @@
 {
-  "name": "maze-solver-tests",
+  "name": "maze-meta-tests",
   "version": "1.0.0",
   "scripts": {
-    "test": "jest maze.test.js --no-cache",
-    "test:before": "TEST_VERSION=before jest maze.test.js --no-cache",
-    "test:after": "TEST_VERSION=after jest maze.test.js --no-cache"
+    "test": "jest --verbose"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.0",
-    "@babel/preset-env": "^7.23.0",
-    "@babel/preset-react": "^7.23.0",
-    "babel-jest": "^29.7.0",
     "jest": "^29.7.0"
   }
 }

@@ -1,29 +1,21 @@
 {
-  "name": "React-AI-Maze-Solver-Application",
+  "name": "maze-solver-tests",
   "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "lucide-react": "^0.562.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "recharts": "^3.7.0",
-    "tailwindcss": "^3.4.19"
-  },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build"
+    "test": "jest --verbose"
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "lucide-react": "^0.263.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "@babel/preset-react": "^7.22.0",
+    "babel-jest": "^29.7.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
   }
 }

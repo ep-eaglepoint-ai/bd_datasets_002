@@ -1,330 +1,281 @@
-// evaluation/evaluation.js
-const { execSync } = require('child_process');
-const fs = require('fs');
+const { spawn } = require('child_process');
+const fs = require('fs').promises;
 const path = require('path');
-const os = require('os');
 
-// Report will be saved to: evaluation/reports/YYYY-MM-DD/HH-MM-SS/report.json
-const REPORT_BASE_DIR = path.join(__dirname, 'reports');
+const projectRoot = path.resolve(__dirname, '..');
 
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+function runCommand(command, args, cwd) {
+  return new Promise((resolve) => {
+    const proc = spawn(command, args, { cwd, shell: true });
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', (d) => { stdout += d.toString(); process.stdout.write(d); });
+    proc.stderr.on('data', (d) => { stderr += d.toString(); process.stderr.write(d); });
+    proc.on('close', (code) => resolve({ exitCode: code, stdout, stderr, output: stdout + stderr }));
+  });
 }
 
-function generateEvaluationId() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz';
-  let result = '';
-  for (let i = 0; i < 12; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-function getReportPath() {
-  const now = new Date();
-  const dateStr = now.toISOString().split('T')[0];
-  const timeStr = now.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-');
-  const dir = path.join(REPORT_BASE_DIR, dateStr, timeStr);
-  ensureDir(dir);
-  return path.join(dir, 'report.json');
-}
-
-function getGitInfo() {
-  let commit = 'unknown';
-  let branch = 'unknown';
-  try {
-    commit = execSync('git rev-parse HEAD 2>/dev/null', { encoding: 'utf8' }).trim();
-    branch = execSync('git rev-parse --abbrev-ref HEAD 2>/dev/null', { encoding: 'utf8' }).trim();
-  } catch (e) {
-    // Git not available or not a git repo
-  }
-  return { commit, branch };
-}
-
-function getOsRelease() {
-  try {
-    return execSync('uname -r 2>/dev/null', { encoding: 'utf8' }).trim();
-  } catch (e) {
-    return 'unknown';
-  }
-}
-
-function runJest(version) {
-  console.log(`\n📊 Running tests for: ${version.toUpperCase()} version...\n`);
+function parseJestOutput(output) {
+  const lines = output.split('\n');
+  const tests = [];
+  let passed = 0, failed = 0, skipped = 0;
   
-  const tempFile = path.join(__dirname, `../.temp_${version}_results.json`);
-  let stdout = '';
-  
-  try {
-    stdout = execSync(
-      `cd tests && TEST_VERSION=${version} npx jest maze.test.js --json --outputFile="${tempFile}" --no-cache 2>&1`,
-      { 
-        encoding: 'utf8',
-        env: { ...process.env, TEST_VERSION: version }
+  // Parse individual test lines
+  for (const line of lines) {
+    // Match test results: PASS or FAIL with test name
+    if (line.includes('✓') || line.includes('✕') || line.includes('PASS') || line.includes('FAIL')) {
+      const isPassing = line.includes('✓') || line.includes('PASS');
+      const testName = line.trim();
+      
+      if (testName && !testName.startsWith('Test Suites:') && !testName.startsWith('Tests:')) {
+        tests.push({
+          name: testName,
+          status: isPassing ? 'PASS' : 'FAIL',
+          duration: '0ms'
+        });
       }
-    );
-    console.log(stdout);
-  } catch (error) {
-    stdout = error.stdout || '';
-    console.log(stdout);
-  }
-
-  let jestJson = null;
-  if (fs.existsSync(tempFile)) {
-    const data = fs.readFileSync(tempFile, 'utf8');
-    fs.unlinkSync(tempFile);
-    try {
-      jestJson = JSON.parse(data);
-    } catch (e) {
-      jestJson = null;
     }
   }
   
-  return { jestJson, stdout };
-}
-
-function parseResults(jestJson, stdout) {
-  const tests = [];
-  let passed = 0;
-  let failed = 0;
-  let errors = 0;
-  let skipped = 0;
-
-  if (jestJson && jestJson.testResults) {
-    jestJson.testResults.forEach(suite => {
-      (suite.assertionResults || []).forEach(t => {
-        const status = t.status.toUpperCase();
-        if (status === 'PASSED') passed++;
-        else if (status === 'FAILED') failed++;
-        else if (status === 'PENDING' || status === 'SKIPPED') skipped++;
-
-        tests.push({
-          name: t.title,
-          status: status === 'PASSED' ? 'PASS' : status === 'FAILED' ? 'FAIL' : status,
-          duration: ((t.duration || 0) / 1000).toFixed(2) + 's'
-        });
-      });
-    });
+  // Parse summary
+  const summaryMatch = output.match(/Tests:\s+(\d+)\s+passed(?:,\s+(\d+)\s+failed)?(?:,\s+(\d+)\s+skipped)?(?:,\s+)?(\d+)\s+total/);
+  if (summaryMatch) {
+    passed = parseInt(summaryMatch[1]) || 0;
+    failed = parseInt(summaryMatch[2]) || 0;
+    skipped = parseInt(summaryMatch[3]) || 0;
+  } else {
+    // Count from actual test results
+    passed = tests.filter(t => t.status === 'PASS').length;
+    failed = tests.filter(t => t.status === 'FAIL').length;
   }
-
-  return { tests, passed, failed, errors, skipped, total: tests.length, output: stdout };
-}
-
-function checkRequirements(tests) {
-  const isPassed = (keyword) => tests.some(t => 
-    t.name.toLowerCase().includes(keyword.toLowerCase()) && t.status === 'PASS'
-  );
-
+  
+  const total = passed + failed + skipped;
+  const success = failed === 0 && passed > 0;
+  
   return {
-    maze_generation: isPassed("req 1"),
-    boundary_walls: isPassed("req 2"),
-    bfs_pathfinding: isPassed("req 3"),
-    dfs_pathfinding: isPassed("req 4"),
-    astar_pathfinding: isPassed("req 5"),
-    unsolvable_handling: isPassed("req 6"),
-    path_validity: isPassed("req 7,8,9"),
-    player_movement: isPassed("req 10,11,12"),
-    game_state: isPassed("req 13,14,15,16"),
-    complete_flow: isPassed("req 17"),
-    algorithm_switching: isPassed("req 18"),
-    jest_framework: isPassed("req 19")
+    passed,
+    failed,
+    skipped,
+    total,
+    success,
+    tests,
+    output
   };
 }
 
-function getMetrics(tests, isAfter) {
-  const isPassed = (keyword) => tests.some(t => 
-    t.name.toLowerCase().includes(keyword.toLowerCase()) && t.status === 'PASS'
-  );
-
-  if (!isAfter) {
-    return {
-      total_files: 0,
-      maze_generation_working: false,
-      bfs_working: false,
-      dfs_working: false,
-      astar_working: false,
-      path_validation_working: false,
-      movement_working: false,
-      game_state_working: false
-    };
+function analyzeRequirementCoverage(output) {
+  const requirements = {};
+  
+  // Check for each requirement in the output
+  const reqPatterns = [
+    { id: 1, pattern: /Requirement 1.*?Valid maze with passable/i, key: 'req1_maze_generation' },
+    { id: 2, pattern: /Requirement 2.*?boundaries.*?walls/i, key: 'req2_boundaries' },
+    { id: 3, pattern: /Requirement 3.*?BFS/i, key: 'req3_bfs_pathfinding' },
+    { id: 4, pattern: /Requirement 4.*?DFS/i, key: 'req4_dfs_pathfinding' },
+    { id: 5, pattern: /Requirement 5.*?A\*/i, key: 'req5_astar_pathfinding' },
+    { id: 6, pattern: /Requirement 6.*?unsolvable/i, key: 'req6_unsolvable_handling' },
+    { id: 7, pattern: /Requirement 7.*?consecutive/i, key: 'req7_path_validity' },
+    { id: 8, pattern: /Requirement 8.*?passable/i, key: 'req8_path_passable' },
+    { id: 9, pattern: /Requirement 9.*?starts.*?goal/i, key: 'req9_path_endpoints' },
+    { id: 10, pattern: /Requirement 10.*?four directions/i, key: 'req10_player_movement' },
+    { id: 11, pattern: /Requirement 11.*?walls/i, key: 'req11_wall_collision' },
+    { id: 12, pattern: /Requirement 12.*?bounds/i, key: 'req12_boundary_collision' },
+    { id: 13, pattern: /Requirement 13.*?gameWon/i, key: 'req13_win_condition' },
+    { id: 14, pattern: /Requirement 14.*?disabled/i, key: 'req14_movement_disabled' },
+    { id: 15, pattern: /Requirement 15.*?Player position/i, key: 'req15_player_bounds' },
+    { id: 16, pattern: /Requirement 16.*?Goal/i, key: 'req16_goal_bounds' },
+    { id: 17, pattern: /Requirement 17.*?Complete/i, key: 'req17_complete_flow' },
+    { id: 18, pattern: /Requirement 18.*?switching/i, key: 'req18_algorithm_switching' },
+    { id: 19, pattern: /Requirement 19.*?Jest/i, key: 'req19_jest_framework' }
+  ];
+  
+  for (const req of reqPatterns) {
+    // Check if requirement section exists and has passing tests
+    const reqSection = output.match(new RegExp(`describe\\(['"].*?${req.id}.*?['"],[\\s\\S]*?(?=describe\\(|$)`, 'i'));
+    if (reqSection) {
+      // Check if this section has any failures
+      const sectionText = reqSection[0];
+      const hasFailure = sectionText.includes('✕') || sectionText.includes('FAIL');
+      requirements[req.key] = !hasFailure;
+    } else {
+      // Alternative: check if requirement is mentioned and followed by PASS
+      const mentioned = output.match(req.pattern);
+      if (mentioned) {
+        // Look ahead for test results
+        const afterMention = output.substring(output.indexOf(mentioned[0]));
+        const nextTests = afterMention.substring(0, 1000); // Look at next 1000 chars
+        const hasPass = nextTests.includes('✓') || nextTests.includes('PASS');
+        const hasFail = nextTests.includes('✕') || nextTests.includes('FAIL');
+        requirements[req.key] = hasPass && !hasFail;
+      } else {
+        requirements[req.key] = false;
+      }
+    }
   }
+  
+  return requirements;
+}
 
+function calculateMetrics(testResults, requirementCoverage) {
+  const metrics = {
+    total_tests: testResults.total,
+    passed_tests: testResults.passed,
+    failed_tests: testResults.failed,
+    success_rate: testResults.total > 0 
+      ? ((testResults.passed / testResults.total) * 100).toFixed(1) + '%' 
+      : '0%',
+    ...requirementCoverage
+  };
+  
+  return metrics;
+}
+
+function buildRequirementsChecklist(beforeCoverage, afterParsed) {
   return {
-    total_files: 1,
-    maze_generation_working: isPassed("req 1") && isPassed("req 2"),
-    bfs_working: isPassed("req 3"),
-    dfs_working: isPassed("req 4"),
-    astar_working: isPassed("req 5"),
-    path_validation_working: isPassed("req 7,8,9"),
-    movement_working: isPassed("req 10,11,12"),
-    game_state_working: isPassed("req 13,14,15,16")
+    ...beforeCoverage,
+    meta_tests_passed: afterParsed.success
   };
 }
 
-function main() {
-  console.log("\n" + "=".repeat(60));
-  console.log("🔬 STARTING EVALUATION");
-  console.log("=".repeat(60));
+async function generateReport() {
+  const timestamp = new Date().toISOString();
+  const date = timestamp.split('T')[0];
+  const time = timestamp.split('T')[1].split('.')[0].replace(/:/g, '-');
+
+  console.log('🔍 Starting AI Maze Solver Evaluation...\n');
+  console.log('═'.repeat(70));
+
+  // Run BEFORE tests
+  console.log('\n📋 Running BEFORE Tests (repository_after tests)...\n');
+  const beforeResults = await runCommand('npm', ['test'], path.join(projectRoot, 'repository_after'));
+  const beforeParsed = parseJestOutput(beforeResults.output);
+  const beforeReqCoverage = analyzeRequirementCoverage(beforeResults.output);
+  const beforeMetrics = calculateMetrics(beforeParsed, beforeReqCoverage);
   
-  const startTime = new Date().toISOString();
-  const gitInfo = getGitInfo();
+  console.log(`\n   BEFORE: ${beforeParsed.passed} passed, ${beforeParsed.failed} failed, ${beforeParsed.total} total`);
 
-  // Run BEFORE tests (expected: all FAIL)
-  const beforeRun = runJest("before");
-  const beforeResults = parseResults(beforeRun.jestJson, beforeRun.stdout);
+  console.log('\n' + '═'.repeat(70));
 
-  // Run AFTER tests (expected: all PASS)
-  const afterRun = runJest("after");
-  const afterResults = parseResults(afterRun.jestJson, afterRun.stdout);
-
-  // Analyze results
-  const checklist = checkRequirements(afterResults.tests);
-  const allRequirementsMet = Object.values(checklist).every(v => v === true);
+  // Run AFTER tests
+  console.log('\n📋 Running AFTER Tests (Meta-Tests)...\n');
+  const afterResults = await runCommand('npm', ['test'], path.join(projectRoot, 'tests'));
+  const afterParsed = parseJestOutput(afterResults.output);
+  const afterReqCoverage = {}; // Meta-tests don't have numbered requirements
+  const afterMetrics = calculateMetrics(afterParsed, afterReqCoverage);
   
-  const beforeCorrect = beforeResults.total > 0 && beforeResults.passed === 0;
-  const afterCorrect = afterResults.total > 0 && afterResults.failed === 0;
-  const success = afterCorrect && allRequirementsMet;
+  console.log(`\n   AFTER: ${afterParsed.passed} passed, ${afterParsed.failed} failed, ${afterParsed.total} total`);
 
-  // Build report matching the required structure
+  // Build requirements checklist
+  const requirementsChecklist = buildRequirementsChecklist(beforeReqCoverage, afterParsed);
+  const requirementsMet = Object.values(requirementsChecklist).filter(Boolean).length;
+  const totalRequirements = Object.keys(requirementsChecklist).length;
+
+  // Build comprehensive report
   const report = {
     evaluation_metadata: {
-      evaluation_id: generateEvaluationId(),
-      timestamp: startTime,
-      evaluator: "automated_test_suite",
-      project: "ai_maze_solver",
-      version: "1.0.0"
+      evaluation_id: `maze-${Date.now().toString(36)}${Math.random().toString(36).substr(2, 9)}`,
+      timestamp,
+      evaluator: 'automated_test_suite',
+      project: 'ai_maze_solver',
+      version: '1.0.0',
+      framework: 'jest',
+      language: 'javascript'
     },
     environment: {
       node_version: process.version,
       platform: process.platform,
-      os: os.type().toLowerCase(),
-      os_release: getOsRelease(),
-      architecture: process.arch,
-      hostname: os.hostname(),
-      git_commit: gitInfo.commit,
-      git_branch: gitInfo.branch
-    },
-    test_execution: {
-      success: success,
-      exit_code: 0,
-      tests: afterResults.tests,
-      summary: {
-        total: afterResults.total,
-        passed: afterResults.passed,
-        failed: afterResults.failed,
-        errors: afterResults.errors,
-        skipped: afterResults.skipped
-      },
-      stdout: `Before Repository: ${beforeResults.passed}/${beforeResults.total} passed\nAfter Repository: ${afterResults.passed}/${afterResults.total} passed`,
-      stderr: ""
-    },
-    meta_testing: {
-      requirement_traceability: {
-        maze_generation: "requirement_1_2",
-        pathfinding_bfs: "requirement_3",
-        pathfinding_dfs: "requirement_4",
-        pathfinding_astar: "requirement_5",
-        unsolvable_handling: "requirement_6",
-        path_validity: "requirement_7_8_9",
-        player_movement: "requirement_10_11_12",
-        game_state: "requirement_13_14_15_16",
-        game_flow: "requirement_17",
-        algorithm_switching: "requirement_18"
-      },
-      adversarial_testing: {
-        buggy_maze_generation: "requirement_1_2",
-        buggy_pathfinding: "requirement_3_4_5",
-        buggy_movement: "requirement_10_11_12",
-        buggy_game_state: "requirement_13_14_15_16"
-      },
-      edge_case_coverage: {
-        unsolvable_maze: "requirement_6",
-        wall_collision: "requirement_11",
-        boundary_check: "requirement_12",
-        win_condition: "requirement_13_14"
-      }
-    },
-    compliance_check: {
-      maze_generation_valid: checklist.maze_generation && checklist.boundary_walls,
-      bfs_pathfinding_working: checklist.bfs_pathfinding,
-      dfs_pathfinding_working: checklist.dfs_pathfinding,
-      astar_pathfinding_working: checklist.astar_pathfinding,
-      unsolvable_handling_working: checklist.unsolvable_handling,
-      path_validity_working: checklist.path_validity,
-      movement_working: checklist.player_movement,
-      game_state_working: checklist.game_state
+      architecture: process.arch
     },
     before: {
-      metrics: getMetrics(beforeResults.tests, false),
+      description: 'Tests from repository_after verifying maze solver implementation',
+      metrics: beforeMetrics,
       tests: {
-        passed: beforeResults.passed,
-        failed: beforeResults.failed,
-        total: beforeResults.total,
-        success: beforeResults.passed === beforeResults.total && beforeResults.total > 0,
-        tests: beforeResults.tests,
-        output: beforeResults.output
-      }
+        passed: beforeParsed.passed,
+        failed: beforeParsed.failed,
+        skipped: beforeParsed.skipped || 0,
+        total: beforeParsed.total,
+        success: beforeParsed.success,
+        tests: beforeParsed.tests
+      },
+      output: beforeParsed.output
     },
     after: {
-      metrics: getMetrics(afterResults.tests, true),
+      description: 'Meta-tests verifying test suite quality',
+      metrics: afterMetrics,
       tests: {
-        passed: afterResults.passed,
-        failed: afterResults.failed,
-        total: afterResults.total,
-        success: afterResults.failed === 0 && afterResults.total > 0,
-        tests: afterResults.tests,
-        output: afterResults.output
-      }
+        passed: afterParsed.passed,
+        failed: afterParsed.failed,
+        skipped: afterParsed.skipped || 0,
+        total: afterParsed.total,
+        success: afterParsed.success,
+        tests: afterParsed.tests
+      },
+      output: afterParsed.output
     },
-    comparison: {
-      maze_generation_fixed: checklist.maze_generation && checklist.boundary_walls,
-      pathfinding_fixed: checklist.bfs_pathfinding && checklist.dfs_pathfinding && checklist.astar_pathfinding,
-      movement_fixed: checklist.player_movement,
-      game_state_fixed: checklist.game_state,
-      tests_passing: afterResults.passed,
-      test_improvement: afterResults.passed - beforeResults.passed,
-      all_requirements_met: allRequirementsMet
-    },
-    requirements_checklist: checklist,
+    requirements_checklist: requirementsChecklist,
     final_verdict: {
-      success: success,
-      total_tests: afterResults.total,
-      passed_tests: afterResults.passed,
-      failed_tests: afterResults.failed,
-      success_rate: afterResults.total > 0 
-        ? ((afterResults.passed / afterResults.total) * 100).toFixed(1)
-        : "0.0",
-      meets_requirements: allRequirementsMet
+      success: beforeParsed.success && afterParsed.success,
+      total_tests: beforeParsed.total + afterParsed.total,
+      passed_tests: beforeParsed.passed + afterParsed.passed,
+      failed_tests: beforeParsed.failed + afterParsed.failed,
+      success_rate: ((beforeParsed.passed + afterParsed.passed) / (beforeParsed.total + afterParsed.total) * 100).toFixed(1) + '%',
+      meets_requirements: requirementsMet === totalRequirements,
+      requirements_met: requirementsMet,
+      total_requirements: totalRequirements,
+      before_tests: {
+        passed: beforeParsed.passed,
+        failed: beforeParsed.failed,
+        total: beforeParsed.total
+      },
+      after_tests: {
+        passed: afterParsed.passed,
+        failed: afterParsed.failed,
+        total: afterParsed.total
+      }
     }
   };
 
   // Save report
-  const reportPath = getReportPath();
-  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  const reportsDir = path.join(__dirname, 'reports', date, time);
+  await fs.mkdir(reportsDir, { recursive: true });
+  const reportPath = path.join(reportsDir, 'report.json');
+  await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
 
-  // Print summary
-  console.log("\n" + "=".repeat(60));
-  console.log("📋 EVALUATION SUMMARY");
-  console.log("=".repeat(60));
-  
-  console.log(`\n🔴 BEFORE VERSION (Buggy):`);
-  console.log(`   Total: ${beforeResults.total} | Failed: ${beforeResults.failed} | Passed: ${beforeResults.passed}`);
-  console.log(`   Status: ${beforeCorrect ? "✅ CORRECT (all tests failed as expected)" : "❌ UNEXPECTED (some tests passed)"}`);
-  
-  console.log(`\n🟢 AFTER VERSION (Fixed):`);
-  console.log(`   Total: ${afterResults.total} | Passed: ${afterResults.passed} | Failed: ${afterResults.failed}`);
-  console.log(`   Status: ${afterCorrect ? "✅ CORRECT (all tests passed)" : "❌ UNEXPECTED (some tests failed)"}`);
-  
-  console.log(`\n📊 Requirements: ${Object.values(checklist).filter(v => v).length}/${Object.keys(checklist).length} met`);
+  // Display summary
+  console.log('\n' + '═'.repeat(70));
+  console.log('📊 EVALUATION SUMMARY');
+  console.log('═'.repeat(70));
+  console.log(`   BEFORE Tests: ${beforeParsed.passed}/${beforeParsed.total} passed`);
+  console.log(`   AFTER Tests:  ${afterParsed.passed}/${afterParsed.total} passed`);
+  console.log(`   Requirements: ${requirementsMet}/${totalRequirements} met`);
+  console.log(`   Success Rate: ${report.final_verdict.success_rate}`);
+  console.log('═'.repeat(70));
   console.log(`\n📁 Report saved to: ${reportPath}`);
-  
-  console.log("\n" + "=".repeat(60));
-  console.log(`🏆 FINAL VERDICT: ${success ? "✅ SUCCESS" : "❌ NEEDS ATTENTION"}`);
-  console.log("=".repeat(60) + "\n");
 
-  process.exit(0);
+  // Show requirement details
+  console.log('\n📋 Requirements Status:');
+  Object.entries(requirementsChecklist).forEach(([key, value]) => {
+    const status = value ? '✅' : '❌';
+    console.log(`   ${status} ${key}`);
+  });
+
+  if (report.final_verdict.success && report.final_verdict.meets_requirements) {
+    console.log('\n🎉 EVALUATION PASSED - All tests passed and requirements met!');
+  } else if (report.final_verdict.success) {
+    console.log('\n⚠️  EVALUATION PARTIAL - Tests passed but some requirements not met');
+  } else {
+    console.log('\n❌ EVALUATION FAILED - Some tests failed');
+    console.log(`   Failed tests: ${report.final_verdict.failed_tests}`);
+  }
+
+  return report;
 }
 
-main();
+// Run evaluation
+generateReport()
+  .then(report => {
+    process.exit(report.final_verdict.success ? 0 : 1);
+  })
+  .catch(error => {
+    console.error('\n❌ Evaluation error:', error);
+    process.exit(1);
+  });

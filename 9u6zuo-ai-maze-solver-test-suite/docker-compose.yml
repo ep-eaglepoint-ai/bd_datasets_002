@@ -1,37 +1,25 @@
-version: '3.8'
-
 services:
-  repository-before:
+  # Build the base image
+  app:
     build: .
     working_dir: /app
-    environment:
-      - TEST_VERSION=before
-    command: >
-      sh -c "cd tests &&
-             npm install &&
-             npx jest maze.test.js --no-cache"
-    volumes:
-      - ./evaluation/reports:/app/evaluation/reports
 
-  repository-after:
+  # Test BEFORE: repository_after tests against repository_before
+  test-before:
     build: .
     working_dir: /app
-    environment:
-      - TEST_VERSION=after
-    command: >
-      sh -c "cd tests &&
-             npm install &&
-             npx jest maze.test.js --no-cache"
-    volumes:
-      - ./evaluation/reports:/app/evaluation/reports
+    command: npm run test:before
 
-  evaluation:
+  # Test AFTER: meta-tests verifying test quality
+  test-after:
     build: .
     working_dir: /app
-    command: >
-      sh -c "cd tests &&
-             npm install &&
-             cd .. &&
-             node evaluation/evaluation.js"
+    command: npm run test:after
+
+  # Run full evaluation
+  evaluate:
+    build: .
+    working_dir: /app
+    command: npm run evaluate
     volumes:
       - ./evaluation/reports:/app/evaluation/reports

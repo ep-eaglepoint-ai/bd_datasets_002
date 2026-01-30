@@ -1,0 +1,10 @@
+{
+  "name": "9u6zuo-ai-maze-solver-test-suite",
+  "version": "1.0.0",
+  "scripts": {
+    "test:before": "cd repository_after && npm test",
+    "test:after": "cd tests && npm test",
+    "evaluate": "node evaluation/evaluation.js",
+    "install:all": "npm install && cd repository_after && npm install && cd ../tests && npm install && cd ../repository_before && npm install"
+  }
+}

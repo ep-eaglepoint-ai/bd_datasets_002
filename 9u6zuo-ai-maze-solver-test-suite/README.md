@@ -1,11 +1,19 @@
-### Build all services
+### Build first
+```bash
 docker-compose build
+```
 
-### Run tests for BEFORE version (expected to fail logically)
-docker-compose run --rm repository-before
+### Test BEFORE version 
+```bash
+docker-compose run --rm test-before
+```
 
-### Run tests for AFTER version (expected to pass)
-docker-compose run --rm repository-after
+### Test AFTER version 
+```bash
+docker-compose run --rm test-after
+```
 
-### Run evaluation (which should internally run Jest and generate a report)
-docker-compose run --rm evaluation
+### Run full evaluation
+```bash
+docker-compose run --rm evaluate
+```
