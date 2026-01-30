@@ -5,6 +5,7 @@ services:
     build: .
     volumes:
       - ./repository_after:/app
+      - ./tests:/app/tests
       - /app/node_modules
     environment:
       - DATABASE_URL="file:./dev.db"
@@ -14,6 +15,7 @@ services:
     build: .
     volumes:
       - ./repository_after:/app
+      - ./tests:/app/tests
       - ./evaluation:/app/evaluation
       - /app/node_modules
     environment:

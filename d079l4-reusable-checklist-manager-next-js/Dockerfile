@@ -16,6 +16,7 @@ RUN npm install
 
 # Copy the rest of the application code
 COPY repository_after/ .
+COPY tests ./tests
 
 # Copy evaluation script
 COPY evaluation /app/evaluation
