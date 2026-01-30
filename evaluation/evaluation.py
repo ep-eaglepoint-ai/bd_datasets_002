@@ -143,10 +143,28 @@ def run_evaluation():
 
 def main():
     try:
+        print("\n" + "="*50)
+        print("STARTING EVALUATION")
+        print("="*50)
+        
         report = run_evaluation()
+        
+        print(f"\nEvaluation ID: {report['run_id']}")
+        print(f"Duration: {report['duration_seconds']:.2f}s")
+        
+        print("\n--- Results ---")
+        print(f"Repository Before: {'FAILED' if not report['before']['functional_tests']['passed'] else 'PASSED'})
+        print(f"Repository After:  {'PASSED' if report['after']['functional_tests']['passed'] else 'FAILED'}")
+        print("\n" + "="*50)
+        if report["success"]:
+            print("EVALUATION SUCCESSFUL - Improvement Verified")
+        else:
+            print("EVALUATION FAILED - Requirements not met")
+        print("="*50)
+        
         return 0 if report["success"] else 1
     except Exception as e:
-        print(f"Error during evaluation: {e}")
+        print(f"\nError during evaluation: {e}")
         return 1
 
 if __name__ == "__main__":
