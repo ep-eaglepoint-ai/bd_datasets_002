@@ -1,21 +1,10 @@
-#!/usr/bin/env python3
-"""
-Evaluation runner for Mechanical Refactor (calc_score).
-
-This evaluation script:
-- Runs pytest tests on the tests/ folder for both before and after implementations
-- Collects individual test results with pass/fail status
-- Generates structured reports with environment metadata
-
-Run with:
-    docker compose run --rm app python evaluation/evaluation.py [options]
-"""
 import os
 import sys
 import json
 import uuid
 import platform
 import subprocess
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -107,7 +96,7 @@ def run_pytest_with_pythonpath(pythonpath, tests_dir, label):
             text=True,
             cwd=str(Path(tests_dir).parent),
             env=env,
-            timeout=120
+            timeout=180
         )
         
         stdout = result.stdout
@@ -177,31 +166,80 @@ def parse_pytest_verbose_output(output):
     tests = []
     lines = output.split('\n')
     
+    # Pattern to match test results like:
+    # tests/test_file.py::test_name PASSED [  XX%]
+    # tests/test_file.py::test_name FAILED
+    # Handle variable spacing
+    test_pattern = re.compile(
+        r'^([^:]+::[^\s]+)\s+(PASSED|FAILED|ERROR|SKIPPED)(?:\s+\[.*?\])?$'
+    )
+    
     for line in lines:
         line_stripped = line.strip()
         
-        # Match lines like: tests/test_before.py::test_before_matches_reference_vectors PASSED
+        # Skip empty lines and summary lines
+        if not line_stripped or 'test session starts' in line_stripped or 'collected' in line_stripped or 'passed in' in line_stripped or 'failed in' in line_stripped:
+            continue
+        
+        # Try regex match first (more reliable)
+        match = test_pattern.match(line_stripped)
+        if match:
+            nodeid = match.group(1).strip()
+            status = match.group(2).strip()
+            
+            outcome_map = {
+                "PASSED": "passed",
+                "FAILED": "failed",
+                "ERROR": "error",
+                "SKIPPED": "skipped"
+            }
+            outcome = outcome_map.get(status, "unknown")
+            
+            # Extract test name (last part after ::)
+            test_name = nodeid.split("::")[-1] if "::" in nodeid else nodeid
+            
+            tests.append({
+                "nodeid": nodeid,
+                "name": test_name,
+                "outcome": outcome,
+            })
+            continue
+        
+        # Fallback: original parsing logic for edge cases
         if '::' in line_stripped:
             outcome = None
-            if ' PASSED' in line_stripped:
-                outcome = "passed"
-            elif ' FAILED' in line_stripped:
-                outcome = "failed"
-            elif ' ERROR' in line_stripped:
-                outcome = "error"
-            elif ' SKIPPED' in line_stripped:
-                outcome = "skipped"
+            status_word = None
             
-            if outcome:
+            # Check for status words (handle variable spacing)
+            if re.search(r'\s+PASSED\s+\[', line_stripped) or line_stripped.endswith(' PASSED'):
+                outcome = "passed"
+                status_word = ' PASSED'
+            elif re.search(r'\s+FAILED\s+\[', line_stripped) or line_stripped.endswith(' FAILED'):
+                outcome = "failed"
+                status_word = ' FAILED'
+            elif re.search(r'\s+ERROR\s+\[', line_stripped) or line_stripped.endswith(' ERROR'):
+                outcome = "error"
+                status_word = ' ERROR'
+            elif re.search(r'\s+SKIPPED\s+\[', line_stripped) or line_stripped.endswith(' SKIPPED'):
+                outcome = "skipped"
+                status_word = ' SKIPPED'
+            
+            if outcome and status_word:
                 # Extract nodeid (everything before the status)
-                for status_word in [' PASSED', ' FAILED', ' ERROR', ' SKIPPED']:
-                    if status_word in line_stripped:
-                        nodeid = line_stripped.split(status_word)[0].strip()
-                        break
+                # Handle both "PASSED" and "PASSED [XX%]" formats with variable spacing
+                if re.search(rf'{re.escape(status_word)}\s+\[', line_stripped):
+                    # Split on status word followed by [
+                    parts = re.split(rf'{re.escape(status_word)}\s+\[', line_stripped, 1)
+                    nodeid = parts[0].strip()
+                else:
+                    nodeid = line_stripped.split(status_word)[0].strip()
+                
+                # Extract test name (last part after ::)
+                test_name = nodeid.split("::")[-1] if "::" in nodeid else nodeid
                 
                 tests.append({
                     "nodeid": nodeid,
-                    "name": nodeid.split("::")[-1] if "::" in nodeid else nodeid,
+                    "name": test_name,
                     "outcome": outcome,
                 })
     
@@ -215,7 +253,7 @@ def run_evaluation():
     Returns dict with test results from both before and after implementations.
     """
     print(f"\n{'=' * 60}")
-    print("MECHANICAL REFACTOR EVALUATION")
+    print("INVENTORY BUG FIX EVALUATION")
     print(f"{'=' * 60}")
     
     project_root = Path(__file__).parent.parent
@@ -271,10 +309,18 @@ def run_evaluation():
     print("EXPECTED BEHAVIOR CHECK")
     print(f"{'=' * 60}")
     
-    # Before: functional tests should pass, structural tests might fail
-    # After: all tests should pass
-    if after_results.get("success"):
-        print("✅ After implementation: All tests passed (expected)")
+    # Before: Some tests should fail (it's the buggy version)
+    # After: All tests should pass (it's the fixed version)
+    before_expected_failures = comparison['before_failed'] > 0
+    after_all_passed = after_results.get("success", False)
+    
+    if before_expected_failures:
+        print("✅ Before implementation: Some tests failed (expected - it's the buggy version)")
+    else:
+        print("⚠️  Before implementation: All tests passed (unexpected - should have some failures)")
+    
+    if after_all_passed:
+        print("✅ After implementation: All tests passed (expected - it's the fixed version)")
     else:
         print("❌ After implementation: Some tests failed (unexpected - should pass all)")
     
@@ -302,7 +348,7 @@ def main():
     """Main entry point for evaluation."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Run mechanical refactor evaluation")
+    parser = argparse.ArgumentParser(description="Run inventory bug fix evaluation")
     parser.add_argument(
         "--output", 
         type=str, 

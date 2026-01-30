@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from models import Product, StockEntry
 from transaction import TransactionLog
 from datetime import datetime
@@ -21,7 +21,7 @@ class Inventory:
         normalized = self._normalize_sku(sku)
         return "SKU_" + normalized
     
-    def _validate_quantity(self, quantity: int, allow_zero: bool = False) -> None:
+    def _validate_quantity(self, quantity: Any, allow_zero: bool = False) -> None:
         """Validate that quantity is a positive integer. Raises ValueError if invalid."""
         if not isinstance(quantity, int):
             raise ValueError(f"Quantity must be an integer, got {type(quantity).__name__}")
