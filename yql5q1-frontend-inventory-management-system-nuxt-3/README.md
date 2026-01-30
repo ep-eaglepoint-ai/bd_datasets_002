@@ -1,19 +1,11 @@
 # YQL5Q1 - Frontend Inventory Management System (Nuxt 3)
 
-### Run tests on repository_before
-
-```bash
-docker compose run --rm test-before
-```
-
-### Run tests on repository_after
-
+### Run all tests:
 ```bash
 docker compose run --rm test-after
 ```
 
-### Run evaluation
-
+### Run evaluation and produce the report:
 ```bash
 docker compose run --rm evaluation
 ```

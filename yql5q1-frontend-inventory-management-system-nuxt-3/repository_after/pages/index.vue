@@ -7,13 +7,13 @@
       <StatCard label="Low Stock" :value="store.lowStockCount" :subtitle="store.lowStockPercentage" />
       <StatCard label="Out of Stock" :value="store.outOfStockCount" :subtitle="store.outOfStockPercentage" />
     </div>
-    <button @click="exportData" :disabled="isExporting" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed">
-      Export Data
-    </button>
+    <button @click="exportData" :disabled="isExporting"
+      class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Export Data</button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useProductsStore } from '~/stores/products';
 import { useToasts } from '~/composables/useToasts';
 
@@ -48,10 +48,4 @@ const exportData = async () => {
     isExporting.value = false;
   }
 };
-
-// Expose for testing
-defineExpose({
-  exportData,
-  store,
-});
 </script>
