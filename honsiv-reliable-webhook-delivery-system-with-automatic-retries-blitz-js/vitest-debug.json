@@ -1,79 +1,267 @@
 {
-  "numTotalTestSuites": 8,
-  "numPassedTestSuites": 0,
+  "numTotalTestSuites": 16,
+  "numPassedTestSuites": 8,
   "numFailedTestSuites": 8,
   "numPendingTestSuites": 0,
-  "numTotalTests": 0,
-  "numPassedTests": 0,
+  "numTotalTests": 18,
+  "numPassedTests": 18,
   "numFailedTests": 0,
   "numPendingTests": 0,
   "numTodoTests": 0,
-  "startTime": 1769849777717,
+  "startTime": 1769853269526,
   "success": false,
   "testResults": [
     {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 7: Use exponential backoff with jitter between retries"
+          ],
+          "fullName": " Requirement 7: Use exponential backoff with jitter between retries should calculate exponential backoff with jitter",
+          "status": "pending",
+          "title": "should calculate exponential backoff with jitter",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 7: Use exponential backoff with jitter between retries"
+          ],
+          "fullName": " Requirement 7: Use exponential backoff with jitter between retries should cap backoff at maximum delay (12 hours)",
+          "status": "pending",
+          "title": "should cap backoff at maximum delay (12 hours)",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 7: Use exponential backoff with jitter between retries"
+          ],
+          "fullName": " Requirement 7: Use exponential backoff with jitter between retries should apply jitter to prevent synchronized retries",
+          "status": "pending",
+          "title": "should apply jitter to prevent synchronized retries",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 7: Use exponential backoff with jitter between retries"
+          ],
+          "fullName": " Requirement 7: Use exponential backoff with jitter between retries should have exponential growth pattern",
+          "status": "pending",
+          "title": "should have exponential growth pattern",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 7: Use exponential backoff with jitter between retries"
+          ],
+          "fullName": " Requirement 7: Use exponential backoff with jitter between retries should handle attempt number 0 correctly",
+          "status": "pending",
+          "title": "should handle attempt number 0 correctly",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
       "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
-      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/idempotency.test.ts"
-    },
-    {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
-      "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
       "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/exponential-backoff.test.ts"
     },
     {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types"
+          ],
+          "fullName": " Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types should create endpoint with all required fields",
+          "status": "pending",
+          "title": "should create endpoint with all required fields",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types"
+          ],
+          "fullName": " Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types should handle empty event types array",
+          "status": "pending",
+          "title": "should handle empty event types array",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types"
+          ],
+          "fullName": " Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types should validate endpoint URL format",
+          "status": "pending",
+          "title": "should validate endpoint URL format",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types"
+          ],
+          "fullName": " Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types should handle secret storage securely",
+          "status": "pending",
+          "title": "should handle secret storage securely",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
       "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
-      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/automatic-retries.test.ts"
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
+      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/webhook-endpoints.test.ts"
     },
     {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 5: Mark deliveries as permanently failed after max retry attempts"
+          ],
+          "fullName": " Requirement 5: Mark deliveries as permanently failed after max retry attempts should mark delivery as DEAD after reaching max attempts",
+          "status": "pending",
+          "title": "should mark delivery as DEAD after reaching max attempts",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 5: Mark deliveries as permanently failed after max retry attempts"
+          ],
+          "fullName": " Requirement 5: Mark deliveries as permanently failed after max retry attempts should not process deliveries already marked as DEAD",
+          "status": "pending",
+          "title": "should not process deliveries already marked as DEAD",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
       "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
-      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/integration.test.ts"
-    },
-    {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
-      "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
       "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/mark-dead-deliveries.test.ts"
     },
     {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Integration"
+          ],
+          "fullName": " Integration should maintain complete audit trail through full flow",
+          "status": "pending",
+          "title": "should maintain complete audit trail through full flow",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
       "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
+      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/integration.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 3: Guarantee idempotent delivery per endpoint and event"
+          ],
+          "fullName": " Requirement 3: Guarantee idempotent delivery per endpoint and event should not create duplicate deliveries for same event and endpoint",
+          "status": "pending",
+          "title": "should not create duplicate deliveries for same event and endpoint",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
+      "status": "passed",
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
+      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/idempotency.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 4: Automatically retry failures"
+          ],
+          "fullName": " Requirement 4: Automatically retry failures should re-enqueue delivery for retry on 500 failure",
+          "status": "pending",
+          "title": "should re-enqueue delivery for retry on 500 failure",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 4: Automatically retry failures"
+          ],
+          "fullName": " Requirement 4: Automatically retry failures should re-enqueue delivery for retry on network error",
+          "status": "pending",
+          "title": "should re-enqueue delivery for retry on network error",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
+      "status": "passed",
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
+      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/automatic-retries.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 8: Configurable maximum retry attempts (default: 10)"
+          ],
+          "fullName": " Requirement 8: Configurable maximum retry attempts (default: 10) should use default max attempts of 10",
+          "status": "pending",
+          "title": "should use default max attempts of 10",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
+      "status": "passed",
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
       "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/max-retry-attempts.test.ts"
     },
     {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 9: Track attempt count, last error, last HTTP status, and next retry time"
+          ],
+          "fullName": " Requirement 9: Track attempt count, last error, last HTTP status, and next retry time should track all metrics on failure",
+          "status": "pending",
+          "title": "should track all metrics on failure",
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "Requirement 9: Track attempt count, last error, last HTTP status, and next retry time"
+          ],
+          "fullName": " Requirement 9: Track attempt count, last error, last HTTP status, and next retry time should reset error/status on success after failure",
+          "status": "pending",
+          "title": "should reset error/status on success after failure",
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1769853269526,
+      "endTime": 1769853269526,
       "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
+      "message": "Authentication failed against database server at `localhost`, the provided database credentials for `webhook` are not valid.\n\nPlease make sure to provide valid database credentials for the database server at `localhost`.",
       "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/metrics-tracking.test.ts"
-    },
-    {
-      "assertionResults": [],
-      "startTime": 1769849777717,
-      "endTime": 1769849777717,
-      "status": "passed",
-      "message": "Error: Cannot find module file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/repository_after/node_modules/blitz imported from file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/_index.js, file:///C:/Users/dell/Desktop/eaglepoint-ai/002/node_modules",
-      "name": "C:/Users/dell/Desktop/eaglepoint-ai/002/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js/tests/webhook-endpoints.test.ts"
     }
   ]
 }

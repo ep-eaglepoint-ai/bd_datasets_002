@@ -12,10 +12,12 @@ import { getQueue } from "../repository_after/src/webhooks/queue"
 import { prisma, ensureCommitted } from "./setup"
 
 // Mock queue
+const mockQueue = {
+  add: vi.fn().mockResolvedValue({ id: "job_id" }),
+}
+
 vi.mock("../repository_after/src/webhooks/queue", () => ({
-  getQueue: vi.fn().mockReturnValue({
-    add: vi.fn().mockResolvedValue({ id: "job_id" }),
-  }),
+  getQueue: vi.fn().mockReturnValue(mockQueue),
   createWorker: vi.fn(),
 }))
 
@@ -49,7 +51,8 @@ describe("Requirement 4: Automatically retry failures", () => {
       statusText: "Server Error",
     })
 
-    const queueAddSpy = getQueue("any").add
+    const queueAddSpy = mockQueue.add
+    queueAddSpy.mockClear()
 
     await processWebhookDelivery(delivery.id)
 
@@ -91,7 +94,8 @@ describe("Requirement 4: Automatically retry failures", () => {
     // Mock fetch to throw network error
     global.fetch = vi.fn().mockRejectedValue(new Error("Network connection lost"))
 
-    const queueAddSpy = getQueue("any").add
+    const queueAddSpy = mockQueue.add
+    queueAddSpy.mockClear()
 
     await processWebhookDelivery(delivery.id)
 
