@@ -110,4 +110,23 @@ describe('CreatePoll - Requirement 1', () => {
     });
     expect(mockAddCreatedPoll).toHaveBeenCalledWith('abc123xyz');
   });
+
+  it('disables Add button when 10 options reached', () => {
+    renderCreatePoll();
+    // Add 8 more options (starting with 2)
+    for (let i = 0; i < 8; i++) {
+      fireEvent.click(screen.getByRole('button', { name: '+ Add' }));
+    }
+    expect(screen.getAllByPlaceholderText(/Option \d+/)).toHaveLength(10);
+    expect(screen.getByRole('button', { name: '+ Add' })).toBeDisabled();
+  });
+
+  it('cannot remove options below minimum of 2', () => {
+    renderCreatePoll();
+    const removeBtns = screen.getAllByRole('button', { name: 'Remove' });
+    expect(removeBtns).toHaveLength(2);
+    // Both should be disabled since we're at minimum
+    expect(removeBtns[0]).toBeDisabled();
+    expect(removeBtns[1]).toBeDisabled();
+  });
 });
