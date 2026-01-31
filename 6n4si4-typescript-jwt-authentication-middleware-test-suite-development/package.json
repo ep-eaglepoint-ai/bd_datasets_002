@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest",
     "test:meta": "jest tests/meta.test.ts",
-    "evaluation": "node --loader ts-node/esm evaluation/evaluation.ts"
+    "evaluation": "npx ts-node evaluation/evaluation.ts"
   },
   "keywords": [],
   "author": "",

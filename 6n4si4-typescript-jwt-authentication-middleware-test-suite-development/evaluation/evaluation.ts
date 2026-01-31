@@ -1,42 +1,12 @@
-#!/usr/bin/env npx ts-node
-import { spawnSync } from "child_process";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
-import { randomUUID } from "crypto";
+#!/usr/bin/env ts-node
+const { spawnSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { randomUUID } = require("crypto");
 
 const ROOT = process.cwd();
 const REPORTS_DIR = path.join(ROOT, "evaluation", "reports");
-
-interface TestResult {
-  passed: boolean;
-  return_code: number;
-  output: string;
-}
-
-interface RepositoryResult {
-  tests: TestResult;
-  metrics: Record<string, number | boolean>;
-}
-
-interface Report {
-  run_id: string;
-  started_at: string;
-  finished_at: string;
-  duration_seconds: number;
-  environment: {
-    node_version: string;
-    platform: string;
-  };
-  before: RepositoryResult;
-  after: RepositoryResult;
-  comparison: {
-    passed_gate: boolean;
-    improvement_summary: string;
-  };
-  success: boolean;
-  error: string | null;
-}
 
 function environmentInfo() {
   return {
@@ -45,7 +15,7 @@ function environmentInfo() {
   };
 }
 
-function runTests(): TestResult {
+function runTests() {
   const isWin = process.platform === "win32";
   const npxCmd = isWin ? "npx.cmd" : "npx";
 
@@ -67,7 +37,7 @@ function runTests(): TestResult {
   };
 }
 
-function runEvaluation(): Report {
+function runEvaluation() {
   const startedAt = new Date();
   console.log(`\n============================================================`);
   console.log(`JWT MIDDLEWARE TEST SUITE EVALUATION`);
@@ -75,7 +45,7 @@ function runEvaluation(): Report {
 
   // Mock 'before' state as requested (Test suite was empty/missing)
   console.log("Analyzing 'before' state (Baseline: No tests)...");
-  const beforeResult: RepositoryResult = {
+  const beforeResult = {
     tests: {
         passed: false,
         return_code: 1,
@@ -86,7 +56,7 @@ function runEvaluation(): Report {
 
   console.log("Evaluating 'after' state (Updated Test Suite)...");
   const afterTests = runTests();
-  const afterResult: RepositoryResult = {
+  const afterResult = {
     tests: afterTests,
     metrics: {}
   };
@@ -120,7 +90,9 @@ function runEvaluation(): Report {
 }
 
 function main() {
-  fs.mkdirSync(REPORTS_DIR, { recursive: true });
+  if (!fs.existsSync(REPORTS_DIR)) {
+    fs.mkdirSync(REPORTS_DIR, { recursive: true });
+  }
   
   try {
     const report = runEvaluation();
@@ -131,14 +103,19 @@ function main() {
     const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
     
     const outputDir = path.join(REPORTS_DIR, dateStr, timeStr);
-    fs.mkdirSync(outputDir, { recursive: true });
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
     
     const outputPath = path.join(outputDir, "report.json");
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
     
+    // Also save a copy to the root reports dir for easy access
+    fs.writeFileSync(path.join(REPORTS_DIR, "report.json"), JSON.stringify(report, null, 2));
+    
     console.log(`\n✅ Report written to: ${outputPath}`);
     process.exit(report.success ? 0 : 1);
-  } catch (error: any) {
+  } catch (error) {
     console.error(`\nFATAL ERROR: ${error}`);
     process.exit(1);
   }
