@@ -187,3 +187,105 @@ describe('PATCH /api/polls/:pollId/close', () => {
     await request(app).patch('/api/polls/nonexistent123/close').expect(404);
   });
 });
+
+describe('GET /api/polls/:pollId - Expiration', () => {
+  it('returns 410 for expired poll', async () => {
+    const expiredDate = new Date(Date.now() - 86400000).toISOString(); // Yesterday
+    const createRes = await request(app)
+      .post('/api/polls')
+      .send({
+        question: 'Expired?',
+        options: ['A', 'B'],
+        showResultsBeforeVote: false,
+        expiresAt: expiredDate,
+      })
+      .expect(201);
+    const pollId = createRes.body.pollId;
+    await request(app).get('/api/polls/' + pollId).expect(410);
+  });
+});
+
+describe('POST /api/polls/:pollId/vote - Expiration', () => {
+  it('rejects vote when poll is expired', async () => {
+    const expiredDate = new Date(Date.now() - 86400000).toISOString();
+    const createRes = await request(app)
+      .post('/api/polls')
+      .send({
+        question: 'Expired?',
+        options: ['A', 'B'],
+        showResultsBeforeVote: false,
+        expiresAt: expiredDate,
+      })
+      .expect(201);
+    const pollId = createRes.body.pollId;
+    await request(app)
+      .post('/api/polls/' + pollId + '/vote')
+      .set('X-Vote-Token', 'token-expired')
+      .send({ optionId: createRes.body.options[0].id })
+      .expect(410);
+  });
+});
+
+describe('POST /api/polls - Edge Cases', () => {
+  it('rejects empty question', async () => {
+    await request(app)
+      .post('/api/polls')
+      .send({ question: '', options: ['A', 'B'], showResultsBeforeVote: false })
+      .expect(400);
+  });
+
+  it('rejects whitespace-only question', async () => {
+    await request(app)
+      .post('/api/polls')
+      .send({ question: '   ', options: ['A', 'B'], showResultsBeforeVote: false })
+      .expect(400);
+  });
+
+  it('trims whitespace from options and rejects if fewer than 2 remain', async () => {
+    await request(app)
+      .post('/api/polls')
+      .send({ question: 'Q?', options: ['A', '   '], showResultsBeforeVote: false })
+      .expect(400);
+  });
+
+  it('rejects invalid optionId on vote', async () => {
+    const createRes = await request(app)
+      .post('/api/polls')
+      .send({ question: 'Q?', options: ['A', 'B'], showResultsBeforeVote: false })
+      .expect(201);
+    await request(app)
+      .post('/api/polls/' + createRes.body.pollId + '/vote')
+      .send({ optionId: 'nonexistent' })
+      .expect(400);
+  });
+
+  it('allows vote without token but still records it', async () => {
+    const createRes = await request(app)
+      .post('/api/polls')
+      .send({ question: 'Q?', options: ['A', 'B'], showResultsBeforeVote: false })
+      .expect(201);
+    const voteRes = await request(app)
+      .post('/api/polls/' + createRes.body.pollId + '/vote')
+      .send({ optionId: createRes.body.options[0].id })
+      .expect(200);
+    expect(voteRes.body.totalVotes).toBe(1);
+  });
+
+  it('rejects missing optionId on vote', async () => {
+    const createRes = await request(app)
+      .post('/api/polls')
+      .send({ question: 'Q?', options: ['A', 'B'], showResultsBeforeVote: false })
+      .expect(201);
+    await request(app)
+      .post('/api/polls/' + createRes.body.pollId + '/vote')
+      .send({})
+      .expect(400);
+  });
+
+  it('rejects vote on non-existent poll', async () => {
+    await request(app)
+      .post('/api/polls/nonexistent123/vote')
+      .send({ optionId: 'opt1' })
+      .expect(404);
+  });
+});
