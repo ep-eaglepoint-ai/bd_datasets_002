@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 
-from repository_after.aml.models import Alert
-from repository_after.aml import postprocess
+from repository_after.models import Alert
+from repository_after import postprocess
 
 
 class PostprocessingTest(unittest.TestCase):

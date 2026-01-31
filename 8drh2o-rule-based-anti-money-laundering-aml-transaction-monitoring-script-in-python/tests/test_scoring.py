@@ -2,9 +2,9 @@ import os
 import tempfile
 import unittest
 
-from repository_after.aml.models import Alert
-from repository_after.aml import scoring
-from repository_after.aml import config
+from repository_after.models import Alert
+from repository_after import scoring
+from repository_after import config
 
 
 class ScoringTest(unittest.TestCase):

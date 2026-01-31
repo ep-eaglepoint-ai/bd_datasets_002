@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 
-from repository_after.aml.io import read_transactions
-from repository_after.aml.models import Transaction
+from repository_after.io import read_transactions
+from repository_after.models import Transaction
 
 
 CSV_HEADER = (

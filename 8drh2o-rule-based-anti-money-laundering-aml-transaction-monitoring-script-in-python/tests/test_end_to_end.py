@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 
-from repository_after.aml import main as aml_main
+from repository_after import main as aml_main
 
 
 CSV_HEADER = (

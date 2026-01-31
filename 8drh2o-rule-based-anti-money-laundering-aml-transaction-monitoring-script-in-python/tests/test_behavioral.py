@@ -1,9 +1,9 @@
 import unittest
 from datetime import datetime, timezone, timedelta
 
-from repository_after.aml.behavioral import evaluate_behavioral
-from repository_after.aml.models import Transaction
-from repository_after.aml import config
+from repository_after.behavioral import evaluate_behavioral
+from repository_after.models import Transaction
+from repository_after import config
 
 
 class BehavioralRulesTest(unittest.TestCase):

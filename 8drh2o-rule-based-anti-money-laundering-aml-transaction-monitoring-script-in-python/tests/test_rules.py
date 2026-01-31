@@ -1,9 +1,9 @@
 import unittest
 from datetime import datetime, timezone
 
-from repository_after.aml.models import Transaction, Alert
-from repository_after.aml import rules
-from repository_after.aml import config
+from repository_after.models import Transaction, Alert
+from repository_after import rules
+from repository_after import config
 
 
 class RulesTest(unittest.TestCase):

@@ -1,4 +1,4 @@
-"""Smoke tests to ensure `repository_after.aml` modules import cleanly.
+"""Smoke tests to ensure `repository_after` modules import cleanly.
 
 This test will fail if any import raises an ImportError.
 """
@@ -9,10 +9,10 @@ import unittest
 class ImportSmokeTest(unittest.TestCase):
     def test_import_all_modules(self):
         modules = [
-            "repository_after.aml.config",
-            "repository_after.aml.io",
-            "repository_after.aml.models",
-            "repository_after.aml.main",
+            "repository_after.config",
+            "repository_after.io",
+            "repository_after.models",
+            "repository_after.main",
         ]
         for mod in modules:
             with self.subTest(module=mod):

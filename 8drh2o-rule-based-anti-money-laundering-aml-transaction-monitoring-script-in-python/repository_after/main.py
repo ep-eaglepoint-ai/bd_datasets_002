@@ -54,7 +54,7 @@ def main(input_csv: str, alerts_out: str = "alerts.csv", summary_out: str = "cus
 
 def _cli(argv: List[str]) -> int:
     if len(argv) < 2:
-        print("Usage: python -m repository_after.aml.main <input_csv> [alerts_out] [summary_out]")
+        print("Usage: python -m repository_after.main <input_csv> [alerts_out] [summary_out]")
         return 2
     input_csv = argv[1]
     alerts_out = argv[2] if len(argv) > 2 else "alerts.csv"
