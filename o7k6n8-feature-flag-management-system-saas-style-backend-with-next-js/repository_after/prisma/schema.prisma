@@ -5,6 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator rootClient {
+  provider   = "prisma-client-js"
+  output     = "../node_modules/@prisma/client"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -23,6 +28,7 @@ model User {
   auditLogs AuditLog[]
 
   @@map("users")
+  @@index([email])
 }
 
 model FeatureFlag {
@@ -39,6 +45,8 @@ model FeatureFlag {
   auditLogs AuditLog[]
 
   @@map("feature_flags")
+  @@index([key])
+  @@index([enabled])
 }
 
 model UserOverride {
@@ -55,15 +63,18 @@ model UserOverride {
 
   @@unique([userId, flagId])
   @@map("user_overrides")
+  @@index([userId])
+  @@index([flagId])
+  @@index([userId, flagId])
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String
   flagId    String
-  action    String   // 'CREATE', 'UPDATE', 'DELETE'
-  oldValue  Json?    // Store old flag data as JSON
-  newValue  Json?    // Store new flag data as JSON
+  action    String   // 'CREATE', 'UPDATE', 'DELETE', 'OVERRIDE_CREATE', 'OVERRIDE_DELETE'
+  oldValue  Json?    // Store old flag/override data as JSON
+  newValue  Json?    // Store new flag/override data as JSON
   timestamp DateTime @default(now())
 
   // Relations
@@ -71,6 +82,10 @@ model AuditLog {
   flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
+  @@index([userId])
+  @@index([flagId])
+  @@index([timestamp])
+  @@index([action])
 }
 
 enum Role {

@@ -42,6 +42,11 @@ async function postHandler(req: NextRequest & { user: any }, { params }: { param
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Check if override already exists
+    const existingOverride = await prisma.userOverride.findUnique({
+      where: { userId_flagId: { userId, flagId: params.id } },
+    });
+
     const override = await prisma.userOverride.upsert({
       where: {
         userId_flagId: {
@@ -54,6 +59,17 @@ async function postHandler(req: NextRequest & { user: any }, { params }: { param
         userId,
         flagId: params.id,
         enabled,
+      },
+    });
+
+    // Audit log for override creation/update
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        flagId: flag.id,
+        action: existingOverride ? 'OVERRIDE_UPDATE' : 'OVERRIDE_CREATE',
+        oldValue: existingOverride ? { enabled: existingOverride.enabled } : null,
+        newValue: { userId, enabled, flagKey: flag.key, userEmail: user.email },
       },
     });
 

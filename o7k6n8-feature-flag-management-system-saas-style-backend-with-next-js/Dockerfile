@@ -9,7 +9,7 @@ COPY tsconfig.json ./
 # Install dependencies
 RUN npm install
 
-# Copy application code from repository_after (this will copy everything including its package.json to subdirectory)
+# Copy application code from repository_after
 COPY repository_after/ ./repository_after/
 
 # Copy tests and evaluation to root
@@ -22,5 +22,5 @@ RUN npx prisma generate --schema=repository_after/prisma/schema.prisma
 # Expose the application port
 EXPOSE 3000
 
-# Default command (can be overridden)
-CMD ["npm", "run", "dev"]
+# Default command - run from repository_after directory
+CMD ["sh", "-c", "cd repository_after && npm run dev"]

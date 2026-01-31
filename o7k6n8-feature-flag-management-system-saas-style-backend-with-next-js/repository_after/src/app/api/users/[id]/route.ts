@@ -8,11 +8,12 @@ async function getHandler(req: NextRequest & { user: any }, { params }: { params
   try {
     const user = await prisma.user.findUnique({
       where: { id: params.id },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        createdAt: true,
+      include: {
+        overrides: {
+          include: {
+            flag: true,
+          },
+        },
       },
     });
 
