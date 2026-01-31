@@ -2,10 +2,13 @@ import time
 
 
 CUSTOM_EPOCH = 1704067200  # Jan 1, 2024 00:00:00 UTC
+MAX_SEQUENCE = (1 << 12) - 1
 
 
 class ChronoSequence:
     def __init__(self, worker_id):
+        if not isinstance(worker_id, int) or not (0 <= worker_id <= 1023):
+            raise ValueError("worker_id must be in 0..1023")
         self.worker_id = worker_id
         self.last_timestamp = -1
         self.sequence = 0
@@ -17,8 +20,19 @@ class ChronoSequence:
             timestamp = 0
 
         prev = self.last_timestamp
+        # detect clock rollback
+        if prev != -1 and timestamp < prev:
+            raise SystemError("Clock moved backwards")
         if timestamp == prev:
             self.sequence += 1
+            if self.sequence > MAX_SEQUENCE:
+                # busy-wait until next millisecond
+                while True:
+                    timestamp = int((time.time() - CUSTOM_EPOCH) * 1000)
+                    if timestamp > prev:
+                        # reset sequence for new millisecond
+                        self.sequence = 0
+                        break
         elif timestamp > prev:
             self.sequence = 0
 
