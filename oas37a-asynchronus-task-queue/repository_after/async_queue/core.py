@@ -9,6 +9,7 @@ import uuid
 from typing import Dict, List, Any, Optional, Awaitable, Callable
 from .models import Task, TaskStatus, TaskResult
 from .policies import RetryPolicy
+from .containers import ResultCache
 
 
 class AsyncTaskQueue:
@@ -31,13 +32,13 @@ class AsyncTaskQueue:
         self._pending_count = 0
         
         self._running = False
-        self._stopped = False  # FIX R8: Track if queue has been stopped
+        self._stopped = False  
         self._shutdown_event = asyncio.Event()
         self._lock = asyncio.Lock()
-        self._task_available = asyncio.Event()  # Signal when tasks are available
+        self._task_available = asyncio.Event()  
         
-        self._result_cache: Dict[str, Any] = {}
-        self._sequence_counter = 0  # FIX R3: For FIFO ordering
+        self._result_cache = ResultCache(max_size=1000, ttl_seconds=300)  
+        self._sequence_counter = 0  
     
     async def start(self):
         if self._running:
@@ -46,7 +47,6 @@ class AsyncTaskQueue:
         self._running = True
         self._shutdown_event.clear()
         
-        # FIX R2: Changed from range(self.num_workers - 1) to range(self.num_workers)
         for i in range(self.num_workers):
             worker = asyncio.create_task(self._worker_loop(i))
             self._workers.append(worker)
@@ -291,15 +291,18 @@ class AsyncTaskQueue:
             "queue_size": len(self._task_heap),
         }
     
-    def get_task_status(self, task_id: str) -> Optional[TaskStatus]:
-        if task_id in self._tasks:
-            return self._tasks[task_id].status
-        return None
+    # FIX R1: Made async with lock to prevent race condition
+    async def get_task_status(self, task_id: str) -> Optional[TaskStatus]:
+        async with self._lock:
+            if task_id in self._tasks:
+                return self._tasks[task_id].status
+            return None
     
     # FIX R7: Add method to clean up completed tasks
-    async def cleanup_completed_tasks(self, max_age_seconds: float = 300):
-        """Remove completed/failed tasks older than max_age_seconds"""
+    async def cleanup_completed_tasks(self, max_age_seconds: float = 300) -> int:
+        """Remove completed/failed tasks older than max_age_seconds. Returns count of cleaned tasks."""
         current_time = time.time()
+        cleaned_count = 0
         async with self._lock:
             task_ids_to_remove = []
             for task_id, task in self._tasks.items():
@@ -309,6 +312,12 @@ class AsyncTaskQueue:
             
             for task_id in task_ids_to_remove:
                 del self._tasks[task_id]
-                # Keep results for a bit longer
-                if task_id in self._result_cache and len(self._result_cache) > 1000:
-                    del self._result_cache[task_id]
+                # FIX R7: Also clean up from _results dict
+                if task_id in self._results:
+                    del self._results[task_id]
+                cleaned_count += 1
+            
+            # FIX R7: Clean up expired entries from result cache
+            self._result_cache.cleanup()
+        
+        return cleaned_count

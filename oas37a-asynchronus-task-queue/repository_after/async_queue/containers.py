@@ -4,6 +4,7 @@ Data structures/containers for the async task queue.
 
 from typing import List, Optional, Any, Tuple
 import heapq
+import time  # FIX: Moved import to top per PEP 8
 from collections import OrderedDict
 from .models import Task
 
@@ -81,15 +82,6 @@ class ResultCache:
         return len(self._cache)
     
     def __contains__(self, key):
-        # Note: This checks existence, doesn't check expiry
-        # This is used for internal checks where we handle expiry logic explicitly
-        # But wait, get_result checks `if task_id in self._results`.
-        # Be careful. ResultCache isn't used for _results dict in core logic?
-        # Actually in core.py _results is a dict, NOT ResultCache instance?
-        # Let's check original queue.py.
-        # Original: self._results: Dict[str, TaskResult] = {}
-        # ResultCache class was defined but NOT USED in AsyncTaskQueue in original code?
-        # Let's verify.
         return key in self._cache
     
     # Add items support for dict-like interface if needed
@@ -99,5 +91,3 @@ class ResultCache:
     # Add delete support
     def __delitem__(self, key):
         del self._cache[key]
-
-import time  # Needed for time.time()

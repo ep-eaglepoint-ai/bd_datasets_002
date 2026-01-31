@@ -393,7 +393,7 @@ class TestTaskCancellation:
         
         assert cancelled, "Pending task should be cancellable"
         
-        status = queue.get_task_status(task_id)
+        status = await queue.get_task_status(task_id)
         assert status == TaskStatus.CANCELLED
     
     @pytest.mark.asyncio
@@ -493,7 +493,7 @@ class TestRetryLogic:
         await asyncio.sleep(3)
         await with_timeout(queue.stop())
         
-        status = queue.get_task_status(task_id)
+        status = await queue.get_task_status(task_id)
         assert status == TaskStatus.FAILED
         
         result = await with_timeout(queue.get_result(task_id, timeout=1))
@@ -596,6 +596,45 @@ class TestMemoryLeaks:
         
         # Workers should be cleared
         assert len(queue._workers) == 0
+    
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(120)
+    async def test_cleanup_after_10k_tasks(self, AsyncTaskQueue):
+        """Verify cleanup_completed_tasks properly frees memory after 10K tasks."""
+        queue = AsyncTaskQueue(num_workers=8)
+        await with_timeout(queue.start())
+        
+        async def quick_task(n):
+            return n
+        
+        # Submit 10K tasks
+        task_ids = []
+        for i in range(10000):
+            tid = await queue.submit(quick_task, i, priority=i % 10)
+            task_ids.append(tid)
+        
+        # Wait for completion
+        await asyncio.sleep(5)
+        
+        stats = await queue.get_stats() if asyncio.iscoroutinefunction(queue.get_stats) else queue.get_stats()
+        assert stats.get("completed", 0) >= 9900, f"Expected most tasks completed, got {stats}"
+        
+        # Record state before cleanup
+        tasks_before = len(queue._tasks)
+        results_before = len(queue._results)
+        
+        # Use very short age to clean all tasks
+        cleaned = await queue.cleanup_completed_tasks(max_age_seconds=0)
+        
+        # Verify cleanup worked
+        tasks_after = len(queue._tasks)
+        results_after = len(queue._results)
+        
+        assert tasks_after < tasks_before, f"Tasks not cleaned: before={tasks_before}, after={tasks_after}"
+        assert results_after < results_before, f"Results not cleaned: before={results_before}, after={results_after}"
+        assert cleaned > 0, "cleanup_completed_tasks should return count of cleaned tasks"
+        
+        await with_timeout(queue.stop())
 
 
 # ============================================================================
@@ -810,7 +849,7 @@ class TestIntegration:
         assert result.result == 30
         assert result.retry_count == 0
         
-        status = queue.get_task_status(task_id)
+        status = await queue.get_task_status(task_id)
         assert status == TaskStatus.COMPLETED
         
         await with_timeout(queue.stop())
