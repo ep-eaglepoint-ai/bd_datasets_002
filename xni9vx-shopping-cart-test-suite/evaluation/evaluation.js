@@ -196,26 +196,25 @@ function generateOutputPath() {
 }
 
 function writeReportVariants(primaryPath, reportJson) {
+  // Write timestamped report inside container
   fs.writeFileSync(primaryPath, reportJson);
   console.log(`✅ Report saved to: ${primaryPath}`);
 
+  // Write stable report inside container
   const stableEvaluationPath = path.join(__dirname, "report.json");
   fs.writeFileSync(stableEvaluationPath, reportJson);
   console.log(`✅ Stable report: ${stableEvaluationPath}`);
 
+  // Write to host volume mount for persistence
   try {
-    if (fs.existsSync("/host")) {
-      fs.writeFileSync("/host/report.json", reportJson);
-      console.log(`✅ Host artifact: /host/report.json`);
-
-      const hostEvalDir = "/host/evaluation";
-      if (fs.existsSync(hostEvalDir)) {
-        fs.writeFileSync(path.join(hostEvalDir, "report.json"), reportJson);
-        console.log(`✅ Host artifact: ${hostEvalDir}/report.json`);
-      }
+    const hostEvalDir = "/host/evaluation";
+    if (fs.existsSync(hostEvalDir)) {
+      const hostReportPath = path.join(hostEvalDir, "report.json");
+      fs.writeFileSync(hostReportPath, reportJson);
+      console.log(`✅ Host report: ${hostReportPath}`);
     }
   } catch (err) {
-    console.warn("Could not write to /host:", err.message);
+    console.warn("Could not write to /host/evaluation:", err.message);
   }
 
   return {
