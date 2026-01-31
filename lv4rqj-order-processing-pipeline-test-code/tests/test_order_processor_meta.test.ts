@@ -133,6 +133,10 @@ function runTestSuite(): { passed: number; failed: number; total: number; exitCo
 
 describe("meta-testing: test suite detects bugs in broken implementations", () => {
   beforeAll(() => {
+    // Check that the test file exists before running any tests
+    if (!fs.existsSync(orderProcessorTestPath)) {
+      throw new Error(`Test file not found: ${orderProcessorTestPath}`);
+    }
     backupOriginal();
   });
 
@@ -146,7 +150,6 @@ describe("meta-testing: test suite detects bugs in broken implementations", () =
   });
 
   test("test suite detects input mutation bug", () => {
-    expect(fs.existsSync(orderProcessorTestPath)).toBe(true);
     copyImplementation("broken_mutates_input.ts");
     const result = runTestSuite();
     
@@ -156,7 +159,6 @@ describe("meta-testing: test suite detects bugs in broken implementations", () =
   });
 
   test("test suite detects missing validation bug", () => {
-    expect(fs.existsSync(orderProcessorTestPath)).toBe(true);
     copyImplementation("broken_no_validation.ts");
     const result = runTestSuite();
     
@@ -166,7 +168,6 @@ describe("meta-testing: test suite detects bugs in broken implementations", () =
   });
 
   test("test suite detects wrong priority sort bug", () => {
-    expect(fs.existsSync(orderProcessorTestPath)).toBe(true);
     copyImplementation("broken_wrong_priority_sort.ts");
     const result = runTestSuite();
     
@@ -176,7 +177,6 @@ describe("meta-testing: test suite detects bugs in broken implementations", () =
   });
 
   test("test suite detects missing enrich timeout bug", () => {
-    expect(fs.existsSync(orderProcessorTestPath)).toBe(true);
     copyImplementation("broken_no_enrich_timeout.ts");
     const result = runTestSuite();
     
@@ -186,7 +186,6 @@ describe("meta-testing: test suite detects bugs in broken implementations", () =
   });
 
   test("test suite passes for correct implementation", () => {
-    expect(fs.existsSync(orderProcessorTestPath)).toBe(true);
     copyImplementation("correct.ts");
     const result = runTestSuite();
     
@@ -196,4 +195,3 @@ describe("meta-testing: test suite detects bugs in broken implementations", () =
     expect(result.total).toBeGreaterThan(0);
   });
 });
-
