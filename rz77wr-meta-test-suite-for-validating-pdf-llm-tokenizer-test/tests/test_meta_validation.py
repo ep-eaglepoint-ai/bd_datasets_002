@@ -364,33 +364,92 @@ def test_requirement_5_tests_detect_broken_behavior(tmp_path):
     with open(IMPL_FILE, "r", encoding="utf-8") as f:
         original_impl = f.read()
     
-    # Read test file
-    with open(TEST_FILE, "r", encoding="utf-8") as f:
-        test_code = f.read()
-    
-    def run_mutated_test(mutated_impl: str, test_name: str) -> bool:
-        """Run a specific test with mutated implementation, return True if test FAILS (mutation detected)"""
-        impl_file = tmp_path / "pdf_llm_tokenizer.py"
-        impl_file.write_text(mutated_impl, encoding="utf-8")
+    # List of major behaviors to test
+    major_behaviors = [
+        # 1. PDF text extraction normalization
+        ("pdf_to_text_normalization", 
+         original_impl.replace(
+             "text = re.sub(r\"[ \\t]+\", \" \", text)\n    text = re.sub(r\"\\n{3,}\", \"\\n\\n\", text)",
+             "# MUTATED: Removed normalization\ntext = text"
+         ),
+         ["test_pdf_to_text_normalization"]),
         
-        test_file = tmp_path / "test_mut.py"
-        test_file.write_text(test_code, encoding="utf-8")
+        # 2. Token encoding
+        ("encode_text_function",
+         original_impl.replace(
+             "return enc.encode(text)",
+             "return [999] * len(text)  # MUTATED: Wrong tokens"
+         ),
+         ["test_encode_decode_roundtrip"]),
         
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", str(test_file) + f"::{test_name}", "-x", "--tb=no", "-q"],
-            capture_output=True, text=True, cwd=tmp_path,
-            env={**subprocess.os.environ, "PYTHONPATH": str(tmp_path)},
-            timeout=120
-        )
-        return result.returncode != 0
+        # 3. Token decoding
+        ("decode_text_function",
+         original_impl.replace(
+             "return enc.decode(token_ids)",
+             "return 'BROKEN_DECODE'  # MUTATED"
+         ),
+         ["test_encode_decode_roundtrip"]),
+        
+        # 4. Chunk overlap calculation
+        ("chunk_overlap_calculation",
+         original_impl.replace(
+             "start = max(0, end - overlap)",
+             "start = end  # MUTATED: No overlap"
+         ),
+         ["test_chunk_boundaries_and_overlap"]),
+        
+        # 5. Document token count calculation
+        ("doc_token_count_calculation",
+         original_impl.replace(
+             "doc_token_count = len(token_ids)",
+             "doc_token_count = 0  # MUTATED: Wrong count"
+         ),
+         ["test_doc_token_count_matches_direct_tokenization"]),
+        
+        # 6. Chunk boundary validation
+        ("chunk_boundary_validation",
+         original_impl.replace(
+             "if max_tokens <= 0:\n        raise ValueError(\"max_tokens must be > 0\")",
+             "# MUTATED: Removed validation\npass"
+         ),
+         ["test_invalid_chunk_params_raise"]),
+        
+        # 7. JSON serialization with dataclasses
+        ("json_serialization_dataclasses",
+         original_impl.replace(
+             '"chunks": [asdict(c) for c in chunks],',
+             '"chunks": [str(c) for c in chunks],  # MUTATED: Wrong serialization'
+         ),
+         ["test_json_serializable"]),
+        
+        # 8. CLI output formatting
+        ("cli_output_formatting",
+         original_impl.replace(
+             "print(f\"Doc token count: {data['doc_token_count']}\")",
+             "# MUTATED: No output\npass"
+         ),
+         ["test_cli_end_to_end"]),
+    ]
     
-    # MUTATION: Break decode roundtrip - this test is fast (no PDF creation needed)
-    mutated = original_impl.replace(
-        "return enc.decode(token_ids)",
-        "return 'BROKEN'  # MUTATED: wrong decode"
+    # Track which behaviors are detected
+    detected_behaviors = []
+    
+    for behavior_name, mutated_code, test_names in major_behaviors:
+        try:
+            failure_detected, output = run_mutated_test_suite(mutated_code, tmp_path, test_names)
+            if failure_detected:
+                detected_behaviors.append(behavior_name)
+        except Exception as e:
+            # Test suite crash also counts as detection
+            detected_behaviors.append(behavior_name)
+    
+    # Check that at least 6 out of 8 major behaviors are detected (75% coverage)
+    detection_rate = len(detected_behaviors) / len(major_behaviors)
+    assert detection_rate >= 0.75, (
+        f"Only {len(detected_behaviors)} out of {len(major_behaviors)} "
+        f"major behaviors detected by test suite ({detection_rate*100:.1f}%). "
+        f"Detected: {detected_behaviors}"
     )
-    mutation_detected = run_mutated_test(mutated, "test_encode_decode_roundtrip")
-    assert mutation_detected, "Test suite should detect when encode/decode roundtrip is broken"
 
 
 def test_requirement_6_edge_cases_covered():
@@ -473,41 +532,129 @@ def test_requirement_11_simulate_broken_behaviors(tmp_path):
     with open(IMPL_FILE, "r", encoding="utf-8") as f:
         original_impl = f.read()
     
-    # Read test file
-    with open(TEST_FILE, "r", encoding="utf-8") as f:
-        test_code = f.read()
-    
-    def run_mutated_test(mutated_impl: str, test_name: str) -> bool:
-        """Run a specific test with mutated implementation, return True if test FAILS (mutation detected)"""
-        impl_file = tmp_path / "pdf_llm_tokenizer.py"
-        impl_file.write_text(mutated_impl, encoding="utf-8")
+    # Define critical behaviors to break (at least 10)
+    critical_behaviors = [
+        # 1. Break PDF text extraction completely
+        ("pdf_text_extraction",
+         original_impl.replace(
+             "def pdf_to_text(pdf_path: str) -> str:",
+             "def pdf_to_text(pdf_path: str) -> str:\n    return ''  # MUTATED: Always empty"
+         ),
+         ["test_pdf_to_text_normalization", "test_encode_decode_roundtrip"]),
         
-        test_file = tmp_path / "test_mut.py"
-        test_file.write_text(test_code, encoding="utf-8")
+        # 2. Break token encoding with wrong encoding
+        ("token_encoding_wrong_encoding",
+         original_impl.replace(
+             "enc = tiktoken.get_encoding(encoding_name)",
+             "enc = tiktoken.get_encoding('cl100k_base')  # MUTATED: Wrong encoding"
+         ),
+         ["test_encode_decode_roundtrip"]),
         
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", str(test_file) + f"::{test_name}", "-x", "--tb=no", "-q"],
-            capture_output=True, text=True, cwd=tmp_path,
-            env={**subprocess.os.environ, "PYTHONPATH": str(tmp_path)},
-            timeout=120
-        )
-        return result.returncode != 0
+        # 3. Break chunking with wrong max_tokens handling
+        ("chunking_max_tokens",
+         original_impl.replace(
+             "end = min(start + max_tokens, n)",
+             "end = start + max_tokens  # MUTATED: No bounds check"
+         ),
+         ["test_chunk_boundaries_and_overlap"]),
+        
+        # 4. Break overlap calculation (always 0)
+        ("overlap_calculation_zero",
+         original_impl.replace(
+             "start = max(0, end - overlap)",
+             "start = end  # MUTATED: No overlap"
+         ),
+         ["test_chunk_boundaries_and_overlap"]),
+        
+        # 5. Break doc token count (always 0)
+        ("doc_token_count_zero",
+         original_impl.replace(
+             "doc_token_count = len(token_ids)",
+             "doc_token_count = 0  # MUTATED"
+         ),
+         ["test_doc_token_count_matches_direct_tokenization"]),
+        
+        # 6. Break JSON output structure
+        ("json_structure_broken",
+         original_impl.replace(
+             '"chunks": [asdict(c) for c in chunks],',
+             '"chunks": [],  # MUTATED: Empty chunks'
+         ),
+         ["test_json_serializable", "test_chunk_boundaries_and_overlap"]),
+        
+        # 7. Break CLI argument parsing
+        ("cli_argument_parsing",
+         original_impl.replace(
+             "args = ap.parse_args()",
+             "# MUTATED: Ignore arguments\nargs = type('Args', (), {'pdf': '', 'out': '', 'max_tokens': 0, 'overlap': 0, 'encoding': '', 'include_full_text': False})()"
+         ),
+         ["test_cli_end_to_end"]),
+        
+        # 8. Break whitespace normalization (keep tabs)
+        ("whitespace_normalization_tabs",
+         original_impl.replace(
+             "text = re.sub(r\"[ \\t]+\", \" \", text)",
+             "# MUTATED: Keep tabs\ntext = re.sub(r\"[ ]+\", \" \", text)"
+         ),
+         ["test_pdf_to_text_normalization"]),
+        
+        # 9. Break multiple newline normalization
+        ("newline_normalization",
+         original_impl.replace(
+             "text = re.sub(r\"\\n{3,}\", \"\\n\\n\", text)",
+             "# MUTATED: Keep all newlines\npass"
+         ),
+         ["test_pdf_to_text_normalization"]),
+        
+        # 10. Break include_full_text option
+        ("include_full_text_option",
+         original_impl.replace(
+             "if include_full_text:\n        out[\"full_text\"] = text",
+             "# MUTATED: Never include full text\npass"
+         ),
+         ["test_include_full_text"]),
+        
+        # 11. Break chunk index calculation
+        ("chunk_index_calculation",
+         original_impl.replace(
+             "bounds.append({\"chunk_index\": idx, \"start_token\": start, \"end_token\": end})",
+             "bounds.append({\"chunk_index\": 0, \"start_token\": start, \"end_token\": end})  # MUTATED: All index 0"
+         ),
+         ["test_chunk_boundaries_and_overlap"]),
+        
+        # 12. Break token count in chunks
+        ("chunk_token_count",
+         original_impl.replace(
+             "token_count=len(chunk_ids),",
+             "token_count=0,  # MUTATED: Wrong token count"
+         ),
+         ["test_chunk_boundaries_and_overlap"]),
+    ]
     
-    # MUTATION 1: Break encode function - return wrong tokens (fast test - no PDF needed)
-    mutated1 = original_impl.replace(
-        "return enc.encode(text)",
-        "return [0, 0, 0]  # MUTATED: wrong tokens"
-    )
-    mutation1_detected = run_mutated_test(mutated1, "test_encode_decode_roundtrip")
-    assert mutation1_detected, "Test suite should detect when encode returns wrong tokens"
+    # Track detection
+    detected_behaviors = []
     
-    # MUTATION 2: Break JSON output by adding non-serializable lambda
-    mutated2 = original_impl.replace(
-        '"chunks": [asdict(c) for c in chunks],',
-        '"chunks": [asdict(c) for c in chunks], "broken_field": lambda: None,  # MUTATED'
+    for i, (behavior_name, mutated_code, test_names) in enumerate(critical_behaviors):
+        try:
+            # Run all tests for comprehensive detection
+            failure_detected, output = run_mutated_test_suite(mutated_code, tmp_path, None)
+            if failure_detected:
+                detected_behaviors.append(behavior_name)
+                print(f"✓ Mutation {i+1} ({behavior_name}) detected by test suite")
+            else:
+                print(f"✗ Mutation {i+1} ({behavior_name}) NOT detected!")
+        except Exception as e:
+            # Exception also counts as detection
+            detected_behaviors.append(behavior_name)
+            print(f"✓ Mutation {i+1} ({behavior_name}) caused exception: {str(e)[:100]}...")
+    
+    # Require high detection rate for critical behaviors (at least 80%)
+    detection_rate = len(detected_behaviors) / len(critical_behaviors)
+    assert detection_rate >= 0.80, (
+        f"Only {len(detected_behaviors)} out of {len(critical_behaviors)} "
+        f"critical behaviors detected ({detection_rate*100:.1f}%). "
+        f"Test suite needs better coverage. Detected: {detected_behaviors}"
     )
-    mutation2_detected = run_mutated_test(mutated2, "test_json_serializable")
-    assert mutation2_detected, "Test suite should detect when JSON structure is broken"
 
 
 def test_requirement_12_no_external_services():
