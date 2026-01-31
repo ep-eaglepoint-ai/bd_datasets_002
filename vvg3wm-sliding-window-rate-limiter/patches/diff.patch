@@ -1,10 +1,6 @@
-diff --git a/repository_after/__pycache__/limiter.cpython-311.pyc b/repository_after/__pycache__/limiter.cpython-311.pyc
-new file mode 100644
-index 00000000..a8ca51ca
-Binary files /dev/null and b/repository_after/__pycache__/limiter.cpython-311.pyc differ
 diff --git a/repository_after/limiter.py b/repository_after/limiter.py
 new file mode 100644
-index 00000000..f4b8bcd2
+index 00000000..2e9df43b
 --- /dev/null
 +++ b/repository_after/limiter.py
 @@ -0,0 +1,99 @@
@@ -67,7 +63,7 @@ index 00000000..f4b8bcd2
 +        """
 +        Checks if a request is allowed for the given key and records it if so.
 +        
-+        Requirement 5: Atomic check-and-increment using a lock.
++        Atomic check-and-increment using a lock.
 +        """
 +        now = self.time_func()
 +        with self._lock:
@@ -95,7 +91,7 @@ index 00000000..f4b8bcd2
 +        """
 +        Removes expired entries across all keys to prevent unbounded memory growth.
 +        
-+        Requirement 4: Prunes both expired timestamps and empty key entries.
++        Prunes both expired timestamps and empty key entries.
 +        """
 +        now = self.time_func()
 +        with self._lock:

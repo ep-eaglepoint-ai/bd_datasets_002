@@ -18,7 +18,7 @@ def run_tests(repo_name: str):
     env["PYTHONPATH"] = f"{source_dir}:{ROOT}"
     
     try:
-        # Requirement 6.1: Exit with correct status code
+        # Exit with correct status code
         proc = subprocess.run(
             ["python3", "-m", "pytest", "-q", "--tb=no", str(test_file)],
             capture_output=True, text=True, env=env, timeout=30
