@@ -5,8 +5,9 @@
   "test_patch": "tests/",
   "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tj1l95-realtime-order-book-broadcast-engine",
   "environment_setup": "Dockerfile",
-  "FAIL_TO_PASS": [
-    "TestL2ThreadSafe",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": [
+     "TestL2ThreadSafe",
     "TestAggregationLogic",
     "TestSnapshotDeltaProtocol",
     "TestAdaptiveDeltaMerging",
@@ -14,6 +15,5 @@
     "TestConvergenceFastSlow",
     "TestConcurrencyStress",
     "TestAdversarialCrossing"
-  ],
-  "PASS_TO_PASS": []
+  ]
 }

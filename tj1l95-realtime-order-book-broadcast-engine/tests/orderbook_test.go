@@ -1,7 +1,7 @@
 package orderbook_test
 
 import (
-	ob "orderbook"
+	ob "tj1l95-realtime-order-book-broadcast-engine/repository_after"
 	"math/rand"
 	"sync"
 	"testing"
