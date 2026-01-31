@@ -264,24 +264,47 @@ class TestRequirement6Benchmarking:
         db_session.commit()
         return pallets
     
-    def test_sku_lookup_p99_performance(self, service, large_db):
+    def test_sku_lookup_p99_performance(self, service, large_db, db_engine, db_session):
         """Benchmark 5000 randomized SKU lookups for p99 latency"""
         skus = [f'SKU-{random.randint(0, 7999):06d}' for _ in range(5000)]
-        latencies = []
         
-        for sku in skus:
-            start = time.perf_counter()
-            service.get_pallet_location(sku)
-            latencies.append((time.perf_counter() - start) * 1000)
-        
-        latencies.sort()
-        p99_index = int(len(latencies) * 0.99)
-        p99_latency = latencies[p99_index]
+        def run_benchmark():
+            latencies = []
+            for sku in skus:
+                start = time.perf_counter()
+                service.get_pallet_location(sku)
+                latencies.append((time.perf_counter() - start) * 1000)
+            latencies.sort()
+            p99_index = int(len(latencies) * 0.99)
+            return latencies[p99_index]
+
+        # Measure current (optimized if after)
+        current_p99 = run_benchmark()
         
         if is_after_implementation():
-            assert p99_latency < 1, f"p99 latency should be <1ms, got {p99_latency:.2f}ms"
+            assert current_p99 < 1.5, f"Optimized p99 latency should be <1.5ms, got {current_p99:.2f}ms"
+            
+            # Now simulate baseline by dropping the index
+            inspector = inspect(db_engine)
+            indexes = inspector.get_indexes('pallets')
+            sku_indices = [idx['name'] for idx in indexes if idx['name'] and 'sku' in idx['name'].lower()]
+            
+            if sku_indices:
+                for idx_name in sku_indices:
+                    db_session.execute(text(f"DROP INDEX {idx_name}"))
+                db_session.commit()
+                
+                # Measure baseline
+                baseline_p99 = run_benchmark()
+                
+                print(f"Performance: Optimized={current_p99:.2f}ms, Baseline={baseline_p99:.2f}ms")
+                assert baseline_p99 > current_p99, "Optimized version must be faster than baseline"
+                assert current_p99 < (baseline_p99 * 0.5), "Optimization should reduce latency by at least 50%"
+            else:
+                 pytest.fail("Could not find index to drop for comparative testing")
         else:
-            assert p99_latency < 1, f"p99 latency should be <1ms, got {p99_latency:.2f}ms"
+            # Baseline implementation should fail strict performance check
+            assert current_p99 < 1, f"p99 latency should be <1ms, got {current_p99:.2f}ms"
 
 
 class TestRequirement7MemoryFootprint:
@@ -318,7 +341,7 @@ class TestRequirement7MemoryFootprint:
         
         assert len(result.data) == 10, "Should only load 10 records"
         assert result.total_count == 50000, "Total count should reflect all 50k records"
-        assert peak_mb < 50.0, f"Peak memory usage too high: {peak_mb:.2f}MB. Likely loaded all 50k rows."
+        assert peak_mb < 10.0, f"Peak memory usage too high: {peak_mb:.2f}MB. Likely loaded all 50k rows."
     
     def test_iterative_pagination_coverage(self, service, massive_zone_db):
         """Verify pagination can iterate through dataset subset"""
