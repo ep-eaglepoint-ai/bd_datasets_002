@@ -1,0 +1,24 @@
+{
+            "instance_id": "KLGAVA",
+            "problem_statement": "The current URL shortener prototype is architecturally flawed for production use; it lacks thread-safety for concurrent access, uses inefficient MD5-to-hex encoding that results in excessive key lengths, and contains no logic to handle or resolve hash collisions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/klgava-go-url-shortener-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [
+                "TestValidationRequirements/Invalid:_No_Scheme",
+                "TestValidationRequirements/Invalid:_Relative_Path",
+                "TestValidationRequirements/Invalid:_Empty",
+                "TestValidationRequirements/Invalid:_FTP_Scheme_(Strict)",
+                "TestEncodingRequirements",
+                "TestConcurrencyStress",
+                "TestCollisionIntegrityRequirement"
+            ],
+            "PASS_TO_PASS": [
+                "TestValidationRequirements/Valid_HTTPS",
+                "TestValidationRequirements/Valid_HTTPS_with_Path",
+                "TestValidationRequirements/Valid_HTTP",
+                "TestValidationRequirements/Valid_with_Query",
+                "TestValidationRequirements/Valid_with_Fragment"
+            ]
+        }

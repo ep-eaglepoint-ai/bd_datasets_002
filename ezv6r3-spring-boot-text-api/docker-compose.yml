@@ -1,0 +1,42 @@
+# 1. This volume caches Maven downloads so builds are fast
+volumes:
+  maven_data:
+
+services:
+  test-before:
+    build: .
+    volumes:
+      # Mount Maven Cache
+      - maven_data:/root/.m2
+      
+      # Mount the Controller (The Code being tested)
+      - ./repository_before/TextProcessingController.java:/app/src/main/java/com/example/textapi/TextProcessingController.java
+      
+      # Mount the Main App (Required for Spring to start)
+      - ./tests/TextApiApplication.java:/app/src/main/java/com/example/textapi/TextApiApplication.java
+      
+      # Mount the Test
+      - ./tests/TextProcessingControllerTest.java:/app/src/test/java/com/example/textapi/TextProcessingControllerTest.java
+    command: mvn test -Dmaven.test.failure.ignore=true
+
+  test-after:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./repository_after:/app/src/main/java/com/example/textapi
+      # Mount the Main App (Required for Spring to start)
+      - ./tests/TextApiApplication.java:/app/src/main/java/com/example/textapi/TextApiApplication.java
+      - ./tests/TextProcessingControllerTest.java:/app/src/test/java/com/example/textapi/TextProcessingControllerTest.java
+    command: mvn test
+
+  evaluation:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+
+      # Ensure the Main App is available for the evaluation script logic
+      - ./tests/TextApiApplication.java:/app/src/main/java/com/example/textapi/TextApiApplication.java
+    command: python3 evaluation/evaluation.py
