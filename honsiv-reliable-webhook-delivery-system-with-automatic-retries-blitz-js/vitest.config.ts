@@ -13,22 +13,18 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     setupFiles: ["./tests/setup.ts"],
     // Run tests sequentially to avoid database interference
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    threads: false,
+    isolate: true,
   },
   resolve: {
     alias: {
       "@": path.join(repoPath, "src"),
       "db": path.join(repoPath, "db"),
       // Resolve dependencies from repository_after's node_modules
-      "blitz": path.join(repoPath, "node_modules/blitz"),
-      "@prisma/client": path.join(repoPath, "node_modules/@prisma/client"),
-      "bullmq": path.join(repoPath, "node_modules/bullmq"),
-      "ioredis": path.join(repoPath, "node_modules/ioredis"),
+      "blitz": path.resolve(__dirname, "node_modules/blitz"),
+      "@prisma/client": path.resolve(__dirname, "node_modules/@prisma/client"),
+      "bullmq": path.resolve(__dirname, "node_modules/bullmq"),
+      "ioredis": path.resolve(__dirname, "node_modules/ioredis"),
     },
     preserveSymlinks: true,
   },

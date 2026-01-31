@@ -1,6 +1,6 @@
 /**
  * Tests verify that:
- * - Failed deliveries are re-enqueued for retry
+ * - Failed deliveries are scheduled for retry (nextAttemptAt is set)
  * - System schedules retries on non-2xx responses
  * - System schedules retries on network errors
  */
@@ -8,21 +8,10 @@
 import { describe, it, expect, vi } from "vitest"
 import { WebhookDeliveryStatus } from "../repository_after/db"
 import { processWebhookDelivery } from "../repository_after/src/webhooks/worker"
-import { getQueue } from "../repository_after/src/webhooks/queue"
-import { prisma, ensureCommitted } from "./setup"
-
-// Mock queue
-const mockQueue = {
-  add: vi.fn().mockResolvedValue({ id: "job_id" }),
-}
-
-vi.mock("../repository_after/src/webhooks/queue", () => ({
-  getQueue: vi.fn().mockReturnValue(mockQueue),
-  createWorker: vi.fn(),
-}))
+import { prisma } from "./setup"
 
 describe("Requirement 4: Automatically retry failures", () => {
-  it("should re-enqueue delivery for retry on 500 failure", async () => {
+  it("should schedule delivery for retry on 500 failure", async () => {
     const endpoint = await prisma.webhookEndpoint.create({
       data: {
         name: "Retry Test Endpoint",
@@ -40,7 +29,7 @@ describe("Requirement 4: Automatically retry failures", () => {
         eventType: "user.created",
         payload: { test: true },
         status: "PENDING",
-        nextAttemptAt: new Date(),
+        nextAttemptAt: new Date(Date.now() - 1000),
       },
     })
 
@@ -51,25 +40,22 @@ describe("Requirement 4: Automatically retry failures", () => {
       statusText: "Server Error",
     })
 
-    const queueAddSpy = mockQueue.add
-    queueAddSpy.mockClear()
-
     await processWebhookDelivery(delivery.id)
 
     const updated = await prisma.webhookDelivery.findUnique({
       where: { id: delivery.id },
     })
 
+    // Verify retry is scheduled
     expect(updated?.status).toBe(WebhookDeliveryStatus.FAILED)
     expect(updated?.attempts).toBe(1)
-    expect(queueAddSpy).toHaveBeenCalledWith(
-      "process-delivery",
-      { deliveryId: delivery.id },
-      expect.objectContaining({ delay: expect.any(Number) })
-    )
+    expect(updated?.nextAttemptAt).not.toBeNull()
+    expect(updated?.nextAttemptAt).toBeInstanceOf(Date)
+    // Verify nextAttemptAt is in the future (retry scheduled)
+    expect(updated?.nextAttemptAt!.getTime()).toBeGreaterThan(Date.now())
   })
 
-  it("should re-enqueue delivery for retry on network error", async () => {
+  it("should schedule delivery for retry on network error", async () => {
     const endpoint = await prisma.webhookEndpoint.create({
       data: {
         name: "Network Retry Endpoint",
@@ -87,15 +73,12 @@ describe("Requirement 4: Automatically retry failures", () => {
         eventType: "user.created",
         payload: { test: true },
         status: "PENDING",
-        nextAttemptAt: new Date(),
+        nextAttemptAt: new Date(Date.now() - 1000),
       },
     })
 
     // Mock fetch to throw network error
     global.fetch = vi.fn().mockRejectedValue(new Error("Network connection lost"))
-
-    const queueAddSpy = mockQueue.add
-    queueAddSpy.mockClear()
 
     await processWebhookDelivery(delivery.id)
 
@@ -103,8 +86,12 @@ describe("Requirement 4: Automatically retry failures", () => {
       where: { id: delivery.id },
     })
 
+    // Verify retry is scheduled
     expect(updated?.status).toBe(WebhookDeliveryStatus.FAILED)
     expect(updated?.lastError).toBe("Network connection lost")
-    expect(queueAddSpy).toHaveBeenCalled()
+    expect(updated?.nextAttemptAt).not.toBeNull()
+    expect(updated?.nextAttemptAt).toBeInstanceOf(Date)
+    // Verify nextAttemptAt is in the future (retry scheduled)
+    expect(updated?.nextAttemptAt!.getTime()).toBeGreaterThan(Date.now())
   })
 })
