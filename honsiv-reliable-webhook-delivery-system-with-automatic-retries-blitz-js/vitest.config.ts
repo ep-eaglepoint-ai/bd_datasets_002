@@ -22,7 +22,7 @@ export default defineConfig({
       "db": path.join(repoPath, "db"),
       // Resolve dependencies from repository_after's node_modules
       "blitz": path.resolve(__dirname, "node_modules/blitz"),
-      "@prisma/client": path.resolve(__dirname, "node_modules/@prisma/client"),
+      "@prisma/client": path.resolve(repoPath, "node_modules/@prisma/client"),
       "bullmq": path.resolve(__dirname, "node_modules/bullmq"),
       "ioredis": path.resolve(__dirname, "node_modules/ioredis"),
     },
