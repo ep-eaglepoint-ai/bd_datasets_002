@@ -6,7 +6,7 @@ const { EventKernel } = require('./EventKernel');
  * LEGACY PERSISTENCE MOCKS (Context Only)
  * These represent our internal storage/external calls.
  */
-const db = { 
+const db = {
     save: async (collection, data) => { /* side-effect: DB IO */ },
     log: async (msg) => { console.log(msg); }
 };
@@ -60,6 +60,26 @@ kernel.use((event) => {
     return event;
 });
 
+kernel.use((event) => {
+    if (event.type === 'USER_AUTH_ATTEMPT') {
+        // Remove password from payload
+        if (event.payload.password) {
+            delete event.payload.password;
+        }
+
+        // Anonymize IP address (keep only first octet)
+        if (event.payload.ip) {
+            const ipParts = event.payload.ip.split('.');
+            if (ipParts.length === 4) {
+                // Keep first octet, mask the rest
+                event.payload.ip = `${ipParts[0]}.xxx.xxx.xxx`;
+                event.payload.ipAnonymized = true;
+            }
+        }
+    }
+    return event;
+});
+
 // Add middleware for correlation ID injection
 kernel.use((event) => {
     if (!event.payload.correlationId) {
@@ -83,7 +103,7 @@ kernel.on('SYSTEM_LOG', async (payload) => {
 });
 
 // Export the emit function and kernel for testing
-module.exports = { 
+module.exports = {
     emit: (type, payload) => kernel.emit(type, payload),
     kernel
 };

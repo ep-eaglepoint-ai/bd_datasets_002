@@ -10,7 +10,7 @@ const { EventKernel, SchemaViolationError } = require('../repository_after/Event
 // Requirement 1: Schema Enforcement
 async function testSchemaEnforcement() {
     const kernel = new EventKernel();
-    
+
     // Register a schema
     kernel.registerSchema('TEST_EVENT', (payload) => {
         if (!payload.id) throw new Error('Missing id');
@@ -43,7 +43,7 @@ async function testAsynchronousDispatch() {
     const kernel = new EventKernel();
     const results = [];
 
-    kernel.registerSchema('ASYNC_TEST', () => {});
+    kernel.registerSchema('ASYNC_TEST', () => { });
 
     kernel.on('ASYNC_TEST', async (payload) => {
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -68,7 +68,7 @@ async function testMiddlewarePipeline() {
     const kernel = new EventKernel();
     const results = [];
 
-    kernel.registerSchema('MIDDLEWARE_TEST', () => {});
+    kernel.registerSchema('MIDDLEWARE_TEST', () => { });
 
     // Middleware 1: Modify payload
     kernel.use((event) => {
@@ -110,7 +110,7 @@ async function testMiddlewarePipeline() {
 async function testDeadLetterQueue() {
     const kernel = new EventKernel();
 
-    kernel.registerSchema('DLQ_TEST', () => {});
+    kernel.registerSchema('DLQ_TEST', () => { });
 
     kernel.on('DLQ_TEST', async (payload) => {
         throw new Error('Listener failure');
@@ -132,7 +132,7 @@ async function testCircuitBreaker() {
     const kernel = new EventKernel();
     const callCount = [];
 
-    kernel.registerSchema('CIRCUIT_TEST', () => {});
+    kernel.registerSchema('CIRCUIT_TEST', () => { });
 
     kernel.on('CIRCUIT_TEST', async (payload) => {
         callCount.push(1);
@@ -160,7 +160,7 @@ async function testCircuitBreaker() {
 async function testObservability() {
     const kernel = new EventKernel();
 
-    kernel.registerSchema('STATS_TEST', () => {});
+    kernel.registerSchema('STATS_TEST', () => { });
 
     kernel.on('STATS_TEST', async (payload) => {
         if (payload.fail) throw new Error('Failure');
@@ -241,7 +241,7 @@ async function testOrderCreatedMissingId() {
 async function testSlowSubscriber() {
     const kernel = new EventKernel();
 
-    kernel.registerSchema('SLOW_TEST', () => {});
+    kernel.registerSchema('SLOW_TEST', () => { });
 
     kernel.on('SLOW_TEST', async (payload) => {
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -259,7 +259,7 @@ async function testCircuitBreakerFourthEvent() {
     const kernel = new EventKernel();
     const callLog = [];
 
-    kernel.registerSchema('CB_TEST', () => {});
+    kernel.registerSchema('CB_TEST', () => { });
 
     kernel.on('CB_TEST', async (payload) => {
         callLog.push(payload.attempt);
@@ -282,6 +282,101 @@ async function testCircuitBreakerFourthEvent() {
     assert.strictEqual(callLog.includes(4), false);
 }
 
+async function testCircuitBreakerAutoReset() {
+    const kernel = new EventKernel();
+    const callLog = [];
+
+    // Reduce the circuit breaker cooldown for testing (from 30 seconds to 100ms)
+    // We need to modify the kernel instance to allow shorter cooldown for testing
+    kernel.CIRCUIT_BREAKER_COOLDOWN = 100; // 100ms for testing
+
+    kernel.registerSchema('AUTO_RESET_TEST', () => { });
+
+    kernel.on('AUTO_RESET_TEST', async (payload) => {
+        callLog.push({
+            attempt: payload.attempt,
+            timestamp: Date.now()
+        });
+        throw new Error('Simulated failure');
+    });
+
+    // Trigger 3 failures to trip the circuit breaker
+    for (let i = 1; i <= 3; i++) {
+        await kernel.emit('AUTO_RESET_TEST', { attempt: i });
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    assert.deepStrictEqual(callLog.map(c => c.attempt), [1, 2, 3]);
+
+    // 4th event should NOT reach listener (circuit is tripped)
+    await kernel.emit('AUTO_RESET_TEST', { attempt: 4 });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.deepStrictEqual(callLog.map(c => c.attempt), [1, 2, 3]);
+
+    // Wait for cooldown to expire (100ms + buffer)
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    // 5th event should reach listener (circuit should have auto-reset)
+    await kernel.emit('AUTO_RESET_TEST', { attempt: 5 });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Now we should have 4 calls (the 5th attempt)
+    assert.strictEqual(callLog.length, 4);
+    assert.strictEqual(callLog[3].attempt, 5);
+
+    // Verify the circuit breaker stats
+    const stats = kernel.getStats();
+    // After the 5th failure, circuit should be tripped again
+    assert.strictEqual(stats.trippedCircuitBreakers.length, 1);
+}
+
+async function testIPAddressAnonymization() {
+    const kernel = new EventKernel();
+    const processedEvents = [];
+
+    kernel.registerSchema('USER_AUTH_ATTEMPT', (payload) => {
+        if (!payload.userId) throw new Error('Missing userId');
+        if (!payload.ip) throw new Error('Missing ip');
+    });
+
+    // Add IP anonymization middleware
+    kernel.use((event) => {
+        if (event.type === 'USER_AUTH_ATTEMPT' && event.payload.ip) {
+            // Remove password if present
+            if (event.payload.password) {
+                delete event.payload.password;
+            }
+
+            // Anonymize IP address (keep only first octet)
+            const ipParts = event.payload.ip.split('.');
+            if (ipParts.length === 4) {
+                event.payload.ip = `${ipParts[0]}.xxx.xxx.xxx`;
+                event.payload.ipAnonymized = true;
+            }
+        }
+        return event;
+    });
+
+    kernel.on('USER_AUTH_ATTEMPT', async (payload) => {
+        processedEvents.push(payload);
+    });
+
+    // Emit event with real IP
+    await kernel.emit('USER_AUTH_ATTEMPT', {
+        userId: 'user123',
+        ip: '192.168.1.100',
+        password: 'secret123'
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Verify IP was anonymized and password removed
+    assert.strictEqual(processedEvents.length, 1);
+    assert.strictEqual(processedEvents[0].ip, '192.xxx.xxx.xxx');
+    assert.strictEqual(processedEvents[0].ipAnonymized, true);
+    assert.strictEqual(processedEvents[0].password, undefined);
+}
+
 // Run all tests
 async function runAllTests() {
     const tests = [
@@ -290,11 +385,13 @@ async function runAllTests() {
         { name: 'Middleware Pipeline', fn: testMiddlewarePipeline },
         { name: 'Dead Letter Queue', fn: testDeadLetterQueue },
         { name: 'Circuit Breaker', fn: testCircuitBreaker },
+        { name: 'Circuit Breaker Auto-Reset', fn: testCircuitBreakerAutoReset },
         { name: 'Observability', fn: testObservability },
         { name: 'System Log Level Validation', fn: testSystemLogLevelValidation },
         { name: 'Order Created Missing ID', fn: testOrderCreatedMissingId },
         { name: 'Slow Subscriber', fn: testSlowSubscriber },
-        { name: 'Circuit Breaker Fourth Event', fn: testCircuitBreakerFourthEvent }
+        { name: 'Circuit Breaker Fourth Event', fn: testCircuitBreakerFourthEvent },
+        { name: 'IP Address Anonymization', fn: testIPAddressAnonymization },
     ];
 
     let passed = 0;
