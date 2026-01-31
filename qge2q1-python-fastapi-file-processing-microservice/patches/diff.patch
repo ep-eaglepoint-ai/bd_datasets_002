@@ -8,58 +8,58 @@ index e69de29b..50cc6985 100644
 +__all__ = ["app"]
 diff --git a/repository_after/__pycache__/__init__.cpython-311.pyc b/repository_after/__pycache__/__init__.cpython-311.pyc
 new file mode 100644
-index 00000000..1e78eeff
+index 00000000..38ce6405
 Binary files /dev/null and b/repository_after/__pycache__/__init__.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/api.cpython-311.pyc b/repository_after/__pycache__/api.cpython-311.pyc
 new file mode 100644
-index 00000000..a77eb472
+index 00000000..a3f7d756
 Binary files /dev/null and b/repository_after/__pycache__/api.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/celery_app.cpython-311.pyc b/repository_after/__pycache__/celery_app.cpython-311.pyc
 new file mode 100644
-index 00000000..6a2960d2
+index 00000000..73af274c
 Binary files /dev/null and b/repository_after/__pycache__/celery_app.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/config.cpython-311.pyc b/repository_after/__pycache__/config.cpython-311.pyc
 new file mode 100644
-index 00000000..07477885
+index 00000000..c030dcad
 Binary files /dev/null and b/repository_after/__pycache__/config.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/db.cpython-311.pyc b/repository_after/__pycache__/db.cpython-311.pyc
 new file mode 100644
-index 00000000..4ffbab87
+index 00000000..5cc1197c
 Binary files /dev/null and b/repository_after/__pycache__/db.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/models.cpython-311.pyc b/repository_after/__pycache__/models.cpython-311.pyc
 new file mode 100644
-index 00000000..ca102504
+index 00000000..db417b8a
 Binary files /dev/null and b/repository_after/__pycache__/models.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/schemas.cpython-311.pyc b/repository_after/__pycache__/schemas.cpython-311.pyc
 new file mode 100644
-index 00000000..24dbadf2
+index 00000000..dfc4820f
 Binary files /dev/null and b/repository_after/__pycache__/schemas.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/storage.cpython-311.pyc b/repository_after/__pycache__/storage.cpython-311.pyc
 new file mode 100644
-index 00000000..ee042c8d
+index 00000000..8d47c13c
 Binary files /dev/null and b/repository_after/__pycache__/storage.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/tasks.cpython-311.pyc b/repository_after/__pycache__/tasks.cpython-311.pyc
 new file mode 100644
-index 00000000..a1eb7add
+index 00000000..6839906c
 Binary files /dev/null and b/repository_after/__pycache__/tasks.cpython-311.pyc differ
 diff --git a/repository_after/__pycache__/webhook.cpython-311.pyc b/repository_after/__pycache__/webhook.cpython-311.pyc
 new file mode 100644
-index 00000000..3e8d2c5b
+index 00000000..fe6afdf5
 Binary files /dev/null and b/repository_after/__pycache__/webhook.cpython-311.pyc differ
 diff --git a/repository_after/api.py b/repository_after/api.py
 new file mode 100644
-index 00000000..90d571d9
+index 00000000..e6e07492
 --- /dev/null
 +++ b/repository_after/api.py
-@@ -0,0 +1,273 @@
+@@ -0,0 +1,353 @@
 +from __future__ import annotations
 +
 +import uuid
 +import asyncio
 +from contextlib import asynccontextmanager
-+from datetime import datetime
++from datetime import datetime, timezone
 +
-+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
++from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 +from fastapi.responses import JSONResponse
 +from fastapi.exceptions import RequestValidationError
 +from sqlalchemy import delete, func, select
@@ -67,7 +67,7 @@ index 00000000..90d571d9
 +
 +from .config import settings
 +from .db import create_engine, create_sessionmaker, get_session
-+from .models import Base, Job, JobStatus, ProcessingError
++from .models import Base, Job, JobStatus, LoadedRow, ProcessingError
 +from .schemas import (
 +    HealthResponse,
 +    JobsListResponse,
@@ -92,16 +92,82 @@ index 00000000..90d571d9
 +    app.state.engine = engine
 +    app.state.sessionmaker = create_sessionmaker(engine)
 +
-+    if settings.auto_create_db:
++    # Initialize DB connections on startup via async context manager.
++    try:
 +        async with engine.begin() as conn:
-+            await conn.run_sync(Base.metadata.create_all)
++            # Ensure a connection can be acquired.
++            await conn.execute(select(1))
++            if settings.auto_create_db:
++                await conn.run_sync(Base.metadata.create_all)
 +
-+    yield
-+
-+    await engine.dispose()
++        yield
++    finally:
++        await engine.dispose()
 +
 +
 +app = FastAPI(title=settings.app_name, lifespan=lifespan)
++
++
++async def _persist_upload_and_enqueue(
++    *,
++    job_id: uuid.UUID,
++    upload: UploadFile,
++    dest,
++    max_bytes: int,
++    session_factory,
++) -> None:
++    try:
++        # Persist to configured storage path in the background (after response).
++        try:
++            await upload.seek(0)
++        except Exception:
++            # If seek isn't supported, stream_upload_to_disk will read from current position.
++            pass
++        written = await stream_upload_to_disk(upload, dest, max_bytes)
++
++        async with session_factory() as session:
++            job = (
++                await session.execute(select(Job).where(Job.id == job_id))
++            ).scalar_one_or_none()
++            if not job:
++                return
++            # In case file_size wasn't known precisely at creation time.
++            job.file_size = int(written)
++            await session.commit()
++
++        # Enqueue background processing (Celery)
++        if settings.celery_task_always_eager:
++            from .tasks import _process_job_async
++
++            await _process_job_async(str(job_id))
++        else:
++            process_job.delay(str(job_id))
++    except HTTPException as exc:
++        # Upload persistence failed (e.g., too large). Mark job FAILED.
++        async with session_factory() as session:
++            job = (
++                await session.execute(select(Job).where(Job.id == job_id))
++            ).scalar_one_or_none()
++            if job:
++                job.status = JobStatus.FAILED
++                job.error_message = str(exc.detail)
++                job.completed_at = datetime.now(timezone.utc)
++                await session.commit()
++    except Exception as exc:  # noqa: BLE001
++        async with session_factory() as session:
++            job = (
++                await session.execute(select(Job).where(Job.id == job_id))
++            ).scalar_one_or_none()
++            if job:
++                job.status = JobStatus.FAILED
++                job.error_message = f"Failed to save upload: {exc}"
++                job.completed_at = datetime.now(timezone.utc)
++                await session.commit()
++    finally:
++        try:
++            await upload.close()
++        except Exception:
++            pass
 +
 +
 +@app.exception_handler(HTTPException)
@@ -118,6 +184,7 @@ index 00000000..90d571d9
 +@app.post("/api/files/upload", response_model=UploadResponse)
 +async def upload_file(
 +    request: Request,
++    background_tasks: BackgroundTasks,
 +    file: UploadFile = File(...),
 +    webhook_url: str | None = Form(default=None),
 +    session: AsyncSession = Depends(get_session),
@@ -130,8 +197,17 @@ index 00000000..90d571d9
 +    job_id = uuid.uuid4()
 +    dest = job_storage_path(str(job_id), filename)
 +
-+    # Stream to disk in 8KB chunks and enforce max size.
-+    file_size = await stream_upload_to_disk(file, dest, settings.max_upload_bytes)
++    # Determine size without reading into memory.
++    try:
++        file.file.seek(0, 2)
++        file_size = int(file.file.tell())
++        file.file.seek(0)
++    except Exception:
++        # If we can't determine size quickly, we'll compute it during background persistence.
++        file_size = 0
++
++    if file_size and file_size > settings.max_upload_bytes:
++        raise HTTPException(status_code=413, detail="File too large")
 +
 +    job = Job(
 +        id=job_id,
@@ -147,13 +223,16 @@ index 00000000..90d571d9
 +    session.add(job)
 +    await session.commit()
 +
-+    # Enqueue background processing (Celery)
-+    if settings.celery_task_always_eager:
-+        from .tasks import _process_job_async
-+
-+        asyncio.create_task(_process_job_async(str(job_id)))
-+    else:
-+        process_job.delay(str(job_id))
++    # Persist the upload to disk and enqueue processing in the background so the API
++    # responds quickly even for large files.
++    background_tasks.add_task(
++        _persist_upload_and_enqueue,
++        job_id=job_id,
++        upload=file,
++        dest=dest,
++        max_bytes=settings.max_upload_bytes,
++        session_factory=request.app.state.sessionmaker,
++    )
 +
 +    return UploadResponse(job_id=job_id)
 +
@@ -284,6 +363,7 @@ index 00000000..90d571d9
 +
 +    # Clear errors
 +    await session.execute(delete(ProcessingError).where(ProcessingError.job_id == job_id))
++    await session.execute(delete(LoadedRow).where(LoadedRow.job_id == job_id))
 +
 +    job.status = JobStatus.QUEUED
 +    job.progress = 0
@@ -458,10 +538,10 @@ index 00000000..c5de4220
 +        yield session
 diff --git a/repository_after/models.py b/repository_after/models.py
 new file mode 100644
-index 00000000..77351f09
+index 00000000..4c381229
 --- /dev/null
 +++ b/repository_after/models.py
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,99 @@
 +from __future__ import annotations
 +
 +import enum
@@ -471,6 +551,7 @@ index 00000000..77351f09
 +from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 +from sqlalchemy.types import Enum as SAEnum
 +from sqlalchemy import Uuid
++from sqlalchemy.types import JSON
 +
 +
 +class Base(DeclarativeBase):
@@ -512,6 +593,13 @@ index 00000000..77351f09
 +        passive_deletes=True,
 +    )
 +
++    loaded_rows: Mapped[list[LoadedRow]] = relationship(
++        "LoadedRow",
++        back_populates="job",
++        cascade="all, delete-orphan",
++        passive_deletes=True,
++    )
++
 +
 +Index("ix_jobs_created_at", Job.created_at)
 +
@@ -536,6 +624,23 @@ index 00000000..77351f09
 +    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 +
 +    job: Mapped[Job] = relationship("Job", back_populates="errors")
++
++
++class LoadedRow(Base):
++    __tablename__ = "loaded_rows"
++
++    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
++    job_id: Mapped[uuid.UUID] = mapped_column(
++        Uuid(as_uuid=True),
++        ForeignKey("jobs.id", ondelete="CASCADE"),
++        nullable=False,
++        index=True,
++    )
++    row_number: Mapped[int] = mapped_column(Integer, nullable=False)
++    data: Mapped[dict] = mapped_column(JSON, nullable=False)
++    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
++
++    job: Mapped[Job] = relationship("Job", back_populates="loaded_rows")
 diff --git a/repository_after/schemas.py b/repository_after/schemas.py
 new file mode 100644
 index 00000000..ed38e51f
@@ -705,14 +810,16 @@ index 00000000..e41344b8
 +    return total
 diff --git a/repository_after/tasks.py b/repository_after/tasks.py
 new file mode 100644
-index 00000000..ab0e9bfb
+index 00000000..b160993d
 --- /dev/null
 +++ b/repository_after/tasks.py
-@@ -0,0 +1,330 @@
+@@ -0,0 +1,472 @@
 +from __future__ import annotations
 +
 +import asyncio
 +import csv
++import math
++import re
 +import time
 +import uuid
 +from datetime import datetime, timezone
@@ -723,13 +830,13 @@ index 00000000..ab0e9bfb
 +from celery.exceptions import SoftTimeLimitExceeded
 +from openpyxl import load_workbook
 +from redis.asyncio import Redis
-+from sqlalchemy import delete, select, update
++from sqlalchemy import insert, select, update
 +from sqlalchemy.ext.asyncio import AsyncSession
 +
 +from .celery_app import celery_app
 +from .config import settings
 +from .db import create_engine, create_sessionmaker
-+from .models import Job, JobStatus, ProcessingError
++from .models import Job, JobStatus, LoadedRow, ProcessingError
 +from .storage import job_storage_path
 +from .webhook import deliver_webhook
 +
@@ -751,6 +858,62 @@ index 00000000..ab0e9bfb
 +    return False
 +
 +
++_INT_RE = re.compile(r"^[+-]?\d+$")
++_FLOAT_RE = re.compile(r"^[+-]?(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?$|^[+-]?\d+(?:[eE][+-]?\d+)$")
++
++
++def _transform_value(value: Any) -> Any:
++    if _is_null(value):
++        return None
++
++    if isinstance(value, (int, bool)):
++        return int(value) if isinstance(value, bool) else value
++
++    if isinstance(value, float):
++        if not math.isfinite(value):
++            return None
++        if value.is_integer():
++            # avoid storing 1.0 as float
++            as_int = int(value)
++            return as_int
++        return value
++
++    if isinstance(value, datetime):
++        # JSON-friendly
++        return value.astimezone(timezone.utc).isoformat()
++
++    if isinstance(value, str):
++        s = value.strip()
++        if s == "":
++            return None
++
++        # Basic numeric parsing for "data type" validation.
++        if _INT_RE.match(s):
++            try:
++                return int(s)
++            except Exception:
++                return s
++
++        if _FLOAT_RE.match(s):
++            try:
++                f = float(s)
++                return f if math.isfinite(f) else None
++            except Exception:
++                return s
++
++        return s
++
++    # Fallback: stringify unknown types
++    try:
++        return str(value)
++    except Exception:
++        return None
++
++
++def _transform_row(row: dict[str, Any]) -> dict[str, Any]:
++    return {str(k): _transform_value(v) for k, v in row.items()}
++
++
 +def _validate_row(row: dict[str, Any]) -> list[tuple[str | None, str, str, str | None]]:
 +    errors: list[tuple[str | None, str, str, str | None]] = []
 +    for col, val in row.items():
@@ -759,6 +922,18 @@ index 00000000..ab0e9bfb
 +        else:
 +            if isinstance(val, str) and len(val) > 2000:
 +                errors.append((col, "CONSTRAINT", "Value too long", val[:2000]))
++            # Basic data type / constraint validation
++            if isinstance(val, int):
++                if val < -(2**63) or val > (2**63 - 1):
++                    errors.append((col, "CONSTRAINT", "Integer out of range", str(val)))
++            elif isinstance(val, float):
++                if not math.isfinite(val):
++                    errors.append((col, "TYPE", "Non-finite float", str(val)))
++            elif isinstance(val, (str, bool)):
++                # allowed
++                pass
++            else:
++                errors.append((col, "TYPE", "Unsupported value type", str(type(val))))
 +    return errors
 +
 +
@@ -812,18 +987,42 @@ index 00000000..ab0e9bfb
 +    row_number: int,
 +    errors: list[tuple[str | None, str, str, str | None]],
 +) -> None:
++    payload = []
 +    for (column_name, error_type, error_message, raw_value) in errors:
-+        session.add(
-+            ProcessingError(
-+                job_id=job_id,
-+                row_number=row_number,
-+                column_name=column_name,
-+                error_type=error_type,
-+                error_message=error_message,
-+                raw_value=raw_value,
-+            )
++        payload.append(
++            {
++                "id": uuid.uuid4(),
++                "job_id": job_id,
++                "row_number": int(row_number),
++                "column_name": column_name,
++                "error_type": error_type,
++                "error_message": error_message,
++                "raw_value": raw_value,
++            }
 +        )
-+    await session.commit()
++    if payload:
++        await session.execute(insert(ProcessingError), payload)
++
++
++async def _insert_loaded_rows(
++    session: AsyncSession,
++    *,
++    job_id: uuid.UUID,
++    rows: list[tuple[int, dict[str, Any]]],
++) -> None:
++    if not rows:
++        return
++    payload = []
++    for (row_number, data) in rows:
++        payload.append(
++            {
++                "id": uuid.uuid4(),
++                "job_id": job_id,
++                "row_number": int(row_number),
++                "data": data,
++            }
++        )
++    await session.execute(insert(LoadedRow), payload)
 +
 +
 +async def _process_csv(path: Path, job_id: uuid.UUID, session: AsyncSession) -> tuple[int, int]:
@@ -843,6 +1042,9 @@ index 00000000..ab0e9bfb
 +
 +    last_persist = time.monotonic()
 +
++    pending_loaded: list[tuple[int, dict[str, Any]]] = []
++    pending_error_inserts = 0
++
 +    for chunk in pd.read_csv(path, chunksize=10_000):
 +        # cancellation check before chunk
 +        job = await _get_job(session, job_id)
@@ -851,12 +1053,39 @@ index 00000000..ab0e9bfb
 +
 +        for _, row in chunk.iterrows():
 +            rows_seen += 1
-+            as_dict = {str(k): row[k] for k in row.index}
-+            errs = _validate_row(as_dict)
++            raw = {str(k): row[k] for k in row.index}
++            transformed = _transform_row(raw)
++            errs = _validate_row(transformed)
 +            if errs:
 +                rows_failed += 1
 +                await _log_errors(session, job_id, rows_seen, errs)
++                pending_error_inserts += len(errs)
++            else:
++                pending_loaded.append((rows_seen, transformed))
 +
++            now = time.monotonic()
++            if _should_persist(last_persist, now, settings.progress_update_interval_seconds):
++                last_persist = now
++
++                # Persist loaded rows + errors and job progress at least every 5 seconds.
++                await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
++                pending_loaded.clear()
++
++                progress = 100 if total_rows == 0 else int((rows_seen / max(total_rows, 1)) * 100)
++                await _update_job_progress(
++                    session,
++                    job_id,
++                    progress=progress,
++                    rows_processed=rows_seen,
++                    rows_failed=rows_failed,
++                )
++
++        # End of chunk: persist any pending loaded rows so we don't build up memory.
++        if pending_loaded:
++            await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
++            pending_loaded.clear()
++
++        # Ensure progress isn't stale for long-running chunks.
 +        now = time.monotonic()
 +        if _should_persist(last_persist, now, settings.progress_update_interval_seconds):
 +            last_persist = now
@@ -870,6 +1099,9 @@ index 00000000..ab0e9bfb
 +            )
 +
 +    # final persist
++    if pending_loaded:
++        await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
++        pending_loaded.clear()
 +    progress = 100 if total_rows == 0 else int((rows_seen / max(total_rows, 1)) * 100)
 +    await _update_job_progress(session, job_id, progress=progress, rows_processed=rows_seen, rows_failed=rows_failed)
 +    return rows_seen, rows_failed
@@ -895,24 +1127,34 @@ index 00000000..ab0e9bfb
 +        header = []
 +
 +    batch: list[dict[str, Any]] = []
++    batch_row_numbers: list[int] = []
 +
 +    for row_vals in rows_iter:
 +        rows_seen += 1
 +
++        # Check cancellation before building the next chunk.
 +        job = await _get_job(session, job_id)
 +        if not job or job.status == JobStatus.CANCELLED:
 +            break
 +
 +        row_dict = {header[i] if i < len(header) else f"col_{i}": row_vals[i] for i in range(len(row_vals))}
-+        batch.append(row_dict)
++        batch.append(_transform_row(row_dict))
++        batch_row_numbers.append(rows_seen)
 +
 +        if len(batch) >= 10_000:
++            pending_loaded: list[tuple[int, dict[str, Any]]] = []
 +            for i, item in enumerate(batch):
++                rn = batch_row_numbers[i]
 +                errs = _validate_row(item)
 +                if errs:
 +                    rows_failed += 1
-+                    await _log_errors(session, job_id, rows_seen - len(batch) + i + 1, errs)
++                    await _log_errors(session, job_id, rn, errs)
++                else:
++                    pending_loaded.append((rn, item))
++
++            await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
 +            batch.clear()
++            batch_row_numbers.clear()
 +
 +        now = time.monotonic()
 +        if _should_persist(last_persist, now, settings.progress_update_interval_seconds):
@@ -921,11 +1163,16 @@ index 00000000..ab0e9bfb
 +            await _update_job_progress(session, job_id, progress=progress, rows_processed=rows_seen, rows_failed=rows_failed)
 +
 +    if batch:
++        pending_loaded: list[tuple[int, dict[str, Any]]] = []
 +        for i, item in enumerate(batch):
++            rn = batch_row_numbers[i]
 +            errs = _validate_row(item)
 +            if errs:
 +                rows_failed += 1
-+                await _log_errors(session, job_id, rows_seen - len(batch) + i + 1, errs)
++                await _log_errors(session, job_id, rn, errs)
++            else:
++                pending_loaded.append((rn, item))
++        await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
 +
 +    progress = 100 if total_rows == 0 else int((rows_seen / max(total_rows, 1)) * 100)
 +    await _update_job_progress(session, job_id, progress=progress, rows_processed=rows_seen, rows_failed=rows_failed)
@@ -1041,10 +1288,10 @@ index 00000000..ab0e9bfb
 +        return False
 diff --git a/repository_after/webhook.py b/repository_after/webhook.py
 new file mode 100644
-index 00000000..97b44bd9
+index 00000000..642a5d45
 --- /dev/null
 +++ b/repository_after/webhook.py
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,58 @@
 +from __future__ import annotations
 +
 +import asyncio
@@ -1061,6 +1308,9 @@ index 00000000..97b44bd9
 +    rows_processed: int,
 +    rows_failed: int,
 +    completed_at: datetime,
++    max_attempts: int = 3,
++    base_delay_seconds: float = 0.5,
++    max_total_seconds: float = 10.0,
 +) -> None:
 +    payload = {
 +        "job_id": job_id,
@@ -1070,19 +1320,33 @@ index 00000000..97b44bd9
 +        "completed_at": completed_at.astimezone(timezone.utc).isoformat(),
 +    }
 +
-+    delays = [0.5, 1.0, 2.0]
++    # Must be delivered within 10 seconds of job completion (including retries).
++    loop = asyncio.get_running_loop()
++    deadline = loop.time() + float(max_total_seconds)
 +    last_exc: Exception | None = None
 +
-+    for attempt in range(3):
++    for attempt in range(int(max_attempts)):
++        remaining = deadline - loop.time()
++        if remaining <= 0:
++            break
++
 +        try:
-+            async with httpx.AsyncClient(timeout=httpx.Timeout(2.0)) as client:
++            # Keep per-attempt timeout small so total delivery stays within budget.
++            per_attempt_timeout = min(2.0, remaining)
++            timeout = httpx.Timeout(per_attempt_timeout)
++            async with httpx.AsyncClient(timeout=timeout) as client:
 +                resp = await client.post(webhook_url, json=payload)
 +                resp.raise_for_status()
 +                return
 +        except Exception as exc:  # noqa: BLE001
 +            last_exc = exc
-+            if attempt < 2:
-+                await asyncio.sleep(delays[attempt])
++            if attempt < (int(max_attempts) - 1):
++                # Exponential backoff: 0.5s, 1.0s, 2.0s...
++                delay = float(base_delay_seconds) * (2**attempt)
++                remaining = deadline - loop.time()
++                if remaining <= 0:
++                    break
++                await asyncio.sleep(min(delay, remaining))
 +
 +    if last_exc:
 +        raise last_exc

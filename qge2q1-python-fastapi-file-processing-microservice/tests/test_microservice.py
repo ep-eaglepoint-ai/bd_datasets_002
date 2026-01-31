@@ -1,6 +1,8 @@
 import os
 import re
+import time
 import uuid
+from io import BytesIO
 
 import pytest
 
@@ -206,6 +208,97 @@ async def test_webhook_retries_three_times_and_succeeds(monkeypatch):
     assert attempts["count"] == 3
 
 
+@pytest.mark.asyncio
+async def test_webhook_uses_exponential_backoff(monkeypatch):
+    from datetime import datetime, timezone
+
+    from repository_after.webhook import deliver_webhook
+
+    sleeps: list[float] = []
+
+    async def fake_sleep(seconds: float):
+        sleeps.append(float(seconds))
+
+    class FakeClientAlwaysFails:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, json):
+            raise RuntimeError("fail")
+
+    monkeypatch.setattr("httpx.AsyncClient", lambda *a, **k: FakeClientAlwaysFails())
+    monkeypatch.setattr("asyncio.sleep", fake_sleep)
+
+    with pytest.raises(RuntimeError):
+        await deliver_webhook(
+            "http://example.com",
+            job_id=str(uuid.uuid4()),
+            status="FAILED",
+            rows_processed=0,
+            rows_failed=0,
+            completed_at=datetime.now(timezone.utc),
+            max_attempts=3,
+            base_delay_seconds=0.5,
+            max_total_seconds=10.0,
+        )
+
+    # Between attempts: 0.5s then 1.0s (exponential)
+    assert sleeps[:2] == [0.5, 1.0]
+
+
+@pytest.mark.asyncio
+async def test_webhook_respects_total_time_budget(monkeypatch):
+    from datetime import datetime, timezone
+
+    from repository_after.webhook import deliver_webhook
+
+    # Fake loop clock so we can deterministically check the budget enforcement.
+    class FakeLoop:
+        def __init__(self):
+            self._t = 0.0
+
+        def time(self):
+            return self._t
+
+    fake_loop = FakeLoop()
+
+    async def fake_sleep(seconds: float):
+        fake_loop._t += float(seconds)
+
+    class FakeClientAlwaysFails:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, json):
+            raise RuntimeError("fail")
+
+    monkeypatch.setattr("asyncio.get_running_loop", lambda: fake_loop)
+    monkeypatch.setattr("asyncio.sleep", fake_sleep)
+    monkeypatch.setattr("httpx.AsyncClient", lambda *a, **k: FakeClientAlwaysFails())
+
+    # Budget too small to fit all exponential sleeps; should stop early.
+    with pytest.raises(RuntimeError):
+        await deliver_webhook(
+            "http://example.com",
+            job_id=str(uuid.uuid4()),
+            status="FAILED",
+            rows_processed=0,
+            rows_failed=0,
+            completed_at=datetime.now(timezone.utc),
+            max_attempts=3,
+            base_delay_seconds=0.5,
+            max_total_seconds=0.6,
+        )
+
+    assert fake_loop.time() <= 0.6
+
+
 def test_jobs_list_pagination_and_filters(client):
     # Create two jobs
     files1 = {"file": ("a.csv", b"x,y\n1,2\n", "text/csv")}
@@ -225,6 +318,137 @@ def test_jobs_list_pagination_and_filters(client):
     # Filter by status
     resp2 = client.get("/api/jobs", params={"status": "COMPLETED"})
     assert resp2.status_code == 200
+
+
+def test_worker_service_has_healthcheck():
+    compose_path = os.path.join(os.path.dirname(__file__), "..", "docker-compose.yml")
+    with open(compose_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    # Req 17: health checks for all services
+    assert "worker:" in content
+    # Ensure the worker service itself defines a healthcheck.
+    assert "worker:" in content
+    worker_block = content.split("worker:", 1)[1]
+    assert "healthcheck:" in worker_block
+    assert "inspect ping" in worker_block
+
+
+@pytest.mark.asyncio
+async def test_upload_handler_schedules_background_persist_fast(app):
+    from fastapi import UploadFile
+    from starlette.background import BackgroundTasks
+    from starlette.requests import Request
+
+    from repository_after.api import upload_file
+
+    async with app.state.sessionmaker() as session:
+        scope = {"type": "http", "method": "POST", "path": "/api/files/upload", "headers": [], "app": app}
+        request = Request(scope)
+        bg = BackgroundTasks()
+        up = UploadFile(filename="data.csv", file=BytesIO(b"a,b\n1,2\n"))
+
+        t0 = time.perf_counter()
+        resp = await upload_file(request, bg, up, None, session)
+        elapsed = time.perf_counter() - t0
+
+        assert elapsed < 0.5
+        assert resp.job_id
+        # Background task should be scheduled (persist+enqueue).
+        assert len(bg.tasks) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_job_fast_path_under_100ms(app):
+    from sqlalchemy import insert
+
+    from repository_after.api import get_job
+    from repository_after.models import Job, JobStatus
+
+    job_id = uuid.uuid4()
+
+    async with app.state.sessionmaker() as session:
+        await session.execute(
+            insert(Job).values(
+                id=job_id,
+                filename="x.csv",
+                file_size=3,
+                file_type="csv",
+                status=JobStatus.QUEUED,
+                progress=0,
+                rows_processed=0,
+                rows_failed=0,
+                error_message=None,
+                webhook_url=None,
+            )
+        )
+        await session.commit()
+
+        t0 = time.perf_counter()
+        resp = await get_job(job_id, session=session)
+        elapsed = time.perf_counter() - t0
+
+        assert resp.id == job_id
+        assert elapsed < 0.1
+
+
+def test_celery_graceful_shutdown_config_present():
+    from repository_after.celery_app import celery_app
+
+    assert celery_app.conf.worker_shutdown_timeout is not None
+    assert celery_app.conf.task_soft_time_limit is not None
+    assert celery_app.conf.task_time_limit is not None
+
+
+@pytest.mark.asyncio
+async def test_progress_updates_respect_interval(monkeypatch, tmp_path):
+    # Validates "update at least every 5 seconds" logic by controlling monotonic time.
+    from repository_after import tasks
+
+    monkeypatch.setattr(tasks.settings, "progress_update_interval_seconds", 5.0)
+
+    # Create a simple CSV file with enough rows.
+    p = tmp_path / "data.csv"
+    rows = "a,b\n" + "\n".join(["1,2" for _ in range(25)]) + "\n"
+    p.write_text(rows, encoding="utf-8")
+
+    # Fake session + job lookups so we only exercise timing gates.
+    class FakeJob:
+        status = tasks.JobStatus.PROCESSING
+
+    async def fake_get_job(session, job_id):
+        return FakeJob()
+
+    progress_updates: list[int] = []
+
+    async def fake_update_job_progress(session, job_id, **kwargs):
+        if "progress" in kwargs:
+            progress_updates.append(int(kwargs["progress"]))
+
+    async def fake_insert_loaded_rows(*_a, **_k):
+        return None
+
+    async def fake_log_errors(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(tasks, "_get_job", fake_get_job)
+    monkeypatch.setattr(tasks, "_update_job_progress", fake_update_job_progress)
+    monkeypatch.setattr(tasks, "_insert_loaded_rows", fake_insert_loaded_rows)
+    monkeypatch.setattr(tasks, "_log_errors", fake_log_errors)
+
+    # Control monotonic time: first few calls below interval, then jump past 5s.
+    times = iter([0.0, 0.1, 0.2, 0.3, 5.2, 5.3, 10.5, 10.6, 20.0])
+    monkeypatch.setattr(tasks.time, "monotonic", lambda: next(times, 20.0))
+
+    class FakeSession:
+        async def execute(self, *_a, **_k):
+            return None
+
+        async def commit(self):
+            return None
+
+    await tasks._process_csv(p, uuid.uuid4(), FakeSession())
+    # Should have updated progress multiple times, gated by interval.
+    assert len(progress_updates) >= 2
 
 
 def test_get_job_404_and_errors_404(client):

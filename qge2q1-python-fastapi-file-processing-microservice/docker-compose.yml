@@ -97,6 +97,15 @@ services:
         "--max-tasks-per-child=10",
         "--prefetch-multiplier=1",
       ]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A repository_after.celery_app:celery_app inspect ping -d celery@$(hostname) | grep -q pong",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 volumes:
   db_data:

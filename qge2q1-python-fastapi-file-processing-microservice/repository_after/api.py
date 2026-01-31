@@ -3,9 +3,9 @@ from __future__ import annotations
 import uuid
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy import delete, func, select
@@ -38,16 +38,82 @@ async def lifespan(app: FastAPI):
     app.state.engine = engine
     app.state.sessionmaker = create_sessionmaker(engine)
 
-    if settings.auto_create_db:
+    # Initialize DB connections on startup via async context manager.
+    try:
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            # Ensure a connection can be acquired.
+            await conn.execute(select(1))
+            if settings.auto_create_db:
+                await conn.run_sync(Base.metadata.create_all)
 
-    yield
-
-    await engine.dispose()
+        yield
+    finally:
+        await engine.dispose()
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+
+async def _persist_upload_and_enqueue(
+    *,
+    job_id: uuid.UUID,
+    upload: UploadFile,
+    dest,
+    max_bytes: int,
+    session_factory,
+) -> None:
+    try:
+        # Persist to configured storage path in the background (after response).
+        try:
+            await upload.seek(0)
+        except Exception:
+            # If seek isn't supported, stream_upload_to_disk will read from current position.
+            pass
+        written = await stream_upload_to_disk(upload, dest, max_bytes)
+
+        async with session_factory() as session:
+            job = (
+                await session.execute(select(Job).where(Job.id == job_id))
+            ).scalar_one_or_none()
+            if not job:
+                return
+            # In case file_size wasn't known precisely at creation time.
+            job.file_size = int(written)
+            await session.commit()
+
+        # Enqueue background processing (Celery)
+        if settings.celery_task_always_eager:
+            from .tasks import _process_job_async
+
+            await _process_job_async(str(job_id))
+        else:
+            process_job.delay(str(job_id))
+    except HTTPException as exc:
+        # Upload persistence failed (e.g., too large). Mark job FAILED.
+        async with session_factory() as session:
+            job = (
+                await session.execute(select(Job).where(Job.id == job_id))
+            ).scalar_one_or_none()
+            if job:
+                job.status = JobStatus.FAILED
+                job.error_message = str(exc.detail)
+                job.completed_at = datetime.now(timezone.utc)
+                await session.commit()
+    except Exception as exc:  # noqa: BLE001
+        async with session_factory() as session:
+            job = (
+                await session.execute(select(Job).where(Job.id == job_id))
+            ).scalar_one_or_none()
+            if job:
+                job.status = JobStatus.FAILED
+                job.error_message = f"Failed to save upload: {exc}"
+                job.completed_at = datetime.now(timezone.utc)
+                await session.commit()
+    finally:
+        try:
+            await upload.close()
+        except Exception:
+            pass
 
 
 @app.exception_handler(HTTPException)
@@ -64,6 +130,7 @@ async def validation_exception_handler(_: Request, exc: RequestValidationError):
 @app.post("/api/files/upload", response_model=UploadResponse)
 async def upload_file(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     webhook_url: str | None = Form(default=None),
     session: AsyncSession = Depends(get_session),
@@ -76,8 +143,17 @@ async def upload_file(
     job_id = uuid.uuid4()
     dest = job_storage_path(str(job_id), filename)
 
-    # Stream to disk in 8KB chunks and enforce max size.
-    file_size = await stream_upload_to_disk(file, dest, settings.max_upload_bytes)
+    # Determine size without reading into memory.
+    try:
+        file.file.seek(0, 2)
+        file_size = int(file.file.tell())
+        file.file.seek(0)
+    except Exception:
+        # If we can't determine size quickly, we'll compute it during background persistence.
+        file_size = 0
+
+    if file_size and file_size > settings.max_upload_bytes:
+        raise HTTPException(status_code=413, detail="File too large")
 
     job = Job(
         id=job_id,
@@ -93,13 +169,16 @@ async def upload_file(
     session.add(job)
     await session.commit()
 
-    # Enqueue background processing (Celery)
-    if settings.celery_task_always_eager:
-        from .tasks import _process_job_async
-
-        asyncio.create_task(_process_job_async(str(job_id)))
-    else:
-        process_job.delay(str(job_id))
+    # Persist the upload to disk and enqueue processing in the background so the API
+    # responds quickly even for large files.
+    background_tasks.add_task(
+        _persist_upload_and_enqueue,
+        job_id=job_id,
+        upload=file,
+        dest=dest,
+        max_bytes=settings.max_upload_bytes,
+        session_factory=request.app.state.sessionmaker,
+    )
 
     return UploadResponse(job_id=job_id)
 
