@@ -138,6 +138,13 @@ func (m *MockStore) CompareAndSwap(ctx context.Context, key string, oldRev int64
 	e, exists := m.data[key]
 	if !exists || e.rev != oldRev { return false, nil }
 
+	// CAS-delete: nil value deletes the key.
+	if newVal == nil {
+		delete(m.data, key)
+		m.notifyWatchers(key)
+		return true, nil
+	}
+
 	// Apply the value change and TTL extension first, so that when
 	// partialWriteMode is enabled we still mutate state but report an
 	// error back to the caller.
@@ -152,17 +159,6 @@ func (m *MockStore) CompareAndSwap(ctx context.Context, key string, oldRev int64
 		return false, errors.New("simulated partial write")
 	}
 
-	return true, nil
-}
-
-func (m *MockStore) CompareAndDelete(ctx context.Context, key string, oldRev int64) (bool, error) {
-	if err := m.checkPartition(); err != nil { return false, err }
-	m.mu.Lock(); defer m.mu.Unlock()
-	e, exists := m.data[key]
-	if !exists || e.rev != oldRev { return false, nil }
-
-	delete(m.data, key)
-	m.notifyWatchers(key)
 	return true, nil
 }
 
@@ -195,7 +191,17 @@ func (m *MockStore) Watch(ctx context.Context, key string) <-chan struct{} {
 	return w.ch
 }
 
-func (m *MockStore) Get(ctx context.Context, key string) ([]byte, int64, error) { return nil, 0, nil }
+func (m *MockStore) Get(ctx context.Context, key string) ([]byte, int64, error) {
+	if err := m.checkPartition(); err != nil { return nil, 0, err }
+	m.mu.Lock(); defer m.mu.Unlock()
+	m.expireLocked(key)
+	e, exists := m.data[key]
+	if !exists {
+		return nil, 0, nil
+	}
+	valCopy := append([]byte(nil), e.val...)
+	return valCopy, e.rev, nil
+}
 
 func (m *MockStore) expireLocked(key string) {
 	if e, exists := m.data[key]; exists {
@@ -212,16 +218,12 @@ func (m *MockStore) notifyWatchers(key string) {
 		return
 	}
 
-	// Wake a single waiter (FIFO) to avoid thundering herd.
-	w := list[0]
-	if len(list) == 1 {
-		delete(m.watchers, key)
-	} else {
-		m.watchers[key] = list[1:]
+	// Wake ALL waiters to simulate etcd-style watch notification.
+	delete(m.watchers, key)
+	for _, w := range list {
+		w.close()
+		atomic.AddInt32(&m.activeWatchers, -1)
 	}
-
-	w.close()
-	atomic.AddInt32(&m.activeWatchers, -1)
 }
 
 func (m *MockStore) removeWatcherLocked(key string, target *watcher) bool {

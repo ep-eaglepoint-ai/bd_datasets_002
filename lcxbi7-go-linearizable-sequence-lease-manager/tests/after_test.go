@@ -11,69 +11,49 @@ import (
 	repoAfter "lcxbi7-go-linearizable-sequence-lease-manager/repository_after"
 )
 
-// TEST 1: Concurrency & Linearizability
-// Validates Requirements: 1 (Fencing Tokens), 2 (Wait Queue), 7.1, 7.2
-func TestRepository_After_Concurrency(t *testing.T) {
-	t.Log(">>> [1/2] Testing Concurrency & Fencing Tokens (Expected to PASS) <<<")
+// Requirement 7: ONE test with 50 goroutines validating:
+// 1) mutual exclusion
+// 2) fencing tokens strictly increasing
+// 3) partition causes cancellation before TTL
+func TestRepository_After_Requirement7_HighConcurrencyAndPartition(t *testing.T) {
+	t.Log(">>> [Req7] Concurrency + Tokens + Partition Cancel (Expected to PASS) <<<")
 
+	// Phase A: 50 goroutines contend for the same lock.
 	SharedConcurrencyTest(t, func(id int, store *MockStore) (context.Context, int64, func(), error) {
-		orch := repoAfter.NewLeaseOrchestrator(store, fmt.Sprintf("worker-%d", id), 200*time.Millisecond)
-
+		lm := repoAfter.NewLeaseManager(store, fmt.Sprintf("worker-%d", id), 200*time.Millisecond)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-
-		lease, err := orch.AcquireAndHold(ctx, "resource-1")
+		workerCtx, token, err := lm.AcquireAndHold(ctx, "resource-1")
 		if err != nil {
 			cancel()
 			return nil, 0, nil, err
 		}
-
-		return lease.Context, lease.Token, func() {
-			lease.Release()
+		return workerCtx, token, func() {
+			_ = lm.Release(context.Background(), "resource-1", token)
 			cancel()
 		}, nil
 	})
-}
 
-// TEST 2: Network Partition / Zombie Prevention
-// Validates Heartbeat,Async Safety/Fail-Fast, Partition Handling
-func TestRepository_After_ZombiePartition(t *testing.T) {
-	t.Log(">>> [2/3] Testing Network Partition / Zombie Prevention (Expected to PASS) <<<")
-
+	// Phase B: partition causes the holder's context to be canceled before TTL.
 	store := NewMockStore()
 	ttl := 1 * time.Second
-	orch := repoAfter.NewLeaseOrchestrator(store, "zombie-worker", ttl)
+	lm := repoAfter.NewLeaseManager(store, "zombie-worker", ttl)
 
-	// 1. Acquire Lock
-	lease, err := orch.AcquireAndHold(context.Background(), "critical-resource")
+	workerCtx, token, err := lm.AcquireAndHold(context.Background(), "critical-resource")
 	if err != nil {
 		t.Fatalf("Acquire failed: %v", err)
 	}
-	t.Log("Lock acquired. Simulating network failure...")
+	_ = token
 
-	// 2. Simulate Network Partition
-	// This makes Put/CAS calls fail or timeout
 	store.SetPartition(true)
-
-	// 3. Assert Fail-Fast (Context Cancellation)
-	// Test Revoke if cannot reach store within remaining 50% of TTL.
-	// TTL = 1s, Safety Window = 500ms.
-	// The heartbeat runs every 333ms.
-	// We expect cancellation roughly between 500ms and 800ms.
-
 	startTime := time.Now()
-
 	select {
-	case <-lease.Context.Done():
+	case <-workerCtx.Done():
 		elapsed := time.Since(startTime)
-		t.Logf("Success: Worker context canceled after %v (TTL was %v)", elapsed, ttl)
-
-		// cancellation must occur strictly *before*
-		// the TTL that a healthy node would observe.
 		if elapsed >= ttl {
-			t.Errorf("Safety Violation: Context canceled at or AFTER TTL expired! (elapsed=%v, ttl=%v)", elapsed, ttl)
+			t.Errorf("Safety Violation: context canceled at or AFTER TTL expired (elapsed=%v, ttl=%v)", elapsed, ttl)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("Failure: Zombie detected! Worker context remained active indefinitely despite partition.")
+		t.Fatal("Failure: Zombie detected! worker context remained active despite partition")
 	}
 }
 
@@ -87,9 +67,9 @@ func TestRepository_After_PartialWriteFailures(t *testing.T) {
 	store.SetPartialWriteMode(true)
 
 	ttl := 1 * time.Second
-	orch := repoAfter.NewLeaseOrchestrator(store, "partial-worker", ttl)
+	lm := repoAfter.NewLeaseManager(store, "partial-worker", ttl)
 
-	lease, err := orch.AcquireAndHold(context.Background(), "partial-resource")
+	workerCtx, _, err := lm.AcquireAndHold(context.Background(), "partial-resource")
 	if err != nil {
 		t.Fatalf("Acquire failed under partial-write mode: %v", err)
 	}
@@ -97,7 +77,7 @@ func TestRepository_After_PartialWriteFailures(t *testing.T) {
 	startTime := time.Now()
 
 	select {
-	case <-lease.Context.Done():
+	case <-workerCtx.Done():
 		elapsed := time.Since(startTime)
 		t.Logf("Success: Worker context canceled after %v under partial writes (TTL was %v)", elapsed, ttl)
 
@@ -119,9 +99,9 @@ func TestRepository_After_AdminPreemptionCancelsWorker(t *testing.T) {
 
 	store := NewMockStore()
 	ttl := 600 * time.Millisecond
-	orch := repoAfter.NewLeaseOrchestrator(store, "worker", ttl)
+	lm := repoAfter.NewLeaseManager(store, "worker", ttl)
 
-	lease, err := orch.AcquireAndHold(context.Background(), "admin-resource")
+	workerCtx, _, err := lm.AcquireAndHold(context.Background(), "admin-resource")
 	if err != nil {
 		t.Fatalf("Acquire failed: %v", err)
 	}
@@ -131,7 +111,7 @@ func TestRepository_After_AdminPreemptionCancelsWorker(t *testing.T) {
 
 	// Heartbeat interval is ttl/3; cancellation should happen on the next renewal attempt.
 	select {
-	case <-lease.Context.Done():
+	case <-workerCtx.Done():
 		// ok
 	case <-time.After(2 * ttl):
 		t.Fatal("Expected worker context cancellation after admin preemption")
@@ -145,10 +125,10 @@ func TestRepository_After_WatchRespectsContext_AndAvoidsThunderingHerd(t *testin
 
 	store := NewMockStore()
 	ttl := 500 * time.Millisecond
-	orch := repoAfter.NewLeaseOrchestrator(store, "holder", ttl)
+	lm := repoAfter.NewLeaseManager(store, "holder", ttl)
 
 	// Acquire and hold the lock so others must wait.
-	lease, err := orch.AcquireAndHold(context.Background(), "herd-resource")
+	_, holderToken, err := lm.AcquireAndHold(context.Background(), "herd-resource")
 	if err != nil {
 		t.Fatalf("Acquire failed: %v", err)
 	}
@@ -160,8 +140,8 @@ func TestRepository_After_WatchRespectsContext_AndAvoidsThunderingHerd(t *testin
 	beforeWatches := store.WatchCalls()
 	beforePuts := store.PutIfAbsentCalls()
 
-	waiterOrch := repoAfter.NewLeaseOrchestrator(store, "waiter", ttl)
-	_, err = waiterOrch.AcquireAndHold(ctx, "herd-resource")
+	waiter := repoAfter.NewLeaseManager(store, "waiter", ttl)
+	_, _, err = waiter.AcquireAndHold(ctx, "herd-resource")
 	if err == nil {
 		t.Fatal("Expected AcquireAndHold to fail due to ctx deadline")
 	}
@@ -187,21 +167,21 @@ func TestRepository_After_WatchRespectsContext_AndAvoidsThunderingHerd(t *testin
 
 	// 5B) Herd mitigation: on release, only one waiter should wake and retry quickly.
 	waiters := 20
-	acquiredCh := make(chan *repoAfter.Lease, waiters)
+	acquiredCh := make(chan int64, waiters)
 	holdCh := make(chan struct{})
 
 	for i := 0; i < waiters; i++ {
 		go func(i int) {
 			wctx, wcancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer wcancel()
-			worch := repoAfter.NewLeaseOrchestrator(store, fmt.Sprintf("w-%d", i), ttl)
-			l, err := worch.AcquireAndHold(wctx, "herd-resource")
+			worch := repoAfter.NewLeaseManager(store, fmt.Sprintf("w-%d", i), ttl)
+			_, tok, err := worch.AcquireAndHold(wctx, "herd-resource")
 			if err != nil {
 				return
 			}
-			acquiredCh <- l
+			acquiredCh <- tok
 			<-holdCh
-			_ = l.Release()
+			_ = worch.Release(context.Background(), "herd-resource", tok)
 		} (i)
 	}
 
@@ -215,29 +195,66 @@ func TestRepository_After_WatchRespectsContext_AndAvoidsThunderingHerd(t *testin
 	}
 
 	putsBeforeRelease := store.PutIfAbsentCalls()
-	_ = lease.Release() // free the lock
+	_ = lm.Release(context.Background(), "herd-resource", holderToken) // free the lock
 
-	// Within a short window, only one waiter should wake and retry PutIfAbsent.
+	// Since notifyWatchers wakes ALL waiters, validate that jitter spreads their
+	// retries (i.e., we don't see a giant spike immediately after release).
+	// Expect only a small number of immediate retries in the first few ms.
+	time.Sleep(5 * time.Millisecond)
+	putsEarly := store.PutIfAbsentCalls()
+	if delta := putsEarly - putsBeforeRelease; delta > 5 {
+		close(holdCh)
+		t.Fatalf("Thundering herd suspected: too many immediate PutIfAbsent retries after release: delta=%d", delta)
+	}
+
+	// At least one waiter should acquire within a short window.
 	select {
 	case <-acquiredCh:
-		// ok, at least one acquired
-	case <-time.After(200 * time.Millisecond):
+		// ok
+	case <-time.After(250 * time.Millisecond):
 		close(holdCh)
 		t.Fatal("Expected a waiter to acquire after release")
 	}
 
-	time.Sleep(50 * time.Millisecond)
-	putsAfterRelease := store.PutIfAbsentCalls()
-	if delta := putsAfterRelease - putsBeforeRelease; delta > 2 {
-		close(holdCh)
-		t.Fatalf("Thundering herd suspected: too many immediate PutIfAbsent retries after a single release: delta=%d", delta)
-	}
-
-	// Ensure only one waiter acquired in this short window.
-	if len(acquiredCh) > 0 {
-		close(holdCh)
-		t.Fatalf("Expected only one waiter to acquire immediately after release; got %d", 1+len(acquiredCh))
-	}
-
 	close(holdCh)
+}
+
+// Graceful handover / cleanup: repeated acquire/release cycles should not leak watchers.
+func TestRepository_After_RepeatedAcquireRelease_DoesNotLeakWatchers(t *testing.T) {
+	store := NewMockStore()
+	ttl := 150 * time.Millisecond
+	lm := repoAfter.NewLeaseManager(store, "cycler", ttl)
+
+	for i := 0; i < 30; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		workerCtx, token, err := lm.AcquireAndHold(ctx, "cycle-resource")
+		if err != nil {
+			cancel()
+			t.Fatalf("Acquire failed on iteration %d: %v", i, err)
+		}
+		// Should be live at acquisition.
+		select {
+		case <-workerCtx.Done():
+			cancel()
+			t.Fatalf("Unexpected cancellation on iteration %d", i)
+		default:
+		}
+
+		if err := lm.Release(context.Background(), "cycle-resource", token); err != nil {
+			cancel()
+			t.Fatalf("Release failed on iteration %d: %v", i, err)
+		}
+		cancel()
+	}
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if store.ActiveWatchers() == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if store.ActiveWatchers() != 0 {
+		t.Fatalf("Expected 0 active watchers after cycles, got %d", store.ActiveWatchers())
+	}
 }

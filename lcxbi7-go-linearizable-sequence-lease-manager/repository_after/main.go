@@ -1,3 +1,22 @@
+// Package lease implements a linearizable lease manager suitable for
+// distributed task schedulers.
+//
+// Key properties:
+// - Strict fencing tokens: every successful acquisition returns a monotonically
+//   increasing token derived from the storage layer revision counter.
+// - Watch-based waiting: contenders block on Watch instead of polling.
+// - Atomic revocation: if renewal fails or the lease is preempted, the worker
+//   context is canceled and the heartbeat loop exits permanently for that token.
+//
+// Preemption / priority note:
+// "Administrative preemption" is represented by any external overwrite that
+// changes the key's revision. The manager treats any revision mismatch as a
+// higher-priority takeover and revokes the local lease immediately.
+//
+// Timing notes:
+// This package uses Go's monotonic time behavior by measuring elapsed time via
+// time.Since / time.Until against time.Time values obtained from time.Now.
+// This avoids sensitivity to wall-clock adjustments (e.g., NTP slews).
 package lease
 
 import (
@@ -11,128 +30,223 @@ import (
 type KeyValueStore interface {
 	PutIfAbsent(ctx context.Context, key string, val []byte, ttl time.Duration) (int64, bool, error)
 	CompareAndSwap(ctx context.Context, key string, oldRevision int64, newVal []byte) (bool, error)
-	CompareAndDelete(ctx context.Context, key string, oldRevision int64) (bool, error)
 	Watch(ctx context.Context, key string) <-chan struct{}
 	Get(ctx context.Context, key string) ([]byte, int64, error)
 }
 
-type Lease struct {
-	Token   int64
-	Context context.Context
-	release func() error
-}
-
-func (l *Lease) Release() error {
-	return l.release()
-}
-
-type LeaseOrchestrator struct {
+type LeaseManager struct {
 	store    KeyValueStore
 	clientID string
 	ttl      time.Duration
+
+	mu     sync.Mutex
+	leases map[string]*activeLease
 }
 
-func NewLeaseOrchestrator(store KeyValueStore, clientID string, ttl time.Duration) *LeaseOrchestrator {
-	return &LeaseOrchestrator{
+type activeLease struct {
+	token int64
+
+	cancel context.CancelFunc
+
+	stopOnce sync.Once
+	stopCh   chan struct{}
+	doneCh   chan struct{}
+}
+
+func NewLeaseManager(store KeyValueStore, clientID string, ttl time.Duration) *LeaseManager {
+	return &LeaseManager{
 		store:    store,
 		clientID: clientID,
 		ttl:      ttl,
+		leases:   make(map[string]*activeLease),
 	}
 }
 
-func (lo *LeaseOrchestrator) AcquireAndHold(ctx context.Context, resourceID string) (*Lease, error) {
+// AcquireAndHold attempts to acquire the resource lease and, on success, returns:
+// - a worker context that will be canceled if the lease is lost/revoked
+// - a fencing token (storage revision) that must be attached to all subsequent I/O
+func (lm *LeaseManager) AcquireAndHold(ctx context.Context, resourceID string) (context.Context, int64, error) {
+	// Backoff used only for transient store errors on acquisition. Kept outside the
+	// loop so it actually grows across consecutive failures.
+	acquireBackoff := 50 * time.Millisecond
+	maxAcquireBackoff := 500 * time.Millisecond
+
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, 0, ctx.Err()
 		default:
 		}
 
-		// 1. Try to Acquire (Linearizable). Only if this fails do we
-		// register a watcher, so we don't leak watch channels when we
-		// successfully obtain the lease.
-		rev, success, err := lo.store.PutIfAbsent(ctx, resourceID, []byte(lo.clientID), lo.ttl)
+		// 1) Attempt acquire.
+		rev, success, err := lm.store.PutIfAbsent(ctx, resourceID, []byte(lm.clientID), lm.ttl)
 		if err != nil {
-			// Backoff on transient errors in a context-aware way to avoid
-			// hammering the store during outages, while still respecting
-			// the caller's deadline.
-			backoff := 50 * time.Millisecond
-			maxBackoff := 500 * time.Millisecond
+			// Backoff on transient errors in a context-aware way to avoid hammering
+			// the store during outages, while still respecting the caller's deadline.
+			timer := time.NewTimer(acquireBackoff)
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(backoff):
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return nil, 0, ctx.Err()
+			case <-timer.C:
 			}
-			if backoff < maxBackoff {
-				backoff *= 2
-				if backoff > maxBackoff {
-					backoff = maxBackoff
+			if acquireBackoff < maxAcquireBackoff {
+				acquireBackoff *= 2
+				if acquireBackoff > maxAcquireBackoff {
+					acquireBackoff = maxAcquireBackoff
 				}
 			}
 			continue
 		}
 
+		// Store is reachable again; reset backoff.
+		acquireBackoff = 50 * time.Millisecond
+
 		if success {
-			// Acquired -> Setup Heartbeat
-			workerCtx, workerCancel := context.WithCancel(ctx)
-			stopHeartbeat := make(chan struct{})
-			var wg sync.WaitGroup
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-				lo.heartbeatLoop(workerCtx, workerCancel, resourceID, rev, stopHeartbeat)
-			}()
-
-			return &Lease{
-				Token:   rev,
-				Context: workerCtx,
-				release: func() error {
-					close(stopHeartbeat) // Signal stop
-					wg.Wait()            // Wait for shutdown (Graceful Handover)
-
-					// Atomic Release
-					delCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					defer cancel()
-
-					ok, err := lo.store.CompareAndDelete(delCtx, resourceID, rev)
-					if err != nil { return err }
-					if !ok { return errors.New("lease lost during release") }
-					return nil
-				},
-			}, nil
+			return lm.startLease(ctx, resourceID, rev)
 		}
 
-		// 3. Lock Busy. Register a watcher and block until the key
-		// changes, or our context is canceled. This avoids polling
-		// while ensuring we don't leave unused watchers behind when
-		// acquisition succeeds.
-		watchCh := lo.store.Watch(ctx, resourceID)
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-watchCh:
-			// Event received. Add random jitter to avoid thundering herd
-			// when multiple watchers are notified simultaneously.
-			// Range: 5ms - 50ms (enough to spread out requests)
-			jitter := time.Duration(rand.Int63n(45)+5) * time.Millisecond
+		// 2) Busy: register a watcher, then immediately re-check acquisition to avoid
+		// the lost-notification race (release between failed acquire and watch).
+		watchCtx, watchCancel := context.WithCancel(ctx)
+		watchCh := lm.store.Watch(watchCtx, resourceID)
+
+		rev2, success2, err2 := lm.store.PutIfAbsent(ctx, resourceID, []byte(lm.clientID), lm.ttl)
+		if err2 != nil {
+			watchCancel()
+			// Treat as transient acquire error.
+			timer := time.NewTimer(acquireBackoff)
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(jitter):
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return nil, 0, ctx.Err()
+			case <-timer.C:
+			}
+			if acquireBackoff < maxAcquireBackoff {
+				acquireBackoff *= 2
+				if acquireBackoff > maxAcquireBackoff {
+					acquireBackoff = maxAcquireBackoff
+				}
+			}
+			continue
+		}
+		// Store is reachable again; reset backoff.
+		acquireBackoff = 50 * time.Millisecond
+
+		if success2 {
+			watchCancel()
+			return lm.startLease(ctx, resourceID, rev2)
+		}
+
+		// 3) Wait for a change event, respecting caller cancellation.
+		select {
+		case <-ctx.Done():
+			watchCancel()
+			return nil, 0, ctx.Err()
+		case <-watchCh:
+			watchCancel()
+			// Event received. Add random jitter to avoid thundering herd when
+			// multiple watchers are notified simultaneously.
+			jitter := time.Duration(rand.Int63n(45)+5) * time.Millisecond
+			timer := time.NewTimer(jitter)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return nil, 0, ctx.Err()
+			case <-timer.C:
 			}
 			continue
 		}
 	}
 }
 
-func (lo *LeaseOrchestrator) heartbeatLoop(ctx context.Context, cancelWorker context.CancelFunc, key string, rev int64, stop <-chan struct{}) {
-	defer cancelWorker()
+// Release stops heartbeating for (resourceID, token) and attempts to delete the
+// key using a CAS-delete (CompareAndSwap with nil).
+func (lm *LeaseManager) Release(ctx context.Context, resourceID string, token int64) error {
+	lease := lm.getLease(resourceID)
+	if lease == nil || lease.token != token {
+		return errors.New("lease not held")
+	}
+
+	lease.stopOnce.Do(func() { close(lease.stopCh) })
+	lease.cancel()
+
+	select {
+	case <-lease.doneCh:
+	case <-ctx.Done():
+		lm.clearLease(resourceID, token)
+		return ctx.Err()
+	}
+
+	delCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	ok, err := lm.store.CompareAndSwap(delCtx, resourceID, token, nil)
+	// Ensure we never leak local state even if delete fails.
+	lm.clearLease(resourceID, token)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("lease lost during release")
+	}
+	return nil
+}
+
+func (lm *LeaseManager) startLease(parent context.Context, resourceID string, token int64) (context.Context, int64, error) {
+	workerCtx, workerCancel := context.WithCancel(parent)
+	lease := &activeLease{
+		token:  token,
+		cancel: workerCancel,
+		stopCh: make(chan struct{}),
+		doneCh: make(chan struct{}),
+	}
+
+	lm.mu.Lock()
+	lm.leases[resourceID] = lease
+	lm.mu.Unlock()
+
+	go lm.heartbeatLoop(workerCtx, resourceID, token, lease)
+	return workerCtx, token, nil
+}
+
+func (lm *LeaseManager) getLease(resourceID string) *activeLease {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	return lm.leases[resourceID]
+}
+
+func (lm *LeaseManager) clearLease(resourceID string, token int64) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	if cur, ok := lm.leases[resourceID]; ok {
+		if cur.token == token {
+			delete(lm.leases, resourceID)
+		}
+	}
+}
+
+func (lm *LeaseManager) heartbeatLoop(ctx context.Context, key string, token int64, lease *activeLease) {
+	defer close(lease.doneCh)
+	defer lease.cancel()
+	defer lm.clearLease(key, token)
 
 	// Renew at 1/3 TTL
-	renewInterval := lo.ttl / 3
+	renewInterval := lm.ttl / 3
+	if renewInterval <= 0 {
+		renewInterval = lm.ttl
+	}
 	// Fail-fast at 50% TTL
-	safetyWindow := lo.ttl / 2
+	safetyWindow := lm.ttl / 2
+	if safetyWindow <= 0 {
+		safetyWindow = lm.ttl
+	}
 
 	// lastSuccess tracks the last time we *successfully* renewed or
 	// acquired the lease. We start at acquisition time so the first
@@ -158,15 +272,24 @@ func (lo *LeaseOrchestrator) heartbeatLoop(ctx context.Context, cancelWorker con
 			}
 
 			select {
-			case <-stop:
+			case <-lease.stopCh:
 				return false
 			case <-ctx.Done():
 				return false
 			default:
 			}
 
-			reqCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-			success, err := lo.store.CompareAndSwap(reqCtx, key, rev, []byte(lo.clientID))
+			// Ensure we never block beyond the remaining safety budget.
+			remaining := safetyWindow - time.Since(lastSuccess)
+			if remaining <= 0 {
+				return false
+			}
+			reqTimeout := 200 * time.Millisecond
+			if remaining < reqTimeout {
+				reqTimeout = remaining
+			}
+			reqCtx, cancel := context.WithTimeout(ctx, reqTimeout)
+			success, err := lm.store.CompareAndSwap(reqCtx, key, token, []byte(lm.clientID))
 			cancel()
 
 			if err == nil {
@@ -180,7 +303,7 @@ func (lo *LeaseOrchestrator) heartbeatLoop(ctx context.Context, cancelWorker con
 
 			// transient error: back off (capped) but stay within safety window
 			select {
-			case <-stop:
+			case <-lease.stopCh:
 				return false
 			case <-ctx.Done():
 				return false
@@ -206,7 +329,7 @@ func (lo *LeaseOrchestrator) heartbeatLoop(ctx context.Context, cancelWorker con
 
 	for {
 		select {
-		case <-stop:
+		case <-lease.stopCh:
 			return
 		case <-ctx.Done():
 			return
