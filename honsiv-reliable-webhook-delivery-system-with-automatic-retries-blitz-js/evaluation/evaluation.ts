@@ -154,8 +154,13 @@ function main() {
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, "report.json");
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
+
+    // Also save at the root of evaluation directory for the automated system
+    const rootOutputPath = path.join(ROOT, "evaluation", "report.json");
+    fs.writeFileSync(rootOutputPath, JSON.stringify(report, null, 2));
     
     console.log(`\n✅ Report saved to: ${outputPath}`);
+    console.log(`✅ Root report saved to: ${rootOutputPath}`);
     console.log(`Success: ${report.success ? "✅ YES" : "❌ NO"}`);
     process.exit(report.success ? 0 : 1);
   } catch (error) {
