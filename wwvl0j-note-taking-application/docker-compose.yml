@@ -42,6 +42,7 @@ services:
       - ./tests:/app/tests
       - ./evaluation:/app/evaluation
       - ./run-frontend-tests.sh:/app/run-frontend-tests.sh
+      - ./pytest.ini:/app/pytest.ini
     working_dir: /app
     environment:
       DATABASE_URL: "sqlite+aiosqlite:///:memory:"
