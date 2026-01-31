@@ -1,1 +1,2 @@
-# Add your Python dependencies here
+pytest>=7.0.0
+pydantic>=2.0.0
