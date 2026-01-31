@@ -1,10 +1,17 @@
 version: '3.8'
 
 services:
+  # Build service: Build and push the Docker image
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hailu3548/jr2pzv-app
+    command: echo "Image built successfully"
+
   # Command 1: Run the Ground Truth solution (Go tests)
   solution:
     image: hailu3548/jr2pzv-app
-    build: .
     working_dir: /app/repository_after
     command: go test -v -race ./...
     volumes:
@@ -13,7 +20,6 @@ services:
   # Command 2: Execute tests and generate evaluation report
   evaluation:
     image: hailu3548/jr2pzv-app
-    build: .
     command: python evaluation/evaluation.py
     volumes:
       - .:/app

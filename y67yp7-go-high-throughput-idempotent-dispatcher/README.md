@@ -39,7 +39,9 @@
 
 ## Quick start
 - Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
+- With Docker Compose: `docker-compose up solution evaluation`
+- With Docker directly: See `docker-commands.md` for commands
+- Uses pre-built image `hailu3548/jr2pzv-app` from Docker Hub (no build needed)
 - Add dependencies to `requirements.txt`
 
 ## Notes
