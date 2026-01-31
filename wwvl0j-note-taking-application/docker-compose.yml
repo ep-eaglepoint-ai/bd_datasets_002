@@ -46,7 +46,7 @@ services:
     working_dir: /app
     environment:
       DATABASE_URL: "sqlite+aiosqlite:///:memory:"
-    command: sh -c "chmod +x /app/run-frontend-tests.sh && /app/run-frontend-tests.sh && echo '\n=== Running Backend Tests ===' && pytest -vv tests"
+    command: sh -c "echo '=== Running Frontend Tests ===' && cd /app/repository_after/frontend && npm install && rm -rf node_modules/.vite && npx vitest run && echo '\n=== Running Backend Tests ===' && cd /app && pytest -vv tests"
 
   evaluation:
     build:

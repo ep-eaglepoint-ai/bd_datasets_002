@@ -18,7 +18,7 @@ class Notebook(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     owner = relationship("User", back_populates="notebooks")
     notes = relationship("Note", back_populates="notebook", cascade="all, delete-orphan")
@@ -30,7 +30,7 @@ class Note(Base):
     title = Column(String, index=True, default="Untitled")
     content = Column(Text, default="")
     notebook_id = Column(Integer, ForeignKey("notebooks.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     notebook = relationship("Notebook", back_populates="notes")
