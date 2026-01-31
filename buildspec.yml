@@ -1,9 +1,8 @@
 version: 0.2
-
 phases:
   build:
     commands:
-      - "echo 'Starting build phase...'"
-      - "cd 52y6d3-robotic-assembly-step-coordinator"
-      - "docker compose up --build --abort-on-container-exit"
-      - "docker compose run --rm app go run evaluation/evaluation.go"
+      - echo "Building project..."
+      - cd 52y6d3-robotic-assembly-step-coordinator
+      - docker compose up --build --abort-on-container-exit
+      - docker compose run --rm app go run evaluation/evaluation.go
