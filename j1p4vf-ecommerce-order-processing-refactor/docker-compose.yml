@@ -12,3 +12,10 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+
+  evaluate:
+    build: .
+    command: node evaluation/evaluation.js
+    volumes:
+      - .:/app
+      - /app/node_modules
