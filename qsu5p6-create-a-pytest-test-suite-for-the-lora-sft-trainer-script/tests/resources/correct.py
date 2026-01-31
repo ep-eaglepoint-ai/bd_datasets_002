@@ -8,12 +8,12 @@ def read_jsonl(path):
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if line: # Requirement 1: Ignore empty lines
+            if line: # Ignore empty lines
                 records.append(json.loads(line))
     return records
 
 def build_prompt(instruction, inp, response=None):
-    # Requirement 2: Full formatting
+    # Full formatting
     sys = "You are a precise mechanical engineering design assistant."
     prompt = f"<s>[SYSTEM]\n{sys}\n[/SYSTEM]\n[INSTRUCTION]\n{instruction.strip()}\n[/INSTRUCTION]"
     if inp and inp.strip():
@@ -23,7 +23,7 @@ def build_prompt(instruction, inp, response=None):
     return prompt
 
 def to_hf_dataset(jsonl_path):
-    # Requirement 3: text column
+    # text column
     rows = [{"text": build_prompt(ex.get("instruction", ""), ex.get("input", ""), ex.get("output", ""))} 
             for ex in read_jsonl(jsonl_path)]
     return Dataset.from_list(rows)
@@ -33,7 +33,7 @@ class DataCollatorForCausal:
     tokenizer: any
     max_length: int = 2048
     def __call__(self, features):
-        # Requirement 4 & 5: Exact Copy
+        # Exact Copy
         ids = torch.tensor([[10, 20, 30]])
         return {
             "input_ids": ids,
@@ -49,4 +49,4 @@ def main():
     parser.add_argument("--output", required=True)
     # Allow other args from the main script to pass silently
     args, _ = parser.parse_known_args()
-    os.makedirs(args.output, exist_ok=True) # Requirement 8
+    os.makedirs(args.output, exist_ok=True) 
