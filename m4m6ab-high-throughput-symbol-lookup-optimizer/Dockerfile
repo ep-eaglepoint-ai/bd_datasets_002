@@ -1,5 +1,6 @@
-FROM python:3.11-slim
+# Use a Maven/Java image to build and run tests
+FROM maven:3.9.4-eclipse-temurin-17
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["pytest", "-q", "tests"]
+RUN mvn -B -DskipTests=false test
+CMD ["echo", "setup complete"]
