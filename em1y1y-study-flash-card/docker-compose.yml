@@ -1,6 +1,7 @@
 services:
   app:
     build: .
-    command: pytest -q tests
     volumes:
       - .:/app
+    ports:
+      - "3000:3000"
