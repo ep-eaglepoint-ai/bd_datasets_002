@@ -126,6 +126,7 @@ async function runVerificationTests(
         // 1. Setup Database
         console.log('Setting up database...');
         execSync('npx prisma db push', { cwd: appDir, stdio: 'inherit' });
+        execSync('npx prisma db seed', { cwd: appDir, stdio: 'inherit' });
 
         // 2. Start App
         console.log('Starting app in background...');
@@ -201,7 +202,7 @@ async function runVerificationTests(
                 encoding: 'utf8',
                 stdio: ['pipe', 'pipe', 'pipe'],
                 timeout: 60000,
-                env: { ...process.env, TEST_URL: 'http://localhost:3000' }
+                env: { ...process.env, TEST_URL: 'http://localhost:4000' }
             });
             stdout += '\n\nVerification Output:\n' + result;
         } catch (error: any) {

@@ -1,5 +1,6 @@
 import { spawn, execSync, ChildProcess } from 'child_process';
 import path from 'path';
+import fs from 'fs';
 import http from 'http';
 import { fileURLToPath } from 'url';
 
@@ -37,11 +38,13 @@ async function main() {
     try {
         console.log('Setting up database...');
         execSync('npx prisma db push', { cwd: appDir, stdio: 'inherit' });
+        execSync('npx prisma db seed', { cwd: appDir, stdio: 'inherit' });
 
         console.log('Starting app in background...');
+        const logFile = fs.openSync(path.join(rootDir, 'app.log'), 'w');
         appProcess = spawn('npm', ['run', 'dev', '--', '-p', '4000'], {
             cwd: appDir,
-            stdio: 'ignore',
+            stdio: ['ignore', logFile, logFile],
             shell: true as any,
             env: {
                 ...process.env,
