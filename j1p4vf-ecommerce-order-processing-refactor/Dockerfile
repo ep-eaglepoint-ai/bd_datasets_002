@@ -1,5 +1,7 @@
 FROM node:18-slim
 WORKDIR /app
-COPY . /app
+COPY package*.json ./
 RUN npm install
-CMD ["echo", "Dockerfile setup complete."]
+COPY . .
+ENTRYPOINT ["npx"]
+CMD ["jest", "--coverage"]

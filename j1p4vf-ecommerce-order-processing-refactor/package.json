@@ -1,15 +1,42 @@
 {
   "name": "j1p4vf-ecommerce-order-processing-refactor",
   "version": "1.0.0",
-  "description": "**Category:** sft",
-  "main": "index.js",
+  "description": "E-commerce order processing refactoring - Monolithic to Service-Oriented Architecture",
+  "main": "repository_after/OrderProcessor.js",
   "directories": {
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --coverage",
+    "test:before": "jest tests/legacy.test.js --testPathPattern=legacy",
+    "test:after": "jest tests/refactored.test.js --testPathPattern=refactored",
+    "test:isolation": "jest tests/isolation.test.js --testPathPattern=isolation",
+    "test:tax": "jest tests/tax.test.js --testPathPattern=tax",
+    "test:all": "jest tests/ --coverage",
+    "test:report": "jest tests/ --coverage --json --outputFile=test-results.json"
   },
-  "keywords": [],
+  "keywords": [
+    "order-processing",
+    "refactoring",
+    "pipeline",
+    "chain-of-responsibility",
+    "microservices"
+  ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "verbose": true,
+    "collectCoverageFrom": [
+      "services/**/*.js",
+      "repository_after/**/*.js"
+    ],
+    "coverageDirectory": "coverage",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  }
 }
