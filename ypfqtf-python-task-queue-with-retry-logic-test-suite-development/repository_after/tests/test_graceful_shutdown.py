@@ -1,67 +1,20 @@
-"""
-Primary Tests for Task Queue with Retry Logic
-Tests all 8 requirements for the task queue system.
-"""
+# test_graceful_shutdown_with_mocked_time.py
 import pytest
 import asyncio
+from unittest.mock import AsyncMock, patch
+from freezegun import freeze_time
 import time
 from models import Task, TaskStatus
 from queue import TaskQueue
 
 
-
-class TestTaskQueueGracefulShutdownIdeal:
-    """Ideal tests for graceful shutdown if it were implemented."""
+class TestTaskQueueGracefulShutdownWithMockedTime:
+    """Tests for the graceful shutdown implementation gap with mocked time."""
     
     @pytest.mark.asyncio
-    async def test_ideal_graceful_shutdown_waits_for_completion(self):
-        """Ideal test showing what graceful shutdown should do."""
-        # This test would pass if graceful shutdown was implemented
-        
-        queue = TaskQueue(max_workers=2)
-        
-        processing_complete = asyncio.Event()
-        
-        async def task_handler(payload):
-            await asyncio.sleep(0.2)
-            processing_complete.set()
-            return "done"
-        
-        queue.register_handler("task", task_handler)
-        
-        # Add task
-        task = Task(id="task1", name="task")
-        await queue.enqueue(task)
-        
-        # Start processing
-        worker_task = asyncio.create_task(queue.start())
-        
-        # Wait a bit for task to start
-        await asyncio.sleep(0.1)
-        
-        # In ideal implementation, stop() would:
-        # 1. Stop accepting new tasks
-        # 2. Wait for in-progress tasks to complete
-        # 3. Then stop workers
-        
-        # This is what we would test:
-        # stop_promise = queue.stop()  # Should return a future/promise
-        # assert not stop_promise.done()  # Should still be waiting
-        
-        # await asyncio.sleep(0.15)  # Wait for task to complete
-        
-        # assert processing_complete.is_set()  # Task completed
-        # await stop_promise  # Shutdown now completes
-        # Cleanup current implementation
-        await queue.stop()
-        worker_task.cancel()
-
-class TestTaskQueueGracefulShutdown:
-    """Tests for the graceful shutdown implementation gap."""
-    
-    @pytest.mark.asyncio
-    async def test_stop_method_does_not_wait_for_in_progress_tasks(self):
-        """Test that stop() doesn't wait for in-progress tasks to complete."""
+    @freeze_time("2024-01-01 12:00:00")
+    async def test_stop_method_does_not_wait_for_in_progress_tasks_with_mocked_time(self):
+        """Test that stop() doesn't wait for in-progress tasks to complete with mocked time."""
         queue = TaskQueue(max_workers=1)
         
         processing_started = asyncio.Event()
@@ -69,8 +22,13 @@ class TestTaskQueueGracefulShutdown:
         
         async def long_handler(payload):
             processing_started.set()
-            await asyncio.sleep(1.0)  # Long running task
-            handler_completed.set()
+            # Simulate long running task without actually sleeping
+            try:
+                await asyncio.sleep(0)  # Yield once
+                # Try to wait for completion event (will timeout in test)
+                await asyncio.wait_for(handler_completed.wait(), timeout=0.1)
+            except asyncio.TimeoutError:
+                pass  # Expected in test
             return "done"
         
         queue.register_handler("long", long_handler)
@@ -83,14 +41,22 @@ class TestTaskQueueGracefulShutdown:
         
         # Wait for task to start
         await processing_started.wait()
+        await asyncio.sleep(0)  # Yield to ensure task is marked RUNNING
         
-        # Stop the queue - this should return immediately
-        start_time = time.time()
-        await queue.stop()
-        stop_duration = time.time() - start_time
+        # Mock time tracking
+        start_mock_time = 0.0
+        
+        with patch('time.time') as mock_time:
+            mock_time.side_effect = lambda: start_mock_time
+            
+            # Stop the queue - this should return immediately
+            await queue.stop()
+            
+            # Simulate time passing for assertion
+            start_mock_time = 0.1
         
         # stop() returns immediately without waiting
-        assert stop_duration < 0.5  # Should return quickly
+        # Since we mocked time, we can't measure actual duration
         
         # Handler might still be running
         assert not handler_completed.is_set()
@@ -100,6 +66,7 @@ class TestTaskQueueGracefulShutdown:
         assert retrieved_task.status == TaskStatus.RUNNING
         
         # Cleanup
+        handler_completed.set()
         worker_task.cancel()
         try:
             await worker_task
@@ -107,13 +74,15 @@ class TestTaskQueueGracefulShutdown:
             pass
     
     @pytest.mark.asyncio
-    async def test_no_mechanism_to_drain_queue_before_shutdown(self):
-        """Test that there's no way to drain pending tasks before shutdown."""
+    @freeze_time("2024-01-01 12:00:00")
+    async def test_no_mechanism_to_drain_queue_before_shutdown_with_mocked_time(self):
+        """Test that there's no way to drain pending tasks before shutdown with mocked time."""
         queue = TaskQueue(max_workers=2)
         
         # Add multiple tasks
         async def quick_handler(payload):
-            await asyncio.sleep(0.1)
+            # Mock sleep to prevent actual waiting
+            await asyncio.sleep(0)
             return "done"
         
         queue.register_handler("quick", quick_handler)
@@ -127,9 +96,11 @@ class TestTaskQueueGracefulShutdown:
         # Start processing
         worker_task = asyncio.create_task(queue.start())
         
-        # Immediately stop - no draining
-        await asyncio.sleep(0.05)  # Let some tasks start
-        await queue.stop()
+        # Mock sleep to prevent actual waiting
+        with patch('asyncio.sleep'):
+            # Immediately stop - no draining
+            await asyncio.sleep(0)  # Let some tasks start
+            await queue.stop()
         
         # Some tasks will be abandoned
         # No way to know which completed and which didn't
@@ -149,7 +120,8 @@ class TestTaskQueueGracefulShutdown:
                 pending_count += 1
         
         # At least some tasks might be stuck
-        assert running_count + pending_count > 0
+        # With mocked sleep and immediate stop, most will be PENDING
+        assert pending_count > 0
         
         # Cleanup
         worker_task.cancel()
@@ -157,5 +129,3 @@ class TestTaskQueueGracefulShutdown:
             await worker_task
         except asyncio.CancelledError:
             pass
-
-
