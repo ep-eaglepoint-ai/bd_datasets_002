@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "Starting build and tests for y67yp7..."
+      - docker build -t hailu3548/jr2pzv-app .
+      - docker run --rm hailu3548/jr2pzv-app sh -c "cd repository_after && go test -v -race ./..."
+  post_build:
+    commands:
+      - echo "Starting evaluation..."
+      - docker run --rm -v $CODEBUILD_SRC_DIR/evaluation:/app/evaluation hailu3548/jr2pzv-app python evaluation/evaluation.py
+
+artifacts:
+  files:
+    - "evaluation/report.json"
