@@ -12,4 +12,4 @@ node_modules/
 
 # Evaluation
 evaluation/*/
-evaluation/evaluation.ts
+!evaluation/evaluation.ts
