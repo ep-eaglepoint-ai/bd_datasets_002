@@ -1,22 +1,16 @@
 version: 0.2
 
 phases:
-    install:
-        commands:
-            - "echo 'Phase: install'"
-    pre_build:
-        commands:
-            - "echo 'Phase: pre_build'"
-    build:
-        commands:
-            - "echo 'Phase: build'"
-            - "cd y67yp7-go-high-throughput-idempotent-dispatcher && docker build -t hailu3548/jr2pzv-app ."
-            - "docker run --rm hailu3548/jr2pzv-app sh -c 'cd repository_after && go test -v -race ./...'"
-    post_build:
-        commands:
-            - "echo 'Phase: post_build'"
-            - "cd y67yp7-go-high-throughput-idempotent-dispatcher && docker run --rm -v $CODEBUILD_SRC_DIR/y67yp7-go-high-throughput-idempotent-dispatcher/evaluation:/app/evaluation hailu3548/jr2pzv-app python evaluation/evaluation.py"
+  build:
+    commands:
+      - cd y67yp7-go-high-throughput-idempotent-dispatcher
+      - docker build -t hailu3548/jr2pzv-app .
+      - docker run --rm hailu3548/jr2pzv-app sh -c "cd repository_after && go test -v -race ./..."
+  post_build:
+    commands:
+      - cd y67yp7-go-high-throughput-idempotent-dispatcher
+      - docker run --rm -v $CODEBUILD_SRC_DIR/y67yp7-go-high-throughput-idempotent-dispatcher/evaluation:/app/evaluation hailu3548/jr2pzv-app python evaluation/evaluation.py
 
 artifacts:
-    files:
-        - "y67yp7-go-high-throughput-idempotent-dispatcher/evaluation/report.json"
+  files:
+    - y67yp7-go-high-throughput-idempotent-dispatcher/evaluation/report.json
