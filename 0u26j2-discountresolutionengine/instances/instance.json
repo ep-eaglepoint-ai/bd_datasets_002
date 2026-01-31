@@ -5,8 +5,9 @@
     "test_patch": "repository_after/",
     "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/0u26j2-discountresolutionengine",
     "environment_setup": "Dockerfile",
-    "FAIL_TO_PASS": [
-        "TestDAG_AddRule",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": [
+         "TestDAG_AddRule",
         "TestDAG_DetectCycle_NoCycle",
         "TestDAG_DetectCycle_WithCycle",
         "TestDAG_TopologicalSort",
@@ -37,6 +38,5 @@
         "TestEngine_Evaluate_Idempotence",
         "TestEngine_DeepNesting_StackSafety_1000Chain",
         "TestEngine_Performance_SLA_100Items_200Rules"
-    ],
-    "PASS_TO_PASS": []
+    ]
 }

@@ -1,7 +1,3 @@
-module discountengine-tests
+module 0u26j2-discountresolutionengine
 
 go 1.21
-
-require discountengine v0.0.0
-
-replace discountengine => ./repository_after

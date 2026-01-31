@@ -1,7 +1,7 @@
 package discountengine_test
 
 import (
-	de "discountengine"
+	de "0u26j2-discountresolutionengine/repository_after"
 	"fmt"
 	"sort"
 	"sync"
