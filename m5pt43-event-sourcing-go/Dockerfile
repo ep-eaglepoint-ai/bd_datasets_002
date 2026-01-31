@@ -10,6 +10,9 @@ COPY repository_after/ ./
 
 COPY evaluation/Evaluation.go ./evaluation/
 
+# Ensure go.sum is complete (all dependencies are public)
+RUN go mod tidy
+
 # Build the application
 RUN mkdir -p /app/bin
 RUN CGO_ENABLED=1 go build -o /app/bin/eventstore ./cmd/eventstore

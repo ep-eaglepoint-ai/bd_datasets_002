@@ -1,0 +1,19 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Preparing build environment..."
+      # Add your Docker login commands here if needed
+      # - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - cd m5pt43-event-sourcing-go
+      - docker build -t eventstore:latest .
+      - echo "Build completed successfully"
+
+  post_build:
+    commands:
+      - echo "Build phase complete"
