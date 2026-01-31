@@ -1,0 +1,100 @@
+{
+  "run_id": "b1f6bbba",
+  "started_at": "2026-01-31T18:33:28.002Z",
+  "finished_at": "2026-01-31T18:33:40.309Z",
+  "duration_seconds": 12.307,
+  "success": true,
+  "error": null,
+  "environment": {
+    "node_version": "v22.20.0",
+    "platform": "Windows_NT-10.0.19045-x64",
+    "os": "Windows_NT",
+    "os_release": "10.0.19045",
+    "architecture": "x64",
+    "hostname": "DESKTOP-Q5QBCUC",
+    "git_commit": "83eb0d84",
+    "git_branch": "6fioqu-recursive-tree-view-with-tri-state-logic"
+  },
+  "results": {
+    "before": {
+      "success": false,
+      "exit_code": -1,
+      "tests": [],
+      "summary": {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "note": "Skipped"
+      },
+      "stdout": "",
+      "stderr": ""
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "RecursiveTree.vue > renders the tree structure correctly",
+          "name": "renders the tree structure correctly",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "RecursiveTree.vue > checking a parent selects all descendants",
+          "name": "checking a parent selects all descendants",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "RecursiveTree.vue > unchecking a parent deselects all descendants",
+          "name": "unchecking a parent deselects all descendants",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "RecursiveTree.vue > checking a child updates parent to indeterminate if not all satisfied",
+          "name": "checking a child updates parent to indeterminate if not all satisfied",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "RecursiveTree.vue > checking all children makes parent checked",
+          "name": "checking all children makes parent checked",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "RecursiveTree.vue > correctly calculates indeterminate state for deep nesting",
+          "name": "correctly calculates indeterminate state for deep nesting",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "RecursiveTree.vue > sets the DOM indeterminate property correctly",
+          "name": "sets the DOM indeterminate property correctly",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "RecursiveTree.vue > handles empty folders being selectable without affecting parent if not checked",
+          "name": "handles empty folders being selectable without affecting parent if not checked",
+          "outcome": "passed"
+        }
+      ],
+      "summary": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "\"updated\":0},\"startTime\":1769884412738,\"success\":true,\"testResults\":[{\"assertionResults\":[{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":104,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue renders the tree structure correctly\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":5,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"renders the tree structure correctly\"},{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":32,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue checking a parent selects all descendants\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":6,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"checking a parent selects all descendants\"},{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":9,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue unchecking a parent deselects all descendants\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":2,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"unchecking a parent deselects all descendants\"},{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":11,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue checking a child updates parent to indeterminate if not all satisfied\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":5,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"checking a child updates parent to indeterminate if not all satisfied\"},{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":11,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue checking all children makes parent checked\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":2,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"checking all children makes parent checked\"},{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":21,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue correctly calculates indeterminate state for deep nesting\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":6,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"correctly calculates indeterminate state for deep nesting\"},{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":7,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue sets the DOM indeterminate property correctly\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":1,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"sets the DOM indeterminate property correctly\"},{\"ancestorTitles\":[\"RecursiveTree.vue\"],\"duration\":6,\"failureDetails\":[],\"failureMessages\":[],\"fullName\":\"RecursiveTree.vue handles empty folders being selectable without affecting parent if not checked\",\"invocations\":1,\"location\":null,\"numPassingAsserts\":2,\"retryReasons\":[],\"status\":\"passed\",\"title\":\"handles empty folders being selectable without affecting parent if not checked\"}],\"endTime\":1769884420166,\"message\":\"\",\"name\":\"C:\\\\Users\\\\dell\\\\Desktop\\\\eaglepoint-ai\\\\002\\\\6fioqu-recursive-tree-view-with-tri-state-logic\\\\tests\\\\RecursiveTree.spec.js\",\"startTime\":1769884416145,\"status\":\"passed\",\"summary\":\"\"}],\"wasInterrupted\":false}\n",
+      "stderr": "PASS tests/RecursiveTree.spec.js\n  RecursiveTree.vue\n    √ renders the tree structure correctly (104 ms)\n    √ checking a parent selects all descendants (32 ms)\n    √ unchecking a parent deselects all descendants (9 ms)\n    √ checking a child updates parent to indeterminate if not all satisfied (11 ms)\n    √ checking all children makes parent checked (11 ms)\n    √ correctly calculates indeterminate state for deep nesting (21 ms)\n    √ sets the DOM indeterminate property correctly (7 ms)\n    √ handles empty folders being selectable without affecting parent if not checked (6 ms)\n\nTest Suites: 1 passed, 1 total\nTests:       8 passed, 8 total\nSnapshots:   0 total\nTime:        7.449 s\nRan all test suites matching /tests/i.\nForce exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?\n"
+    },
+    "comparison": {
+      "before_tests_passed": false,
+      "after_tests_passed": true,
+      "before_total": 0,
+      "before_passed": 0,
+      "before_failed": 0,
+      "after_total": 8,
+      "after_passed": 8,
+      "after_failed": 0
+    }
+  }
+}
