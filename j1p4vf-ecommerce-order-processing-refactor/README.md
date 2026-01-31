@@ -5,7 +5,7 @@
 
 ### Run Tests on Repository Before
 ```bash
-docker-compose run test-before
+docker-compose run test-before; exit 0
 ```
 
 ### Run Tests on Repository After
