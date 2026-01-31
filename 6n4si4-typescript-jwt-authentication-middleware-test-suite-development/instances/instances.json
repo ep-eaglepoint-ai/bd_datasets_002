@@ -1,0 +1,32 @@
+{
+    "instance_id": "6N4SI4",
+    "problem_statement": "The authentication middleware is a critical security component used across 50+ API endpoints serving 100,000 daily active users. Recent security audits identified gaps in test coverage, particularly around timing attacks, token replay vulnerabilities, and algorithm confusion exploits. \n\nThe existing test suite only covers basic valid/invalid token scenarios but lacks coverage for edge cases like clock skew tolerance, concurrent refresh token usage, and role-based access control boundaries. Without comprehensive tests, security regressions could go undetected during refactoring. The middleware implementation is in token.ts and middleware.ts, with type definitions in types.ts.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/6n4si4-typescript-jwt-authentication-middleware-test-suite-development",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "tests/meta.test.ts::Meta Test: User Test Suite should run the repository_after tests successfully",
+        "repository_after/tests/middleware.test.ts::should ACCEPT tokens expired by up to 30 seconds (clock skew)",
+        "repository_after/tests/middleware.test.ts::should return 401 for token with future not-before (nbf) claim",
+        "repository_after/tests/middleware.test.ts::should handle concurrent refresh attempts (only one succeeds)"
+    ],
+    "PASS_TO_PASS": [
+        "repository_after/tests/middleware.test.ts::should call next() for valid access token",
+        "repository_after/tests/middleware.test.ts::should return 401 for missing header",
+        "repository_after/tests/middleware.test.ts::should return 401 for invalid format",
+        "repository_after/tests/middleware.test.ts::should return 401 for invalid signature",
+        "repository_after/tests/middleware.test.ts::should return 401 for expired token (considering clock tolerance)",
+        "repository_after/tests/middleware.test.ts::should return 401 for malformed token",
+        "repository_after/tests/middleware.test.ts::should return 401 for revoked token",
+        "repository_after/tests/middleware.test.ts::should reject algorithm \"none\" attack",
+        "repository_after/tests/middleware.test.ts::should verify and decode valid refresh token",
+        "repository_after/tests/middleware.test.ts::should rotate refresh tokens correctly",
+        "repository_after/tests/middleware.test.ts::should prevent reuse of old refresh token (Replay Attack)",
+        "repository_after/tests/middleware.test.ts::should fail if refresh token does not have jti",
+        "repository_after/tests/middleware.test.ts::should allow access if user has required role",
+        "repository_after/tests/middleware.test.ts::should deny access if user does not have required role",
+        "repository_after/tests/middleware.test.ts::should return 401 if user is not authenticated (req.user missing)",
+        "repository_after/tests/middleware.test.ts::should allow access if user has one of multiple allowed roles"
+    ]
+}

@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "target": "es2016",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "types": [
+            "jest",
+            "node"
+        ]
+    },
+    "include": [
+        "repository_after/**/*",
+        "repository_before/types.ts",
+        "tests/**/*",
+        "repository_before/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
