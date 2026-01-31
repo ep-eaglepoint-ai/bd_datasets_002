@@ -20,8 +20,8 @@ def run_tests(repo_name):
 
     output = result.stdout + result.stderr
 
-    # Parse individual test results
-    test_results = {}
+    # Parse individual test results as list of {name, passed}
+    test_results = []
     for line in output.split('\n'):
         if '::' in line and ('PASSED' in line or 'FAILED' in line):
             # Extract test name and status
@@ -29,7 +29,12 @@ def run_tests(repo_name):
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                test_results[test_name] = status
+                # Convert test_name to readable format
+                readable_name = test_name.replace('test_', '').replace('_', ' ').title()
+                test_results.append({
+                    "name": readable_name,
+                    "passed": status == "PASSED"
+                })
 
     # Parse the summary line
     passed = 0
@@ -47,7 +52,7 @@ def run_tests(repo_name):
     return passed, failed, total, test_results
 
 
-def save_report(before_results, after_results, success):
+def save_report(after_results):
     """Save timestamped report.json to evaluation folder."""
     now = datetime.now()
 
@@ -60,24 +65,13 @@ def save_report(before_results, after_results, success):
     os.makedirs(report_dir, exist_ok=True)
 
     report = {
-        "timestamp": now.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        "repository_before": {
-            "tests": before_results[3],
-            "summary": {
-                "total": before_results[2],
-                "passed": before_results[0],
-                "failed": before_results[1]
-            }
-        },
+        "timestamp": now.strftime('%Y-%m-%dT%H:%M:%S.') + f"{now.microsecond // 1000:03d}Z",
         "repository_after": {
-            "tests": after_results[3],
-            "summary": {
-                "total": after_results[2],
-                "passed": after_results[0],
-                "failed": after_results[1]
-            }
-        },
-        "success": success
+            "passed": after_results[0],
+            "failed": after_results[1],
+            "total": after_results[2],
+            "tests": after_results[3]
+        }
     }
 
     report_path = os.path.join(report_dir, 'report.json')
@@ -106,9 +100,8 @@ def main():
     success = before_failed > 0 and after_failed == 0 and after_passed == after_total
 
     # Save report
-    before_results = (before_passed, before_failed, before_total, before_tests)
     after_results = (after_passed, after_failed, after_total, after_tests)
-    report_path = save_report(before_results, after_results, success)
+    report_path = save_report(after_results)
 
     # Summary
     print("\n" + "=" * 60)
