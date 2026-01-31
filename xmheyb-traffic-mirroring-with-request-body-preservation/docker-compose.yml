@@ -16,3 +16,10 @@ services:
     working_dir: /app
     profiles:
       - test
+
+  evaluate:
+    build: .
+    command: sh -c "go mod tidy && go run evaluation/evaluation.go"
+    volumes:
+      - .:/app
+    working_dir: /app

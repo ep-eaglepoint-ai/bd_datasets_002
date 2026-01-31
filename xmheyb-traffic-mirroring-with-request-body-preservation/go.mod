@@ -2,8 +2,4 @@ module traffic-mirroring
 
 go 1.21
 
-require (
-	github.com/stretchr/testify v1.8.4
-)
-
-require golang.org/x/net v0.17.0 // indirect
+require github.com/google/uuid v1.6.0

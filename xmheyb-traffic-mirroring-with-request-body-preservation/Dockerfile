@@ -2,16 +2,15 @@ FROM golang:1.21
 
 WORKDIR /app
 
-# Copy go mod files first for better caching
+# Copy go mod file and evaluation first to ensure dependencies are downloaded
 COPY go.mod ./
+COPY evaluation/ ./evaluation/
+RUN go mod download github.com/google/uuid
 RUN go mod tidy
 
 # Copy the entire project (excluding go.mod in subdirectories)
 COPY repository_after/ ./repository_after/
 COPY tests/ ./tests/
-
-# Remove any go.mod in repository_after to avoid conflicts
-RUN rm -f /app/repository_after/go.mod
 
 # Build the application
 RUN go build -o /app/server /app/repository_after/main.go
