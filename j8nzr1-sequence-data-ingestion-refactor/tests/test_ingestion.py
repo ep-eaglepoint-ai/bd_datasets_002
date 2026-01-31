@@ -1,5 +1,6 @@
 import sys
 import pytest
+import logging
 from unittest.mock import MagicMock, AsyncMock, call, ANY
 
 # --- Mock Setup ---
@@ -125,7 +126,15 @@ async def test_fastq_corruption_recovery(caplog):
     })
 
     # Verify Logs
-    assert "Skipping record due to error" in caplog.text
+    # Requirement 6: tests must assert exactly one error log or the exact error message.
+    error_logs = [r for r in caplog.records if r.levelno == logging.ERROR]
+    # We might have "Skipping record due to error: ..." logs.
+    # The actual log call in ingest_processor.py is:
+    # logger.error(f"Skipping record due to error: {result}")
+    
+    skipper_logs = [log.message for log in error_logs if "Skipping record due to error" in log.message]
+    assert len(skipper_logs) == 1
+    assert "Malformed FASTQ record: Expected '+' separator. Found: '@SEQ_500...'" in skipper_logs[0]
 
 
 @pytest.mark.asyncio
@@ -191,7 +200,12 @@ async def test_fastq_corruption_recovery_three_line_record_missing_quality(caplo
     })
 
     # Verify Logs
-    assert "Skipping record due to error" in caplog.text
+    # Requirement 6 compliance here too
+    error_logs = [r for r in caplog.records if r.levelno == logging.ERROR]
+    skipper_logs = [log.message for log in error_logs if "Skipping record due to error" in log.message]
+    assert len(skipper_logs) == 1
+    # Quality line was actually the next header "@SEQ_500" (len 8), sequence is "AAAA" (len 4)
+    assert "Malformed FASTQ record: Quality length (8) != Sequence length (4)." in skipper_logs[0]
 
 @pytest.mark.asyncio
 async def test_context_enrichment():
@@ -273,6 +287,8 @@ async def test_unknown_extension():
         await ingest_processor.process_raw_file("test.LOG", "seq_1", "user_1")
 
     assert db_mock.save_batch.call_count == 0
+    # Requirement 7: Assert storage.read_file was never called for unknown extension
+    assert storage_mock.read_file.call_count == 0
 
 @pytest.mark.asyncio
 async def test_performance_empty_lines(caplog):
@@ -295,6 +311,9 @@ async def test_performance_empty_lines(caplog):
     start_time = time.perf_counter()
     await ingest_processor.process_raw_file("test.FASTQ", "seq_1", "user_1")
     end_time = time.perf_counter()
+
+    # Requirement 8: Assert no redundant IO (single read_file call)
+    assert storage_mock.read_file.call_count == 1
 
     # Max 2 seconds for 1000 records (generous, should be <0.1s in mock)
     execution_time = end_time - start_time
