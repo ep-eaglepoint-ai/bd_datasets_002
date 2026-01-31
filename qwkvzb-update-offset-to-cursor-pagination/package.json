@@ -1,0 +1,29 @@
+{
+    "name": "qwkvzb-update-offset-to-cursor-pagination",
+    "version": "1.0.0",
+    "description": "Production banking pagination system - offset to cursor migration",
+    "main": "index.js",
+    "scripts": {
+        "test": "ts-node evaluation/evaluation.ts",
+        "test:before": "for file in tests/test_*.ts; do ts-node \"$file\" || true; done",
+        "test:after": "for file in tests/test_*.ts; do ts-node \"$file\" || true; done",
+        "evaluation": "ts-node evaluation/evaluation.ts"
+    },
+    "keywords": [
+        "pagination",
+        "cursor",
+        "banking",
+        "typescript"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@prisma/client": "^5.9.1",
+        "prisma": "5.9.1",
+        "ts-node": "^10.9.1",
+        "typescript": "^5.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^25.0.10"
+    }
+}
