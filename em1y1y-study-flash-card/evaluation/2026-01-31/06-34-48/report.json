@@ -1,0 +1,42 @@
+{
+  "run_id": "96ebdc1e-7b4f-4b96-b6c1-15e94df8e783",
+  "started_at": "2026-01-31T06:34:43.310Z",
+  "finished_at": "2026-01-31T06:34:48.385Z",
+  "duration_seconds": 5.075,
+  "environment": {
+    "node_version": "v20.20.0",
+    "platform": "linux-x64"
+  },
+  "before": {
+    "tests": {
+      "passed": true,
+      "return_code": 0,
+      "output": "\n> flash-card-study-evaluation@1.0.0 test\n> npx jest --config jest.config.js --verbose\n\n  console.error\n    Failed to load data: SyntaxError: Unexpected token 'i', \"invalid json\" is not valid JSON\n        at JSON.parse (<anonymous>)\n        at loadData (/app/repository_after/src/lib/storage.ts:20:17)\n        at Object.<anonymous> (/app/tests/flashcard.spec.ts:74:28)\n        at Promise.then.completed (/app/node_modules/jest-circus/build/utils.js:298:28)\n        at new Promise (<anonymous>)\n        at callAsyncCircusFn (/app/node_modules/jest-circus/build/utils.js:231:10)\n        at _callCircusTest (/app/node_modules/jest-circus/build/run.js:316:40)\n        at processTicksAndRejections (node:internal/process/task_queues:95:5)\n        at _runTest (/app/node_modules/jest-circus/build/run.js:252:3)\n        at _runTestsForDescribeBlock (/app/node_modules/jest-circus/build/run.js:126:9)\n        at _runTestsForDescribeBlock (/app/node_modules/jest-circus/build/run.js:121:9)\n        at _runTestsForDescribeBlock (/app/node_modules/jest-circus/build/run.js:121:9)\n        at run (/app/node_modules/jest-circus/build/run.js:71:3)\n        at runAndTransformResultsToJestFormat (/app/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)\n        at jestAdapter (/app/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)\n        at runTestInternal (/app/node_modules/jest-runner/build/runTest.js:367:16)\n        at runTest (/app/node_modules/jest-runner/build/runTest.js:444:34)\n\n      20 |     return JSON.parse(stored) as AppData;\n... (55 lines truncated) ...\n      ✓ should create and track study sessions (1 ms)\n      ✓ should track card results and update session stats\n      ✓ should complete sessions with end timestamp (1 ms)\n    Card Statistics and Mastery\n      ✓ should calculate mastery percentage correctly\n      ✓ should update card stats on correct/incorrect answers (2 ms)\n      ✓ should prioritize difficult cards in study order (1 ms)\n    Card Ordering and Shuffling\n      ✓ should shuffle arrays without modifying original (1 ms)\n      ✓ should order cards by difficulty for study\n    Import and Export\n      ✓ should export and import decks as JSON (1 ms)\n      ✓ should export decks as CSV (1 ms)\n      ✓ should handle invalid JSON import gracefully (6 ms)\n      ✓ should generate IDs for cards missing them during import\n    Utility Functions\n      ✓ should generate unique IDs\n      ✓ should return 0 mastery for empty deck\n\nTest Suites: 1 passed, 1 total\nTests:       22 passed, 22 total\nSnapshots:   0 total\nTime:        1.464 s\nRan all test suites.\n",
+      "summary": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0
+      }
+    },
+    "metrics": {}
+  },
+  "after": {
+    "tests": {
+      "passed": true,
+      "return_code": 0,
+      "output": "\n> flash-card-study-evaluation@1.0.0 test\n> npx jest --config jest.config.js --verbose\n\n  console.error\n    Failed to load data: SyntaxError: Unexpected token 'i', \"invalid json\" is not valid JSON\n        at JSON.parse (<anonymous>)\n        at loadData (/app/repository_after/src/lib/storage.ts:20:17)\n        at Object.<anonymous> (/app/tests/flashcard.spec.ts:74:28)\n        at Promise.then.completed (/app/node_modules/jest-circus/build/utils.js:298:28)\n        at new Promise (<anonymous>)\n        at callAsyncCircusFn (/app/node_modules/jest-circus/build/utils.js:231:10)\n        at _callCircusTest (/app/node_modules/jest-circus/build/run.js:316:40)\n        at _runTest (/app/node_modules/jest-circus/build/run.js:252:3)\n        at _runTestsForDescribeBlock (/app/node_modules/jest-circus/build/run.js:126:9)\n        at _runTestsForDescribeBlock (/app/node_modules/jest-circus/build/run.js:121:9)\n        at _runTestsForDescribeBlock (/app/node_modules/jest-circus/build/run.js:121:9)\n        at run (/app/node_modules/jest-circus/build/run.js:71:3)\n        at runAndTransformResultsToJestFormat (/app/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)\n        at jestAdapter (/app/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)\n        at runTestInternal (/app/node_modules/jest-runner/build/runTest.js:367:16)\n        at runTest (/app/node_modules/jest-runner/build/runTest.js:444:34)\n\n      20 |     return JSON.parse(stored) as AppData;\n      21 |   } catch (error) {\n... (53 lines truncated) ...\n      ✓ should create and track study sessions (1 ms)\n      ✓ should track card results and update session stats (1 ms)\n      ✓ should complete sessions with end timestamp (2 ms)\n    Card Statistics and Mastery\n      ✓ should calculate mastery percentage correctly (1 ms)\n      ✓ should update card stats on correct/incorrect answers (2 ms)\n      ✓ should prioritize difficult cards in study order (1 ms)\n    Card Ordering and Shuffling\n      ✓ should shuffle arrays without modifying original (1 ms)\n      ✓ should order cards by difficulty for study (1 ms)\n    Import and Export\n      ✓ should export and import decks as JSON (1 ms)\n      ✓ should export decks as CSV (1 ms)\n      ✓ should handle invalid JSON import gracefully (3 ms)\n      ✓ should generate IDs for cards missing them during import\n    Utility Functions\n      ✓ should generate unique IDs (1 ms)\n      ✓ should return 0 mastery for empty deck\n\nTest Suites: 1 passed, 1 total\nTests:       22 passed, 22 total\nSnapshots:   0 total\nTime:        1.138 s\nRan all test suites.\n",
+      "summary": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0
+      }
+    },
+    "metrics": {}
+  },
+  "comparison": {
+    "passed_gate": true,
+    "improvement_summary": "All tests passing: 22/22 tests pass"
+  },
+  "success": true,
+  "error": null
+}

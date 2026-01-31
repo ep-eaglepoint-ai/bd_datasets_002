@@ -1,7 +1,8 @@
 const path = require('path');
 
 module.exports = {
-  testEnvironment: 'jsdom',
+  testEnvironment: "jest-environment-jsdom",
+  testMatch: ["**/tests/**/*.(spec|test).(ts|tsx)"],
   roots: ['<rootDir>/tests'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
 

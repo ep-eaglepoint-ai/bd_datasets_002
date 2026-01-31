@@ -4,10 +4,10 @@
   "description": "Flash Card Study App Evaluation Suite",
   "private": true,
   "scripts": {
-    "test": "npx jest --config jest.config.js --verbose",
+    "test": "jest --config jest.config.js --verbose",
     "test:watch": "jest --watch",
     "test:after": "REPO_PATH=repository_after jest --config jest.config.js --verbose",
-    "evaluation": "npx tsx evaluation/evaluation.ts"
+    "evaluation": "tsx evaluation/evaluation.ts"
   },
   "dependencies": {
     "next": "16.1.4",
