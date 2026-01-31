@@ -5,15 +5,15 @@ docker-compose build
 
 ### Test BEFORE version 
 ```bash
-docker-compose run --rm test-before
+docker-compose run --rm before
 ```
 
 ### Test AFTER version 
 ```bash
-docker-compose run --rm test-after
+docker-compose run --rm after
 ```
 
 ### Run full evaluation
 ```bash
-docker-compose run --rm evaluation
+docker-compose run --rm evaluate
 ```

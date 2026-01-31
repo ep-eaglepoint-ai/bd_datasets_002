@@ -1,4 +1,6 @@
-package repository
+// // filename: balancer.go
+
+package routing
 
 import (
 	"sync"
@@ -18,7 +20,7 @@ type DynamicWeightedBalancer struct {
 	currentWeight int
 	maxWeight     int
 	gcdWeight     int
-	mu            sync.Mutex
+	mu            sync.RWMutex // Protects the nodes slice and internal state
 }
 
 // NewDynamicWeightedBalancer initializes the balancer for a given set of nodes.
@@ -31,7 +33,7 @@ func NewDynamicWeightedBalancer(nodes []*Node) *DynamicWeightedBalancer {
 	return b
 }
 
-// recalculateGains updates internal GCD and MaxWeight parameters.
+// recalculateGains updates internal GCD and MaxWeight parameters based on current node set.
 func (b *DynamicWeightedBalancer) recalculateGains() {
 	maxW := 0
 	g := 0
@@ -41,7 +43,7 @@ func (b *DynamicWeightedBalancer) recalculateGains() {
 		}
 		if g == 0 {
 			g = n.Weight
-		} else if n.Weight > 0 {
+		} else {
 			g = gcd(g, n.Weight)
 		}
 	}
@@ -65,9 +67,8 @@ func (b *DynamicWeightedBalancer) UpdateWeights(newNodes []*Node) {
 	defer b.mu.Unlock()
 	b.nodes = newNodes
 	b.recalculateGains()
-	if len(b.nodes) > 0 && b.currentIndex >= len(b.nodes) {
-		b.currentIndex = b.currentIndex % len(b.nodes)
-	}
+	// Note: currentIndex and currentWeight are intentionally NOT reset to 0
+	// to attempt to preserve the current position in the round-robin cycle.
 }
 
 // GetNextNode selects the next node using Interleaved Weighted Round Robin logic.
@@ -77,10 +78,6 @@ func (b *DynamicWeightedBalancer) GetNextNode() string {
 
 	n := len(b.nodes)
 	if n == 0 {
-		return ""
-	}
-
-	if b.maxWeight == 0 {
 		return ""
 	}
 
@@ -102,11 +99,4 @@ func (b *DynamicWeightedBalancer) GetNextNode() string {
 		}
 	}
 	return ""
-}
-
-// GetCurrentState returns internal state for testing purposes
-func (b *DynamicWeightedBalancer) GetCurrentState() (int, int, int, int) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.currentIndex, b.currentWeight, b.maxWeight, b.gcdWeight
 }

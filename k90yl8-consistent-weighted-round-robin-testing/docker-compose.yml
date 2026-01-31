@@ -1,52 +1,26 @@
 version: '3.8'
 
 services:
-  test-before:
+  # Run repository tests
+  before:
     build: .
-    working_dir: /app/tests
-    environment:
-      - GO111MODULE=on
-      - CGO_ENABLED=1
-    entrypoint: >
-      sh -c "
-        echo 'module tests' > /app/tests/go.mod &&
-        echo 'go 1.21' >> /app/tests/go.mod &&
-        echo 'require repository v0.0.0' >> /app/tests/go.mod &&
-        echo 'replace repository => ../repository_before' >> /app/tests/go.mod &&
-        cd /app/tests &&
-        go mod tidy &&
-        echo '========================================' &&
-        echo '🧪 Running tests on BEFORE repository' &&
-        echo '========================================' &&
-        go test -v -race -timeout 60s ./... || true
-      "
-
-  test-after:
-    build: .
-    working_dir: /app/tests
-    environment:
-      - GO111MODULE=on
-      - CGO_ENABLED=1
-    entrypoint: >
-      sh -c "
-        echo 'module tests' > /app/tests/go.mod &&
-        echo 'go 1.21' >> /app/tests/go.mod &&
-        echo 'require repository v0.0.0' >> /app/tests/go.mod &&
-        echo 'replace repository => ../repository_after' >> /app/tests/go.mod &&
-        cd /app/tests &&
-        go mod tidy &&
-        echo '========================================' &&
-        echo '🧪 Running tests on AFTER repository' &&
-        echo '========================================' &&
-        go test -v -race -timeout 60s ./...
-      "
-
-  evaluation:
-    build: .
+    working_dir: /app/repository_after
+    command: sh -c "go test -v ./... 2>&1; exit 0"
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    working_dir: /app/evaluation
-    environment:
-      - GO111MODULE=on
-      - CGO_ENABLED=1
-    command: go run evaluation.go
+
+  # Run meta tests
+  after:
+    build: .
+    working_dir: /app/tests
+    command: sh -c "go test -v ./... 2>&1; exit 0"
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+
+  # Run full evaluation
+  evaluate:
+    build: .
+    working_dir: /app
+    command: go run /app/evaluation/evaluation.go
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports

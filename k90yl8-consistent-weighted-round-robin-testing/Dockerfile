@@ -1,29 +1,25 @@
-FROM golang:1.21
-
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+FROM golang:1.22
 
 WORKDIR /app
 
-COPY . /app
+COPY . .
 
-# Create go.mod for repository_before (since it's restricted)
-RUN echo 'module repository' > /app/repository_before/go.mod && \
-    echo 'go 1.21' >> /app/repository_before/go.mod
+# Initialize repository_before module (create go.mod if it doesn't exist)
+RUN cd /app/repository_before && \
+    if [ ! -f go.mod ]; then \
+        go mod init example.com/routing; \
+    fi && \
+    go mod tidy
 
-WORKDIR /app/repository_before
-RUN go mod tidy || true
+# Initialize repository_after module
+RUN cd /app/repository_after && \
+    if [ ! -f go.mod ]; then \
+        go mod init example.com/routing; \
+    fi && \
+    go mod tidy
 
-WORKDIR /app/repository_after
-RUN go mod tidy || true
+# Download dependencies for tests and evaluation
+RUN cd /app/tests && go mod download || true
+RUN cd /app/evaluation && go mod download || true
 
-WORKDIR /app/tests
-RUN go mod tidy || true
-
-WORKDIR /app/evaluation
-RUN go mod tidy || true
-
-RUN mkdir -p /app/evaluation/reports
-
-WORKDIR /app
-
-ENV CGO_ENABLED=1
+CMD ["go", "run", "/app/evaluation/evaluation.go"]

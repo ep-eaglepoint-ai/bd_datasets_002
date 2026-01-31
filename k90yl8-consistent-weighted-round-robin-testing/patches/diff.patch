@@ -1,81 +1,751 @@
-diff -ruN repository_before/balancer.go repository_after/balancer.go
---- repository_before/balancer.go	2026-01-28 11:00:52.030951601 +0300
-+++ repository_after/balancer.go	2026-01-28 23:32:18.601841063 +0300
-@@ -1,6 +1,4 @@
--// // filename: balancer.go
--
--package routing
-+package repository
- 
- import (
- 	"sync"
-@@ -20,7 +18,7 @@
- 	currentWeight int
- 	maxWeight     int
- 	gcdWeight     int
--	mu            sync.RWMutex // Protects the nodes slice and internal state
-+	mu            sync.Mutex
- }
- 
- // NewDynamicWeightedBalancer initializes the balancer for a given set of nodes.
-@@ -33,7 +31,7 @@
- 	return b
- }
- 
--// recalculateGains updates internal GCD and MaxWeight parameters based on current node set.
-+// recalculateGains updates internal GCD and MaxWeight parameters.
- func (b *DynamicWeightedBalancer) recalculateGains() {
- 	maxW := 0
- 	g := 0
-@@ -43,7 +41,7 @@
- 		}
- 		if g == 0 {
- 			g = n.Weight
--		} else {
-+		} else if n.Weight > 0 {
- 			g = gcd(g, n.Weight)
- 		}
- 	}
-@@ -67,8 +65,9 @@
- 	defer b.mu.Unlock()
- 	b.nodes = newNodes
- 	b.recalculateGains()
--	// Note: currentIndex and currentWeight are intentionally NOT reset to 0
--	// to attempt to preserve the current position in the round-robin cycle.
-+	if len(b.nodes) > 0 && b.currentIndex >= len(b.nodes) {
-+		b.currentIndex = b.currentIndex % len(b.nodes)
-+	}
- }
- 
- // GetNextNode selects the next node using Interleaved Weighted Round Robin logic.
-@@ -81,6 +80,10 @@
- 		return ""
- 	}
- 
-+	if b.maxWeight == 0 {
-+		return ""
-+	}
+diff -ruN repository_before/balancer_test.go repository_after/balancer_test.go
+--- repository_before/balancer_test.go	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/balancer_test.go	2026-01-31 15:20:29.487662942 +0300
+@@ -0,0 +1,739 @@
++package routing_test
 +
- 	for i := 0; i < n*b.maxWeight; i++ {
- 		b.currentIndex = (b.currentIndex + 1) % n
- 		if b.currentIndex == 0 {
-@@ -100,3 +103,10 @@
- 	}
- 	return ""
- }
++import (
++	"math"
++	"sync"
++	"sync/atomic"
++	"testing"
 +
-+// GetCurrentState returns internal state for testing purposes
-+func (b *DynamicWeightedBalancer) GetCurrentState() (int, int, int, int) {
-+	b.mu.Lock()
-+	defer b.mu.Unlock()
-+	return b.currentIndex, b.currentWeight, b.maxWeight, b.gcdWeight
++	"example.com/routing"
++)
++
++// ==================== HELPER FUNCTIONS ====================
++
++// SequenceAuditor records outputs and verifies distribution ratios
++type SequenceAuditor struct {
++	counts    map[string]int
++	sequence  []string
++	mu        sync.Mutex
 +}
-\ No newline at end of file
++
++func NewSequenceAuditor() *SequenceAuditor {
++	return &SequenceAuditor{
++		counts:   make(map[string]int),
++		sequence: make([]string, 0),
++	}
++}
++
++func (sa *SequenceAuditor) Record(nodeID string) {
++	sa.mu.Lock()
++	defer sa.mu.Unlock()
++	sa.counts[nodeID]++
++	sa.sequence = append(sa.sequence, nodeID)
++}
++
++func (sa *SequenceAuditor) GetCounts() map[string]int {
++	sa.mu.Lock()
++	defer sa.mu.Unlock()
++	result := make(map[string]int)
++	for k, v := range sa.counts {
++		result[k] = v
++	}
++	return result
++}
++
++func (sa *SequenceAuditor) GetSequence() []string {
++	sa.mu.Lock()
++	defer sa.mu.Unlock()
++	result := make([]string, len(sa.sequence))
++	copy(result, sa.sequence)
++	return result
++}
++
++func (sa *SequenceAuditor) Total() int {
++	sa.mu.Lock()
++	defer sa.mu.Unlock()
++	total := 0
++	for _, v := range sa.counts {
++		total += v
++	}
++	return total
++}
++
++// VerifyDistribution checks if the distribution matches expected ratios within tolerance
++func (sa *SequenceAuditor) VerifyDistribution(t *testing.T, expectedRatios map[string]float64, tolerancePercent float64) {
++	t.Helper()
++	counts := sa.GetCounts()
++	total := sa.Total()
++	
++	if total == 0 {
++		t.Error("No calls recorded in auditor")
++		return
++	}
++
++	for nodeID, expectedRatio := range expectedRatios {
++		actualCount := counts[nodeID]
++		actualRatio := float64(actualCount) / float64(total)
++		diff := math.Abs(actualRatio - expectedRatio)
++		
++		if diff > tolerancePercent/100 {
++			t.Errorf("Node %s: expected ratio %.4f, got %.4f (diff %.4f > tolerance %.4f)",
++				nodeID, expectedRatio, actualRatio, diff, tolerancePercent/100)
++		}
++	}
++}
++
++// ==================== STATIC DISTRIBUTION TESTS ====================
++
++func TestStaticDistribution(t *testing.T) {
++	t.Run("EqualWeights_EqualDistribution", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: true},
++			{ID: "B", Weight: 5, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 1000; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"A": 0.5,
++			"B": 0.5,
++		}, 1.0)
++	})
++
++	t.Run("WeightedDistribution_2_1_Ratio", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 4, Healthy: true},
++			{ID: "B", Weight: 2, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 1200; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"A": 2.0/3.0,
++			"B": 1.0/3.0,
++		}, 1.0)
++	})
++
++	t.Run("ThreeNodes_VariedWeights", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: true},
++			{ID: "B", Weight: 3, Healthy: true},
++			{ID: "C", Weight: 2, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 1000; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"A": 0.5,
++			"B": 0.3,
++			"C": 0.2,
++		}, 1.0)
++	})
++
++	t.Run("SingleNode", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		for i := 0; i < 100; i++ {
++			result := b.GetNextNode()
++			if result != "A" {
++				t.Errorf("Expected A, got %s", result)
++			}
++		}
++	})
++
++	t.Run("EmptyNodes_ReturnsEmpty", func(t *testing.T) {
++		nodes := []*routing.Node{}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		result := b.GetNextNode()
++		if result != "" {
++			t.Errorf("Expected empty string for empty nodes, got %s", result)
++		}
++	})
++
++	t.Run("AllUnhealthy_ReturnsEmpty", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: false},
++			{ID: "B", Weight: 5, Healthy: false},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		result := b.GetNextNode()
++		if result != "" {
++			t.Errorf("Expected empty string for all unhealthy nodes, got %s", result)
++		}
++	})
++}
++
++// ==================== DYNAMIC TRANSITION TESTS ====================
++
++func TestDynamicTransition(t *testing.T) {
++	t.Run("SequenceContinuity_WeightChange", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 2, Healthy: true},
++			{ID: "B", Weight: 2, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		first := b.GetNextNode()
++		second := b.GetNextNode()
++		
++		t.Logf("Before update - Call 1: %s, Call 2: %s", first, second)
++		
++		newNodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: true},
++			{ID: "B", Weight: 2, Healthy: true},
++		}
++		b.UpdateWeights(newNodes)
++		
++		sequence := make([]string, 12)
++		for i := 0; i < 12; i++ {
++			sequence[i] = b.GetNextNode()
++		}
++		
++		t.Logf("After update - Next 12 calls: %v", sequence)
++		
++		aCount := 0
++		bCount := 0
++		for _, s := range sequence {
++			if s == "A" {
++				aCount++
++			} else if s == "B" {
++				bCount++
++			}
++		}
++		
++		t.Logf("Distribution in 12 calls: A=%d, B=%d", aCount, bCount)
++		
++		if aCount <= bCount {
++			t.Errorf("Expected A to be selected more than B after weight update, got A=%d, B=%d", aCount, bCount)
++		}
++	})
++
++	t.Run("GCDFlux_HighToLow", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: true},
++			{ID: "B", Weight: 20, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		for i := 0; i < 5; i++ {
++			b.GetNextNode()
++		}
++		
++		newNodes := []*routing.Node{
++			{ID: "A", Weight: 7, Healthy: true},
++			{ID: "B", Weight: 13, Healthy: true},
++		}
++		b.UpdateWeights(newNodes)
++		
++		for i := 0; i < 1000; i++ {
++			result := b.GetNextNode()
++			if result == "" {
++				t.Errorf("Unexpected empty result at iteration %d", i)
++				break
++			}
++		}
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 1000; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"A": 7.0/20.0,
++			"B": 13.0/20.0,
++		}, 2.0)
++	})
++
++	t.Run("GCDFlux_LowToHigh", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 7, Healthy: true},
++			{ID: "B", Weight: 13, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		for i := 0; i < 5; i++ {
++			b.GetNextNode()
++		}
++		
++		newNodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: true},
++			{ID: "B", Weight: 20, Healthy: true},
++		}
++		b.UpdateWeights(newNodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 1000; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"A": 1.0/3.0,
++			"B": 2.0/3.0,
++		}, 2.0)
++	})
++
++	t.Run("HealthFlaps_HeaviestNode", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: true},
++			{ID: "B", Weight: 2, Healthy: true},
++			{ID: "C", Weight: 2, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor1 := NewSequenceAuditor()
++		for i := 0; i < 100; i++ {
++			auditor1.Record(b.GetNextNode())
++		}
++		phase1Counts := auditor1.GetCounts()
++		t.Logf("Phase 1 (all healthy): A=%d, B=%d, C=%d", 
++			phase1Counts["A"], phase1Counts["B"], phase1Counts["C"])
++		
++		// Phase 2: A becomes unhealthy - create new nodes
++		unhealthyNodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: false},
++			{ID: "B", Weight: 2, Healthy: true},
++			{ID: "C", Weight: 2, Healthy: true},
++		}
++		b.UpdateWeights(unhealthyNodes)
++		
++		auditor2 := NewSequenceAuditor()
++		for i := 0; i < 100; i++ {
++			result := b.GetNextNode()
++			auditor2.Record(result)
++			if result == "A" {
++				t.Error("Unhealthy node A should not be selected")
++			}
++		}
++		phase2Counts := auditor2.GetCounts()
++		t.Logf("Phase 2 (A unhealthy): A=%d, B=%d, C=%d", 
++			phase2Counts["A"], phase2Counts["B"], phase2Counts["C"])
++		
++		// Phase 3: A becomes healthy again - create new nodes
++		healthyNodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: true},
++			{ID: "B", Weight: 2, Healthy: true},
++			{ID: "C", Weight: 2, Healthy: true},
++		}
++		b.UpdateWeights(healthyNodes)
++		
++		auditor3 := NewSequenceAuditor()
++		for i := 0; i < 1000; i++ {
++			auditor3.Record(b.GetNextNode())
++		}
++		
++		auditor3.VerifyDistribution(t, map[string]float64{
++			"A": 10.0/14.0,
++			"B": 2.0/14.0,
++			"C": 2.0/14.0,
++		}, 2.0)
++	})
++
++	t.Run("BoundaryTest_SliceSizeReduction", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 1, Healthy: true},
++			{ID: "B", Weight: 1, Healthy: true},
++			{ID: "C", Weight: 1, Healthy: true},
++			{ID: "D", Weight: 1, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		for i := 0; i < 10; i++ {
++			b.GetNextNode()
++		}
++		
++		newNodes := []*routing.Node{
++			{ID: "A", Weight: 1, Healthy: true},
++			{ID: "B", Weight: 1, Healthy: true},
++		}
++		b.UpdateWeights(newNodes)
++		
++		for i := 0; i < 100; i++ {
++			result := b.GetNextNode()
++			if result != "A" && result != "B" && result != "" {
++				t.Errorf("Unexpected node after slice reduction: %s", result)
++			}
++		}
++	})
++
++	t.Run("BoundaryTest_SliceSizeIncrease", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 1, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		for i := 0; i < 5; i++ {
++			b.GetNextNode()
++		}
++		
++		newNodes := []*routing.Node{
++			{ID: "A", Weight: 1, Healthy: true},
++			{ID: "B", Weight: 1, Healthy: true},
++			{ID: "C", Weight: 1, Healthy: true},
++		}
++		b.UpdateWeights(newNodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 300; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		counts := auditor.GetCounts()
++		for _, node := range []string{"A", "B", "C"} {
++			if counts[node] == 0 {
++				t.Errorf("Node %s was never selected after slice increase", node)
++			}
++		}
++	})
++}
++
++// ==================== ADVERSARIAL TESTS ====================
++
++func TestAdversarial(t *testing.T) {
++	t.Run("ZeroWeights_NoHang", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 0, Healthy: true},
++			{ID: "B", Weight: 0, Healthy: true},
++			{ID: "C", Weight: 0, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		done := make(chan bool, 1)
++		go func() {
++			for i := 0; i < 100; i++ {
++				b.GetNextNode()
++			}
++			done <- true
++		}()
++		
++		select {
++		case <-done:
++			// Success
++		default:
++		}
++		
++		result := b.GetNextNode()
++		if result != "" {
++			t.Errorf("Expected empty string for zero weights, got %s", result)
++		}
++	})
++
++	t.Run("MixedZeroWeights", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 0, Healthy: true},
++			{ID: "B", Weight: 5, Healthy: true},
++			{ID: "C", Weight: 0, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		for i := 0; i < 100; i++ {
++			result := b.GetNextNode()
++			if result == "A" || result == "C" {
++				t.Errorf("Zero-weight node %s should not be selected", result)
++			}
++			if result != "B" {
++				t.Errorf("Expected B, got %s", result)
++			}
++		}
++	})
++
++	t.Run("NegativeWeights", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: -5, Healthy: true},
++			{ID: "B", Weight: 10, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		for i := 0; i < 100; i++ {
++			b.GetNextNode()
++		}
++	})
++
++	t.Run("VeryLargeWeights", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 1000000, Healthy: true},
++			{ID: "B", Weight: 1, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 1000; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		counts := auditor.GetCounts()
++		if counts["B"] > counts["A"] {
++			t.Error("Heavy node A should be selected more than light node B")
++		}
++	})
++}
++
++// ==================== CONCURRENCY TESTS ====================
++
++func TestConcurrency(t *testing.T) {
++	t.Run("RaceDetection_1000Calls_50Updates", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: true},
++			{ID: "B", Weight: 3, Healthy: true},
++			{ID: "C", Weight: 2, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		var wg sync.WaitGroup
++		var getNextCalls int64
++		var updateCalls int64
++		
++		for i := 0; i < 1000; i++ {
++			wg.Add(1)
++			go func() {
++				defer wg.Done()
++				result := b.GetNextNode()
++				if result != "" {
++					atomic.AddInt64(&getNextCalls, 1)
++				}
++			}()
++		}
++		
++		for i := 0; i < 50; i++ {
++			wg.Add(1)
++			go func(idx int) {
++				defer wg.Done()
++				newNodes := []*routing.Node{
++					{ID: "A", Weight: 5 + (idx % 3), Healthy: true},
++					{ID: "B", Weight: 3 + (idx % 2), Healthy: true},
++					{ID: "C", Weight: 2 + (idx % 4), Healthy: true},
++				}
++				b.UpdateWeights(newNodes)
++				atomic.AddInt64(&updateCalls, 1)
++			}(i)
++		}
++		
++		wg.Wait()
++		
++		t.Logf("Completed %d GetNextNode calls, %d UpdateWeights calls", 
++			getNextCalls, updateCalls)
++		
++		if updateCalls != 50 {
++			t.Errorf("Expected 50 update calls, got %d", updateCalls)
++		}
++	})
++
++	t.Run("ConcurrentReads", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: true},
++			{ID: "B", Weight: 5, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		var wg sync.WaitGroup
++		for i := 0; i < 100; i++ {
++			wg.Add(1)
++			go func() {
++				defer wg.Done()
++				for j := 0; j < 100; j++ {
++					b.GetNextNode()
++				}
++			}()
++		}
++		wg.Wait()
++	})
++
++	t.Run("RapidHealthToggle", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: true},
++			{ID: "B", Weight: 5, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		var wg sync.WaitGroup
++		
++		// Create NEW node slices each time to avoid race
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			for i := 0; i < 100; i++ {
++				healthy := i%2 == 0
++				newNodes := []*routing.Node{
++					{ID: "A", Weight: 5, Healthy: healthy},
++					{ID: "B", Weight: 5, Healthy: true},
++				}
++				b.UpdateWeights(newNodes)
++			}
++		}()
++		
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			for i := 0; i < 500; i++ {
++				b.GetNextNode()
++			}
++		}()
++		
++		wg.Wait()
++	})
++
++	t.Run("MassiveConcurrency", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 10, Healthy: true},
++			{ID: "B", Weight: 5, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		var wg sync.WaitGroup
++		
++		for i := 0; i < 50; i++ {
++			wg.Add(1)
++			go func() {
++				defer wg.Done()
++				for j := 0; j < 200; j++ {
++					b.GetNextNode()
++				}
++			}()
++		}
++		
++		for i := 0; i < 20; i++ {
++			wg.Add(1)
++			go func(idx int) {
++				defer wg.Done()
++				for j := 0; j < 10; j++ {
++					newNodes := []*routing.Node{
++						{ID: "A", Weight: 10 + (idx % 5), Healthy: true},
++						{ID: "B", Weight: 5 + (idx % 3), Healthy: true},
++					}
++					b.UpdateWeights(newNodes)
++				}
++			}(i)
++		}
++		
++		wg.Wait()
++	})
++}
++
++// ==================== SEQUENCE AUDITOR TESTS ====================
++
++func TestSequenceAuditor_Distribution(t *testing.T) {
++	t.Run("Auditor_1000Calls_VerifyRatio", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 6, Healthy: true},
++			{ID: "B", Weight: 3, Healthy: true},
++			{ID: "C", Weight: 1, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 1000; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"A": 0.6,
++			"B": 0.3,
++			"C": 0.1,
++		}, 1.0)
++	})
++
++	t.Run("Auditor_10000Calls_TightTolerance", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "X", Weight: 5, Healthy: true},
++			{ID: "Y", Weight: 5, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 10000; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"X": 0.5,
++			"Y": 0.5,
++		}, 0.5)
++	})
++}
++
++// ==================== EDGE CASES ====================
++
++func TestEdgeCases(t *testing.T) {
++	t.Run("UpdateToEmpty", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		b.GetNextNode()
++		
++		b.UpdateWeights([]*routing.Node{})
++		
++		result := b.GetNextNode()
++		if result != "" {
++			t.Errorf("Expected empty after updating to empty nodes, got %s", result)
++		}
++	})
++
++	t.Run("UpdateFromEmpty", func(t *testing.T) {
++		b := routing.NewDynamicWeightedBalancer([]*routing.Node{})
++		
++		result := b.GetNextNode()
++		if result != "" {
++			t.Errorf("Expected empty for empty balancer, got %s", result)
++		}
++		
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: true},
++		}
++		b.UpdateWeights(nodes)
++		
++		result = b.GetNextNode()
++		if result != "A" {
++			t.Errorf("Expected A after adding node, got %s", result)
++		}
++	})
++
++	t.Run("SingleNodeUnhealthy", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 5, Healthy: false},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		result := b.GetNextNode()
++		if result != "" {
++			t.Errorf("Expected empty for unhealthy single node, got %s", result)
++		}
++	})
++
++	t.Run("WeightOneNodes", func(t *testing.T) {
++		nodes := []*routing.Node{
++			{ID: "A", Weight: 1, Healthy: true},
++			{ID: "B", Weight: 1, Healthy: true},
++			{ID: "C", Weight: 1, Healthy: true},
++		}
++		b := routing.NewDynamicWeightedBalancer(nodes)
++		
++		auditor := NewSequenceAuditor()
++		for i := 0; i < 300; i++ {
++			auditor.Record(b.GetNextNode())
++		}
++		
++		auditor.VerifyDistribution(t, map[string]float64{
++			"A": 1.0/3.0,
++			"B": 1.0/3.0,
++			"C": 1.0/3.0,
++		}, 1.0)
++	})
++}
 diff -ruN repository_before/go.mod repository_after/go.mod
 --- repository_before/go.mod	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/go.mod	2026-01-28 23:26:27.435700606 +0300
++++ repository_after/go.mod	2026-01-31 14:38:26.383576336 +0300
 @@ -0,0 +1,3 @@
-+module routing
++module example.com/routing
 +
 +go 1.21
 \ No newline at end of file
