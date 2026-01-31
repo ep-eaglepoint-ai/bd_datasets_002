@@ -1,0 +1,20 @@
+services:
+  evaluation:
+    build: .
+    command: ["node", "evaluation/evaluation.js"]
+    volumes:
+      - .:/host:rw
+
+  test-before:
+    build: .
+    working_dir: /app/tests
+    environment:
+      - TEST_REPO=before
+    command: ["npm", "test"]
+
+  test-after:
+    build: .
+    working_dir: /app/tests
+    environment:
+      - TEST_REPO=after
+    command: ["npm", "test"]

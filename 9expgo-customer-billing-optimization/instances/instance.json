@@ -1,0 +1,11 @@
+{
+            "instance_id": "9EXPGO",
+            "problem_statement": "The generate_customer_billing_summary PostgreSQL function is currently used in a customer billing and reporting workflow, but its existing implementation does not meet production standards due to inefficiencies, poor scalability, incorrect error handling, and risks under concurrent usage. As data volume and system load increase, the function’s current design can lead to slow execution times, unnecessary database load, unreliable behavior, and operational incidents that impact downstream services such as reporting, invoicing, and APIs. Refactoring and optimizing this function is necessary to ensure accurate billing results, predictable performance, safe concurrent execution, and maintainability in a production environment.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9expgo-customer-billing-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
