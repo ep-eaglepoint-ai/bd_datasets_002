@@ -180,12 +180,31 @@ func (a *Analyzer) ProcessPDF(r io.Reader) error {
 	)
 
 	state := StateNone
-	prevState := StateNone // To return to from comments or names, or to track context
+	stateStack := []int{}
+
+	push := func(s int) {
+		stateStack = append(stateStack, s)
+	}
+
+	pop := func() int {
+		if len(stateStack) == 0 {
+			return StateNone
+		}
+		s := stateStack[len(stateStack)-1]
+		stateStack = stateStack[:len(stateStack)-1]
+		return s
+	}
+
+	peekStack := func() int {
+		if len(stateStack) == 0 {
+			return StateNone
+		}
+		return stateStack[len(stateStack)-1]
+	}
 
 	parenDepth := 0
 	angleDepth := 0
 
-	// Buffer for capturing text content inside strings
 	var stringContent strings.Builder
 
 	isDelimiter := func(b byte) bool {
@@ -208,21 +227,16 @@ func (a *Analyzer) ProcessPDF(r io.Reader) error {
 
 		switch state {
 		case StateNone, StateInBT, StateInDict:
-			// Common handling for things that start in these states
 			if b == '%' {
-				// Comment
-				// Save current state to return to
-				prevState = state
+				push(state)
 				state = StateInComment
 				continue
 			}
 			if b == '(' {
-				// String start
-				// Save context to know if we capture
-				prevState = state
+				push(state)
 				state = StateInString
 				parenDepth = 1
-				if prevState == StateInBT {
+				if peekStack() == StateInBT {
 					stringContent.Reset()
 				}
 				continue
@@ -234,8 +248,7 @@ func (a *Analyzer) ProcessPDF(r io.Reader) error {
 					if state == StateInDict {
 						angleDepth++
 					} else {
-						// Enter Dict mode
-						prevState = state // Return to this
+						push(state)
 						state = StateInDict
 						angleDepth = 1
 					}
@@ -247,17 +260,17 @@ func (a *Analyzer) ProcessPDF(r io.Reader) error {
 				if state == StateInDict {
 					next, err := reader.Peek(1)
 					if err == nil && next[0] == '>' {
-						reader.ReadByte()
+						reader.ReadByte() // Consume second >
 						angleDepth--
 						if angleDepth == 0 {
-							state = prevState
+							state = pop()
 						}
 					}
 				}
 				continue
 			}
 			if b == '/' {
-				prevState = state
+				push(state)
 				state = StateInName
 				continue
 			}
@@ -288,45 +301,43 @@ func (a *Analyzer) ProcessPDF(r io.Reader) error {
 			}
 			if b == '(' {
 				parenDepth++
-				if prevState == StateInBT {
+				if peekStack() == StateInBT {
 					stringContent.WriteByte(b)
 				}
 			} else if b == ')' {
 				parenDepth--
 				if parenDepth == 0 {
 					// End string
-					if prevState == StateInBT {
+					if peekStack() == StateInBT {
 						a.normalizeAndCount(stringContent.String())
-						state = StateInBT
-					} else {
-						state = prevState // Return to None or Dict
 					}
+					state = pop()
 				} else {
-					if prevState == StateInBT {
+					if peekStack() == StateInBT {
 						stringContent.WriteByte(b)
 					}
 				}
 			} else {
-				if prevState == StateInBT {
+				if peekStack() == StateInBT {
 					stringContent.WriteByte(b)
 				}
 			}
 
 		case StateEscape:
-			if prevState == StateInBT {
+			if peekStack() == StateInBT {
 				stringContent.WriteByte(b)
 			}
 			state = StateInString
 
 		case StateInComment:
 			if b == '\r' || b == '\n' {
-				state = prevState
+				state = pop()
 			}
 
 		case StateInName:
 			if isDelimiter(b) {
 				reader.UnreadByte()
-				state = prevState
+				state = pop()
 			}
 		}
 	}
