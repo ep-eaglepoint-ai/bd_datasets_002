@@ -13,7 +13,8 @@ services:
   test-runner:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: Dockerfile
+      target: tester
     depends_on:
       - bulk-import-app
     environment:
