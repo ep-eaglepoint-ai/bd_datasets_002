@@ -1,6 +1,35 @@
 services:
+  # Unified 'app' service for Aquila CodeBuilder / CI/CD
   app:
-    build: .
-    command: pytest -q tests
+    build:
+      context: .
+      dockerfile: Dockerfile.evaluation
+    environment:
+      - BASE_URL=http://localhost:8080
+      - PYTHONPATH=/app
     volumes:
       - .:/app
+
+  # Deterministic Calculator Go Server (refactored version)
+  calculator:
+    build:
+      context: .
+      dockerfile: Dockerfile.after
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080" ]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # Python Meta-Tests
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.tests
+    depends_on:
+      calculator:
+        condition: service_healthy
+    environment:
+      - BASE_URL=http://calculator:8080
