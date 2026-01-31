@@ -34,7 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 const ITEMS_PER_PAGE = 20;
 
 export function ContactList() {
-    const { contacts, fetchContacts, removeContacts, isLoading, viewMode, setViewMode, sort, setSort, editContact } = useContactStore()
+    const { contacts, fetchContacts, removeContacts, isLoading, viewMode, setViewMode, sort, setSort, applyBulkTag } = useContactStore()
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedTags, setSelectedTags] = useState<string[]>([])
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -108,16 +108,7 @@ export function ContactList() {
         if (bulkTags.length === 0) return
         
         try {
-            const updates = Array.from(selectedIds).map(id => {
-                const contact = contacts.find(c => c.id === id)
-                if (!contact) return Promise.resolve()
-                
-                // Merge tags
-                const newTags = Array.from(new Set([...contact.tags, ...bulkTags]))
-                return editContact(id, { tags: newTags } as any) // Partial update hack
-            })
-            
-            await Promise.all(updates)
+            await applyBulkTag(Array.from(selectedIds), bulkTags)
             toast.success("Tags added to selected contacts")
             setIsBulkTagOpen(false)
             setBulkTags([])

@@ -103,3 +103,27 @@ export const toggleFavorite = async (id: ContactId): Promise<Contact> => {
     await db.put('contacts', updated);
     return updated;
 }
+
+export const bulkAddTags = async (ids: ContactId[], tags: string[]): Promise<Contact[]> => {
+    const db = await initDB();
+    const tx = db.transaction('contacts', 'readwrite');
+    const updatedContacts: Contact[] = [];
+    
+    for (const id of ids) {
+        const contact = await tx.store.get(id);
+        if (contact) {
+            const newTags = Array.from(new Set([...contact.tags, ...tags]));
+            const updated: Contact = { 
+                ...contact, 
+                tags: newTags, 
+                updatedAt: Date.now() 
+            };
+            await tx.store.put(updated);
+            updatedContacts.push(updated);
+        }
+    }
+    
+    await tx.done;
+    return updatedContacts;
+};
+

@@ -12,11 +12,12 @@ interface ContactState {
   
   // Actions
   fetchContacts: () => Promise<void>;
-  addContact: (contact: any) => Promise<void>;
+  addContact: (contact: any) => Promise<Contact>;
   editContact: (id: string, contact: any) => Promise<void>;
   removeContact: (id: string) => Promise<void>;
   removeContacts: (ids: string[]) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
+  applyBulkTag: (ids: string[], tags: string[]) => Promise<void>;
   setFilter: (filter: Partial<ContactFilterOptions>) => void;
   setSort: (sort: ContactSortOptions) => void;
   setViewMode: (mode: 'list' | 'grid') => void;
@@ -41,65 +42,145 @@ export const useContactStore = create<ContactState>((set, get) => ({
   },
 
   addContact: async (data) => {
-    set({ isLoading: true });
+    // Optimistic: create temp contact immediately
+    const tempId = `temp-${Date.now()}`;
+    const now = Date.now();
+    const optimisticContact: Contact = {
+      ...data,
+      id: tempId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    set(state => ({ 
+      contacts: [...state.contacts, optimisticContact],
+    }));
+    
     try {
       const newContact = await db.createContact(data);
+      // Replace temp contact with real one
       set(state => ({ 
-        contacts: [...state.contacts, newContact],
-        isLoading: false 
+        contacts: state.contacts.map(c => c.id === tempId ? newContact : c),
       }));
+      return newContact;
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      // Rollback on error
+      set(state => ({ 
+        contacts: state.contacts.filter(c => c.id !== tempId),
+        error: err.message 
+      }));
+      throw err;
     }
   },
 
   editContact: async (id, data) => {
-    set({ isLoading: true });
+    const prevContacts = get().contacts;
+    const oldContact = prevContacts.find(c => c.id === id);
+    if (!oldContact) return;
+    
+    // Optimistic update
+    const optimisticContact: Contact = {
+      ...oldContact,
+      ...data,
+      updatedAt: Date.now(),
+    };
+    
+    set(state => ({
+      contacts: state.contacts.map(c => c.id === id ? optimisticContact : c),
+    }));
+    
     try {
       const updated = await db.updateContact(id, data);
       set(state => ({
         contacts: state.contacts.map(c => c.id === id ? updated : c),
-        isLoading: false
       }));
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      // Rollback on error
+      set({ contacts: prevContacts, error: err.message });
+      throw err;
     }
   },
 
   removeContact: async (id) => {
+    const prevContacts = get().contacts;
+    
+    // Optimistic removal
+    set(state => ({
+      contacts: state.contacts.filter(c => c.id !== id)
+    }));
+    
     try {
       await db.deleteContact(id);
-      set(state => ({
-        contacts: state.contacts.filter(c => c.id !== id)
-      }));
     } catch (err: any) {
-      set({ error: err.message });
+      // Rollback on error
+      set({ contacts: prevContacts, error: err.message });
+      throw err;
     }
   },
 
   removeContacts: async (ids) => {
-      try {
-          await db.bulkDeleteContacts(ids);
-          set(state => ({
-              contacts: state.contacts.filter(c => !ids.includes(c.id))
-          }));
-      } catch (err: any) {
-          set({ error: err.message });
-      }
+    const prevContacts = get().contacts;
+    
+    // Optimistic removal
+    set(state => ({
+      contacts: state.contacts.filter(c => !ids.includes(c.id))
+    }));
+    
+    try {
+      await db.bulkDeleteContacts(ids);
+    } catch (err: any) {
+      // Rollback on error
+      set({ contacts: prevContacts, error: err.message });
+      throw err;
+    }
   },
 
   toggleFavorite: async (id) => {
-      try {
-          const updated = await db.toggleFavorite(id);
-          set(state => ({
-              contacts: state.contacts.map(c => c.id === id ? updated : c)
-          }));
-      } catch (err: any) {
-          set({ error: err.message });
-      }
+    const prevContacts = get().contacts;
+    const contact = prevContacts.find(c => c.id === id);
+    if (!contact) return;
+    
+    // Optimistic update
+    set(state => ({
+      contacts: state.contacts.map(c => 
+        c.id === id ? { ...c, isFavorite: !c.isFavorite, updatedAt: Date.now() } : c
+      )
+    }));
+    
+    try {
+      await db.toggleFavorite(id);
+    } catch (err: any) {
+      // Rollback on error
+      set({ contacts: prevContacts, error: err.message });
+      throw err;
+    }
+  },
+
+  applyBulkTag: async (ids, tags) => {
+    const prevContacts = get().contacts;
+    
+    // Optimistic update for bulk tags
+    set(state => ({
+      contacts: state.contacts.map(c => {
+        if (ids.includes(c.id)) {
+          const newTags = Array.from(new Set([...c.tags, ...tags]));
+          return { ...c, tags: newTags, updatedAt: Date.now() };
+        }
+        return c;
+      })
+    }));
+    
+    try {
+      await db.bulkAddTags(ids, tags);
+    } catch (err: any) {
+      // Rollback on error
+      set({ contacts: prevContacts, error: err.message });
+      throw err;
+    }
   },
 
   setFilter: (newFilter) => set(state => ({ filter: { ...state.filter, ...newFilter } })),
   setSort: (newSort) => set({ sort: newSort }),
   setViewMode: (mode) => set({ viewMode: mode }),
 }));
+
