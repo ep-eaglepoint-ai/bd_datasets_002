@@ -16,7 +16,7 @@ services:
 
   evaluation:
     build: .
-    command: npx ts-node /app/evaluation/evaluation.ts
+    command: npm run evaluation
     environment:
       - REDIS_URL=redis://redis:6379
     volumes:

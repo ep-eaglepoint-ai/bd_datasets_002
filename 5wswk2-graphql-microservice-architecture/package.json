@@ -7,6 +7,7 @@
     "test": "tsc --noEmit && jest",
     "test:before": "TARGET_REPO=repository_before jest",
     "test:after": "TARGET_REPO=repository_after jest",
+    "evaluation": "ts-node evaluation/evaluation.ts",
     "start": "ts-node repository_after/src/index.ts",
     "build": "tsc"
   },
