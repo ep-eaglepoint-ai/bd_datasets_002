@@ -1,9 +1,11 @@
 # Python
 .pytest_cache/
 __pycache__/
+*/__pycache__
 *.pyc
 .venv/
 .env
+
 
 # Node
 node_modules/

@@ -1,50 +1,56 @@
-
 from typing import List
 
-def max_non_decreasing_length(nums: List[int]) -> int:
-    """
-    Returns the maximum possible length of a non-decreasing array 
-    achievable through optimal consolidations.
-    
-    Uses iterative DP with O(n) space and O(n^2) time complexity.
-    dp[i] stores the maximum length of a non-decreasing sequence ending at index i.
-    last[i] stores the minimum ending sum for such a sequence of maximal length.
-    """
-    n = len(nums)
-    if n == 0:
-        return 0
-    
-    # Precompute prefix sums
-    prefix = [0] * (n + 1)
-    for i in range(n):
-        prefix[i+1] = prefix[i] + nums[i]
-        
-    # dp[i] = max length of non-decreasing chain ending at index i
-    dp = [1] * n
-    # last[i] = minimum value of the last segment (nums[j+1...i]) for chain of length dp[i]
-    last = [0] * n
-    
-    for i in range(n):
-        # Default: take whole prefix 0...i
-        dp[i] = 1
-        last[i] = prefix[i+1]
-        
-        # Try to extend a valid chain ending at j < i
-        for j in range(i):
-            if prefix[i+1] >= prefix[j+1] + last[j]:
-                current_sum = prefix[i+1] - prefix[j+1]
-                new_len = dp[j] + 1
-                
-                # We found a valid extension.
-                # If it gives a longer chain, assume it is better.
-                # If equal length, prefer smaller end sum to facilitate future extensions.
-                if new_len > dp[i]:
-                    dp[i] = new_len
-                    last[i] = current_sum
-                elif new_len == dp[i]:
-                    last[i] = min(last[i], current_sum)
-                    
-    return max(dp) if n > 0 else 0
+class NonDecreasingArrayOptimizer:
+    def __init__(self, nums: List[int]):
+        self.nums = nums
+        self.n = len(nums)
+        self.prefix = [0] * (self.n + 1)
+        for i in range(self.n):
+            self.prefix[i + 1] = self.prefix[i] + nums[i]
 
-# For backwards compatibility/testing alias
-max_non_decreasing_length_optimized = max_non_decreasing_length
+    def findMaximumLength(self) -> int:
+        if self.n == 0:
+            return 0
+
+        # Requirement #5: already non-decreasing
+        if all(self.nums[i] <= self.nums[i + 1] for i in range(self.n - 1)):
+            return self.n
+
+        # Requirement #6: strictly decreasing
+        if all(self.nums[i] > self.nums[i + 1] for i in range(self.n - 1)):
+            return 1
+
+        # Use exhaustive search with memoization for correctness
+        from functools import lru_cache
+
+        @lru_cache(maxsize=None)
+        def dfs(start, prev_sum):
+            if start >= self.n:
+                return 0
+
+            max_length = 0
+
+            # Try all possible end positions for the current segment
+            for end in range(start, self.n):
+                segment_sum = self.prefix[end + 1] - self.prefix[start]
+                
+                # Check if this segment maintains non-decreasing property
+                if prev_sum is None or segment_sum >= prev_sum:
+                    # Recursively find the best solution for the remaining part
+                    remaining_length = dfs(end + 1, segment_sum)
+                    current_length = 1 + remaining_length
+                    max_length = max(max_length, current_length)
+
+            return max_length
+
+        return dfs(0, None)
+
+
+# Top-level function for API
+def findMaximumLength(nums: List[int]) -> int:
+    optimizer = NonDecreasingArrayOptimizer(nums)
+    return optimizer.findMaximumLength()
+
+
+# For backwards compatibility
+max_non_decreasing_length = findMaximumLength
