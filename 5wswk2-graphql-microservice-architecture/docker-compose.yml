@@ -4,7 +4,7 @@ services:
 
   test-after:
     build: .
-    command: npm run test:after || true
+    command: npm run test:after
     environment:
       - TARGET_REPO=repository_after
       - REDIS_URL=redis://redis:6379
