@@ -50,13 +50,14 @@
 
 ## Quick start
 
-Run tests against repository_before:
+ repository_before:
   ```bash
-  docker compose run --rm app go test -v ./tests/...
+  docker compose run --rm -e TARGET_REPO=repository_before app go test -v ./tests/...
   ```
-- With Docker (interactive): `docker compose up --build`
+repository_after
+ ```bash
+  docker compose run --rm -e TARGET_REPO=repository_after app go test -v ./tests/... ```
 
-## Evaluation
 
 Run the evaluation script:
 ```bash

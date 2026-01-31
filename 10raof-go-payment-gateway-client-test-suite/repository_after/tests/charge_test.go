@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ============================================================================
-// Charge Success Tests
-// ============================================================================
+
+
+
 
 func TestCharge_Success_HTTPStatusCreated(t *testing.T) {
 	expectedResponse := payment.ChargeResponse{
@@ -127,7 +127,7 @@ func TestCharge_ContextCancellationDuringBackoff(t *testing.T) {
 	_, err := client.Charge(ctx, payment.ChargeRequest{Amount: 1000, Currency: "USD"})
 
 	require.Error(t, err)
-	// Should cancel before exhausting all retries
+
 	assert.Less(t, atomic.LoadInt32(&attemptCount), int32(10))
 }
 

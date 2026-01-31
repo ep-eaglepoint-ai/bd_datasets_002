@@ -54,13 +54,18 @@ type Environment struct {
 
 type Comparison struct {
 	BeforeTestsPassed bool `json:"before_tests_passed"`
+	AfterTestsPassed  bool `json:"after_tests_passed"`
 	BeforeTotal       int  `json:"before_total"`
 	BeforePassed      int  `json:"before_passed"`
 	BeforeFailed      int  `json:"before_failed"`
+	AfterTotal        int  `json:"after_total"`
+	AfterPassed       int  `json:"after_passed"`
+	AfterFailed       int  `json:"after_failed"`
 }
 
 type Results struct {
 	Before     RepositoryTestResult `json:"before"`
+	After      RepositoryTestResult `json:"after"`
 	Comparison Comparison           `json:"comparison"`
 }
 
@@ -100,15 +105,22 @@ func getGitInfo() (commit string, branch string) {
 	return
 }
 
-func runTestsAndParse(repoName string) RepositoryTestResult {
+func runMetaTests(repoName string) RepositoryTestResult {
 	startTime := time.Now()
-	fmt.Printf("\n%s\n", strings.Repeat("=", 60))
+	// Header for console output
+	fmt.Printf("\n%s\n", strings.Repeat("-", 60))
 	fmt.Printf("Evaluating Target: %s\n", repoName)
-	fmt.Printf("%s\n\n", strings.Repeat("=", 60))
+	if repoName == "repository_before" {
+		fmt.Println("      Expected: FAIL (incomplete/missing tests)")
+	} else {
+		fmt.Println("      Expected: PASS (valid tests)")
+	}
+	fmt.Printf("%s\n", strings.Repeat("-", 60))
 
-	// Run tests using go test directly, relying on go.mod replacement
+	// Run tests using go test, targeting the meta_test.go in ./tests/
+	// but pointing TARGET_REPO to the correct folder
 	cmd := exec.Command("go", "test", "-v", "-json", "./tests/...")
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), fmt.Sprintf("TARGET_REPO=%s", repoName))
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
@@ -127,12 +139,13 @@ func runTestsAndParse(repoName string) RepositoryTestResult {
 	var tests []TestResult
 	summary := TestSummary{}
 
-	scanner := bufio.NewScanner(&stdoutBuf)
+	scanner := bufio.NewScanner(bytes.NewReader(stdoutBuf.Bytes()))
 	for scanner.Scan() {
 		var event GoTestEvent
 		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
 			continue
 		}
+		// Capture basic test events (pass/fail/skip) for individual tests
 		if event.Test != "" && (event.Action == "pass" || event.Action == "fail" || event.Action == "skip") {
 			outcome := "passed"
 			if event.Action == "fail" {
@@ -156,10 +169,21 @@ func runTestsAndParse(repoName string) RepositoryTestResult {
 	}
 
 	duration := time.Since(startTime).Seconds()
-	fmt.Printf("Result: %d/%d passed (%.2fs)\n", summary.Passed, summary.Total, duration)
+	passRate := 0
+	if summary.Total > 0 {
+		passRate = (summary.Passed * 100) / summary.Total
+	}
+
+	statusIcon := "✅"
+	if exitCode != 0 || summary.Failed > 0 {
+		statusIcon = "❌"
+	}
+
+	fmt.Printf("Result: %s %d/%d passed (%d%%) (%.2fs)\n", statusIcon, summary.Passed, summary.Total, passRate, duration)
 
 	return RepositoryTestResult{
-		Success:         exitCode == 0 || summary.Failed == 0,
+		// A run is successful if exit code is 0 AND no failed tests
+		Success:         exitCode == 0 && summary.Failed == 0,
 		ExitCode:        exitCode,
 		Tests:           tests,
 		Summary:         summary,
@@ -177,17 +201,45 @@ func main() {
 	runId := fmt.Sprintf("%x", startAll.UnixNano())
 	hostname, _ := os.Hostname()
 
-	resBefore := runTestsAndParse("repository_before")
+	fmt.Printf("%s\n", strings.Repeat("=", 60))
+	fmt.Printf("EVALUATION: Go Payment Gateway Meta-Testing\n")
+	fmt.Printf("%s\n\n", strings.Repeat("=", 60))
+
+	// 1. Run against repository_before
+	resBefore := runMetaTests("repository_before")
+
+	// 2. Run against repository_after
+	fmt.Println()
+	resAfter := runMetaTests("repository_after")
 
 	finishedAt := time.Now()
 	commit, branch := getGitInfo()
+
+	// Logic: Success if Before fails AND After passes
+	overallSuccess := (!resBefore.Success) && resAfter.Success
+
+	var errorMsg string
+	if resBefore.Success {
+		errorMsg = "repository_before passed but should have failed"
+	} else if !resAfter.Success {
+		errorMsg = "repository_after failed"
+	}
+
+	fmt.Printf("\n%s\n", strings.Repeat("=", 60))
+	if overallSuccess {
+		fmt.Println("VERDICT: SUCCESS ✅")
+	} else {
+		fmt.Println("VERDICT: FAILURE ❌")
+	}
+	fmt.Printf("%s\n", strings.Repeat("=", 60))
 
 	report := EvaluationReport{
 		RunID:           runId,
 		StartedAt:       startAll.Format(time.RFC3339),
 		FinishedAt:      finishedAt.Format(time.RFC3339),
 		DurationSeconds: finishedAt.Sub(startAll).Seconds(),
-		Success:         resBefore.Success,
+		Success:         overallSuccess,
+		Error:           errorMsg,
 		Environment: Environment{
 			GoVersion: runtime.Version(),
 			Platform:  runtime.GOOS,
@@ -199,11 +251,16 @@ func main() {
 		},
 		Results: Results{
 			Before: resBefore,
+			After:  resAfter,
 			Comparison: Comparison{
 				BeforeTestsPassed: resBefore.Success,
+				AfterTestsPassed:  resAfter.Success,
 				BeforeTotal:       resBefore.Summary.Total,
 				BeforePassed:      resBefore.Summary.Passed,
 				BeforeFailed:      resBefore.Summary.Failed + resBefore.Summary.Errors,
+				AfterTotal:        resAfter.Summary.Total,
+				AfterPassed:       resAfter.Summary.Passed,
+				AfterFailed:       resAfter.Summary.Failed + resAfter.Summary.Errors,
 			},
 		},
 	}
@@ -221,7 +278,7 @@ func main() {
 	os.WriteFile(reportPath, data, 0644)
 
 	fmt.Printf("\nGenerated report: %s\n", reportPath)
-	if !resBefore.Success {
+	if !overallSuccess {
 		os.Exit(1)
 	}
 }

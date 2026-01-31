@@ -13,7 +13,7 @@ import (
 	"github.com/example/payment-gateway/payment"
 )
 
-// createTestServer creates a mock HTTP server for testing
+
 func createTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(handler)
@@ -21,7 +21,7 @@ func createTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	return server
 }
 
-// generateValidSignature generates a valid HMAC-SHA256 signature for testing
+
 func generateValidSignature(payload []byte, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)

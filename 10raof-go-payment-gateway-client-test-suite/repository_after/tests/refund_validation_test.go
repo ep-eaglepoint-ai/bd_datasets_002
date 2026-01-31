@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ============================================================================
-// Criterion 5: Refund errors must propagate to callers without being swallowed
-// Criterion 6: Refund must return ErrChargeNotFound for HTTP 404 responses
-// Criterion 15: Empty chargeID in Refund must return ErrChargeNotFound immediately
-// ============================================================================
+
+
+
+
+
 
 func TestRefund_EmptyAPIKey_ReturnsErrInvalidAPIKey(t *testing.T) {
-	// Criterion 13: any Refund call must return ErrInvalidAPIKey without making any HTTP request
+
 	var requestMade bool
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		requestMade = true
@@ -35,8 +35,8 @@ func TestRefund_EmptyAPIKey_ReturnsErrInvalidAPIKey(t *testing.T) {
 }
 
 func TestRefund_EmptyChargeID_ReturnsErrChargeNotFound(t *testing.T) {
-	// Criterion 15: When Refund is called with empty string chargeID,
-	// it must return ErrChargeNotFound without making any HTTP request
+
+
 	var requestMade bool
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		requestMade = true
@@ -51,7 +51,7 @@ func TestRefund_EmptyChargeID_ReturnsErrChargeNotFound(t *testing.T) {
 }
 
 func TestRefund_AmountValidation_TableDriven(t *testing.T) {
-	// Criterion 14: Same for Refund with zero or negative amount
+
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -105,9 +105,9 @@ func TestRefund_AmountValidation_TableDriven(t *testing.T) {
 }
 
 func TestRefund_HTTP404_ReturnsErrChargeNotFound_NoRetries(t *testing.T) {
-	// Criterion 6: When the server returns 404 indicating the charge doesn't exist,
-	// the error returned must be ErrChargeNotFound (testable via errors.Is),
-	// and no retries should be attempted for this non-retryable error.
+
+
+
 	var requestCount int32
 
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -123,9 +123,9 @@ func TestRefund_HTTP404_ReturnsErrChargeNotFound_NoRetries(t *testing.T) {
 }
 
 func TestRefund_ErrorPropagation_ServerErrors(t *testing.T) {
-	// Criterion 5: When the payment server returns HTTP 500 for a refund request
-	// and all retries are exhausted, the Refund function must return a non-nil error
-	// containing details about the failure. The error must not be nil when the refund actually failed.
+
+
+
 	tests := []struct {
 		name       string
 		statusCode int

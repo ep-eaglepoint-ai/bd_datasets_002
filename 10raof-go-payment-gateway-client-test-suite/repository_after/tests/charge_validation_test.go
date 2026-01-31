@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// ============================================================================
-// Criterion 13: Invalid API key must return ErrInvalidAPIKey immediately
-// Criterion 14 & 16: Table-driven tests for amount validation edge cases
-// ============================================================================
+
+
+
+
 
 func TestCharge_EmptyAPIKey_ReturnsErrInvalidAPIKey(t *testing.T) {
-	// Criterion 13: When NewClient is called with empty string API key,
-	// any Charge call must return ErrInvalidAPIKey without making any HTTP request
+
+
 	var requestMade bool
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		requestMade = true
@@ -35,8 +35,8 @@ func TestCharge_EmptyAPIKey_ReturnsErrInvalidAPIKey(t *testing.T) {
 }
 
 func TestCharge_AmountValidation_TableDriven(t *testing.T) {
-	// Criterion 14 & 16: Amount values of 0, -1, -100, and valid positive values
-	// must be tested in a single table-driven test function using t.Run for each case
+
+
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)

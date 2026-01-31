@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ============================================================================
-// Criterion 11: Retry logic must attempt the configured number of retries
-// Criterion 12: Non-retryable errors must not trigger retries
-// ============================================================================
+
+
+
+
 
 func TestCharge_RetryLogic_AttemptsConfiguredRetries(t *testing.T) {
 	const maxRetries = 3

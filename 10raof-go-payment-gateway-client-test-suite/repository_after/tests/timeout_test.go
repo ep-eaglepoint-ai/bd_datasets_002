@@ -12,17 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ============================================================================
-// Criterion 10: Timeout must return ErrTimeout error type
-// ============================================================================
+
+
+
 
 func TestCharge_Timeout_ReturnsErrTimeout(t *testing.T) {
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(200 * time.Millisecond) // Server sleeps longer than timeout
+		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// Use context timeout which is checked by the client
+
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
