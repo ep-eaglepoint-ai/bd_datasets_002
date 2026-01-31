@@ -9,12 +9,17 @@ import { buildSubgraphSchema } from '@apollo/subgraph';
 import gql from 'graphql-tag';
 
 const typeDefs = gql`
-  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
+  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable", "@override"])
 
   type Product @key(fields: "id") {
     id: ID!
     name: String!
     price: Float!
+    """
+    Override the description field from another subgraph (if it exists)
+    This demonstrates conflict resolution via @override
+    """
+    description: String @override(from: "legacy")
   }
 
   type Query {
@@ -26,7 +31,10 @@ const typeDefs = gql`
 const resolvers = {
   Product: {
     __resolveReference(product: any) {
-      return { id: product.id, name: `Product ${product.id}`, price: 10.99 };
+      return { id: product.id, name: `Product ${product.id}`, price: 10.99, description: `Description for ${product.id}` };
+    },
+    description(product: any) {
+      return product.description || `Default description for product ${product.id}`;
     },
   },
   Query: {
