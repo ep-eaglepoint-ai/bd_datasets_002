@@ -269,6 +269,43 @@ type CalculationManifest struct {
 	IsSimulation     bool
 }
 
+// Equal checks if two manifests are equal (for testing determinism)
+func (m *CalculationManifest) Equal(other *CalculationManifest) bool {
+	if m.CartID != other.CartID ||
+		!m.EntryPrice.Equal(other.EntryPrice) ||
+		!m.FinalPrice.Equal(other.FinalPrice) ||
+		!m.TotalDiscount.Equal(other.TotalDiscount) ||
+		len(m.RulesApplied) != len(other.RulesApplied) ||
+		len(m.RulesSkipped) != len(other.RulesSkipped) {
+		return false
+	}
+
+	for i := range m.RulesApplied {
+		if m.RulesApplied[i].RuleID != other.RulesApplied[i].RuleID ||
+			!m.RulesApplied[i].EntryPrice.Equal(other.RulesApplied[i].EntryPrice) ||
+			!m.RulesApplied[i].Delta.Equal(other.RulesApplied[i].Delta) ||
+			!m.RulesApplied[i].ExitPrice.Equal(other.RulesApplied[i].ExitPrice) {
+			return false
+		}
+	}
+
+	for i := range m.RulesSkipped {
+		if m.RulesSkipped[i] != other.RulesSkipped[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// ZeroTimestamps zeros all timestamps for deterministic comparison
+func (m *CalculationManifest) ZeroTimestamps() {
+	m.EvaluationTime = 0
+	for i := range m.RulesApplied {
+		m.RulesApplied[i].AppliedAt = time.Time{}
+	}
+}
+
 // ============================================================================
 // DAG - Directed Acyclic Graph for Rule Dependencies
 // ============================================================================
@@ -307,6 +344,21 @@ func (d *DAG) AddRule(rule *Rule) error {
 		d.adjList[depID] = append(d.adjList[depID], rule.ID)
 	}
 
+	return nil
+}
+
+// ValidateDependencies checks that all dependencies exist
+func (d *DAG) ValidateDependencies() error {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	for id, rule := range d.rules {
+		for _, depID := range rule.Dependencies {
+			if _, exists := d.rules[depID]; !exists {
+				return fmt.Errorf("rule %s has missing dependency: %s", id, depID)
+			}
+		}
+	}
 	return nil
 }
 
@@ -377,9 +429,12 @@ func (d *DAG) TopologicalSort() ([]*Rule, error) {
 
 	var sorted []*Rule
 	for len(queue) > 0 {
-		// Sort by priority within same tier
+		// Sort by priority within same tier, tie-break by Rule.ID for determinism
 		sort.Slice(queue, func(i, j int) bool {
-			return d.rules[queue[i]].Priority > d.rules[queue[j]].Priority
+			if d.rules[queue[i]].Priority != d.rules[queue[j]].Priority {
+				return d.rules[queue[i]].Priority > d.rules[queue[j]].Priority
+			}
+			return queue[i] < queue[j] // Tie-break by ID (lexicographic)
 		})
 
 		nodeID := queue[0]
@@ -452,8 +507,11 @@ func (e *Engine) AddRule(rule *Rule) error {
 	return e.dag.AddRule(rule)
 }
 
-// Validate validates the rule graph (detects cycles)
+// Validate validates the rule graph (detects cycles and missing dependencies)
 func (e *Engine) Validate() error {
+	if err := e.dag.ValidateDependencies(); err != nil {
+		return err
+	}
 	return e.dag.DetectCycle()
 }
 
@@ -510,10 +568,13 @@ func (e *Engine) EvaluateAt(cart *Cart, snapshotDate time.Time, isSimulation boo
 		}
 	}
 
-	// Sort by priority within each group
+	// Sort by priority within each group, tie-break by Rule.ID for determinism
 	sortByPriority := func(rules []*Rule) {
 		sort.Slice(rules, func(i, j int) bool {
-			return rules[i].Priority > rules[j].Priority
+			if rules[i].Priority != rules[j].Priority {
+				return rules[i].Priority > rules[j].Priority
+			}
+			return rules[i].ID < rules[j].ID
 		})
 	}
 	sortByPriority(additiveRules)
