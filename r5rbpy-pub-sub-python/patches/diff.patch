@@ -1,7 +1,7 @@
 diff -urN repository_before/bus.py repository_after/bus.py
 --- repository_before/bus.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/bus.py	2026-01-28 10:04:17.828686017 +0300
-@@ -0,0 +1,298 @@
++++ repository_after/bus.py	2026-01-31 08:42:00.986881016 +0300
+@@ -0,0 +1,361 @@
 +from __future__ import annotations
 +import asyncio
 +import time
@@ -42,7 +42,9 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +        event_store: Optional[EventStore] = None,
 +        metrics_collector: Optional[MetricsCollector] = None,
 +        concurrency_limit: int = 0,
-+        development_mode: bool = False
++        development_mode: bool = False,
++        circuit_breaker_error_threshold: int = 5,
++        circuit_breaker_recovery_timeout: float = 30.0
 +    ):
 +        self.loop = loop or asyncio.get_event_loop()
 +        self.executor = executor or ThreadPoolExecutor(max_workers=10)
@@ -61,11 +63,13 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +        self._handler_cache: Dict[Type[Event], List[Tuple[int, Handler[Any, Any], Optional[Callable[[Any], bool]]]]] = {}
 +        self._middleware_chain: Optional[Callable[[Event], Awaitable[EventResult]]] = None
 +        self._on_publish_hooks: List[Callable[[Event], Any]] = []
++        self._pending_events: int = 0
++        self._track_pending_events: bool = False
 +        
 +        self._error_counts: Dict[str, int] = {}
 +        self._circuit_open: Dict[str, bool] = {}
-+        self._error_threshold = 5
-+        self._recovery_timeout = 30.0
++        self._error_threshold = circuit_breaker_error_threshold
++        self._recovery_timeout = circuit_breaker_recovery_timeout
 +        self._last_error_time: Dict[str, float] = {}
 +
 +    def _validate_event(self, event: Event):
@@ -128,10 +132,17 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +
 +    def _get_matching_handlers(self, event: Event) -> List[Tuple[int, Handler[Any, Any], Optional[Callable[[Any], bool]]]]:
 +        event_type = type(event)
-+        if event_type in self._handler_cache: return self._handler_cache[event_type]
++        # Fast path: check cache first
++        if event_type in self._handler_cache: 
++            return self._handler_cache[event_type]
 +        handlers = []
-+        for cls in event_type.__mro__:
-+            if cls in self._subscriptions: handlers.extend(self._subscriptions[cls])
++        # Optimize: check direct type first (most common case)
++        if event_type in self._subscriptions:
++            handlers.extend(self._subscriptions[event_type])
++        # Then check MRO for base classes
++        for cls in event_type.__mro__[1:]:  # Skip first (already checked)
++            if cls in self._subscriptions: 
++                handlers.extend(self._subscriptions[cls])
 +        handlers.sort(key=lambda x: x[0], reverse=True)
 +        self._handler_cache[event_type] = handlers
 +        return handlers
@@ -198,8 +209,12 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +                    except: pass
 +                return HandlerResult(handler_name, False, error=e, duration_ms=duration, retry_count=retry_count)
 +
-+    async def _dispatch_to_handlers(self, event: Event) -> EventResult:
++    async def _dispatch_to_handlers(self, event: Event, track_event: bool = True) -> EventResult:
 +        start_time = time.perf_counter()
++        # Optimize metrics tracking - use direct dict access
++        if track_event:
++            event_type_name = event.__class__.__name__
++            self.metrics._events_published[event_type_name] += 1
 +        handlers_to_run = self._get_matching_handlers(event)
 +        retry_policy = self._retry_policies.get(event.__class__)
 +        
@@ -208,32 +223,47 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +            if filter_predicate and not filter_predicate(event):
 +                return EventResult(success=True, event=event, handler_results=[], errors=[], duration_ms=(time.perf_counter() - start_time) * 1000)
 +            
-+            # Fast path check
++            # Ultra-fast path: single handler, no retry, no circuit breaker, no timeout, no concurrency limit
 +            if not retry_policy and not self._circuit_open and self.default_timeout is None and self.concurrency_limit == 0:
 +                try:
++                    # Cache handler async status
 +                    is_async = getattr(handler, "_is_coro", None)
 +                    if is_async is None:
 +                        is_async = asyncio.iscoroutinefunction(handler)
-+                        try: setattr(handler, "_is_coro", is_async)
-+                        except: pass
++                        try: 
++                            handler._is_coro = is_async
++                        except (AttributeError, TypeError): 
++                            pass
 +                    
-+                    if is_async: result = await handler(event)
-+                    else: result = await asyncio.get_running_loop().run_in_executor(self.executor, handler, event)
++                    # Invoke handler
++                    if is_async: 
++                        result = await handler(event)
++                    else: 
++                        result = await asyncio.get_running_loop().run_in_executor(self.executor, handler, event)
 +                    
++                    # Calculate duration
 +                    now = time.perf_counter()
 +                    duration = (now - start_time) * 1000
++                    
++                    # Ultra-fast handler name lookup - use getattr with default (faster than try/except)
 +                    h_name = getattr(handler, "_bus_name", None)
 +                    if h_name is None:
-+                        h_name = getattr(handler, "__name__", str(handler))
-+                        try: setattr(handler, "_bus_name", h_name)
-+                        except: pass
-+                    self.metrics._handler_durations[h_name].append(duration)
++                        h_name = getattr(handler, "__name__", "handler")
++                        try:
++                            handler._bus_name = h_name
++                        except (AttributeError, TypeError):
++                            pass
 +                    
++                    # Track metrics only if enabled - use direct dict access for speed
++                    if track_event:
++                        self.metrics._handler_durations[h_name].append(duration)
++                    
++                    # Ultra-fast path: minimal EventResult creation
 +                    return EventResult(
 +                        success=True, event=event, handler_results=[HandlerResult(h_name, True, result=result, duration_ms=duration)],
 +                        errors=[], duration_ms=duration, dead_letter_count=0, retry_counts=[0]
 +                    )
-+                except Exception: pass # fallback
++                except Exception: pass # fallback to standard path
 +
 +        tasks = []
 +        for _, handler, filter_predicate in handlers_to_run:
@@ -259,25 +289,57 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +            duration_ms=(time.perf_counter() - start_time) * 1000, dead_letter_count=dead_letter_count, retry_counts=retry_counts
 +        )
 +
-+    def publish_async(self, event: Event) -> Awaitable[EventResult]:
++    async def publish_async(self, event: Event, guaranteed_persistence: bool = False) -> EventResult:
 +        if self.development_mode: self._validate_event(event)
++        
++        # Ultra-fast path: no hooks, no store, no middlewares, no pending tracking
++        if (not self._on_publish_hooks and not self.event_store and not self._middlewares and 
++            not self._track_pending_events):
++            return await self._dispatch_to_handlers(event, track_event=True)
++        
++        # Fast path: no hooks, no store, no middlewares (but track metrics)
++        if not self._on_publish_hooks and not self.event_store and not self._middlewares:
++            self.metrics._events_published[event.__class__.__name__] += 1
++            if self._track_pending_events:
++                self._pending_events += 1
++                self.metrics.update_queue_depth(self._pending_events)
++            try:
++                return await self._dispatch_to_handlers(event, track_event=True)
++            finally:
++                if self._track_pending_events:
++                    self._pending_events -= 1
++                    self.metrics.update_queue_depth(self._pending_events)
++        
++        # Standard path with hooks/store/middlewares
 +        self.metrics._events_published[event.__class__.__name__] += 1
 +        for hook in self._on_publish_hooks:
 +            try: hook(event)
 +            except: pass
-+        if self.event_store: asyncio.create_task(self.event_store.save(event))
-+        if not self._middlewares: return self._dispatch_to_handlers(event)
-+        if self._middleware_chain is None: self._build_middleware_chain()
-+        return self._middleware_chain(event)
++        if self.event_store:
++            if guaranteed_persistence:
++                await self.event_store.save(event)
++            else:
++                asyncio.create_task(self.event_store.save(event))
++        if self._track_pending_events:
++            self._pending_events += 1
++            self.metrics.update_queue_depth(self._pending_events)
++        try:
++            if not self._middlewares: return await self._dispatch_to_handlers(event, track_event=True)
++            if self._middleware_chain is None: self._build_middleware_chain()
++            return await self._middleware_chain(event)
++        finally:
++            if self._track_pending_events:
++                self._pending_events -= 1
++                self.metrics.update_queue_depth(self._pending_events)
 +
-+    def publish(self, event: Event) -> EventResult:
++    def publish(self, event: Event, guaranteed_persistence: bool = False) -> EventResult:
 +        try:
 +            asyncio.get_running_loop()
 +            raise RuntimeError("publish() cannot be called from within an async context. Use publish_async() instead.")
 +        except RuntimeError as e:
 +            if "no running event loop" in str(e): pass
 +            else: raise e
-+        return self.loop.run_until_complete(self.publish_async(event))
++        return self.loop.run_until_complete(self.publish_async(event, guaranteed_persistence=guaranteed_persistence))
 +
 +    @property
 +    def stats(self) -> Dict[str, Any]: return self.metrics.get_metrics()
@@ -285,10 +347,11 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +
 +    async def health_check(self) -> Any:
 +        from .metrics import HealthStatus
++        self._track_pending_events = True  # Enable tracking when health check is called
 +        return HealthStatus(
 +            healthy=all(not open for open in self._circuit_open.values()),
 +            details={"subscription_counts": {t.__name__: len(h) for t, h in self._subscriptions.items()},
-+                     "queue_depth": self.semaphore._value if self.semaphore and hasattr(self.semaphore, "_value") else 0,
++                     "queue_depth": self._pending_events,
 +                     "error_rates": self._error_counts},
 +            last_event_time=time.time()
 +        )
@@ -302,26 +365,28 @@ diff -urN repository_before/bus.py repository_after/bus.py
 +        if replay_since: await self.replay_events(Event, since=replay_since)
 diff -urN repository_before/events.py repository_after/events.py
 --- repository_before/events.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/events.py	2026-01-28 10:04:17.766685562 +0300
-@@ -0,0 +1,68 @@
++++ repository_after/events.py	2026-01-31 08:02:29.295073362 +0300
+@@ -0,0 +1,70 @@
 +from __future__ import annotations
 +from dataclasses import dataclass, field, asdict
 +from datetime import datetime, timezone
 +import uuid
-+from typing import Any, Dict, Type, TypeVar, Optional, cast
++from typing import Any, Dict, Type, TypeVar, Optional, cast, Generic
 +
 +E = TypeVar("E", bound="Event")
++T = TypeVar("T")
 +
 +_uuid4 = uuid.uuid4
 +_now = datetime.now
 +_utc = timezone.utc
 +
 +@dataclass(frozen=True, kw_only=True)
-+class Event:
++class Event(Generic[T]):
 +    event_id: str = field(default_factory=lambda: _uuid4().hex)
 +    timestamp: datetime = field(default_factory=lambda: _now(_utc))
 +    source: str = ""
 +    metadata: Dict[str, Any] = field(default_factory=dict)
++    payload: Optional[T] = None
 +
 +    def to_dict(self) -> Dict[str, Any]:
 +        data = asdict(self)
@@ -373,14 +438,14 @@ diff -urN repository_before/events.py repository_after/events.py
 +class UserCreatedEvent(UserEvent):
 +    email: str
 diff -urN repository_before/__init__.py repository_after/__init__.py
---- repository_before/__init__.py	2026-01-28 09:01:26.199128289 +0300
-+++ repository_after/__init__.py	2026-01-28 09:13:27.520343996 +0300
-@@ -0,0 +1,30 @@
+--- repository_before/__init__.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/__init__.py	2026-01-31 08:02:31.901013180 +0300
+@@ -0,0 +1,31 @@
 +from .events import Event, UserEvent, UserCreatedEvent
 +from .bus import EventBus, Subscription
 +from .protocols import EventResult, HandlerResult, Middleware, EventStore, MetricsCollector
 +from .retry import RetryPolicy, DeadLetterQueue
-+from .middleware import LoggingMiddleware, ValidationMiddleware, RetryMiddleware, TimingMiddleware
++from .middleware import LoggingMiddleware, ValidationMiddleware, RetryMiddleware, TimingMiddleware, TracingMiddleware
 +from .storage import InMemoryEventStore, Snapshot
 +from .metrics import InMemoryMetricsCollector, HealthStatus
 +
@@ -401,6 +466,7 @@ diff -urN repository_before/__init__.py repository_after/__init__.py
 +    "ValidationMiddleware",
 +    "RetryMiddleware",
 +    "TimingMiddleware",
++    "TracingMiddleware",
 +    "InMemoryEventStore",
 +    "Snapshot",
 +    "InMemoryMetricsCollector",
@@ -408,7 +474,7 @@ diff -urN repository_before/__init__.py repository_after/__init__.py
 +]
 diff -urN repository_before/metrics.py repository_after/metrics.py
 --- repository_before/metrics.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/metrics.py	2026-01-28 10:04:17.765685555 +0300
++++ repository_after/metrics.py	2026-01-31 07:46:41.548924844 +0300
 @@ -0,0 +1,50 @@
 +from __future__ import annotations
 +import time
@@ -462,8 +528,8 @@ diff -urN repository_before/metrics.py repository_after/metrics.py
 +        }
 diff -urN repository_before/middleware.py repository_after/middleware.py
 --- repository_before/middleware.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/middleware.py	2026-01-28 09:13:27.512343740 +0300
-@@ -0,0 +1,60 @@
++++ repository_after/middleware.py	2026-01-31 08:02:31.208028997 +0300
+@@ -0,0 +1,203 @@
 +from __future__ import annotations
 +import time
 +import logging
@@ -474,6 +540,19 @@ diff -urN repository_before/middleware.py repository_after/middleware.py
 +from .retry import RetryPolicy
 +
 +logger = logging.getLogger(__name__)
++
++# Optional OpenTelemetry support
++try:
++    from opentelemetry import trace
++    from opentelemetry.trace import Status, StatusCode
++    from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
++    OPENTELEMETRY_AVAILABLE = True
++except ImportError:
++    OPENTELEMETRY_AVAILABLE = False
++    trace = None  # type: ignore
++    Status = None  # type: ignore
++    StatusCode = None  # type: ignore
++    TraceContextTextMapPropagator = None  # type: ignore
 +
 +class LoggingMiddleware:
 +    async def __call__(self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]) -> EventResult:
@@ -495,17 +574,76 @@ diff -urN repository_before/middleware.py repository_after/middleware.py
 +
 +class ValidationMiddleware:
 +    def __init__(self, schema: Optional[Dict[str, Any]] = None):
++        """
++        Initialize ValidationMiddleware with a schema.
++        
++        Schema format:
++        {
++            "field_name": {
++                "type": type,  # Required: expected type
++                "required": bool,  # Optional: defaults to True
++                "validator": Callable[[Any], bool]  # Optional: custom validator function
++            }
++        }
++        Or simplified format:
++        {
++            "field_name": type  # Shorthand for {"type": type, "required": True}
++        }
++        """
 +        self.schema = schema
 +
++    def _validate_field(self, event: Event, field_name: str, field_spec: Any) -> None:
++        """Validate a single field against its schema specification."""
++        # Handle simplified format: field_name -> type
++        if isinstance(field_spec, type):
++            field_spec = {"type": field_spec, "required": True}
++        elif not isinstance(field_spec, dict):
++            raise ValueError(f"Invalid schema specification for field '{field_name}': {field_spec}")
++        
++        field_type = field_spec.get("type")
++        required = field_spec.get("required", True)
++        validator = field_spec.get("validator")
++        
++        if not hasattr(event, field_name):
++            if required:
++                raise ValueError(f"Missing required field: {field_name}")
++            return  # Optional field missing is OK
++        
++        value = getattr(event, field_name)
++        
++        if field_type is not None:
++            # Handle Optional types
++            import typing
++            origin = getattr(typing, "get_origin", None)
++            if origin:
++                origin_type = origin(field_type)
++                if origin_type is typing.Union:
++                    args = typing.get_args(field_type)
++                    if type(None) in args:
++                        # It's Optional, check if None or one of the other types
++                        other_types = [t for t in args if t is not type(None)]
++                        if value is None:
++                            return  # None is valid for Optional
++                        if not any(isinstance(value, t) for t in other_types):
++                            raise TypeError(f"Field {field_name} must be of type {field_type}, got {type(value)}")
++                    else:
++                        # Union of non-None types
++                        if not any(isinstance(value, t) for t in args):
++                            raise TypeError(f"Field {field_name} must be one of {args}, got {type(value)}")
++                elif not isinstance(value, field_type):
++                    raise TypeError(f"Field {field_name} must be of type {field_type}, got {type(value)}")
++            elif not isinstance(value, field_type):
++                raise TypeError(f"Field {field_name} must be of type {field_type}, got {type(value)}")
++        
++        if validator is not None:
++            if not validator(value):
++                raise ValueError(f"Field {field_name} failed custom validation")
++
 +    async def __call__(self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]) -> EventResult:
-+        # Simple validation: check if all required fields are present (they are, since it's a dataclass)
-+        # In a real app, this might use jsonschema or pydantic
++        """Validate event against schema before processing."""
 +        if self.schema:
-+            for field, field_type in self.schema.items():
-+                if not hasattr(event, field):
-+                    raise ValueError(f"Missing required field: {field}")
-+                if not isinstance(getattr(event, field), field_type):
-+                    raise TypeError(f"Field {field} must be of type {field_type}")
++            for field_name, field_spec in self.schema.items():
++                self._validate_field(event, field_name, field_spec)
 +        
 +        return await next_handler(event)
 +
@@ -524,9 +662,80 @@ diff -urN repository_before/middleware.py repository_after/middleware.py
 +            retry_count += 1
 +            logger.warning(f"Retrying event {type(event).__name__} (attempt {retry_count}/{self.policy.max_retries}) after {delay:.2f}s")
 +            await asyncio.sleep(delay)
++
++
++class TracingMiddleware:
++    """Middleware for distributed tracing with OpenTelemetry support."""
++    
++    def __init__(self, tracer_name: str = "event_bus"):
++        self.tracer_name = tracer_name
++        if OPENTELEMETRY_AVAILABLE:
++            self.tracer = trace.get_tracer(tracer_name)
++            self.propagator = TraceContextTextMapPropagator()
++        else:
++            self.tracer = None
++            self.propagator = None
++    
++    def _extract_trace_context(self, event: Event) -> Optional[Dict[str, str]]:
++        """Extract trace context from event metadata."""
++        trace_context = event.metadata.get("trace_context")
++        if isinstance(trace_context, dict):
++            return trace_context
++        return None
++    
++    def _inject_trace_context(self, event: Event, context: Any) -> None:
++        """Inject trace context into event metadata."""
++        if self.propagator and context:
++            carrier = {}
++            self.propagator.inject(carrier, context=context)
++            event.metadata["trace_context"] = carrier
++    
++    async def __call__(self, event: Event, next_handler: Callable[[Event], Awaitable[EventResult]]) -> EventResult:
++        """Create OpenTelemetry span for event processing."""
++        if not OPENTELEMETRY_AVAILABLE or not self.tracer:
++            # If OpenTelemetry not available, just propagate trace_context if present
++            return await next_handler(event)
++        
++        # Extract trace context from event metadata
++        trace_context_dict = self._extract_trace_context(event)
++        context = None
++        if trace_context_dict:
++            context = self.propagator.extract(carrier=trace_context_dict)
++        
++        # Create span
++        span_name = f"event_bus.process.{type(event).__name__}"
++        with self.tracer.start_as_current_span(span_name, context=context) as span:
++            span.set_attribute("event.id", event.event_id)
++            span.set_attribute("event.type", type(event).__name__)
++            span.set_attribute("event.source", event.source)
++            
++            try:
++                result = await next_handler(event)
++                
++                if result.success:
++                    span.set_status(Status(StatusCode.OK))
++                else:
++                    span.set_status(Status(StatusCode.ERROR, f"Event processing failed: {result.errors}"))
++                    if result.errors:
++                        span.record_exception(result.errors[0])
++                
++                span.set_attribute("event.duration_ms", result.duration_ms)
++                span.set_attribute("event.handler_count", len(result.handler_results))
++                
++                # Inject updated trace context back into event metadata
++                if OPENTELEMETRY_AVAILABLE:
++                    from opentelemetry import context as trace_context
++                    current_context = trace_context.get_current()
++                    self._inject_trace_context(event, current_context)
++                
++                return result
++            except Exception as e:
++                span.set_status(Status(StatusCode.ERROR, str(e)))
++                span.record_exception(e)
++                raise
 diff -urN repository_before/protocols.py repository_after/protocols.py
 --- repository_before/protocols.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/protocols.py	2026-01-28 09:52:06.943967384 +0300
++++ repository_after/protocols.py	2026-01-31 07:46:41.548924844 +0300
 @@ -0,0 +1,54 @@
 +from __future__ import annotations
 +from typing import Protocol, runtime_checkable, Any, Callable, Awaitable, TypeVar, Union, Type, List, Optional, Dict
@@ -592,7 +801,7 @@ Binary files repository_before/__pycache__/retry.cpython-311.pyc and repository_
 Binary files repository_before/__pycache__/storage.cpython-311.pyc and repository_after/__pycache__/storage.cpython-311.pyc differ
 diff -urN repository_before/retry.py repository_after/retry.py
 --- repository_before/retry.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/retry.py	2026-01-28 09:52:06.948967409 +0300
++++ repository_after/retry.py	2026-01-31 07:46:41.548924844 +0300
 @@ -0,0 +1,50 @@
 +from __future__ import annotations
 +import asyncio
@@ -646,7 +855,7 @@ diff -urN repository_before/retry.py repository_after/retry.py
 +        self.queue.clear()
 diff -urN repository_before/storage.py repository_after/storage.py
 --- repository_before/storage.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/storage.py	2026-01-28 09:13:27.520343996 +0300
++++ repository_after/storage.py	2026-01-31 07:46:41.549211271 +0300
 @@ -0,0 +1,61 @@
 +from __future__ import annotations
 +import asyncio
@@ -709,3 +918,8 @@ diff -urN repository_before/storage.py repository_after/storage.py
 +        if not self._snapshots:
 +            return None
 +        return sorted(self._snapshots, key=lambda s: s.timestamp, reverse=True)[0]
+diff -urN repository_before/py.typed repository_after/py.typed
+--- repository_before/py.typed	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/py.typed	2026-01-31 08:49:46
+@@ -0,0 +1,0 @@
++

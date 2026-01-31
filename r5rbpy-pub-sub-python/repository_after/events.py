@@ -2,20 +2,22 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 import uuid
-from typing import Any, Dict, Type, TypeVar, Optional, cast
+from typing import Any, Dict, Type, TypeVar, Optional, cast, Generic
 
 E = TypeVar("E", bound="Event")
+T = TypeVar("T")
 
 _uuid4 = uuid.uuid4
 _now = datetime.now
 _utc = timezone.utc
 
 @dataclass(frozen=True, kw_only=True)
-class Event:
+class Event(Generic[T]):
     event_id: str = field(default_factory=lambda: _uuid4().hex)
     timestamp: datetime = field(default_factory=lambda: _now(_utc))
     source: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
+    payload: Optional[T] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)

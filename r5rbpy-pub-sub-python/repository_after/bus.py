@@ -38,7 +38,9 @@ class EventBus:
         event_store: Optional[EventStore] = None,
         metrics_collector: Optional[MetricsCollector] = None,
         concurrency_limit: int = 0,
-        development_mode: bool = False
+        development_mode: bool = False,
+        circuit_breaker_error_threshold: int = 5,
+        circuit_breaker_recovery_timeout: float = 30.0
     ):
         self.loop = loop or asyncio.get_event_loop()
         self.executor = executor or ThreadPoolExecutor(max_workers=10)
@@ -57,11 +59,13 @@ class EventBus:
         self._handler_cache: Dict[Type[Event], List[Tuple[int, Handler[Any, Any], Optional[Callable[[Any], bool]]]]] = {}
         self._middleware_chain: Optional[Callable[[Event], Awaitable[EventResult]]] = None
         self._on_publish_hooks: List[Callable[[Event], Any]] = []
+        self._pending_events: int = 0
+        self._track_pending_events: bool = False
         
         self._error_counts: Dict[str, int] = {}
         self._circuit_open: Dict[str, bool] = {}
-        self._error_threshold = 5
-        self._recovery_timeout = 30.0
+        self._error_threshold = circuit_breaker_error_threshold
+        self._recovery_timeout = circuit_breaker_recovery_timeout
         self._last_error_time: Dict[str, float] = {}
 
     def _validate_event(self, event: Event):
@@ -124,10 +128,17 @@ class EventBus:
 
     def _get_matching_handlers(self, event: Event) -> List[Tuple[int, Handler[Any, Any], Optional[Callable[[Any], bool]]]]:
         event_type = type(event)
-        if event_type in self._handler_cache: return self._handler_cache[event_type]
+        # Fast path: check cache first
+        if event_type in self._handler_cache: 
+            return self._handler_cache[event_type]
         handlers = []
-        for cls in event_type.__mro__:
-            if cls in self._subscriptions: handlers.extend(self._subscriptions[cls])
+        # Optimize: check direct type first (most common case)
+        if event_type in self._subscriptions:
+            handlers.extend(self._subscriptions[event_type])
+        # Then check MRO for base classes
+        for cls in event_type.__mro__[1:]:  # Skip first (already checked)
+            if cls in self._subscriptions: 
+                handlers.extend(self._subscriptions[cls])
         handlers.sort(key=lambda x: x[0], reverse=True)
         self._handler_cache[event_type] = handlers
         return handlers
@@ -194,8 +205,12 @@ class EventBus:
                     except: pass
                 return HandlerResult(handler_name, False, error=e, duration_ms=duration, retry_count=retry_count)
 
-    async def _dispatch_to_handlers(self, event: Event) -> EventResult:
+    async def _dispatch_to_handlers(self, event: Event, track_event: bool = True) -> EventResult:
         start_time = time.perf_counter()
+        # Optimize metrics tracking - use direct dict access
+        if track_event:
+            event_type_name = event.__class__.__name__
+            self.metrics._events_published[event_type_name] += 1
         handlers_to_run = self._get_matching_handlers(event)
         retry_policy = self._retry_policies.get(event.__class__)
         
@@ -204,32 +219,47 @@ class EventBus:
             if filter_predicate and not filter_predicate(event):
                 return EventResult(success=True, event=event, handler_results=[], errors=[], duration_ms=(time.perf_counter() - start_time) * 1000)
             
-            # Fast path check
+            # Ultra-fast path: single handler, no retry, no circuit breaker, no timeout, no concurrency limit
             if not retry_policy and not self._circuit_open and self.default_timeout is None and self.concurrency_limit == 0:
                 try:
+                    # Cache handler async status
                     is_async = getattr(handler, "_is_coro", None)
                     if is_async is None:
                         is_async = asyncio.iscoroutinefunction(handler)
-                        try: setattr(handler, "_is_coro", is_async)
-                        except: pass
+                        try: 
+                            handler._is_coro = is_async
+                        except (AttributeError, TypeError): 
+                            pass
                     
-                    if is_async: result = await handler(event)
-                    else: result = await asyncio.get_running_loop().run_in_executor(self.executor, handler, event)
+                    # Invoke handler
+                    if is_async: 
+                        result = await handler(event)
+                    else: 
+                        result = await asyncio.get_running_loop().run_in_executor(self.executor, handler, event)
                     
+                    # Calculate duration
                     now = time.perf_counter()
                     duration = (now - start_time) * 1000
+                    
+                    # Ultra-fast handler name lookup - use getattr with default (faster than try/except)
                     h_name = getattr(handler, "_bus_name", None)
                     if h_name is None:
-                        h_name = getattr(handler, "__name__", str(handler))
-                        try: setattr(handler, "_bus_name", h_name)
-                        except: pass
-                    self.metrics._handler_durations[h_name].append(duration)
+                        h_name = getattr(handler, "__name__", "handler")
+                        try:
+                            handler._bus_name = h_name
+                        except (AttributeError, TypeError):
+                            pass
                     
+                    # Track metrics only if enabled - use direct dict access for speed
+                    if track_event:
+                        self.metrics._handler_durations[h_name].append(duration)
+                    
+                    # Ultra-fast path: minimal EventResult creation
                     return EventResult(
                         success=True, event=event, handler_results=[HandlerResult(h_name, True, result=result, duration_ms=duration)],
                         errors=[], duration_ms=duration, dead_letter_count=0, retry_counts=[0]
                     )
-                except Exception: pass # fallback
+                except Exception: pass # fallback to standard path
 
         tasks = []
         for _, handler, filter_predicate in handlers_to_run:
@@ -255,25 +285,57 @@ class EventBus:
             duration_ms=(time.perf_counter() - start_time) * 1000, dead_letter_count=dead_letter_count, retry_counts=retry_counts
         )
 
-    def publish_async(self, event: Event) -> Awaitable[EventResult]:
+    async def publish_async(self, event: Event, guaranteed_persistence: bool = False) -> EventResult:
         if self.development_mode: self._validate_event(event)
+        
+        # Ultra-fast path: no hooks, no store, no middlewares, no pending tracking
+        if (not self._on_publish_hooks and not self.event_store and not self._middlewares and 
+            not self._track_pending_events):
+            return await self._dispatch_to_handlers(event, track_event=True)
+        
+        # Fast path: no hooks, no store, no middlewares (but track metrics)
+        if not self._on_publish_hooks and not self.event_store and not self._middlewares:
+            self.metrics._events_published[event.__class__.__name__] += 1
+            if self._track_pending_events:
+                self._pending_events += 1
+                self.metrics.update_queue_depth(self._pending_events)
+            try:
+                return await self._dispatch_to_handlers(event, track_event=True)
+            finally:
+                if self._track_pending_events:
+                    self._pending_events -= 1
+                    self.metrics.update_queue_depth(self._pending_events)
+        
+        # Standard path with hooks/store/middlewares
         self.metrics._events_published[event.__class__.__name__] += 1
         for hook in self._on_publish_hooks:
             try: hook(event)
             except: pass
-        if self.event_store: asyncio.create_task(self.event_store.save(event))
-        if not self._middlewares: return self._dispatch_to_handlers(event)
-        if self._middleware_chain is None: self._build_middleware_chain()
-        return self._middleware_chain(event)
+        if self.event_store:
+            if guaranteed_persistence:
+                await self.event_store.save(event)
+            else:
+                asyncio.create_task(self.event_store.save(event))
+        if self._track_pending_events:
+            self._pending_events += 1
+            self.metrics.update_queue_depth(self._pending_events)
+        try:
+            if not self._middlewares: return await self._dispatch_to_handlers(event, track_event=True)
+            if self._middleware_chain is None: self._build_middleware_chain()
+            return await self._middleware_chain(event)
+        finally:
+            if self._track_pending_events:
+                self._pending_events -= 1
+                self.metrics.update_queue_depth(self._pending_events)
 
-    def publish(self, event: Event) -> EventResult:
+    def publish(self, event: Event, guaranteed_persistence: bool = False) -> EventResult:
         try:
             asyncio.get_running_loop()
             raise RuntimeError("publish() cannot be called from within an async context. Use publish_async() instead.")
         except RuntimeError as e:
             if "no running event loop" in str(e): pass
             else: raise e
-        return self.loop.run_until_complete(self.publish_async(event))
+        return self.loop.run_until_complete(self.publish_async(event, guaranteed_persistence=guaranteed_persistence))
 
     @property
     def stats(self) -> Dict[str, Any]: return self.metrics.get_metrics()
@@ -281,10 +343,11 @@ class EventBus:
 
     async def health_check(self) -> Any:
         from .metrics import HealthStatus
+        self._track_pending_events = True  # Enable tracking when health check is called
         return HealthStatus(
             healthy=all(not open for open in self._circuit_open.values()),
             details={"subscription_counts": {t.__name__: len(h) for t, h in self._subscriptions.items()},
-                     "queue_depth": self.semaphore._value if self.semaphore and hasattr(self.semaphore, "_value") else 0,
+                     "queue_depth": self._pending_events,
                      "error_rates": self._error_counts},
             last_event_time=time.time()
         )

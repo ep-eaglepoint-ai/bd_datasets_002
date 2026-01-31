@@ -10,11 +10,13 @@ build/
 dist/
 
 # Reports
-evaluation/reports/*.json
-!evaluation/reports/latest.json
+
+evaluation/reports/
 
 # Node
 node_modules/
 
 # OS
 .DS_Store
+
+mypy.ini

@@ -2,7 +2,7 @@ from .events import Event, UserEvent, UserCreatedEvent
 from .bus import EventBus, Subscription
 from .protocols import EventResult, HandlerResult, Middleware, EventStore, MetricsCollector
 from .retry import RetryPolicy, DeadLetterQueue
-from .middleware import LoggingMiddleware, ValidationMiddleware, RetryMiddleware, TimingMiddleware
+from .middleware import LoggingMiddleware, ValidationMiddleware, RetryMiddleware, TimingMiddleware, TracingMiddleware
 from .storage import InMemoryEventStore, Snapshot
 from .metrics import InMemoryMetricsCollector, HealthStatus
 
@@ -23,6 +23,7 @@ __all__ = [
     "ValidationMiddleware",
     "RetryMiddleware",
     "TimingMiddleware",
+    "TracingMiddleware",
     "InMemoryEventStore",
     "Snapshot",
     "InMemoryMetricsCollector",
