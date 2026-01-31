@@ -168,3 +168,94 @@ def test_multiple_word_position_calls_are_fast(module_path):
     second = wc.find_word_positions("test")
 
     assert first == second
+
+
+# ---------- Reviewer Feedback Tests ----------
+
+def test_stats_match_between_implementations():
+    """
+    Verifies that stats from repository_after match repository_before exactly.
+    """
+    before_path = os.path.join("repository_before", "main.py")
+    after_path = os.path.join("repository_after", "main.py")
+    
+    if not os.path.exists(before_path) or not os.path.exists(after_path):
+        pytest.skip("Both repositories must exist for comparison test")
+    
+    WordCounterBefore = load_wordcounter_class(before_path)
+    WordCounterAfter = load_wordcounter_class(after_path)
+    
+    # Test with various inputs
+    test_inputs = [
+        "Hello world\nHello Python\n",
+        "The quick brown fox jumps over the lazy dog",
+        "123 test456 word 789",
+        "Python python PYTHON\n\n\n",
+        "",
+    ]
+    
+    for text in test_inputs:
+        file_path = create_temp_text(text)
+        
+        wc_before = WordCounterBefore(file_path)
+        wc_after = WordCounterAfter(file_path)
+        
+        stats_before = wc_before.get_statistics()
+        stats_after = wc_after.get_statistics()
+        
+        assert stats_before == stats_after, f"Stats mismatch for input: {text!r}"
+
+
+def test_streaming_no_full_read(module_path):
+    """
+    Verifies the implementation does NOT use f.read() or readlines().
+    Ensures line-by-line/streaming processing for large file support.
+    """
+    source = get_source_code(module_path)
+    
+    # Check that f.read() is NOT used (would load entire file)
+    # Note: We allow .read() in different contexts, but not self.text = f.read()
+    assert "self.text = f.read()" not in source, "Uses f.read() to load entire file"
+    assert ".readlines()" not in source, "Uses readlines() which loads entire file"
+
+
+def test_prebuilt_index_is_used(module_path):
+    """
+    Verifies that word_positions is a prebuilt index populated after processing.
+    """
+    WordCounter = load_wordcounter_class(module_path)
+    
+    file_path = create_temp_text("hello world hello test")
+    wc = WordCounter(file_path)
+    
+    # Trigger processing
+    wc.count_words()
+    
+    # Verify that word_positions dict is populated (prebuilt index)
+    assert hasattr(wc, 'word_positions'), "No word_positions attribute (index not built)"
+    assert len(wc.word_positions) > 0, "word_positions is empty after processing"
+    assert "hello" in wc.word_positions, "Expected 'hello' in prebuilt index"
+    assert wc.word_positions["hello"] == [0, 12], "Prebuilt index has wrong positions"
+
+
+def test_find_positions_uses_index_not_rescan(monkeypatch, module_path):
+    """
+    Verifies that find_word_positions uses prebuilt index and doesn't rescan.
+    """
+    WordCounter = load_wordcounter_class(module_path)
+    
+    file_path = create_temp_text("test word test")
+    wc = WordCounter(file_path)
+    
+    # First call to trigger processing
+    wc.find_word_positions("test")
+    
+    # Patch open to fail if called again
+    def fail_open(*args, **kwargs):
+        raise RuntimeError("File should not be opened again!")
+    
+    monkeypatch.setattr("builtins.open", fail_open)
+    
+    # Second call should use cached index, not re-open file
+    positions = wc.find_word_positions("word")
+    assert positions == [5], "Positions wrong or file was re-read"

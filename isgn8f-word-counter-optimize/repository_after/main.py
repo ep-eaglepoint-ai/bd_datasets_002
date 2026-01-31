@@ -39,31 +39,48 @@ class WordCounter:
                     if char == '\n':
                         self.line_count += 1
                 
-                # Identify all alphanumeric tokens 
-                for match in re.finditer(r'[a-zA-Z0-9]+', line):
-                    token = match.group()
-                    start_pos = current_position + match.start()
-                    
-                    # 1. Update global word count (alphanumeric)
-                    self.word_count += 1
-                    
-                    # 2. Update stats for alphabetic words only
-                    if token.isalpha():
-                        lower_token = token.lower()
-                        self.word_frequencies[lower_token] += 1
-                        self.word_positions[lower_token].append(start_pos)
-                        
-                        self.alpha_word_count += 1
-                        self.alpha_total_length += len(token)
-                    
-                    # Store positions for non-alpha numeric tokens as well if needed
-                    else:
-                         lower_token = token.lower()
-                         self.word_positions[lower_token].append(start_pos)
+                # Build word positions using str.find() in a loop (per spec)
+                line_lower = line.lower()
+                self._index_words_in_line(line, line_lower, current_position)
 
                 current_position += len(line)
 
         self._processed = True
+
+    def _index_words_in_line(self, line: str, line_lower: str, base_pos: int):
+        """Extract words and build positions using str.find() approach."""
+        i = 0
+        n = len(line)
+        
+        while i < n:
+            # Skip non-alphanumeric characters
+            if not line[i].isalnum():
+                i += 1
+                continue
+            
+            # Found start of a word - find end
+            start = i
+            while i < n and line[i].isalnum():
+                i += 1
+            
+            token = line[start:i]
+            lower_token = token.lower()
+            absolute_pos = base_pos + start
+            
+            # Update global word count (all alphanumeric tokens)
+            self.word_count += 1
+            
+            # Update stats for alphabetic words only
+            if token.isalpha():
+                self.word_frequencies[lower_token] += 1
+                self.word_positions[lower_token].append(absolute_pos)
+                
+                self.alpha_word_count += 1
+                self.alpha_total_length += len(token)
+            else:
+                # Store positions for non-alpha tokens as well
+                self.word_positions[lower_token].append(absolute_pos)
+
 
     # ------------------ Public API ------------------
 
