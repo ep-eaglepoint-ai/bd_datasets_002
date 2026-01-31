@@ -218,6 +218,29 @@ class RedisStreamsQueue:
             return pending.get("pending", 0) if pending else 0
         except RedisError:
             return 0
+    
+    def size(self) -> int:
+        """Get total queue size across all priorities."""
+        depths = self.get_queue_depth()
+        return sum(depths.values())
+    
+    def size_by_priority(self) -> Dict[Priority, int]:
+        """Get queue size by priority level."""
+        return self.get_queue_depth()
+    
+    def clear(self):
+        """Clear all jobs from Redis queues."""
+        for priority in Priority:
+            stream_key = f"{self.STREAM_PREFIX}{priority.name.lower()}"
+            try:
+                self._redis.delete(stream_key)
+            except RedisError:
+                pass
+    
+    def remove_job(self, job_id: str):
+        """Remove a specific job from the queue."""
+        job_key = f"{self.JOB_PREFIX}{job_id}"
+        self._redis.delete(job_key)
 
 
 class RedisDistributedLock:

@@ -8,14 +8,6 @@ and Prometheus client for metrics exposition.
 """
 from .client import AsyncTaskQueue, TaskQueue
 from .dependencies import CircularDependencyError, DependencyGraph, DependencyResolver
-from .metrics import (
-    Counter,
-    Gauge,
-    Histogram,
-    MetricsRegistry,
-    QueueManagementAPI,
-    TaskQueueMetrics,
-)
 from .models import (
     Job,
     JobPayload,
@@ -27,11 +19,6 @@ from .models import (
     RetryStrategy,
     TypedJob,
     WorkerInfo,
-)
-from .priority_queue import (
-    AsyncPriorityQueue,
-    MultiLevelPriorityQueue,
-    PriorityWeights,
 )
 from .retry import (
     ExponentialBackoffStrategy,
@@ -117,10 +104,7 @@ __all__ = [
     "RetryConfig",
     "RetryStrategy",
     "WorkerInfo",
-    # Priority Queue
-    "MultiLevelPriorityQueue",
-    "AsyncPriorityQueue",
-    "PriorityWeights",
+    "TypedJob",
     # Dependencies
     "DependencyGraph",
     "DependencyResolver",
@@ -156,14 +140,7 @@ __all__ = [
     "PickleSerializer",
     "CompressedSerializer",
     "PayloadEncoder",
-    # Metrics (legacy)
-    "TaskQueueMetrics",
-    "MetricsRegistry",
-    "QueueManagementAPI",
-    "Counter",
-    "Gauge",
-    "Histogram",
-    # Redis Backend
+    # Redis Backend (distributed queue)
     "RedisConfig",
     "RedisConnection",
     "RedisStreamsQueue",
@@ -174,7 +151,7 @@ __all__ = [
     "get_logger",
     "bind_context",
     "clear_context",
-    # Prometheus Metrics
+    # Prometheus Metrics (official client)
     "TaskQueuePrometheusMetrics",
     "get_metrics",
     # Multiprocessing Workers
@@ -190,6 +167,4 @@ __all__ = [
     "WebhookAlertHandler",
     "CallbackAlertHandler",
     "get_alert_manager",
-    # Type-safe Jobs
-    "TypedJob",
 ]

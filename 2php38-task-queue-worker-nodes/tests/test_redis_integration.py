@@ -224,7 +224,7 @@ class TestPrometheusMetrics:
         registry = CollectorRegistry()
         metrics = TaskQueuePrometheusMetrics(registry=registry)
         
-        metrics.record_job_completed(Priority.NORMAL, "test_job", 0.5, 0.1)
+        metrics.record_job_completed(0.5, priority="NORMAL", job_name="test_job", wait_seconds=0.1)
         
         assert metrics.jobs_completed.labels(priority="NORMAL")._value.get() == 1
     

@@ -99,6 +99,12 @@ class TaskQueuePrometheusMetrics:
             registry=self._registry,
         )
         
+        self.dlq_depth = Gauge(
+            "taskqueue_dlq_depth",
+            "Number of jobs in dead letter queue",
+            registry=self._registry,
+        )
+        
         self.worker_info = Info(
             "taskqueue_worker",
             "Worker information",
@@ -108,49 +114,71 @@ class TaskQueuePrometheusMetrics:
         self._jobs_completed_count = 0
         self._jobs_completed_window_start = 0
     
-    def record_job_submitted(self, priority: Priority):
+    def record_job_submitted(self, priority):
         """Record a job submission."""
-        self.jobs_submitted.labels(priority=priority.name).inc()
+        priority_name = priority if isinstance(priority, str) else priority.name
+        self.jobs_submitted.labels(priority=priority_name).inc()
     
     def record_job_completed(
         self, 
-        priority: Priority, 
-        job_name: str,
         duration_seconds: float,
+        priority = "normal",
+        job_name: str = "unknown",
         wait_seconds: float = 0,
     ):
         """Record successful job completion."""
-        self.jobs_completed.labels(priority=priority.name).inc()
+        priority_name = priority if isinstance(priority, str) else priority.name
+        self.jobs_completed.labels(priority=priority_name).inc()
         self.job_processing_duration.labels(
-            priority=priority.name, 
+            priority=priority_name, 
             job_name=job_name,
         ).observe(duration_seconds)
         
         if wait_seconds > 0:
-            self.job_wait_duration.labels(priority=priority.name).observe(wait_seconds)
+            self.job_wait_duration.labels(priority=priority_name).observe(wait_seconds)
         
         self._update_throughput()
     
     def record_job_failed(
         self, 
-        priority: Priority, 
+        priority = "normal",
         error_type: str = "unknown",
     ):
         """Record job failure."""
-        self.jobs_failed.labels(priority=priority.name, error_type=error_type).inc()
+        priority_name = priority if isinstance(priority, str) else priority.name
+        self.jobs_failed.labels(priority=priority_name, error_type=error_type).inc()
     
-    def record_job_retried(self, priority: Priority):
+    def record_job_retried(self, priority = "normal"):
         """Record job retry."""
-        self.jobs_retried.labels(priority=priority.name).inc()
+        priority_name = priority if isinstance(priority, str) else priority.name
+        self.jobs_retried.labels(priority=priority_name).inc()
     
-    def record_job_dead_lettered(self, priority: Priority):
+    def record_job_dead_lettered(self, priority = "normal"):
         """Record job sent to DLQ."""
-        self.jobs_dead_lettered.labels(priority=priority.name).inc()
+        priority_name = priority if isinstance(priority, str) else priority.name
+        self.jobs_dead_lettered.labels(priority=priority_name).inc()
     
-    def update_queue_depth(self, depths: Dict[Priority, int]):
+    def record_dlq_added(self):
+        """Record job added to DLQ (simplified)."""
+        self.dlq_depth.inc()
+    
+    def set_queue_depth(self, depth: int):
+        """Set total queue depth."""
+        self.queue_depth.labels(priority="total").set(depth)
+    
+    def set_dlq_depth(self, depth: int):
+        """Set DLQ depth."""
+        self.dlq_depth.set(depth)
+    
+    def set_worker_count(self, count: int):
+        """Set worker count."""
+        self.worker_count.set(count)
+    
+    def update_queue_depth(self, depths):
         """Update queue depth gauges."""
         for priority, depth in depths.items():
-            self.queue_depth.labels(priority=priority.name).set(depth)
+            priority_name = priority if isinstance(priority, str) else priority.name
+            self.queue_depth.labels(priority=priority_name).set(depth)
     
     def update_running_jobs(self, worker_id: str, count: int):
         """Update running jobs count for a worker."""
