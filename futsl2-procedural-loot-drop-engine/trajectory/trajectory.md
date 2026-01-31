@@ -2,94 +2,105 @@
 
 ## 1. Problem Statement
 
-Based on the prompt, I needed to build a `LootDropEngine` in Java for the "Aetherium Chronicles" online RPG. The core challenge was moving beyond simple random chance for loot drops to create a more engaging and fair reward system. The key requirements included:
+Based on the prompt for the "Aetherium Chronicles" online RPG, I identified the core challenge: building a stateful procedural loot generation system that goes beyond simple random chance to create a more engaging and fair reward system for players.
 
-- Implementing weighted probability selection for item rarities (Common, Rare, Legendary)
-- Creating a "Pity Timer" mechanism where players who defeat 49 monsters without a Legendary item are guaranteed one on the 50th attempt
-- Tracking pity timers on a per-player basis
-- Ensuring the system can handle thousands of loot drop calculations per second efficiently
-- Making sure statistical outcomes align with base probabilities over time
+The problem required me to implement a `LootDropEngine` in Java that:
+- Uses weighted probabilities for item rarities (Common, Rare, Legendary)
+- Implements a "Pity Timer" mechanism where players who defeat 49 monsters without a Legendary item are guaranteed one on the 50th attempt
+- Tracks pity timers on a per-player basis
+- Ensures the system can handle thousands of loot drop calculations per second efficiently
+- Maintains statistical alignment with base probabilities over time
 
-The problem essentially required building a stateful procedural generation system that combines deterministic rules (pity timer) with probabilistic elements (weighted randomness) while maintaining thread safety for concurrent access.
+The fundamental challenge was building a system that combines deterministic rules (pity timer) with probabilistic elements (weighted randomness) while maintaining thread safety for concurrent access from thousands of players.
 
 ## 2. Requirements
 
-Based on the requirements specification, I identified these must-have features:
+Based on the requirements specification, I identified these core features that must be implemented:
 
-1. **Weighted Probability Selection**: A function that takes item rarities with associated weights (e.g., Common: 900, Rare: 99, Legendary: 1) and returns a rarity based on a random roll.
+### 2.1 Weighted Probability Selection
+I needed to implement a function that takes a list of item rarities with associated weights (e.g., Common: 900, Rare: 99, Legendary: 1) and returns a single rarity based on a random roll.
 
-2. **Per-Player State Tracking**: A `Map<PlayerID, PlayerLootState>` structure to maintain the pity timer counter for each player independently.
+### 2.2 Per-Player State Tracking
+I needed to use a `Map<PlayerID, PlayerLootState>` or similar structure to maintain the pity timer counter for each player independently.
 
-3. **Pity Timer Logic**: For every non-Legendary drop, increment the player's pity counter. If the counter reaches 50, the next drop must be forced to Legendary, and the counter resets to 0.
+### 2.3 Pity Timer Logic
+For every non-Legendary drop, I needed to increment the player's pity counter. If the counter reaches 50, the next drop must be forced to be "Legendary", and the counter must reset to 0.
 
-4. **State Reset on Success**: The pity timer must reset to 0 only when a Legendary item is dropped, whether through random chance or the pity timer itself.
+### 2.4 State Reset on Success
+The pity timer must reset to 0 only when a "Legendary" item is dropped, whether it was through random chance or the pity timer itself.
 
-5. **High Performance**: The implementation must be highly efficient, capable of processing thousands of loot drop calculations per second for all online players.
+### 2.5 High Performance
+The implementation must be highly efficient, capable of processing thousands of loot drop calculations per second for all online players.
 
-6. **Statistical Accuracy**: The system must ensure that statistical outcomes over time align with the base probabilities.
+### 2.6 Statistical Accuracy
+The system must ensure that statistical outcomes over time align with the base probabilities, with a caveat that the pity timer increases the effective Legendary rate above the base rate.
 
 ## 3. Constraints
 
-I identified several constraints that shaped my implementation:
+I identified several constraints that shaped my implementation decisions:
 
-1. **Thread Safety**: The system must handle concurrent loot requests from multiple players simultaneously without race conditions.
+### 3.1 Thread Safety
+The system must handle concurrent loot requests from multiple players simultaneously without race conditions. This meant I needed to use thread-safe data structures and synchronization mechanisms.
 
-2. **Memory Efficiency**: With potentially thousands of concurrent players, the state storage must be efficient.
+### 3.2 Memory Efficiency
+With potentially thousands of concurrent players, the state storage must be efficient. I needed to ensure player states are stored compactly and can be accessed quickly.
 
-3. **Performance**: Each loot drop calculation must be fast enough to support thousands of requests per second.
+### 3.3 Performance
+Each loot drop calculation must be fast enough to support thousands of requests per second. This required minimizing computational overhead per operation.
 
-4. **Testability**: The system must be testable, including reproducible tests for the pity timer guarantee and statistical accuracy.
+### 3.4 Immutability where possible
+The PlayerID class should be immutable for safe use as map keys and to prevent accidental modification.
 
-5. **Immutability where possible**: PlayerID should be immutable for safe use as map keys.
+### 3.5 Extensibility
+The rarity configuration should be configurable, not hardcoded, to allow for future adjustments to drop rates.
 
-6. **Extensibility**: The rarity configuration should be configurable, not hardcoded.
+## 4. Research
 
-## 4. Research and Resources
-
-During development, I researched the following concepts and patterns:
+I researched several concepts and patterns to make informed implementation decisions:
 
 ### 4.1 Weighted Random Selection Algorithms
 
-I researched several approaches for weighted random selection:
+I researched different approaches for implementing weighted random selection:
 
-- **Cumulative Distribution Function (CDF) approach**: Precompute cumulative probabilities and use binary search for O(log n) selection. This is efficient for fixed configurations.
+**Cumulative Distribution Function (CDF) approach:** I learned that this involves precomputing cumulative probabilities and using linear search for selection. For each rarity, I calculate the cumulative probability and store it. When selecting, I generate a random value and find the first rarity whose cumulative probability exceeds the random value.
 
-- **Alias Method**: O(1) selection after O(n) preprocessing. More complex to implement but very efficient for high-frequency selections.
+**Alias Method:** I discovered this provides O(1) selection time after O(n) preprocessing. It's more complex to implement but very efficient for high-frequency selections.
 
-- **Linear Scan**: Simple approach that iterates through weights, O(n) per selection but easy to understand and maintain.
+**Linear Scan:** This simple approach iterates through weights with O(n) complexity per selection but is easy to understand and maintain.
 
-I chose the CDF approach with linear scan because:
-- The number of rarities is small (only 3: Common, Rare, Legendary)
-- O(n) where n=3 is negligible compared to other overhead
-- The configuration can be precomputed once during initialization
-- The code is straightforward and maintainable
+**Reference:** I reviewed the Java documentation for [java.util.Random](https://docs.oracle.com/javase/8/docs/api/java/util/Random.html) for random number generation basics.
 
 ### 4.2 Thread-Safe State Management
 
-I researched concurrent data structures in Java:
+I researched concurrent data structures in Java to ensure thread safety:
 
-- **ConcurrentHashMap**: Provides thread-safe operations with better performance than synchronized collections
-- **Atomic variables**: For counters that need atomic increment/decrement operations
-- **Synchronization**: Fine-grained synchronization on individual player states rather than the entire engine
+**ConcurrentHashMap:** I learned this provides thread-safe operations with better performance than synchronized collections. The `computeIfAbsent` method is particularly useful for atomic state creation.
 
-I chose ConcurrentHashMap with computeIfAbsent for player state retrieval because:
-- It provides lock-free reads and minimal contention for writes
-- The computeIfAbsent method is atomic, preventing race conditions during state creation
-- Each player's state is synchronized separately, allowing concurrent loot generation for different players
+**Atomic variables:** I studied [java.util.concurrent.atomic](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/package-summary.html) for atomic counter operations that don't require full synchronization.
 
-### 4.3 Java Documentation References
+**Synchronization strategies:** I researched fine-grained synchronization on individual player states rather than locking the entire engine, which would become a bottleneck.
 
-I reviewed Java documentation for:
-- [java.util.concurrent.ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html) for thread-safe state storage
-- [java.util.Random](https://docs.oracle.com/javase/8/docs/api/java/util/Random.html) for random number generation
-- [java.util.concurrent.atomic](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/package-summary.html) for atomic counters
+**Reference:** I reviewed [java.util.concurrent.ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html) documentation for best practices.
+
+### 4.3 Pity Timer Mechanics in Gaming
+
+I researched how pity timer systems work in commercial games:
+
+**Industry Standard:** Most RPGs (Diablo, Path of Exile, World of Warcraft) use pity timers to prevent bad luck streaks and improve player retention.
+
+**Implementation Pattern:** The common pattern is to increment a counter on non-target drops and trigger a guaranteed drop when the counter reaches a threshold. The trigger typically happens BEFORE the counter reaches the threshold (e.g., at 49 for a 50-drop guarantee).
+
+**Mathematical Impact:** I learned that pity timers mathematically increase the effective drop rate above the base rate. For a 1% base rate with a 50-drop pity timer, the effective rate becomes approximately 3%.
 
 ### 4.4 Design Pattern Research
 
-I researched and applied:
-- **Strategy Pattern**: The `WeightedRarityConfiguration` class encapsulates different weight strategies
-- **State Pattern**: `PlayerLootState` encapsulates all state for a single player
-- **Factory Pattern**: `PlayerID` provides factory methods for creating identifiers
+I researched and applied several design patterns:
+
+**Strategy Pattern:** I applied this by creating a `WeightedRarityConfiguration` class that encapsulates different weight strategies, allowing flexible probability configurations.
+
+**State Pattern:** I implemented this through the `PlayerLootState` class which encapsulates all state for a single player's loot history.
+
+**Factory Pattern:** I used this in `PlayerID` which provides factory methods for creating identifiers.
 
 ## 5. Choosing Methods and Why
 
@@ -103,9 +114,9 @@ I chose to implement weighted selection using cumulative probabilities stored in
 4. I return that rarity
 
 I chose this approach because:
-- It efficiently handles weighted probabilities
-- It supports arbitrary weight configurations
-- It's simple to understand and verify
+- It efficiently handles weighted probabilities with minimal computation per selection
+- It supports arbitrary weight configurations for flexibility
+- The code is straightforward and maintainable
 - For small numbers of rarities (3), the linear scan is faster than binary search due to lower constant factors
 
 ### 5.2 Pity Timer Implementation: Counter-Based with Threshold Check
@@ -127,7 +138,7 @@ I chose this approach because:
 
 ### 5.3 Thread Safety Strategy: ConcurrentHashMap with Synchronized States
 
-I used ConcurrentHashMap for the player states map and synchronized on individual PlayerLootState objects for state updates:
+I used `ConcurrentHashMap` for the player states map and synchronized on individual `PlayerLootState` objects for state updates:
 
 ```java
 PlayerLootState state = playerStates.computeIfAbsent(playerId, k -> new PlayerLootState());
@@ -143,14 +154,14 @@ synchronized (state) {
 ```
 
 I chose this approach because:
-- ConcurrentHashMap provides thread-safe access to the map itself
+- `ConcurrentHashMap` provides thread-safe access to the map itself
 - Synchronizing on the individual state object allows concurrent loot generation for different players
-- Only the player whose state is being modified is locked
-- This provides good throughput while ensuring correctness
+- Only the player whose state is being modified is locked, maximizing throughput
+- This provides good performance while ensuring correctness
 
 ### 5.4 Atomic Counters for Statistics
 
-I used AtomicLong for global statistics:
+I used `AtomicLong` for global statistics:
 
 ```java
 private final AtomicLong totalDropsProcessed;
@@ -158,11 +169,11 @@ private final AtomicLong totalLegendaryDrops;
 private final AtomicLong pityTriggeredLegendaries;
 ```
 
-I chose AtomicLong because:
-- It provides lock-free atomic operations
+I chose `AtomicLong` because:
+- It provides lock-free atomic operations for high performance
 - Multiple threads can increment counters without synchronization overhead
 - It's more efficient than synchronized Long wrappers
-- The get() method is volatile-read safe
+- The `get()` method is volatile-read safe
 
 ### 5.5 PlayerID Immutability
 
@@ -180,7 +191,7 @@ I chose immutability because:
 - Immutable objects are inherently thread-safe
 - They can be safely used as keys in ConcurrentHashMap
 - They can be cached and reused without concern for modification
-- equals() and hashCode() are stable, preventing map corruption
+- `equals()` and `hashCode()` are stable, preventing map corruption
 
 ## 6. Solution Implementation and Explanation
 
@@ -195,7 +206,7 @@ I designed the solution with four main classes:
 
 ### 6.2 LootRarity Implementation
 
-I created the LootRarity enum with associated weights and probabilities:
+I created the `LootRarity` enum with associated weights and probabilities:
 
 ```java
 public enum LootRarity {
@@ -219,7 +230,7 @@ When selecting, if the random value is 0.95, it falls between 0.9 (Common) and 0
 
 ### 6.3 PlayerLootState Implementation
 
-I created PlayerLootState to track:
+I created `PlayerLootState` to track:
 - `pityCounter`: Consecutive non-Legendary drops
 - `totalDrops`: Total drops for this player
 - `legendaryDrops`, `commonDrops`, `rareDrops`: Counters by rarity
@@ -252,7 +263,7 @@ This method handles both the pity counter incrementation and the reset logic in 
 
 ### 6.4 PlayerID Implementation
 
-I made PlayerID immutable with proper equals/hashCode implementations:
+I made PlayerID immutable with proper `equals`/`hashCode` implementations:
 
 ```java
 public final class PlayerID {
@@ -269,30 +280,30 @@ public final class PlayerID {
 }
 ```
 
-The static factory method `createUnique()` uses an AtomicLong for thread-safe ID generation.
+The static factory method `createUnique()` uses an `AtomicLong` for thread-safe ID generation.
 
 ### 6.5 LootDropEngine Implementation
 
 The main engine class orchestrates the entire process:
 
-**Constructor**: Initializes all components with validation:
-- Validates pity threshold is positive
-- Validates rarity configuration is not null
-- Creates ConcurrentHashMap for player states
-- Initializes AtomicLong counters
+**Constructor:** I initialized all components with validation:
+- I validated that the pity threshold is positive
+- I validated that the rarity configuration is not null
+- I created a `ConcurrentHashMap` for player states
+- I initialized `AtomicLong` counters
 
-**generateLootDrop(PlayerID playerId)**: The primary method:
-1. Validates playerId is not null
-2. Gets or creates player state using `computeIfAbsent`
-3. Synchronizes on the state object
-4. Checks if pity timer is active (counter >= 49)
-5. If active, forces Legendary; otherwise selects by weight
-6. Records the drop (which handles counter reset)
-7. Updates global statistics
+**generateLootDrop(PlayerID playerId):** This is the primary method:
+1. I validated that playerId is not null
+2. I got or created player state using `computeIfAbsent`
+3. I synchronized on the state object
+4. I checked if the pity timer is active (counter >= 49)
+5. If active, I forced Legendary; otherwise I selected by weight
+6. I recorded the drop (which handles counter reset)
+7. I updated global statistics
 
-**selectRarityByWeight()**: Delegates to the configuration's selection method with a random value.
+**selectRarityByWeight():** This delegates to the configuration's selection method with a random value.
 
-**Additional features**:
+**Additional features I implemented:**
 - `generateLootDrop(PlayerID, double)`: For deterministic testing with custom random values
 - `setPlayerPityCounter()`: For testing, allows setting pity counter directly
 - `generateBulkLootDrops()`: For statistical testing with many drops
@@ -312,7 +323,7 @@ This directly maps to the example weights (900, 99, 1) from the requirements.
 ### 7.2 Per-Player State Tracking (Requirement 2)
 
 The solution uses `ConcurrentHashMap<PlayerID, PlayerLootState>`:
-- Each player has their own PlayerLootState instance
+- Each player has their own `PlayerLootState` instance
 - The map is thread-safe for concurrent access
 - `computeIfAbsent` atomically creates new states for new players
 - PlayerID's immutability ensures safe use as map keys
@@ -336,7 +347,7 @@ The `recordDrop()` method handles the reset:
 - This applies whether the Legendary was from random chance or pity timer
 - The reset happens after recording the drop, maintaining correct state
 
-### 7.5 High Performance (Constraint 5)
+### 7.5 High Performance (Constraint 3)
 
 The solution achieves high performance through:
 - **ConcurrentHashMap**: Lock-free reads, minimal contention
@@ -362,7 +373,7 @@ Over many drops, the overall Legendary rate will be slightly higher than the bas
 ### 7.7 Edge Cases Handled
 
 **Edge Case 1: New player with no history**
-- `computeIfAbsent` creates a new PlayerLootState with counter = 0
+- `computeIfAbsent` creates a new `PlayerLootState` with counter = 0
 - First drop uses weighted selection normally
 
 **Edge Case 2: Player gets lucky with early Legendary**
@@ -385,8 +396,8 @@ Over many drops, the overall Legendary rate will be slightly higher than the bas
 - The logic adapts to any threshold value
 
 **Edge Case 6: Null player ID**
-- Explicit null check throws IllegalArgumentException
-- Prevents NullPointerException in map operations
+- Explicit null check throws `IllegalArgumentException`
+- Prevents `NullPointerException` in map operations
 
 **Edge Case 7: Reset during play**
 - Player can continue earning drops after state reset
@@ -407,13 +418,13 @@ This ensures correct behavior even under heavy concurrent load from thousands of
 
 ## 8. Summary
 
-I implemented a complete LootDropEngine that satisfies all requirements:
+I implemented a complete `LootDropEngine` that satisfies all requirements:
 
 1. **Weighted probability selection** through cumulative probability arrays
-2. **Per-player state tracking** using ConcurrentHashMap
+2. **Per-player state tracking** using `ConcurrentHashMap`
 3. **Pity timer logic** with 50-drop threshold guarantee
 4. **State reset on Legendary** drop
 5. **High performance** through concurrent data structures
 6. **Statistical accuracy** by preserving base probabilities
 
-The solution is thread-safe, performant, testable, and extensible. It handles all edge cases gracefully while maintaining the fairness and engagement goals of the Aetherium Chronicles loot system.
+The solution is thread-safe, performant, and extensible. It handles all edge cases gracefully while maintaining the fairness and engagement goals of the Aetherium Chronicles loot system.
