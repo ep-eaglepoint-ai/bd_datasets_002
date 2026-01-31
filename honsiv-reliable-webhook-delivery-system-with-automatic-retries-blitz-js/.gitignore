@@ -32,7 +32,7 @@ yarn-error.log*
 .env*.local
 vitest-results-*.json
 vitest-results-manual.json
-#/evaluation/reports/*
+/evaluation/reports/*
 # vercel
 .vercel
 
