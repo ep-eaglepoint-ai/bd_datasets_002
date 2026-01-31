@@ -1,259 +1,355 @@
-# Trajectory: Python IoT Environmental Stream Refactor
+# Development Trajectory: Python IoT Environmental Stream Refactor
 
-## Task Overview
+## Overview & Problem Understanding
 
-Refactor a monolithic Python-based IoT data processing script (`process_telemetry_batch`) into a modular, strategy-driven pipeline following the Single Responsibility Principle.
+### Initial Analysis
 
-## Problem Analysis
+**What is being asked?**
+The task requires refactoring a monolithic Python-based IoT data processing script into a modular, strategy-driven pipeline following the Single Responsibility Principle. The legacy `process_telemetry_batch` function mixes validation, calibration, unit conversion, and alert generation in a single high-complexity function.
 
-### Legacy Code Issues
+**Key Questions Asked:**
+1. What is the processing order in the legacy code?
+   - Answer: Validation → Calibration → Unit Conversion → Alert Generation → Statistics
+2. How do different sensor models handle calibration?
+   - Answer: Alpha subtracts 1.5, Beta uses log10*10 for CO2 or adds 0.8 for others
+3. When is F to C conversion applied?
+   - Answer: AFTER calibration, not before (critical for mathematical parity)
+4. How should malformed data be handled?
+   - Answer: Log ProcessError and continue processing, don't fail the batch
 
-The original `repository_before/process_sensor_data.py` had 5 major problems:
+**Core Requirements Identified:**
+1. Pipeline Architecture - Discrete, interchangeable Processor classes
+2. Strategy Pattern - CalibrationRegistry with model-specific strategies
+3. Mathematical Parity - Identical results, 2 decimal precision
+4. Separation of Concerns - InsightEngine decoupled from normalization
+5. Input Resilience - ProcessError logging, continue processing
+6. Testing (Parity) - Beta CO2 sensor val=100.0 → normalized=20.0
+7. Testing (Extensibility) - RangeFilter added without modifying existing code
 
-1. **Direct object mutation and scattered validation** - No separation of input parsing/validation
-2. **Hardcoded calibration logic per model** - Alpha (-1.5) and Beta (log10 for CO2, +0.8 otherwise) directly embedded in function
-3. **Mixed unit conversion logic** - F to C conversion inline with calibration
-4. **Tightly coupled alert thresholds** - Alert generation mixed with normalization
-5. **Mixed result types and synchronous stats** - Statistics calculated in same function as normalization
+### External References Consulted
 
-### Key Mathematical Operations (must preserve)
+- **Strategy Pattern**: GoF design pattern for interchangeable algorithms
+  - Reference: https://refactoring.guru/design-patterns/strategy
+- **Pipeline Pattern**: Chain of responsibility for data processing
+  - Reference: https://www.enterpriseintegrationpatterns.com/patterns/messaging/PipesAndFilters.html
+- **Single Responsibility Principle**: SOLID principles
+  - Reference: https://en.wikipedia.org/wiki/Single-responsibility_principle
 
-- **Alpha model**: `val = val - 1.5`
-- **Beta model CO2**: `val = log10(val) * 10` (or 0 if val <= 0)
-- **Beta model non-CO2**: `val = val + 0.8`
-- **F to C conversion**: `val = (val - 32) * 5/9` (applied AFTER calibration)
-- **Rounding**: 2 decimal places
+---
 
-### Processing Order (legacy, must match)
+## Phase 1: Architecture Design
 
-1. Validation (skip if val is None or not numeric)
-2. Calibration (model-specific)
-3. Unit conversion (F to C)
-4. Alert generation
-5. Statistics calculation
+### Decision: Pipeline Architecture
 
-## Requirements Summary
+**Question:** How should we structure the processing flow?
 
-1. **Pipeline Architecture** - Discrete, interchangeable Processor classes
-2. **Strategy Pattern** - CalibrationRegistry with model-specific strategies
-3. **Mathematical Parity** - Identical results, 2 decimal precision
-4. **Separation of Concerns** - InsightEngine decoupled from normalization
-5. **Input Resilience** - ProcessError logging, continue processing
-6. **Testing (Parity)** - Beta CO2 sensor val=100.0 → normalized=20.0
-7. **Testing (Extensibility)** - RangeFilter added without modifying existing code
+**Analysis Options:**
+1. **Functional composition**: Chain of functions with data passed through
+2. **Class-based processors**: Each step is a Processor class with `process()` method
+3. **Decorator pattern**: Wrap each processing step around the previous
 
-## Implementation Steps
+**Rationale:** Chose class-based processors because:
+- Each processor has single responsibility
+- Easy to add/remove/reorder processors
+- Context object allows state sharing between processors
+- Testable in isolation
 
-### Step 1: Design Data Classes
-
-Created immutable data transfer objects:
-
-- `SensorReading` - Raw input representation with factory method `from_dict()`
-- `ProcessedReading` - Output with normalized_value and metadata
-- `ProcessError` - Error record for malformed data
-- `PipelineContext` - Mutable context passed through processors
-
-### Step 2: Implement Strategy Pattern for Calibration
-
-Created calibration strategies following the Strategy Pattern:
-
-```python
-class CalibrationStrategy(ABC):
-    @abstractmethod
-    def calibrate(self, value: float, sensor_type: str) -> float
-```
-
-Concrete implementations:
-- `AlphaCalibration` - Subtracts 1.5 (systematic drift correction)
-- `BetaCalibration` - log10*10 for CO2, +0.8 for others
-- `DefaultCalibration` - No adjustment (pass-through)
-
-`CalibrationRegistry` maps models to strategies, allowing new models without code changes.
-
-### Step 3: Implement Pipeline Processors
-
-Created discrete Processor classes:
-
+**Implementation:**
 ```python
 class Processor(ABC):
     @abstractmethod
-    def process(self, context: PipelineContext) -> PipelineContext
+    def process(self, context: PipelineContext) -> PipelineContext:
+        pass
+
+class Pipeline:
+    def __init__(self, processors: List[Processor]):
+        self._processors = processors
+
+    def process(self, reading: SensorReading) -> ProcessedReading:
+        context = PipelineContext(reading=reading, current_value=reading.value)
+        for processor in self._processors:
+            context = processor.process(context)
+        return context
 ```
 
-Implementations:
-1. `Sanitizer` - Validates input, sets skip flag on invalid
-2. `Calibrator` - Applies model-specific calibration via registry
-3. `UnitConverter` - Converts F to C for temperature sensors
-4. `RangeFilter` - Optional filter for out-of-range values (extensibility demo)
-5. `ValueRounder` - Rounds to specified decimal places
+**Insight:** Using a `skip` flag in context allows early termination without exceptions.
 
-### Step 4: Implement Pipeline Orchestrator
+### Decision: Strategy Pattern for Calibration
 
-`Pipeline` class orchestrates processor sequence:
+**Question:** How do we handle model-specific calibration without hardcoded if-elif chains?
+
+**Analysis Options:**
+1. **Dictionary mapping**: Map model names to calibration functions
+2. **Strategy classes**: Abstract CalibrationStrategy with concrete implementations
+3. **Configuration-driven**: Load calibration rules from config file
+
+**Rationale:** Chose Strategy classes because:
+- New models can be added by creating new classes
+- Each calibration logic is encapsulated
+- Supports runtime registration
+- Type-safe with abstract base class
+
+**Implementation:**
+```python
+class CalibrationStrategy(ABC):
+    @abstractmethod
+    def calibrate(self, value: float, sensor_type: str) -> float:
+        pass
+
+class CalibrationRegistry:
+    def __init__(self):
+        self._strategies: Dict[str, CalibrationStrategy] = {}
+        self._default = DefaultCalibration()
+        self.register('Alpha', AlphaCalibration())
+        self.register('Beta', BetaCalibration())
+```
+
+**Insight:** The registry returns a default strategy for unknown models, ensuring graceful handling of new sensor types.
+
+### Decision: Separation of Analysis
+
+**Question:** How do we decouple alert generation from normalization?
+
+**Rationale:** Created InsightEngine that receives processed data:
+- Pipeline returns only normalized ProcessedReading objects
+- InsightEngine has AlertGenerator and StatisticsCalculator
+- Analysis can be customized independently of normalization
 
 ```python
-pipeline = Pipeline([
-    Sanitizer(),
-    Calibrator(),
-    UnitConverter(),
-    ValueRounder(2)
-])
+class InsightEngine:
+    def analyze(self, results: List[ProcessedReading]) -> Dict[str, Any]:
+        return {
+            'alerts': self._alerts.generate(results),
+            'summary': self._stats.calculate(results)
+        }
 ```
 
-Methods:
-- `add()` - Dynamic processor addition
-- `process()` - Single reading processing
-- `process_batch()` - Batch processing with error collection
+---
 
-### Step 5: Implement InsightEngine (Separation of Concerns)
+## Phase 2: Implementation
 
-Decoupled analysis from normalization:
+### Core Components Built
 
-- `AlertGenerator` - Creates CRITICAL_HEAT and DRY_SOIL alerts
-- `StatisticsCalculator` - Computes average and count
-- `InsightEngine` - Unified interface combining both
+1. **Data Classes** (`process_sensor_data.py:24-77`)
+   - `SensorReading`: Immutable input with `from_dict()` factory
+   - `ProcessedReading`: Output with normalized_value and metadata
+   - `ProcessError`: Error record for malformed data
+   - `PipelineContext`: Mutable context passed through pipeline
 
-### Step 6: Implement Drop-in Replacement Function
+2. **Calibration Strategies** (`process_sensor_data.py:83-148`)
+   - `CalibrationStrategy`: Abstract base class
+   - `AlphaCalibration`: `value - 1.5` (drift correction)
+   - `BetaCalibration`: `log10(value) * 10` for CO2, `value + 0.8` otherwise
+   - `DefaultCalibration`: No adjustment (pass-through)
+   - `CalibrationRegistry`: Maps models to strategies
 
-`process_telemetry_batch()` maintains legacy interface:
+3. **Pipeline Processors** (`process_sensor_data.py:154-258`)
+   - `Sanitizer`: Validates input, sets skip flag
+   - `Calibrator`: Applies model-specific calibration via registry
+   - `UnitConverter`: F to C conversion for temperature sensors
+   - `RangeFilter`: Rejects values outside min/max range
+   - `ValueRounder`: Rounds to specified decimal places
 
+4. **Pipeline Orchestrator** (`process_sensor_data.py:265-335`)
+   - `Pipeline.process()`: Single reading through all processors
+   - `Pipeline.process_batch()`: Batch processing with error collection
+   - Thread-safe as all state is in context
+
+5. **InsightEngine** (`process_sensor_data.py:342-409`)
+   - `AlertGenerator`: CRITICAL_HEAT and DRY_SOIL alerts
+   - `StatisticsCalculator`: Average and count
+   - `InsightEngine`: Unified analysis interface
+
+### Problem Tackled: F to C Conversion Order
+
+**Problem:** Initial test failures showed wrong normalized values for Fahrenheit input.
+
+**Analysis:** Expected 18.5 but got 19.17 for Alpha model with val=68, unit=F.
+
+**Investigation:** Read legacy code carefully:
 ```python
-def process_telemetry_batch(raw_readings):
-    pipeline = create_default_pipeline()
-    insight_engine = InsightEngine()
-    results, errors = pipeline.process_batch(raw_readings)
-    insights = insight_engine.analyze(results)
-    return {'data': [...], 'alerts': [...], 'summary': {...}}
+# Legacy order in process_telemetry_batch:
+if reading.get('model') == 'Alpha':
+    val = val - 1.5  # FIRST: calibrate
+if reading.get('type') == 'temp' and reading.get('unit') == 'F':
+    val = (val - 32) * (5/9)  # SECOND: convert
 ```
 
-### Step 7: Write Comprehensive Tests
+**Solution:** Legacy applies calibration FIRST, then unit conversion:
+- Input: val=68, model='Alpha', unit='F'
+- Step 1 (Calibration): 68 - 1.5 = 66.5
+- Step 2 (F to C): (66.5 - 32) * 5/9 = 19.17
 
-Created 49 tests covering all 7 requirements:
+**Insight:** The test expectations were wrong, not the implementation. Fixed tests to expect 19.17.
 
-| Test Class | Tests | Requirement |
-|-----------|-------|-------------|
-| TestPipelineArchitecture | 6 | #1 Pipeline Architecture |
-| TestStrategyPattern | 8 | #2 Strategy Pattern |
-| TestMathematicalParity | 6 | #3 Mathematical Parity |
-| TestSeparationOfConcerns | 6 | #4 Separation |
-| TestInputResilience | 7 | #5 Input Resilience |
-| TestBetaCO2Parity | 3 | #6 Parity Testing |
-| TestRangeFilterExtensibility | 6 | #7 Extensibility Testing |
-| TestSensorProfiles | 3 | Additional |
-| TestThreadSafety | 2 | Additional |
-| TestIntegration | 2 | End-to-end |
+### Problem Tackled: Input Resilience
 
-## Key Implementation Details
+**Problem:** Malformed data should not crash the entire batch.
 
-### F to C Conversion Order
-
-**Critical**: Legacy code applies calibration FIRST, then unit conversion:
-
+**Solution:** `SensorReading.from_dict()` returns `None` for invalid input:
 ```python
-# Legacy order:
-val = val - 1.5      # Calibration: 68 -> 66.5
-val = (val - 32) * 5/9  # F to C: 66.5 -> 19.17
+@classmethod
+def from_dict(cls, data: Dict[str, Any]) -> Optional['SensorReading']:
+    try:
+        val = data.get('val')
+        if val is None or not isinstance(val, (int, float)):
+            return None
+        return cls(...)
+    except (TypeError, ValueError):
+        return None
 ```
 
-This means for input `{model: 'Alpha', val: 68, unit: 'F'}`:
-- Expected result: `19.17` (NOT 18.5)
-
-### RangeFilter Extensibility
-
-Demonstrated by `create_pipeline_with_range_filter()`:
-
+Pipeline records `ProcessError` and continues:
 ```python
-Pipeline([
-    Sanitizer(),
-    Calibrator(registry),
-    UnitConverter(),
-    RangeFilter(min_value, max_value),  # Added without modifying others
-    ValueRounder(2)
-])
+if reading is None:
+    errors.append(ProcessError(raw_data=raw, error_message="..."))
+    continue
 ```
 
-### Sensor Profiles
+---
 
-Created profile factories for different use cases:
-- `create_industrial_profile()` - Standard calibration
-- `create_consumer_profile()` - Can use custom calibration registry
+## Phase 3: Test Development
 
-## Files Changed
+### Mapping Requirements to Tests
 
-### New Files
+| Requirement | Test Class | Tests | Rationale |
+|-------------|------------|-------|-----------|
+| Pipeline Architecture | TestPipelineArchitecture | 6 | Processor sequence, dynamic addition |
+| Strategy Pattern | TestStrategyPattern | 8 | Model calibration, registry operations |
+| Mathematical Parity | TestMathematicalParity | 6 | Alpha, Beta, F to C, precision |
+| Separation of Concerns | TestSeparationOfConcerns | 6 | AlertGenerator, StatisticsCalculator |
+| Input Resilience | TestInputResilience | 7 | Null val, missing keys, error handling |
+| Beta CO2 Parity | TestBetaCO2Parity | 3 | val=100.0 → normalized=20.0 |
+| RangeFilter Extensibility | TestRangeFilterExtensibility | 6 | Min/max rejection, no code changes |
+| Sensor Profiles | TestSensorProfiles | 3 | Industrial/Consumer profiles |
+| Thread Safety | TestThreadSafety | 2 | Stateless components |
+| Integration | TestIntegration | 2 | End-to-end with mixed sensors |
 
-| File | Description |
-|------|-------------|
-| `repository_after/process_sensor_data.py` | Refactored modular implementation (528 lines) |
-| `tests/test_pipeline.py` | Comprehensive test suite (49 tests) |
+### Test Details
 
-### Modified Files
+**TestBetaCO2Parity (Requirement 6):**
+- Input: `{model: 'Beta', val: 100.0, type: 'co2'}`
+- Expected: `normalized_value = 20.0`
+- Calculation: `log10(100) * 10 = 2 * 10 = 20.0`
+- Tests: direct strategy, through registry, through pipeline
 
-| File | Change |
-|------|--------|
-| `requirements.txt` | Added pytest>=7.0.0 |
-| `docker-compose.yml` | Updated test commands |
-| `instances/instance.json` | Added test names to FAIL_TO_PASS |
+**TestRangeFilterExtensibility (Requirement 7):**
+- Demonstrates adding RangeFilter without modifying existing processors
+- Tests: reject below min, reject above max, accept within range
+- Validates existing calibration and conversion unchanged
 
-## Test Results
+**TestMathematicalParity:**
+- Alpha temp: 25.0 → 23.5 (val - 1.5)
+- Beta temp: 25.0 → 25.8 (val + 0.8)
+- Beta CO2: 100.0 → 20.0 (log10(100) * 10)
+- F to C: 68.0F → 19.17C (calibrate first, then convert)
 
-```
-============================= test session starts ==============================
-collected 49 items
-...
-============================== 49 passed in 0.35s ==============================
-```
+---
 
-All 49 tests pass, validating:
-- Pipeline architecture with discrete processors
-- Strategy pattern for calibration extensibility
-- Mathematical parity with legacy code
-- Separated analysis (InsightEngine)
-- Input resilience with ProcessError logging
-- Beta CO2 parity (100.0 → 20.0)
-- RangeFilter extensibility without modifying existing code
+## Phase 4: Environment Configuration
 
-## Architecture Diagram
+### Docker Compose Setup
 
-```
-                    Raw Readings
-                         │
-                         ▼
-              ┌──────────────────┐
-              │     Pipeline     │
-              │                  │
-              │  ┌────────────┐  │
-              │  │ Sanitizer  │  │
-              │  └─────┬──────┘  │
-              │        │         │
-              │  ┌─────▼──────┐  │
-              │  │ Calibrator │◄─┼── CalibrationRegistry
-              │  └─────┬──────┘  │     ├── AlphaCalibration
-              │        │         │     ├── BetaCalibration
-              │  ┌─────▼──────┐  │     └── DefaultCalibration
-              │  │UnitConverter│  │
-              │  └─────┬──────┘  │
-              │        │         │
-              │  ┌─────▼──────┐  │
-              │  │ValueRounder│  │
-              │  └─────┬──────┘  │
-              └────────┼─────────┘
-                       │
-         ┌─────────────┼─────────────┐
-         │             │             │
-         ▼             ▼             ▼
-   ProcessedReading  ProcessError  InsightEngine
-                                    ├── AlertGenerator
-                                    └── StatisticsCalculator
+**Structure:**
+```yaml
+services:
+  app-before:
+    command: pytest tests/ --tb=no --no-header -q -rN
+    environment:
+      - REPO_UNDER_TEST=repository_before
+
+  app-after:
+    command: pytest tests/ --tb=no --no-header -q -rN
+    environment:
+      - REPO_UNDER_TEST=repository_after
+
+  evaluation:
+    command: python evaluation/evaluation.py
 ```
 
-## Conclusion
+**Test Import Strategy:**
+```python
+REPO_UNDER_TEST = os.environ.get('REPO_UNDER_TEST', 'repository_after')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', REPO_UNDER_TEST))
 
-Successfully refactored the monolithic IoT data processor into a modular, strategy-driven pipeline that:
+# Try to import refactored components
+try:
+    from process_sensor_data import Pipeline, CalibrationRegistry, ...
+    HAS_REFACTORED_COMPONENTS = True
+except ImportError:
+    HAS_REFACTORED_COMPONENTS = False
+```
 
-1. Separates concerns into discrete, testable components
-2. Uses Strategy Pattern for extensible calibration
-3. Maintains mathematical parity with legacy code
-4. Provides robust error handling
-5. Allows easy addition of new processors (demonstrated with RangeFilter)
-6. Supports different sensor profiles with shared normalization logic
+**Insight:** Tests that require refactored components assert `HAS_REFACTORED_COMPONENTS` first, providing clear failure messages for repository_before.
+
+---
+
+## Phase 5: Verification
+
+### Final Test Results
+
+**repository_before:**
+```
+FFFFFFFFFFFFFF......FFFFFF...F....FFFFFFFFFFFFF..  [100%]
+34 failed, 15 passed in 0.81s
+```
+
+**repository_after:**
+```
+.................................................  [100%]
+49 passed in 0.66s
+```
+
+### Evaluation Report
+
+```
+============================================================
+EVALUATION REPORT
+============================================================
+
+[repository_before]
+  Total: 49, Passed: 15, Failed: 34
+
+[repository_after]
+  Total: 49, Passed: 49, Failed: 0
+
+============================================================
+SUMMARY
+============================================================
+  PASS: 34 tests fixed in repository_after
+  All 49 tests now passing
+```
+
+### Metrics
+
+| Metric | Value |
+|--------|-------|
+| Total Tests | 49 |
+| Passed (after) | 49 |
+| Failed (before) | 34 |
+| Tests Fixed | 34 |
+| Test Classes | 10 |
+| Lines of Code (after) | 528 |
+
+### Insights from Testing
+
+1. **Processing order matters** - Calibration before unit conversion matches legacy behavior
+2. **Strategy pattern enables extensibility** - New models added without modifying core logic
+3. **Context object simplifies state** - Skip flag enables early termination
+4. **Separation pays off** - InsightEngine can be swapped or extended independently
+
+---
+
+## Summary
+
+The IoT data processing pipeline successfully implements all 7 requirements:
+
+1. ✅ Pipeline Architecture - 5 discrete Processor classes (Sanitizer, Calibrator, UnitConverter, RangeFilter, ValueRounder)
+2. ✅ Strategy Pattern - CalibrationRegistry with Alpha, Beta, Default strategies
+3. ✅ Mathematical Parity - All calculations match legacy code, 2 decimal precision
+4. ✅ Separation of Concerns - InsightEngine decoupled from Pipeline
+5. ✅ Input Resilience - ProcessError logging, batch continues on errors
+6. ✅ Beta CO2 Parity - val=100.0 → normalized=20.0 (verified in 3 tests)
+7. ✅ RangeFilter Extensibility - Added without modifying existing processors
+
+The 49 tests provide comprehensive coverage including edge cases for malformed data, concurrent access, and all calibration scenarios.
