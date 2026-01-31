@@ -1,13 +1,15 @@
-import { createHash, timingSafeEqual } from 'crypto';
+// @ts-expect-error - bcryptjs types not available, but module exists
+import bcrypt from 'bcryptjs';
 
 export type Role = 'ADMIN' | 'BORROWER';
 
-export function hashPassword(password: string): string {
-  return createHash('sha256').update(password).digest('hex');
+export async function hashPassword(password: string): Promise<string> {
+  // Use sync version wrapped in Promise for compatibility
+  return Promise.resolve(bcrypt.hashSync(password, 10));
 }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  const candidate = hashPassword(password);
-  return timingSafeEqual(Buffer.from(candidate), Buffer.from(hash));
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  // Use sync version wrapped in Promise for compatibility
+  return Promise.resolve(bcrypt.compareSync(password, hash));
 }
 

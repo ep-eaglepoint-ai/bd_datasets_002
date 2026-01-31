@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
     
     const normalizedEmail = email.trim().toLowerCase();
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-    if (!user || !verifyPassword(password, user.password)) {
+    if (!user || !(await verifyPassword(password, user.password))) {
       throw error(401, 'Invalid credentials');
     }
     makeSessionCookie({ cookies } as any, user.id, user.role as 'ADMIN' | 'BORROWER');
@@ -84,7 +84,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
         data: {
           email: normalizedEmail,
           name: name.trim(),
-          password: hashPassword(password),
+          password: await hashPassword(password),
           role: role
         }
       });

@@ -1,48 +1,43 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { writable, get } from 'svelte/store';
+  import { get } from 'svelte/store';
+  import {
+    user,
+    books,
+    loans,
+    loadingBooks,
+    loadingLoans,
+    searchQuery,
+    selectedCategory,
+    currentPage,
+    itemsPerPage,
+    authError,
+    authLoading,
+    actionLoading,
+    viewAllLoans
+  } from '$lib/stores';
+  import type { Book } from '$lib/stores/books';
+  import type { Loan } from '$lib/stores/loans';
+  import AuthForm from '$lib/components/AuthForm.svelte';
+  import BookTable from '$lib/components/BookTable.svelte';
+  import LoanTable from '$lib/components/LoanTable.svelte';
+  import BookForm from '$lib/components/BookForm.svelte';
+  import Dashboard from '$lib/components/Dashboard.svelte';
+  import UserProfile from '$lib/components/UserProfile.svelte';
+  import Card from '$lib/components/Card.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
+  import CategoryFilter from '$lib/components/CategoryFilter.svelte';
+  import { CONFIG } from '$lib/config';
 
-  type Role = 'ADMIN' | 'BORROWER';
+  let authMode: 'login' | 'register' = 'login';
+  let bookForm: Partial<Book> = {};
+  let bookFormError = '';
+  let editingId: number | null = null;
+  let showUserProfile = false;
 
-  interface User {
-    id: number;
-    email: string;
-    name: string;
-    role: Role;
-  }
-
-  interface Book {
-    id: number;
-    title: string;
-    author: string;
-    isbn: string;
-    category?: string | null;
-    totalCopies: number;
-    availableCopies: number;
-    publicationYear?: number | null;
-  }
-
-  interface Loan {
-    id: number;
-    book: Book;
-    user?: { id: number; name: string; email: string };
-    borrowedAt: string;
-    dueDate: string;
-    returnedAt?: string | null;
-    isOverdue?: boolean;
-    fineCents?: number;
-  }
-
-  const user = writable<User | null>(null);
-  const books = writable<Book[]>([]);
-  const loans = writable<Loan[]>([]);
-  const search = writable('');
-  const loadingBooks = writable(false);
-  const loadingLoans = writable(false);
-  const authError = writable('');
-  const authLoading = writable(false);
-  const actionLoading = writable<Record<string, boolean>>({});
-  const viewAllLoans = writable(false);
+  // Initialize pagination
+  currentPage.set({ books: 1, loans: 1 });
+  itemsPerPage.set({ books: CONFIG.ITEMS_PER_PAGE.books, loans: CONFIG.ITEMS_PER_PAGE.loans });
 
   async function fetchCurrent() {
     await loadBooks();
@@ -51,11 +46,17 @@
 
   async function loadBooks() {
     loadingBooks.set(true);
-    const q = get(search);
-    const url = q ? `/api/books?q=${encodeURIComponent(q)}` : '/api/books';
+    const q = get(searchQuery);
+    const category = get(selectedCategory);
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (category && category !== 'all') params.set('category', category);
+    const url = `/api/books${params.toString() ? '?' + params.toString() : ''}`;
     const res = await fetch(url);
     if (res.ok) {
       books.set(await res.json());
+      // Reset to page 1 when filtering
+      currentPage.update(p => ({ ...p, books: 1 }));
     }
     loadingBooks.set(false);
   }
@@ -66,31 +67,22 @@
     const res = await fetch(`/api/loans?view=${view}`);
     if (res.ok) {
       loans.set(await res.json());
+      currentPage.update(p => ({ ...p, loans: 1 }));
     }
     loadingLoans.set(false);
   }
 
-  // Computed statistics
-  $: stats = {
-    totalBooks: $books.length,
-    availableBooks: $books.filter(b => b.availableCopies > 0).length,
-    totalLoans: $loans.length,
-    activeLoans: $loans.filter(l => !l.returnedAt).length,
-    overdueLoans: $loans.filter(l => l.isOverdue && !l.returnedAt).length,
-    totalFines: $loans.reduce((sum, l) => sum + (l.fineCents || 0), 0)
-  };
+  function handleAuthModeChange(mode: 'login' | 'register') {
+    authMode = mode;
+    authError.set('');
+  }
 
-  let authMode: 'login' | 'register' = 'login';
-  let email = '';
-  let password = '';
-  let name = '';
-
-  async function submitAuth() {
+  async function handleAuthSubmit(data: { email: string; password: string; name?: string }) {
     authError.set('');
     authLoading.set(true);
     try {
-      const payload: any = { action: authMode, email: email.trim(), password };
-      if (authMode === 'register') payload.name = name.trim();
+      const payload: any = { action: authMode, email: data.email, password: data.password };
+      if (authMode === 'register' && data.name) payload.name = data.name;
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -101,11 +93,8 @@
         authError.set(errorData.message || 'Authentication failed');
         return;
       }
-      const u = (await res.json()) as User;
+      const u = await res.json();
       user.set(u);
-      email = '';
-      password = '';
-      name = '';
       await fetchCurrent();
     } catch (e) {
       authError.set('Network error. Please try again.');
@@ -122,11 +111,8 @@
     });
     user.set(null);
     loans.set([]);
+    books.set([]);
   }
-
-  let bookForm: Partial<Book> = {};
-  let bookFormError = '';
-  let editingId: number | null = null;
 
   function startEdit(book: Book) {
     editingId = book.id;
@@ -142,7 +128,6 @@
   async function saveBook() {
     bookFormError = '';
     
-    // Frontend validation
     if (!bookForm.title?.trim()) {
       bookFormError = 'Title is required';
       return;
@@ -281,303 +266,196 @@
     }
   }
 
+  async function handleUpdateProfile(data: { name: string; email: string }) {
+    authLoading.set(true);
+    try {
+      const res = await fetch('/api/user', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to update profile' }));
+        authError.set(errorData.message || 'Failed to update profile');
+        return;
+      }
+      const updated = await res.json();
+      user.set(updated);
+      authError.set('');
+    } catch (e) {
+      authError.set('Network error. Please try again.');
+    } finally {
+      authLoading.set(false);
+    }
+  }
+
+  async function handleChangePassword(data: { currentPassword: string; newPassword: string }) {
+    authLoading.set(true);
+    try {
+      const res = await fetch('/api/user', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to change password' }));
+        authError.set(errorData.message || 'Failed to change password');
+        return;
+      }
+      authError.set('');
+      alert('Password changed successfully');
+    } catch (e) {
+      authError.set('Network error. Please try again.');
+    } finally {
+      authLoading.set(false);
+    }
+  }
+
+  $: filteredBooks = get(books);
+  $: filteredLoans = get(loans);
+  $: booksPage = get(currentPage).books;
+  $: loansPage = get(currentPage).loans;
+  $: booksPerPage = get(itemsPerPage).books;
+  $: loansPerPage = get(itemsPerPage).loans;
+
   onMount(() => {
     loadCurrentUser();
   });
 </script>
 
 <main class="app">
-  <header class="topbar">
+  <header class="topbar" role="banner">
     <h1>Library Management System</h1>
     {#if $user}
       <div class="user-info">
-        <span>{$user.name} ({$user.role})</span>
-        <button class="secondary" on:click={logout}>Logout</button>
+        <span aria-label="Current user: {$user.name}, Role: {$user.role}">{$user.name} ({$user.role})</span>
+        <button class="secondary" on:click={() => showUserProfile = !showUserProfile} aria-label="Toggle user profile">
+          Profile
+        </button>
+        <button class="secondary" on:click={logout} aria-label="Logout">Logout</button>
       </div>
     {:else}
-      <div class="auth-toggle">
-        <button class:active={authMode === 'login'} on:click={() => (authMode = 'login')}
-          >Login</button
+      <div class="auth-toggle" role="tablist" aria-label="Authentication mode">
+        <button
+          class:active={authMode === 'login'}
+          on:click={() => handleAuthModeChange('login')}
+          role="tab"
+          aria-selected={authMode === 'login'}
         >
+          Login
+        </button>
         <button
           class:active={authMode === 'register'}
-          on:click={() => (authMode = 'register')}
-          >Register</button
+          on:click={() => handleAuthModeChange('register')}
+          role="tab"
+          aria-selected={authMode === 'register'}
         >
+          Register
+        </button>
       </div>
     {/if}
   </header>
 
   {#if !$user}
-    <section class="card">
-      <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
-      {#if $authError}<p class="error">{$authError}</p>{/if}
-      <form
-        on:submit|preventDefault={submitAuth}
-        aria-label={authMode === 'login' ? 'Login form' : 'Registration form'}
-      >
-        {#if authMode === 'register'}
-          <label>
-            Name
-            <input bind:value={name} required />
-          </label>
-        {/if}
-        <label>
-          Email
-          <input type="email" bind:value={email} required />
-        </label>
-        <label>
-          Password
-          <input type="password" bind:value={password} minlength="6" required />
-        </label>
-        <button type="submit" disabled={$authLoading}>
-          {$authLoading ? 'Please wait...' : authMode === 'login' ? 'Login' : 'Create account'}
-        </button>
-      </form>
-    </section>
+    <AuthForm
+      mode={authMode}
+      error={$authError}
+      loading={$authLoading}
+      onModeChange={handleAuthModeChange}
+      onSubmit={handleAuthSubmit}
+    />
+  {/if}
+
+  {#if $user && showUserProfile}
+    <UserProfile
+      user={$user}
+      loading={$authLoading}
+      error={$authError}
+      onUpdateProfile={handleUpdateProfile}
+      onChangePassword={handleChangePassword}
+    />
+  {/if}
+
+  {#if $user}
+    <Dashboard books={$books} loans={$loans} user={$user} />
   {/if}
 
   <section class="layout">
-    <section class="card">
-      <header class="card-header">
-        <h2>Books</h2>
-        <input
-          type="search"
+    <Card title="Books">
+      <div class="card-header">
+        <SearchInput
+          value={$searchQuery}
           placeholder="Search by title, author, ISBN"
-          bind:value={$search}
-          on:input={loadBooks}
-          aria-label="Search books"
+          onInput={(value) => {
+            searchQuery.set(value);
+            loadBooks();
+          }}
         />
-      </header>
-      {#if $loadingBooks}
-        <p>Loading books...</p>
-      {:else if $books.length === 0}
-        <p>No books found.</p>
-      {:else}
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Author</th>
-              <th>ISBN</th>
-              <th>Available / Total</th>
-              <th>Category</th>
-              <th>Year</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each $books as book}
-              <tr class:low-stock={book.availableCopies <= 2 && book.availableCopies > 0} class:out-of-stock={book.availableCopies === 0}>
-                <td data-label="Title">{book.title}</td>
-                <td data-label="Author">{book.author}</td>
-                <td data-label="ISBN">{book.isbn}</td>
-                <td data-label="Available / Total">
-                  <span class:low-stock-badge={book.availableCopies <= 2 && book.availableCopies > 0} class:out-of-stock-badge={book.availableCopies === 0}>
-                    {book.availableCopies} / {book.totalCopies}
-                  </span>
-                </td>
-                <td data-label="Category">{book.category || '-'}</td>
-                <td data-label="Year">{book.publicationYear || '-'}</td>
-                <td data-label="Actions">
-                  {#if $user}
-                    <button 
-                      on:click={() => borrow(book.id)} 
-                      disabled={book.availableCopies <= 0 || $actionLoading[`borrow-${book.id}`]}
-                    >
-                      {$actionLoading[`borrow-${book.id}`] ? 'Borrowing...' : 'Borrow'}
-                    </button>
-                    {#if $user.role === 'ADMIN'}
-                      <button on:click={() => startEdit(book)} disabled={$actionLoading[`edit-${book.id}`]}>
-                        Edit
-                      </button>
-                      <button 
-                        class="danger"
-                        on:click={() => deleteBook(book.id)} 
-                        disabled={$actionLoading[`delete-${book.id}`]}
-                      >
-                        {$actionLoading[`delete-${book.id}`] ? 'Deleting...' : 'Delete'}
-                      </button>
-                    {/if}
-                  {:else}
-                    <span class="muted">Login to borrow</span>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-    </section>
+        <CategoryFilter
+          books={$books}
+          selectedCategory={$selectedCategory}
+          onCategoryChange={(category) => {
+            selectedCategory.set(category);
+            loadBooks();
+          }}
+        />
+      </div>
+      <BookTable
+        books={$books}
+        loading={$loadingBooks}
+        user={$user}
+        actionLoading={$actionLoading}
+        currentPage={booksPage}
+        itemsPerPage={booksPerPage}
+        onBorrow={borrow}
+        onEdit={startEdit}
+        onDelete={deleteBook}
+        onPageChange={(page) => {
+          currentPage.update(p => ({ ...p, books: page }));
+        }}
+      />
+    </Card>
 
-    <section class="card">
-      <header class="card-header">
-        <h2>{$user?.role === 'ADMIN' ? 'All Loans &amp; History' : 'Your Loans &amp; History'}</h2>
+    <Card title={$user?.role === 'ADMIN' ? 'All Loans &amp; History' : 'Your Loans &amp; History'}>
+      <div class="card-header">
         {#if $user?.role === 'ADMIN'}
           <label class="toggle-label">
-            <input type="checkbox" bind:checked={$viewAllLoans} on:change={loadLoans} />
+            <input
+              type="checkbox"
+              checked={$viewAllLoans}
+              on:change={(e) => {
+                viewAllLoans.set(e.currentTarget.checked);
+                loadLoans();
+              }}
+              aria-label="View all loans"
+            />
             <span>View All Loans</span>
           </label>
         {/if}
-      </header>
-      {#if !$user}
-        <p>Please login to view your loans.</p>
-      {:else if $loadingLoans}
-        <p>Loading loans...</p>
-      {:else if $loans.length === 0}
-        <p>No loans yet.</p>
-      {:else}
-        <table>
-          <thead>
-            <tr>
-              <th>Book</th>
-              {#if $user?.role === 'ADMIN'}
-                <th>Borrower</th>
-              {/if}
-              <th>Borrowed</th>
-              <th>Due</th>
-              <th>Status</th>
-              <th>Fine</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each $loans as loan}
-              <tr class:overdue={loan.isOverdue && !loan.returnedAt}>
-                <td data-label="Book">{loan.book.title}</td>
-                {#if $user?.role === 'ADMIN'}
-                  <td data-label="Borrower">{loan.user?.name || 'Unknown'}</td>
-                {/if}
-                <td data-label="Borrowed">{new Date(loan.borrowedAt).toLocaleDateString()}</td>
-                <td data-label="Due">
-                  {new Date(loan.dueDate).toLocaleDateString()}
-                  {#if !loan.returnedAt}
-                    {@const daysUntilDue = Math.ceil((new Date(loan.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
-                    {#if daysUntilDue < 0}
-                      <span class="days-badge overdue-badge">({Math.abs(daysUntilDue)} days overdue)</span>
-                    {:else if daysUntilDue <= 3}
-                      <span class="days-badge warning-badge">({daysUntilDue} days left)</span>
-                    {:else}
-                      <span class="days-badge">({daysUntilDue} days left)</span>
-                    {/if}
-                  {/if}
-                </td>
-                <td data-label="Status">
-                  {#if loan.returnedAt}
-                    <span class="status-badge returned">Returned</span>
-                  {:else if loan.isOverdue}
-                    <span class="status-badge overdue">Overdue</span>
-                  {:else}
-                    <span class="status-badge active">Active</span>
-                  {/if}
-                </td>
-                <td data-label="Fine">
-                  {#if loan.fineCents && loan.fineCents > 0}
-                    ${(loan.fineCents / 100).toFixed(2)}
-                  {:else}
-                    -
-                  {/if}
-                </td>
-                <td data-label="Actions">
-                  {#if !loan.returnedAt}
-                    <button 
-                      on:click={() => returnLoan(loan.id)}
-                      disabled={$actionLoading[`return-${loan.id}`]}
-                    >
-                      {$actionLoading[`return-${loan.id}`] ? 'Returning...' : 'Return'}
-                    </button>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-    </section>
+      </div>
+      <LoanTable
+        loans={$loans}
+        loading={$loadingLoans}
+        user={$user}
+        actionLoading={$actionLoading}
+        currentPage={loansPage}
+        itemsPerPage={loansPerPage}
+        onReturn={returnLoan}
+        onPageChange={(page) => {
+          currentPage.update(p => ({ ...p, loans: page }));
+        }}
+      />
+    </Card>
   </section>
 
-  {#if $user}
-    <section class="card dashboard">
-      <h2>Dashboard</h2>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value">{$books.length}</div>
-          <div class="stat-label">Total Books</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{stats.availableBooks}</div>
-          <div class="stat-label">Available Books</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{stats.activeLoans}</div>
-          <div class="stat-label">Active Loans</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{stats.overdueLoans}</div>
-          <div class="stat-label">Overdue Items</div>
-        </div>
-        {#if $user.role === 'ADMIN'}
-          <div class="stat-card">
-            <div class="stat-value">{stats.totalLoans}</div>
-            <div class="stat-label">Total Loans</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">${(stats.totalFines / 100).toFixed(2)}</div>
-            <div class="stat-label">Total Fines</div>
-          </div>
-        {/if}
-      </div>
-    </section>
-  {/if}
-
   {#if $user && $user.role === 'ADMIN'}
-    <section class="card">
-      <h2>{editingId ? 'Edit book' : 'Add new book'}</h2>
-      {#if bookFormError}<p class="error">{bookFormError}</p>{/if}
-      <form on:submit|preventDefault={saveBook} class="book-form">
-        <label>
-          Title
-          <input bind:value={bookForm.title} required />
-        </label>
-        <label>
-          Author
-          <input bind:value={bookForm.author} required />
-        </label>
-        <label>
-          ISBN
-          <input bind:value={bookForm.isbn} required />
-        </label>
-        <label>
-          Category
-          <input bind:value={bookForm.category} />
-        </label>
-        <label>
-          Total copies
-          <input type="number" min="1" bind:value={bookForm.totalCopies} required />
-        </label>
-        <label>
-          Available copies
-          <input type="number" min="0" bind:value={bookForm.availableCopies} />
-        </label>
-        <label>
-          Publication year
-          <input type="number" min="0" bind:value={bookForm.publicationYear} />
-        </label>
-        <div class="actions">
-          <button 
-            type="submit" 
-            disabled={$actionLoading[editingId ? `edit-${editingId}` : 'create']}
-          >
-            {$actionLoading[editingId ? `edit-${editingId}` : 'create'] 
-              ? 'Saving...' 
-              : editingId ? 'Save changes' : 'Add book'}
-          </button>
-          {#if editingId}
-            <button type="button" class="secondary" on:click={resetBookForm}>Cancel</button>
-          {/if}
-        </div>
-      </form>
-    </section>
+    <BookForm
+      book={bookForm}
+      error={bookFormError}
+      loading={$actionLoading[editingId ? `edit-${editingId}` : 'create'] || false}
+      onSubmit={saveBook}
+      onCancel={resetBookForm}
+    />
   {/if}
 </main>
 
@@ -694,38 +572,6 @@
     }
   }
 
-  .card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
-  }
-
-  .card h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin: 0 0 1rem 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .card h2::before {
-    content: '';
-    width: 4px;
-    height: 1.5rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 2px;
-  }
-
   .card-header {
     display: flex;
     justify-content: space-between;
@@ -733,353 +579,6 @@
     align-items: center;
     margin-bottom: 1.25rem;
     flex-wrap: wrap;
-  }
-
-  input[type='search'],
-  input[type='email'],
-  input[type='password'],
-  input[type='number'],
-  input:not([type]) {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    border: 2px solid #e5e7eb;
-    font-size: 1rem;
-    transition: all 0.2s ease;
-    background: white;
-  }
-
-  input:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  }
-
-  label {
-    font-weight: 600;
-    font-size: 0.875rem;
-    color: #374151;
-    margin-bottom: 0.5rem;
-    display: block;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-    overflow-x: auto;
-    display: block;
-  }
-  
-  @media (min-width: 641px) {
-    table {
-      display: table;
-    }
-  }
-  
-  th,
-  td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid #e5e7eb;
-    text-align: left;
-  }
-  
-  @media (max-width: 640px) {
-    th,
-    td {
-      padding: 0.5rem 0.75rem;
-      font-size: 0.85rem;
-    }
-  }
-  
-  th {
-    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-    font-weight: 700;
-    color: #374151;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-  }
-  
-  @media (max-width: 640px) {
-    table thead {
-      display: none;
-    }
-    table tbody tr {
-      display: block;
-      margin-bottom: 1rem;
-      border: 2px solid #e5e7eb;
-      border-radius: 0.75rem;
-      padding: 1rem;
-      background: #f9fafb;
-    }
-    table tbody td {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.75rem 0.5rem;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    table tbody td:last-child {
-      border-bottom: none;
-    }
-    table tbody td:before {
-      content: attr(data-label);
-      font-weight: 700;
-      margin-right: 1rem;
-      color: #6b7280;
-    }
-  }
-
-  tbody tr {
-    transition: background-color 0.2s ease;
-  }
-
-  tbody tr:hover {
-    background-color: #f9fafb;
-  }
-
-  tr.overdue {
-    background: #fef2f2;
-    border-left: 4px solid #ef4444;
-  }
-
-  tr.low-stock {
-    background: #fffbeb;
-    border-left: 4px solid #f59e0b;
-  }
-
-  tr.out-of-stock {
-    background: #fef2f2;
-    border-left: 4px solid #dc2626;
-  }
-
-  .low-stock-badge {
-    color: #d97706;
-    font-weight: 700;
-    padding: 0.25rem 0.5rem;
-    background: #fef3c7;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-  }
-
-  .out-of-stock-badge {
-    color: #dc2626;
-    font-weight: 700;
-    padding: 0.25rem 0.5rem;
-    background: #fee2e2;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-  }
-
-  .days-badge {
-    font-size: 0.75rem;
-    margin-left: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    font-weight: 600;
-    display: inline-block;
-  }
-
-  .days-badge.overdue-badge {
-    background: #fee2e2;
-    color: #dc2626;
-  }
-
-  .days-badge.warning-badge {
-    background: #fef3c7;
-    color: #d97706;
-  }
-
-  .days-badge:not(.overdue-badge):not(.warning-badge) {
-    background: #dbeafe;
-    color: #1e40af;
-  }
-
-  .status-badge {
-    display: inline-block;
-    padding: 0.375rem 0.75rem;
-    border-radius: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .status-badge.active {
-    background: #dbeafe;
-    color: #1e40af;
-  }
-
-  .status-badge.overdue {
-    background: #fee2e2;
-    color: #dc2626;
-  }
-
-  .status-badge.returned {
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  button {
-    padding: 0.625rem 1.25rem;
-    border-radius: 0.5rem;
-    border: none;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
-  }
-
-  button[disabled] {
-    opacity: 0.6;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
-  button:not([disabled]):hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
-  }
-
-  button:not([disabled]):active {
-    transform: translateY(0);
-  }
-
-  button.secondary {
-    background: #6b7280;
-    box-shadow: 0 4px 6px rgba(107, 114, 128, 0.3);
-  }
-
-  button.secondary:hover:not([disabled]) {
-    background: #4b5563;
-    box-shadow: 0 6px 12px rgba(107, 114, 128, 0.4);
-  }
-
-  button.danger {
-    background: #ef4444;
-    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
-  }
-
-  button.danger:hover:not([disabled]) {
-    background: #dc2626;
-    box-shadow: 0 6px 12px rgba(239, 68, 68, 0.4);
-  }
-
-  .muted {
-    color: #9ca3af;
-    font-size: 0.875rem;
-    font-style: italic;
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  form.book-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-  
-  @media (max-width: 640px) {
-    form.book-form {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  form.book-form label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-  }
-
-  .actions {
-    grid-column: 1 / -1;
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .error {
-    color: #dc2626;
-    margin-bottom: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: #fee2e2;
-    border-radius: 0.5rem;
-    border-left: 4px solid #dc2626;
-    font-weight: 500;
-  }
-
-  .dashboard {
-    margin-bottom: 1.5rem;
-  }
-
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-  }
-
-  @media (max-width: 640px) {
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-    }
-  }
-
-  .stat-card {
-    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-    text-align: center;
-    border: 2px solid #e5e7eb;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  }
-
-  .stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    border-color: #667eea;
-  }
-
-  .stat-value {
-    font-size: 2.5rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.5rem;
-    line-height: 1;
-  }
-
-  .stat-label {
-    font-size: 0.875rem;
-    color: #6b7280;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   .toggle-label {
@@ -1106,9 +605,38 @@
     accent-color: #667eea;
   }
 
-  p {
-    color: #6b7280;
-    line-height: 1.6;
+  button {
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+  }
+
+  button[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  button:not([disabled]):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  button.secondary {
+    background: #6b7280;
+    box-shadow: 0 4px 6px rgba(107, 114, 128, 0.3);
+  }
+
+  button.secondary:hover:not([disabled]) {
+    background: #4b5563;
+    box-shadow: 0 6px 12px rgba(107, 114, 128, 0.4);
   }
 
   @media (prefers-reduced-motion: reduce) {

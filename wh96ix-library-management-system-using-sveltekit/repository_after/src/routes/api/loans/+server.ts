@@ -1,8 +1,6 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json, error } from '@sveltejs/kit';
-
-const DAYS_DEFAULT = 14;
-const FINE_PER_DAY_CENTS = 50;
+import { CONFIG } from '$lib/server/config';
 
 function requireAuth(locals: App.Locals) {
   if (!locals.user) throw error(401, 'Authentication required');
@@ -35,7 +33,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     const fineCents = loan.returnedAt
       ? loan.fineCents
       : isOverdue
-      ? daysOverdue * FINE_PER_DAY_CENTS
+      ? daysOverdue * CONFIG.FINE_PER_DAY_CENTS
       : 0;
     return { ...loan, isOverdue, daysOverdue, fineCents };
   });
@@ -71,7 +69,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const borrowedAt = new Date();
   const dueDate = new Date(borrowedAt);
-  const days = typeof body.days === 'number' && body.days > 0 ? body.days : DAYS_DEFAULT;
+  const days = typeof body.days === 'number' && body.days > 0 ? body.days : CONFIG.LOAN_DURATION_DAYS;
   dueDate.setDate(dueDate.getDate() + days);
 
   try {
@@ -128,7 +126,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
   const daysOverdue = isOverdue
     ? Math.ceil((now.getTime() - loan.dueDate.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
-  const fineCents = isOverdue ? daysOverdue * FINE_PER_DAY_CENTS : 0;
+  const fineCents = isOverdue ? daysOverdue * CONFIG.FINE_PER_DAY_CENTS : 0;
 
   try {
     const updated = await prisma.$transaction(async (tx) => {

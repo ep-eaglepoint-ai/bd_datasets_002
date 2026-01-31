@@ -13,22 +13,26 @@ function requireAdmin(locals: App.Locals) {
 export const GET: RequestHandler = async ({ url, locals }) => {
   const { prisma } = locals;
   const q = url.searchParams.get('q')?.trim();
+  const category = url.searchParams.get('category')?.trim();
   
-  if (!q) {
-    const books = await prisma.book.findMany({ orderBy: { title: 'asc' } });
-    return json(books);
+  const where: any = {};
+  
+  if (q) {
+    // SQLite doesn't support 'mode: insensitive', but SQLite is case-insensitive by default
+    // However, Prisma requires explicit handling. We'll use contains which works case-insensitively in SQLite
+    where.OR = [
+      { title: { contains: q } },
+      { author: { contains: q } },
+      { isbn: { contains: q } }
+    ];
   }
-
-  // SQLite doesn't support 'mode: insensitive', but SQLite is case-insensitive by default
-  // However, Prisma requires explicit handling. We'll use contains which works case-insensitively in SQLite
+  
+  if (category && category !== 'all') {
+    where.category = category;
+  }
+  
   const books = await prisma.book.findMany({
-    where: {
-      OR: [
-        { title: { contains: q } },
-        { author: { contains: q } },
-        { isbn: { contains: q } }
-      ]
-    },
+    where,
     orderBy: { title: 'asc' }
   });
   

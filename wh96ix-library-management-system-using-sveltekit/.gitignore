@@ -63,8 +63,7 @@ coverage/
 *.backup.json
 *.tmp.json
 *.temp.json
-evaluation/reports/*.json
-evaluation/reports/*/*.json
+evaluation/reports
 instances/*.json
 *.report.json
 *-report.json
