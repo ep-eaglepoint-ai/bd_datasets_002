@@ -7,7 +7,7 @@
     
     "test:watch": "jest --watch",
     "test:after": "REPO_PATH=repository_after jest --config jest.config.js --verbose",
-    "test": "jest --config jest.config.js --verbose",
+    "test": "npm install jest-environment-jsdom && jest --config jest.config.js --verbose",
     "evaluation": "tsx evaluation/evaluation.ts"
   },
   "dependencies": {
