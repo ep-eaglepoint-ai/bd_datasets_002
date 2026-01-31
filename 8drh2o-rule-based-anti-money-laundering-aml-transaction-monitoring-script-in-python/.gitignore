@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*/__pycache__/  
 *.pyc
 .venv/
 .env
@@ -9,3 +10,7 @@ node_modules/
 
 # OS
 .DS_Store
+
+
+# Evaluation
+evaluation/????-??-??/

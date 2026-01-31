@@ -1,6 +1,20 @@
+version: '3.8'
+
 services:
-  app:
+  test-after:
     build: .
-    command: pytest -q tests
+    # Run unit tests using the Python standard library
+    command: python -m unittest discover -v
     volumes:
       - .:/app
+    working_dir: /app
+    network_mode: bridge
+
+  evaluate:
+    image: python:3.11-slim
+    # install pytest then run the evaluation script which will also run pytest
+    command: bash -lc "pip install --no-cache-dir pytest >/dev/null 2>&1 || true; python evaluation/evaluation.py"
+    volumes:
+      - .:/app
+    working_dir: /app
+    network_mode: bridge
