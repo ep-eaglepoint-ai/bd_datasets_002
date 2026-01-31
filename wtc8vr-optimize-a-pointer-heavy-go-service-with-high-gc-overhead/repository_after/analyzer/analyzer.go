@@ -16,13 +16,21 @@ import (
 type LargeRecord struct {
 	ID         string
 	Data       []byte
-	Meta       map[string]string
+	MetaKey    string
+	MetaValue  string
 	Related    []int
 	Tags       []string
 	History    []string
 	Hash       [32]byte
 	Encoded    string
-	Attributes []map[string]string
+	Attributes []Attr
+}
+
+// Attr is a flat (non-map) representation of record attributes.
+// Keeping this as a value slice avoids per-record map allocations and reduces GC scan pressure.
+type Attr struct {
+	A string
+	B string
 }
 
 type HeavyService struct {
@@ -42,6 +50,14 @@ type HeavyService struct {
 	keyBuf   []byte
 	tagBuf   []byte
 	eventBuf []byte
+
+	// Pools to reuse record-owned backing arrays and avoid steady-state heap churn.
+	// We only return objects to pools once records are evicted from the cache.
+	dataPool    sync.Pool // []byte
+	tagsPool    sync.Pool // []string
+	historyPool sync.Pool // []string
+	relatedPool sync.Pool // []int
+	attrsPool   sync.Pool // []Attr
 }
 
 func NewHeavyService() *HeavyService {
@@ -60,6 +76,11 @@ func NewHeavyService() *HeavyService {
 		tagBuf:      make([]byte, 0, 32),
 		eventBuf:    make([]byte, 0, 128),
 	}
+	s.dataPool.New = func() any { return make([]byte, 0, 1024) }
+	s.tagsPool.New = func() any { return make([]string, 0, 10) }
+	s.historyPool.New = func() any { return make([]string, 0, 5) }
+	s.relatedPool.New = func() any { return make([]int, 0, 16) }
+	s.attrsPool.New = func() any { return make([]Attr, 0, 3) }
 	go s.backgroundMaintenance()
 	return s
 }
@@ -79,6 +100,133 @@ func appendInt64(buf []byte, n int64) []byte {
 	return strconv.AppendInt(buf, n, 10)
 }
 
+func (s *HeavyService) getData1024() []byte {
+	b := s.dataPool.Get().([]byte)
+	if cap(b) < 1024 {
+		return make([]byte, 1024)
+	}
+	return b[:1024]
+}
+
+func (s *HeavyService) putData1024(b []byte) {
+	if b == nil {
+		return
+	}
+	if cap(b) < 1024 {
+		return
+	}
+	// No need to zero: []byte has no pointers, so it doesn't retain heap references.
+	s.dataPool.Put(b[:0])
+}
+
+func (s *HeavyService) getTags10() []string {
+	x := s.tagsPool.Get().([]string)
+	if cap(x) < 10 {
+		x = make([]string, 0, 10)
+	}
+	return x[:10]
+}
+
+func (s *HeavyService) putTags10(x []string) {
+	if x == nil {
+		return
+	}
+	if cap(x) < 10 {
+		return
+	}
+	x = x[:cap(x)]
+	// Clear the full backing array to avoid retaining string references in the pool.
+	for i := range x {
+		x[i] = ""
+	}
+	// Keep this pool "tight" to avoid accidentally caching very large arrays.
+	if cap(x) != 10 {
+		return
+	}
+	s.tagsPool.Put(x[:0])
+}
+
+func (s *HeavyService) getHistory5() []string {
+	x := s.historyPool.Get().([]string)
+	if cap(x) < 5 {
+		x = make([]string, 0, 5)
+	}
+	return x[:5]
+}
+
+func (s *HeavyService) putHistory5(x []string) {
+	if x == nil {
+		return
+	}
+	if cap(x) < 5 {
+		return
+	}
+	x = x[:cap(x)]
+	// Clear the full backing array to avoid retaining string references in the pool.
+	for i := range x {
+		x[i] = ""
+	}
+	// Keep this pool "tight" to avoid accidentally caching very large arrays.
+	if cap(x) != 5 {
+		return
+	}
+	s.historyPool.Put(x[:0])
+}
+
+func (s *HeavyService) getRelated(capacity int) []int {
+	x := s.relatedPool.Get().([]int)
+	if cap(x) < capacity {
+		return make([]int, 0, capacity)
+	}
+	return x[:0]
+}
+
+func (s *HeavyService) putRelated(x []int) {
+	if x == nil {
+		return
+	}
+	s.relatedPool.Put(x[:0])
+}
+
+func (s *HeavyService) getAttrs3() []Attr {
+	x := s.attrsPool.Get().([]Attr)
+	if cap(x) < 3 {
+		x = make([]Attr, 0, 3)
+	}
+	return x[:3]
+}
+
+func (s *HeavyService) putAttrs3(x []Attr) {
+	if x == nil {
+		return
+	}
+	if cap(x) < 3 {
+		return
+	}
+	x = x[:cap(x)]
+	// Clear the full backing array to avoid retaining string references in the pool.
+	for i := range x {
+		x[i] = Attr{}
+	}
+	// Keep this pool "tight" to avoid accidentally caching very large arrays.
+	if cap(x) != 3 {
+		return
+	}
+	s.attrsPool.Put(x[:0])
+}
+
+func (s *HeavyService) recycleRecord(rec *LargeRecord) {
+	if rec == nil {
+		return
+	}
+	s.putData1024(rec.Data)
+	s.putTags10(rec.Tags)
+	s.putHistory5(rec.History)
+	s.putRelated(rec.Related)
+	s.putAttrs3(rec.Attributes)
+	*rec = LargeRecord{}
+}
+
 func (s *HeavyService) Ingest(count int) {
 	for i := 0; i < count; i++ {
 		s.mu.Lock()
@@ -92,7 +240,7 @@ func (s *HeavyService) Ingest(count int) {
 		id := string(s.idBuf)
 
 		// Single allocation for data, no redundant copies
-		data := make([]byte, 1024)
+		data := s.getData1024()
 		for j := 0; j < len(data); j++ {
 			data[j] = byte(s.r.Intn(256))
 		}
@@ -103,12 +251,8 @@ func (s *HeavyService) Ingest(count int) {
 		s.keyBuf = appendInt(s.keyBuf, s.r.Intn(50))
 		key := string(s.keyBuf)
 
-		// Meta as value map
-		meta := make(map[string]string, 1)
-		meta[key] = id
-
-		// Tags as value slice, preallocated
-		tags := make([]string, 10)
+		// Tags as value slice, reused from pool
+		tags := s.getTags10()
 		for t := 0; t < 10; t++ {
 			s.tagBuf = s.tagBuf[:0]
 			s.tagBuf = append(s.tagBuf, "tag-"...)
@@ -118,8 +262,8 @@ func (s *HeavyService) Ingest(count int) {
 			tags[t] = string(s.tagBuf)
 		}
 
-		// History as value slice, preallocated
-		history := make([]string, 5)
+		// History as value slice, reused from pool
+		history := s.getHistory5()
 		for k := 0; k < 5; k++ {
 			s.idBuf = s.idBuf[:0]
 			s.idBuf = append(s.idBuf, "created:"...)
@@ -134,30 +278,29 @@ func (s *HeavyService) Ingest(count int) {
 		// Encoded directly from hash array
 		encoded := base64.StdEncoding.EncodeToString(sum[:])
 
-		// Attributes as value slice of value maps, preallocated
-		attrs := make([]map[string]string, 3)
+		// Attributes as a flat value slice, reused from pool (no per-record map allocations)
+		attrs := s.getAttrs3()
 		for a := 0; a < 3; a++ {
-			m := make(map[string]string, 2)
 			s.tagBuf = s.tagBuf[:0]
 			s.tagBuf = append(s.tagBuf, "v-"...)
 			s.tagBuf = appendInt(s.tagBuf, a)
 			s.tagBuf = append(s.tagBuf, '-')
 			s.tagBuf = appendInt(s.tagBuf, s.r.Intn(100000))
-			m["a"] = string(s.tagBuf)
+			attrs[a].A = string(s.tagBuf)
 
 			s.tagBuf = s.tagBuf[:0]
 			s.tagBuf = append(s.tagBuf, "w-"...)
 			s.tagBuf = appendInt(s.tagBuf, a)
 			s.tagBuf = append(s.tagBuf, '-')
 			s.tagBuf = appendInt(s.tagBuf, s.r.Intn(100000))
-			m["b"] = string(s.tagBuf)
-			attrs[a] = m
+			attrs[a].B = string(s.tagBuf)
 		}
 
 		record := LargeRecord{
 			ID:         id,
 			Data:       data,
-			Meta:       meta,
+			MetaKey:    key,
+			MetaValue:  id,
 			Tags:       tags,
 			History:    history,
 			Hash:       sum,
@@ -167,7 +310,7 @@ func (s *HeavyService) Ingest(count int) {
 
 		// Related records as indices instead of pointers
 		relCount := 5 + s.r.Intn(10)
-		record.Related = make([]int, 0, relCount)
+		record.Related = s.getRelated(relCount)
 		cacheLen := len(s.cache)
 		for r := 0; r < relCount && cacheLen > 0; r++ {
 			record.Related = append(record.Related, s.r.Intn(cacheLen))
@@ -209,8 +352,20 @@ func (s *HeavyService) Ingest(count int) {
 
 // compactCacheUnlocked properly releases memory by copying to new slice
 func (s *HeavyService) compactCacheUnlocked() {
+	old := s.cache
+	if len(old) <= 5000 {
+		return
+	}
+	kept := old[5000:]
 	newCache := make([]LargeRecord, 0, 10000)
-	newCache = append(newCache, s.cache[5000:]...)
+	newCache = append(newCache, kept...)
+
+	// Recycle evicted records so their internal backing arrays can be reused,
+	// rather than forcing the GC to discover and free them repeatedly.
+	for i := 0; i < 5000; i++ {
+		s.recycleRecord(&old[i])
+	}
+
 	s.cache = newCache
 	// Rebuild indexes after compaction
 	s.rebuildIndexesUnlocked()
@@ -266,8 +421,8 @@ func (s *HeavyService) rebuildIndexesUnlocked() {
 			continue
 		}
 		s.indexByID[rec.ID] = idx
-		for k := range rec.Meta {
-			s.indexByKey[k] = append(s.indexByKey[k], idx)
+		if rec.MetaKey != "" {
+			s.indexByKey[rec.MetaKey] = append(s.indexByKey[rec.MetaKey], idx)
 		}
 	}
 }

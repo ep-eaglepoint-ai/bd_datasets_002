@@ -102,7 +102,7 @@ func TestMinimizePointerIndirection(t *testing.T) {
 	pointerCount := 0
 	valueCount := 0
 	
-	// Check each field: direct pointer, or pointer inside slice/map
+	// Check each field: direct pointer, pointer elements, and disallow maps.
 	for i := 0; i < recordType.NumField(); i++ {
 		field := recordType.Field(i)
 		fieldType := field.Type
@@ -118,13 +118,7 @@ func TestMinimizePointerIndirection(t *testing.T) {
 				valueCount++
 			}
 		} else if fieldType.Kind() == reflect.Map {
-			// Check if map values are pointers
-			valType := fieldType.Elem()
-			if valType.Kind() == reflect.Ptr {
-				pointerCount++
-			} else {
-				valueCount++
-			}
+			t.Errorf("Map field %s increases GC scan pressure; avoid maps in LargeRecord", field.Name)
 		} else {
 			valueCount++
 		}
@@ -150,7 +144,8 @@ func TestValueTypesInsteadOfPointers(t *testing.T) {
 		"Encoded":    false,
 		"Tags":       false,
 		"History":    false,
-		"Meta":       false,
+		"MetaKey":    false,
+		"MetaValue":  false,
 		"Attributes": false,
 	}
 
@@ -173,10 +168,8 @@ func TestValueTypesInsteadOfPointers(t *testing.T) {
 				isValueType = false
 			}
 		} else if fieldType.Kind() == reflect.Map {
-			valType := fieldType.Elem()
-			if valType.Kind() == reflect.Ptr {
-				isValueType = false
-			}
+			// Even map values aren't pointers, maps are pointer-rich under the hood.
+			isValueType = false
 		}
 
 		checks[fieldName] = isValueType
