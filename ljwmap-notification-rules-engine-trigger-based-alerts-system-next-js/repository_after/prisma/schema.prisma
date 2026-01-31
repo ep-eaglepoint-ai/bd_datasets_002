@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  eventType   String   // e.g., "order_created", "payment_failed"
+  priority    String   @default("medium") // low, medium, high, critical
+  cooldownMs  Int      @default(0) // milliseconds between notifications
+  channels    String   // JSON array: ["in-app", "webhook"]
+  webhookUrl  String?  // optional webhook URL
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  conditions    Condition[]
+  notifications Notification[]
+
+  @@index([eventType])
+  @@index([enabled])
+}
+
+model Condition {
+  id       String @id @default(cuid())
+  ruleId   String
+  field    String // e.g., "status", "amount", "user.type"
+  operator String // eq, neq, gt, gte, lt, lte, contains
+  value    String // stored as string, parsed based on operator
+
+  rule Rule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  eventType  String
+  payload    String   // JSON string
+  receivedAt DateTime @default(now())
+
+  notifications Notification[]
+
+  @@index([eventType])
+  @@index([receivedAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  ruleId    String
+  eventId   String
+  channel   String    // "in-app" or "webhook"
+  status    String    // "pending", "sent", "failed"
+  metadata  String?   // JSON with delivery details
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  rule  Rule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([eventId])
+  @@index([status])
+  @@index([createdAt])
+}

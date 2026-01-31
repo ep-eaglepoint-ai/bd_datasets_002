@@ -1,6 +1,11 @@
 services:
   app:
-    build: .
-    command: pytest -q tests
+    build:
+      context: .
+      target: development
+    environment:
+      - DATABASE_URL=file:/app/repository_after/prisma/dev.db
+      - NODE_ENV=development
     volumes:
       - .:/app
+      - /app/node_modules
