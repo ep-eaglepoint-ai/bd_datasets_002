@@ -12,11 +12,11 @@ class NonDecreasingArrayOptimizer:
         if self.n == 0:
             return 0
 
-        # Requirement #5: already non-decreasing
+        # Requirement #5: already non-decreasing → no consolidation needed
         if all(self.nums[i] <= self.nums[i + 1] for i in range(self.n - 1)):
             return self.n
 
-        # Requirement #6: strictly decreasing
+        # Requirement #6: strictly decreasing → must consolidate to single segment
         if all(self.nums[i] > self.nums[i + 1] for i in range(self.n - 1)):
             return 1
 
@@ -46,11 +46,10 @@ class NonDecreasingArrayOptimizer:
         return dfs(0, None)
 
 
-# Top-level function for API
+# Required top-level API
 def findMaximumLength(nums: List[int]) -> int:
-    optimizer = NonDecreasingArrayOptimizer(nums)
-    return optimizer.findMaximumLength()
+    return NonDecreasingArrayOptimizer(nums).findMaximumLength()
 
 
-# For backwards compatibility
+# Backwards compatibility
 max_non_decreasing_length = findMaximumLength
