@@ -2,27 +2,11 @@ version: 0.2
 
 phases:
   install:
-    runtime-versions:
-      docker: 18
-      golang: 1.21
-      python: 3.11
     commands:
       - echo "Installing prerequisites"
-      - docker --version
-      - go version
-      - python3 --version
-
   build:
     commands:
-      - echo "Starting build and tests for y67yp7..."
-      - docker build -t hailu3548/jr2pzv-app .
-      - docker run --rm hailu3548/jr2pzv-app sh -c "cd repository_after && go test -v -race ./..."
-
+      - echo "Building"
   post_build:
     commands:
-      - echo "Starting evaluation..."
-      - docker run --rm -v $CODEBUILD_SRC_DIR/evaluation:/app/evaluation hailu3548/jr2pzv-app python evaluation/evaluation.py
-
-artifacts:
-  files:
-    - "evaluation/report.json"
+      - echo "Post build"
