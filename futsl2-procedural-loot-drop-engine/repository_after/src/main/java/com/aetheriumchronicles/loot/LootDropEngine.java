@@ -16,8 +16,13 @@ import java.util.concurrent.atomic.AtomicLong;
  * 
  * Pity Timer Mechanics:
  * - For every non-Legendary drop, the player's pity counter increments
- * - When the counter reaches 50, the next drop is guaranteed to be Legendary
+ * - When the counter reaches 49 (i.e., after 49 consecutive non-Legendary drops),
+ *   the next drop (50th) is guaranteed to be Legendary
  * - Upon receiving a Legendary drop (by chance or pity), the counter resets to 0
+ * 
+ * Implementation Note: The counter reaches pityThreshold-1 (49) before triggering.
+ * This matches the specification "49 monsters...50th guaranteed" even though
+ * the literal wording "counter reaches 50" might suggest the 51st drop.
  * 
  * Thread Safety:
  * - This class is thread-safe and can handle concurrent loot requests

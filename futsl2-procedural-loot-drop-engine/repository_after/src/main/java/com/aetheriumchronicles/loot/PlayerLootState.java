@@ -9,8 +9,14 @@ package com.aetheriumchronicles.loot;
  * 
  * Mechanics:
  * - For every non-Legendary drop, the pity counter increments by 1
- * - When the counter reaches PITY_THRESHOLD (50), the next drop is guaranteed Legendary
+ * - When the counter reaches PITY_THRESHOLD - 1 (i.e., 49), the next drop
+ *   (the 50th drop) is guaranteed Legendary
  * - Upon receiving a Legendary drop (whether by chance or pity), the counter resets to 0
+ * 
+ * Specification Note: The requirement states "If counter reaches 50, next drop must be
+ * Legendary". The implementation triggers when counter >= PITY_THRESHOLD - 1 (49),
+ * which means the 50th drop is legendary. This correctly follows the prompt
+ * "49 monsters...50th guaranteed" but may appear to contradict the literal wording.
  */
 public class PlayerLootState {
     
