@@ -12,18 +12,36 @@ Design:
 import pytest
 import inspect
 import sys
+import asyncio
+import aiohttp
+import json
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-import json
 
 
-def close_client(client):
-    """Helper to close client synchronously."""
+def close_client_sync(client):
+    """Helper to close client synchronously (for sync tests)."""
     if client is not None:
         try:
             if hasattr(client, 'close') and callable(client.close):
-                client.close()
+                # Check if it's a coroutine function
+                close_method = client.close
+                if asyncio.iscoroutinefunction(close_method):
+                    # For sync tests, we'll skip async cleanup
+                    pass
+                else:
+                    client.close()
+        except Exception:
+            pass
+
+
+async def close_client(client):
+    """Helper to close client asynchronously."""
+    if client is not None:
+        try:
+            if hasattr(client, 'close') and callable(client.close):
+                await client.close()
         except Exception:
             pass
 
@@ -225,7 +243,7 @@ class TestBusinessLogic:
         calculated = client._calculate_score(articles)
         assert abs(calculated - expected_avg) < 0.0001
         
-        close_client(client)
+        close_client_sync(client)
     
     def test_empty_articles_handled_pydantic(self, market_module_after, is_before_repo):
         """
@@ -242,7 +260,7 @@ class TestBusinessLogic:
         with pytest.raises(ValueError, match="empty"):
             client._calculate_score([])
         
-        close_client(client)
+        close_client_sync(client)
 
 
 class TestAsyncBehavior:
@@ -267,6 +285,8 @@ class TestAsyncBehavior:
             mock_resp.json = AsyncMock(return_value={
                 "articles": [{"polarity": 0.5, "confidence": 0.8}]
             })
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=None)
             mock_sess.get = MagicMock(return_value=mock_resp)
             mock_session.return_value = mock_sess
             
@@ -275,8 +295,9 @@ class TestAsyncBehavior:
             assert len(results) == 2
             for r in results:
                 assert isinstance(r, module.SentimentResult)
+                assert r.error is None  # No error for successful requests
         
-        close_client(client)
+        await close_client(client)
     
     def test_uses_asyncio(self, market_module_after, is_before_repo):
         """Verify asyncio is used."""
@@ -321,8 +342,8 @@ class TestCacheManagement:
         assert client1.get_cached_score("TEST") == 1.0
         assert client2.get_cached_score("TEST") == 2.0
         
-        close_client(client1)
-        close_client(client2)
+        close_client_sync(client1)
+        close_client_sync(client2)
     
     def test_cache_operations(self, market_module_after, is_before_repo):
         """
@@ -341,7 +362,8 @@ class TestCacheManagement:
         client.clear_cache()
         assert client.get_cached_score("AAPL") is None
         
-        close_client(client)
+        close_client_sync(client)
+    
 
 
 class TestContextManager:
@@ -369,7 +391,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_http_error_handling(self, market_module_after, is_before_repo):
         """
-        Verify HTTP errors return 0.0, not raise.
+        Verify HTTP errors raise ClientError exceptions.
         """
         if is_before_repo:
             pytest.skip("Before repo does not have the refactored client")
@@ -387,11 +409,72 @@ class TestErrorHandling:
             mock_sess.get = MagicMock(return_value=mock_resp)
             mock_session.return_value = mock_sess
             
-            # Should return 0.0 for HTTP errors
-            result = await client.get_sentiment("NOTFOUND")
-            assert result == 0.0
+            # Should raise ClientError for HTTP errors
+            with pytest.raises(aiohttp.ClientError):
+                await client.get_sentiment("NOTFOUND")
         
-        close_client(client)
+        await close_client(client)
+    
+    @pytest.mark.asyncio
+    async def test_json_decode_error_handling(self, market_module_after, is_before_repo):
+        """
+        Verify JSON decode errors raise JSONDecodeError exceptions.
+        """
+        if is_before_repo:
+            pytest.skip("Before repo does not have the refactored client")
+        
+        module = market_module_after
+        
+        client = module.MarketSentimentClient(api_key="test")
+        
+        with patch.object(client, '_get_session', new_callable=AsyncMock) as mock_session:
+            mock_sess = AsyncMock()
+            mock_resp = AsyncMock()
+            mock_resp.status = 200
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=None)
+            # Return invalid JSON that will cause JSONDecodeError
+            mock_resp.json = AsyncMock(side_effect=json.JSONDecodeError("Invalid JSON", "", 0))
+            mock_sess.get = MagicMock(return_value=mock_resp)
+            mock_session.return_value = mock_sess
+            
+            # Should raise JSONDecodeError for invalid JSON
+            with pytest.raises(json.JSONDecodeError):
+                await client.get_sentiment("INVALIDJSON")
+        
+        await close_client(client)
+    
+    @pytest.mark.asyncio
+    async def test_batch_process_handles_errors_gracefully(self, market_module_after, is_before_repo):
+        """
+        Verify batch_process returns SentimentResult with error field for failed requests.
+        """
+        if is_before_repo:
+            pytest.skip("Before repo does not have the refactored client")
+        
+        module = market_module_after
+        
+        client = module.MarketSentimentClient(api_key="test")
+        
+        with patch.object(client, '_get_session', new_callable=AsyncMock) as mock_session:
+            mock_sess = AsyncMock()
+            mock_resp = AsyncMock()
+            mock_resp.status = 404
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=None)
+            mock_sess.get = MagicMock(return_value=mock_resp)
+            mock_session.return_value = mock_sess
+            
+            results = await client.batch_process(["NOTFOUND"], concurrency=10)
+            
+            # Should return SentimentResult with error field
+            assert len(results) == 1
+            result = results[0]
+            assert isinstance(result, module.SentimentResult)
+            assert result.ticker == "NOTFOUND"
+            assert result.error is not None
+        
+        await close_client(client)
 
 
 class TestOutputFormat:

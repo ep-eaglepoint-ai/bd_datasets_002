@@ -21,6 +21,8 @@
                 "TestCacheManagement::test_cache_operations",
                 "TestContextManager::test_context_manager",
                 "TestErrorHandling::test_http_error_handling",
+                "TestErrorHandling::test_json_decode_error_handling",
+                "TestErrorHandling::test_batch_process_handles_errors_gracefully",
                 "TestOutputFormat::test_batch_returns_pydantic_models",
                 "TestStateLeakage::test_no_state_leakage",
                 "TestFullPipeline::test_full_pipeline"

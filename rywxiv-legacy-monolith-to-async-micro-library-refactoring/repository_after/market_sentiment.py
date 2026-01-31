@@ -6,9 +6,10 @@ sentiment scores from news APIs.
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import aiohttp
 from pydantic import BaseModel, Field
@@ -35,6 +36,7 @@ class SentimentResult(BaseModel):
     ticker: str = Field(..., description="Stock ticker symbol")
     score: float = Field(..., description="Calculated sentiment score")
     timestamp: datetime = Field(default_factory=datetime.now, description="Timestamp of calculation")
+    error: Optional[str] = Field(default=None, description="Error message if request failed")
 
 
 class SentimentError(BaseModel):
@@ -118,11 +120,12 @@ class MarketSentimentClient:
             ticker: Stock ticker symbol
             
         Returns:
-            Sentiment score, or 0.0 if request fails
+            Sentiment score
             
         Raises:
             aiohttp.ClientError: For network-related errors
-            ValueError: If response data is invalid
+            json.JSONDecodeError: If response JSON is invalid
+            ValueError: If response data is invalid or articles list is empty
         """
         url = f"{self.base_url}/{ticker}"
         params = {"key": self.api_key}
@@ -132,7 +135,11 @@ class MarketSentimentClient:
         try:
             async with session.get(url, params=params) as response:
                 if response.status == 200:
-                    data = await response.json()
+                    try:
+                        data = await response.json()
+                    except json.JSONDecodeError as e:
+                        logger.error(f"JSON decode error for {ticker}: {e}")
+                        raise
                     sentiment_response = SentimentResponse(**data)
                     score = self._calculate_score(sentiment_response.articles)
                     self._cache[ticker] = score
@@ -140,16 +147,16 @@ class MarketSentimentClient:
                     return score
                 else:
                     logger.warning(f"API returned status {response.status} for {ticker}")
-                    return 0.0
+                    raise aiohttp.ClientError(f"HTTP {response.status} error for {ticker}")
                     
         except aiohttp.ClientError as e:
             logger.error(f"Network error for {ticker}: {e}")
             raise
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error for {ticker}: {e}")
+            raise
         except ValueError as e:
             logger.error(f"Invalid data format for {ticker}: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error processing {ticker}: {e}")
             raise
     
     async def batch_process(
@@ -174,28 +181,22 @@ class MarketSentimentClient:
         
         async def fetch_with_limit(ticker: str) -> SentimentResult:
             async with semaphore:
-                score = await self.get_sentiment(ticker)
-                return SentimentResult(ticker=ticker, score=score)
+                try:
+                    score = await self.get_sentiment(ticker)
+                    return SentimentResult(ticker=ticker, score=score)
+                except (aiohttp.ClientError, json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"Error processing {ticker}: {e}")
+                    return SentimentResult(
+                        ticker=ticker,
+                        score=0.0,
+                        error=str(e)
+                    )
         
         results = await asyncio.gather(
-            *(fetch_with_limit(t) for t in tickers),
-            return_exceptions=True
+            *(fetch_with_limit(t) for t in tickers)
         )
         
-        # Handle exceptions by creating error results
-        final_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"Error processing {tickers[i]}: {result}")
-                final_results.append(SentimentResult(
-                    ticker=tickers[i],
-                    score=0.0,
-                    timestamp=datetime.now()
-                ))
-            else:
-                final_results.append(result)
-        
-        return final_results
+        return list(results)
     
     def get_cached_score(self, ticker: str) -> Optional[float]:
         """Get cached score for a ticker."""
@@ -219,7 +220,12 @@ async def get_sentiment(ticker: str, api_key: str = "legacy_key_123") -> float:
         api_key: API key for authentication
         
     Returns:
-        Sentiment score, or 0.0 if request fails
+        Sentiment score
+        
+    Raises:
+        aiohttp.ClientError: For network-related errors
+        json.JSONDecodeError: If response JSON is invalid
+        ValueError: If response data is invalid
     """
     client = MarketSentimentClient(api_key=api_key)
     try:
