@@ -130,23 +130,38 @@ class TestConcurrentTenantIsolation:
         self, auth_client_owner_a, auth_client_owner_b, project_a, project_b
     ):
         """Verify different org requests maintain isolation."""
-        # Request from Org A
         response_a = auth_client_owner_a.get('/api/projects/')
         assert response_a.status_code == 200
         
-        # Request from Org B
         response_b = auth_client_owner_b.get('/api/projects/')
         assert response_b.status_code == 200
         
-        # Verify Org A only sees Org A projects
         projects_a = response_a.data.get('results', response_a.data)
         for p in projects_a:
             assert str(p['id']) == str(project_a.id), f"Org A sees wrong project: {p}"
         
-        # Verify Org B only sees Org B projects
         projects_b = response_b.data.get('results', response_b.data)
         for p in projects_b:
             assert str(p['id']) == str(project_b.id), f"Org B sees wrong project: {p}"
+
+    @pytest.mark.django_db(transaction=True)
+    def test_rapid_tenant_switching_isolation(self, db, org_a, org_b, project_a, project_b):
+        """R3 FIX: Verify tenant isolation under rapid concurrent-like context switching."""
+        from core.models import Project, set_current_tenant, clear_current_tenant
+        
+        for _ in range(50):
+            set_current_tenant(org_a)
+            projects_a = list(Project.objects.all())
+            clear_current_tenant()
+            
+            set_current_tenant(org_b)
+            projects_b = list(Project.objects.all())
+            clear_current_tenant()
+            
+            assert all(p.organization_id == org_a.id for p in projects_a), \
+                "Cross-tenant data leakage detected in org_a query!"
+            assert all(p.organization_id == org_b.id for p in projects_b), \
+                "Cross-tenant data leakage detected in org_b query!"
 
 
 class TestTenantModelManager:

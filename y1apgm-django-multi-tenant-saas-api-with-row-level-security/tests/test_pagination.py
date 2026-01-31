@@ -12,10 +12,9 @@ class TestCursorPagination:
 
     @pytest.mark.django_db
     def test_pagination_returns_cursor(self, auth_client_owner_a, org_a, user_a_owner):
-        """Verify pagination returns cursor for navigating results."""
+        """R14 FIX: Verify pagination returns proper cursor structure."""
         from core.models import Project, set_current_tenant, clear_current_tenant
         
-        # Create multiple projects
         set_current_tenant(org_a)
         for i in range(25):
             Project.objects.create(
@@ -27,12 +26,15 @@ class TestCursorPagination:
             )
         clear_current_tenant()
         
-        # Request first page
         response = auth_client_owner_a.get('/api/projects/')
         assert response.status_code == 200
         
-        # Should have pagination cursors
-        assert 'next' in response.data or 'results' in response.data
+        assert 'results' in response.data, "Cursor pagination must have 'results' field"
+        assert 'next' in response.data, "Cursor pagination must have 'next' field"
+        assert 'previous' in response.data, "Cursor pagination must have 'previous' field"
+        
+        if response.data['next']:
+            assert 'cursor=' in response.data['next'], "Next URL must contain cursor parameter"
 
     @pytest.mark.django_db
     def test_pagination_next_cursor_works(self, auth_client_owner_a, org_a, user_a_owner):
