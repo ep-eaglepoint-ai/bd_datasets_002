@@ -7,7 +7,7 @@ const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-secret-k
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
 const ALLOWED_ALGORITHMS: Algorithm[] = ['HS256', 'HS384', 'HS512'];
-const CLOCK_TOLERANCE_SECONDS = 30;
+const CLOCK_TOLERANCE_SECONDS = 31;
 
 // In-memory stores (would be Redis in production)
 const usedRefreshTokens = new Set<string>();
