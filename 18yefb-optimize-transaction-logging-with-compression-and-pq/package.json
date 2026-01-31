@@ -4,6 +4,13 @@
   "description": "Optimize Transaction Logging with Compression and PQ Signing",
   "scripts": {
     "evaluate": "node evaluation/evaluation.js",
-    "test": "cd repository_after && npm test"
+    "test": "jest --ci --config tests/jest.config.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.3"
   }
 }

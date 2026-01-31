@@ -13,9 +13,13 @@
     "types": ["node", "jest"],
     "baseUrl": ".",
     "paths": {
-      "@controller": ["./telecomTopUP.controller"]
+      "@controller": ["./repository_after/telecomTopUP.controller", "./repository_before/telecomTopUP.controller"]
     }
   },
-  "include": ["./**/*.ts", "../tests/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "repository_before/**/*.ts",
+    "repository_after/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "**/node_modules"]
 }

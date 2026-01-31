@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Evaluation script for Transaction Logging Optimization
  * Runs tests on repository_before and repository_after and generates comparison reports
  */
@@ -7,27 +7,30 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-function runTests(repoPath, repoName) {
+function runTests(repoName) {
   const results = {
     passed: 0,
     failed: 0,
     total: 0,
-    tests: {},
+    tests: [],
     error: null
   };
 
+  const projectRoot = path.join(__dirname, '..');
+
   // Check if repository has implementation
-  const implPath = path.join(repoPath, 'telecomTopUP.controller.ts');
+  const implPath = path.join(projectRoot, repoName, 'telecomTopUP.controller.ts');
   if (!fs.existsSync(implPath)) {
     results.error = 'No implementation found';
     return results;
   }
 
   try {
-    // Run Jest tests
+    // Run Jest tests from project root with REPO env variable
     const output = execSync(
-      `cd ${repoPath} && npm test -- --ci --json --testLocationInResults`,
-      { 
+      `npm test -- --json --testLocationInResults`,
+      {
+        cwd: projectRoot,
         encoding: 'utf-8',
         env: { ...process.env, NODE_ENV: 'test', REPO: repoName },
         stdio: ['pipe', 'pipe', 'pipe']
@@ -43,10 +46,10 @@ function runTests(repoPath, repoName) {
     jsonOutput.testResults.forEach(suite => {
       suite.assertionResults.forEach(test => {
         const testName = test.title;
-        const status = test.status === 'passed' ? 'PASSED' : 'FAILED';
-        results.tests[testName] = status;
+        const passed = test.status === 'passed';
+        results.tests.push({ name: testName, passed });
         results.total++;
-        if (status === 'PASSED') {
+        if (passed) {
           results.passed++;
         } else {
           results.failed++;
@@ -57,17 +60,17 @@ function runTests(repoPath, repoName) {
     // Try to parse JSON from error output (Jest exits with code 1 on test failures)
     const errorOutput = error.stdout || error.stderr || '';
     const jsonMatch = errorOutput.match(/\{[\s\S]*"testResults"[\s\S]*\}/);
-    
+
     if (jsonMatch) {
       try {
         const jsonOutput = JSON.parse(jsonMatch[0]);
         jsonOutput.testResults.forEach(suite => {
           suite.assertionResults.forEach(test => {
             const testName = test.title;
-            const status = test.status === 'passed' ? 'PASSED' : 'FAILED';
-            results.tests[testName] = status;
+            const passed = test.status === 'passed';
+            results.tests.push({ name: testName, passed });
             results.total++;
-            if (status === 'PASSED') {
+            if (passed) {
               results.passed++;
             } else {
               results.failed++;
@@ -85,59 +88,16 @@ function runTests(repoPath, repoName) {
   return results;
 }
 
-function generateReport(beforeResults, afterResults, outputPath) {
+function generateReport(afterResults, outputPath) {
   const report = {
     timestamp: new Date().toISOString(),
-    before: {
-      tests: beforeResults.tests,
-      metrics: {
-        total: beforeResults.total,
-        passed: beforeResults.passed,
-        failed: beforeResults.failed
-      },
-      error: beforeResults.error
-    },
-    after: {
-      tests: afterResults.tests,
-      metrics: {
-        total: afterResults.total,
-        passed: afterResults.passed,
-        failed: afterResults.failed
-      },
-      error: afterResults.error
-    },
-    comparison: {
-      tests_fixed: [],
-      tests_broken: [],
-      improvement: 0
-    },
-    success: false,
-    error: null
-  };
-
-  // Calculate comparison
-  const afterTests = new Set(Object.keys(afterResults.tests));
-
-  afterTests.forEach(test => {
-    const beforeStatus = beforeResults.tests[test] || 'FAILED';
-    const afterStatus = afterResults.tests[test] || 'FAILED';
-
-    if (beforeStatus === 'FAILED' && afterStatus === 'PASSED') {
-      report.comparison.tests_fixed.push(test);
-    } else if (beforeStatus === 'PASSED' && afterStatus === 'FAILED') {
-      report.comparison.tests_broken.push(test);
+    repository_after: {
+      passed: afterResults.passed,
+      failed: afterResults.failed,
+      total: afterResults.total,
+      tests: afterResults.tests
     }
-  });
-
-  // Calculate improvement
-  if (afterResults.total > 0) {
-    const beforeRate = (beforeResults.passed / Math.max(beforeResults.total, 1)) * 100;
-    const afterRate = (afterResults.passed / afterResults.total) * 100;
-    report.comparison.improvement = Math.round((afterRate - beforeRate) * 100) / 100;
-  }
-
-  // Determine success
-  report.success = afterResults.failed === 0 && afterResults.total > 0;
+  };
 
   // Save report
   const dir = path.dirname(outputPath);
@@ -155,62 +115,55 @@ function main() {
   console.log('='.repeat(60));
 
   const projectRoot = path.join(__dirname, '..');
-  const repoBefore = path.join(projectRoot, 'repository_before');
-  const repoAfter = path.join(projectRoot, 'repository_after');
 
-  // Create output directory with timestamp
+  // Create output directory with timestamp inside evaluation folder
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0];
   const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-  const outputDir = path.join(projectRoot, 'evaluation', dateStr, timeStr);
+  const outputDir = path.join(__dirname, dateStr, timeStr);
   const outputFile = path.join(outputDir, 'report.json');
 
-  console.log(`\n📂 Project Root: ${projectRoot}`);
-  console.log(`📄 Output: ${outputFile}\n`);
+  console.log(`\nProject Root: ${projectRoot}`);
+  console.log(`Output: ${outputFile}\n`);
 
   // Run tests on repository_before
-  console.log('🔍 Evaluating repository_before...');
-  const beforeResults = runTests(repoBefore, 'repository_before');
-  console.log(`   ✓ Passed: ${beforeResults.passed}`);
-  console.log(`   ✗ Failed: ${beforeResults.failed}`);
+  console.log('[repository_before]');
+  const beforeResults = runTests('repository_before');
+  console.log(`  Total: ${beforeResults.total}, Passed: ${beforeResults.passed}, Failed: ${beforeResults.failed}`);
   if (beforeResults.error) {
-    console.log(`   ⚠ Error: ${beforeResults.error}`);
+    console.log(`  Error: ${beforeResults.error}`);
   }
 
   // Run tests on repository_after
-  console.log('\n🔍 Evaluating repository_after...');
-  const afterResults = runTests(repoAfter, 'repository_after');
-  console.log(`   ✓ Passed: ${afterResults.passed}`);
-  console.log(`   ✗ Failed: ${afterResults.failed}`);
+  console.log('\n[repository_after]');
+  const afterResults = runTests('repository_after');
+  console.log(`  Total: ${afterResults.total}, Passed: ${afterResults.passed}, Failed: ${afterResults.failed}`);
   if (afterResults.error) {
-    console.log(`   ⚠ Error: ${afterResults.error}`);
+    console.log(`  Error: ${afterResults.error}`);
   }
 
-  // Generate report
-  const report = generateReport(beforeResults, afterResults, outputFile);
+  // Generate report (only repository_after)
+  const report = generateReport(afterResults, outputFile);
+
+  // Determine success
+  const success = afterResults.failed === 0 && afterResults.total > 0;
 
   console.log(`\n${'='.repeat(60)}`);
-  console.log('EVALUATION SUMMARY');
-  console.log('='.repeat(60));
-  console.log(`Tests Fixed: ${report.comparison.tests_fixed.length}`);
-  if (report.comparison.tests_fixed.length > 0) {
-    report.comparison.tests_fixed.forEach(test => {
-      console.log(`  ✓ ${test}`);
-    });
-  }
-
-  console.log(`\nTests Broken: ${report.comparison.tests_broken.length}`);
-  if (report.comparison.tests_broken.length > 0) {
-    report.comparison.tests_broken.forEach(test => {
-      console.log(`  ✗ ${test}`);
-    });
-  }
-
-  console.log(`\nImprovement: ${report.comparison.improvement}%`);
-  console.log(`Overall Success: ${report.success ? '✓ PASS' : '✗ FAIL'}`);
+  console.log('SUMMARY');
   console.log('='.repeat(60));
 
-  process.exit(report.success ? 0 : 1);
+  if (success) {
+    console.log(`  PASS: All ${afterResults.passed} tests passing in repository_after`);
+  } else if (afterResults.failed > 0) {
+    console.log(`  FAIL: ${afterResults.failed} tests still failing in repository_after`);
+  } else {
+    console.log(`  Result: ${afterResults.passed} tests passing`);
+  }
+
+  console.log(`\n  Report saved to: ${outputFile}`);
+  console.log('='.repeat(60));
+
+  process.exit(success ? 0 : 1);
 }
 
 main();
