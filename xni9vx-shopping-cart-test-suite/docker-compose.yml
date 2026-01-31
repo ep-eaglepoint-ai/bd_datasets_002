@@ -1,6 +1,11 @@
 services:
-  app:
+  test:
     build: .
-    command: pytest -q tests
+    working_dir: /app
+    command: ["npm", "test"]
     volumes:
-      - .:/app
+      - .:/host:rw
+  evaluation:
+    build: .
+    working_dir: /app
+    command: ["node", "evaluation/evaluation.js"]

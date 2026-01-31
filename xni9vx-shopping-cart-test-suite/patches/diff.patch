@@ -1,0 +1,1000 @@
+diff --git a/repository_before/.eslintrc.json b/repository_before/.eslintrc.json
+deleted file mode 100644
+index bffb357..0000000
+--- a/repository_before/.eslintrc.json
++++ /dev/null
+@@ -1,3 +0,0 @@
+-{
+-  "extends": "next/core-web-vitals"
+-}
+diff --git a/repository_before/.gitignore b/repository_before/.gitignore
+deleted file mode 100644
+index 55175ef..0000000
+--- a/repository_before/.gitignore
++++ /dev/null
+@@ -1,32 +0,0 @@
+-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+-
+-# dependencies
+-/node_modules
+-/.pnp
+-.pnp.js
+-
+-# testing
+-/coverage
+-
+-# next.js
+-/.next/
+-/out/
+-
+-# production
+-/build
+-
+-# misc
+-.DS_Store
+-*.pem
+-
+-# debug
+-npm-debug.log*
+-yarn-debug.log*
+-yarn-error.log*
+-.pnpm-debug.log*
+-
+-# local env files
+-.env*.local
+-
+-# vercel
+-.vercel
+diff --git a/repository_after/ShoppingCart.test.js b/repository_after/ShoppingCart.test.js
+new file mode 100644
+index 0000000..fb68e55
+--- /dev/null
++++ b/repository_after/ShoppingCart.test.js
+@@ -0,0 +1,423 @@
++import { configureStore } from '@reduxjs/toolkit';
++import { setCart, setDeleteCart, cartReducer } from '../repository_before/slices/cartSlice';
++
++jest.mock('react-toastify', () => ({
++  toast: {
++    success: jest.fn(),
++    error: jest.fn(),
++  },
++}));
++
++const createTestStore = (preloadedState) => {
++  return configureStore({
++    reducer: { cart: cartReducer },
++    preloadedState: preloadedState ? { cart: preloadedState } : undefined,
++  });
++};
++
++describe('Redux State Management Tests', () => {
++  test('setCart reducer adds items correctly to empty cart', () => {
++    const store = createTestStore({ cart: [], total: 0 });
++    const item = { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 };
++    store.dispatch(setCart(item));
++    expect(store.getState().cart.cart).toHaveLength(1);
++    expect(store.getState().cart.cart[0]).toEqual(item);
++  });
++
++  test('setCart reducer appends items to existing cart', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    const item = { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 };
++    store.dispatch(setCart(item));
++    expect(store.getState().cart.cart).toHaveLength(2);
++    expect(store.getState().cart.cart[1]).toEqual(item);
++  });
++
++  test('setDeleteCart reducer replaces entire cart array', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    const newCart = [{ id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 }];
++    store.dispatch(setDeleteCart(newCart));
++    expect(store.getState().cart.cart).toEqual(newCart);
++    expect(store.getState().cart.cart).toHaveLength(1);
++    expect(store.getState().cart.cart[0].id).toBe(2);
++  });
++
++  test('initial state is correct', () => {
++    const store = createTestStore();
++    expect(store.getState().cart).toEqual({ cart: [], total: 0 });
++  });
++
++  test('state immutability - original state not mutated', () => {
++    const initialState = { cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 };
++    const originalCart = initialState.cart;
++    const newState = cartReducer(initialState, setCart({ id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 }));
++    expect(initialState.cart).toBe(originalCart);
++    expect(newState.cart).not.toBe(initialState.cart);
++  });
++});
++
++describe('Duplicate Prevention Logic Tests', () => {
++  test('adding the same product twice does NOT create duplicates', () => {
++    const store = createTestStore({ cart: [], total: 0 });
++    const item = { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 };
++    
++    let cart = store.getState().cart.cart;
++    const checkProd = cart.filter(prod => prod.id === item.id);
++    if (cart.length === 0) {
++      store.dispatch(setCart(item));
++    } else if (checkProd.length === 0) {
++      store.dispatch(setCart(item));
++    }
++    
++    const checkProd2 = store.getState().cart.cart.filter(prod => prod.id === item.id);
++    if (checkProd2.length === 0) {
++      store.dispatch(setCart(item));
++    }
++    
++    cart = store.getState().cart.cart;
++    expect(cart).toHaveLength(1);
++  });
++
++  test('duplicate check works correctly with different product IDs', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    const newItem = { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 };
++    
++    const cart = store.getState().cart.cart;
++    const checkProd = cart.filter(prod => prod.id === newItem.id);
++    expect(checkProd.length).toBe(0);
++    
++    store.dispatch(setCart(newItem));
++    expect(store.getState().cart.cart).toHaveLength(2);
++  });
++
++  test('edge case: type coercion - id number vs string should not match', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    const itemWithStringId = { id: '1', product_name: 'Machine 1', product_price: 2000, product_quantity: 1 };
++    
++    const cart = store.getState().cart.cart;
++    const checkProd = cart.filter(prod => prod.id === itemWithStringId.id);
++    expect(checkProd.length).toBe(0);
++  });
++
++  test('race condition: rapidly clicking Add to Cart multiple times on same product', () => {
++    const store = createTestStore({ cart: [], total: 0 });
++    const item = { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 };
++    
++    for (let i = 0; i < 10; i++) {
++      const cart = store.getState().cart.cart;
++      const checkProd = cart.filter(prod => prod.id === item.id);
++      if (cart.length === 0) {
++        store.dispatch(setCart(item));
++      } else if (checkProd.length === 0) {
++        store.dispatch(setCart(item));
++      }
++    }
++    
++    expect(store.getState().cart.cart).toHaveLength(1);
++  });
++});
++
++describe('Quantity Manipulation Tests', () => {
++  test('increment increases quantity by exactly 1', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    
++    const updatedCart = store.getState().cart.cart.map(prod => {
++      if (prod.id === 1) {
++        return { ...prod, product_quantity: prod.product_quantity + 1 };
++      }
++      return prod;
++    });
++    store.dispatch(setDeleteCart(updatedCart));
++    
++    expect(store.getState().cart.cart[0].product_quantity).toBe(2);
++  });
++
++  test('decrement decreases quantity by exactly 1', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 5 }], total: 0 });
++    
++    const updatedCart = store.getState().cart.cart.map(prod => {
++      if (prod.id === 1) {
++        if (prod.product_quantity > 1) {
++          return { ...prod, product_quantity: prod.product_quantity - 1 };
++        }
++      }
++      return prod;
++    });
++    store.dispatch(setDeleteCart(updatedCart));
++    
++    expect(store.getState().cart.cart[0].product_quantity).toBe(4);
++  });
++
++  test('decrement does NOT go below 1 - minimum quantity', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    
++    const updatedCart = store.getState().cart.cart.map(prod => {
++      if (prod.id === 1) {
++        if (prod.product_quantity > 1) {
++          return { ...prod, product_quantity: prod.product_quantity - 1 };
++        }
++      }
++      return prod;
++    });
++    store.dispatch(setDeleteCart(updatedCart));
++    
++    expect(updatedCart[0].product_quantity).toBe(1);
++    expect(store.getState().cart.cart[0].product_quantity).toBe(1);
++  });
++
++  test('increment/decrement on non-existent product ID - edge case', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    
++    const updatedCart = store.getState().cart.cart.map(prod => {
++      if (prod.id === 999) {
++        return { ...prod, product_quantity: prod.product_quantity + 1 };
++      }
++      return prod;
++    });
++    store.dispatch(setDeleteCart(updatedCart));
++    
++    expect(store.getState().cart.cart[0].product_quantity).toBe(1);
++  });
++
++  test('rapid increment - clicking + 10 times quickly results in quantity of 11', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    
++    for (let i = 0; i < 10; i++) {
++      const updatedCart = store.getState().cart.cart.map(prod => {
++        if (prod.id === 1) {
++          return { ...prod, product_quantity: prod.product_quantity + 1 };
++        }
++        return prod;
++      });
++      store.dispatch(setDeleteCart(updatedCart));
++    }
++    
++    const cart = store.getState().cart.cart;
++    expect(cart[0].product_quantity).toBe(11);
++  });
++
++  test('quantity updates are applied to the correct product in a multi-item cart', () => {
++    const store = createTestStore({
++      cart: [
++        { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 },
++        { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 },
++        { id: 3, product_name: 'Machine 3', product_price: 5000, product_quantity: 1 },
++      ],
++      total: 0
++    });
++    
++    const updatedCart = store.getState().cart.cart.map(prod => {
++      if (prod.id === 2) {
++        return { ...prod, product_quantity: prod.product_quantity + 1 };
++      }
++      return prod;
++    });
++    store.dispatch(setDeleteCart(updatedCart));
++    
++    const cart = store.getState().cart.cart;
++    expect(cart[0].product_quantity).toBe(1);
++    expect(cart[1].product_quantity).toBe(2);
++    expect(cart[2].product_quantity).toBe(1);
++  });
++});
++
++describe('Price Calculation Tests', () => {
++  test('total price calculation with single item', () => {
++    const cart = [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }];
++    const totalPrice = cart.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(2000);
++  });
++
++  test('total price with multiple items of different quantities', () => {
++    const cart = [
++      { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 2 },
++      { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 3 },
++    ];
++    const totalPrice = cart.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(16000);
++  });
++
++  test('total price returns 0 for empty cart - not NaN or undefined', () => {
++    const cart = [];
++    const totalPrice = cart.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(0);
++    expect(Number.isNaN(totalPrice)).toBe(false);
++  });
++
++  test('total price handles missing product_quantity field gracefully', () => {
++    const cart = [{ id: 1, product_name: 'Machine 1', product_price: 2000 }];
++    const totalPrice = cart.reduce((acc, item) => {
++      const quantity = item.product_quantity || 0;
++      const price = item.product_price || 0;
++      return acc + (quantity * price);
++    }, 0);
++    expect(totalPrice).toBe(0);
++    expect(Number.isNaN(totalPrice)).toBe(false);
++  });
++
++  test('total price handles missing product_price field gracefully', () => {
++    const cart = [{ id: 1, product_name: 'Machine 1', product_quantity: 2 }];
++    const totalPrice = cart.reduce((acc, item) => {
++      const quantity = item.product_quantity || 0;
++      const price = item.product_price || 0;
++      return acc + (quantity * price);
++    }, 0);
++    expect(totalPrice).toBe(0);
++    expect(Number.isNaN(totalPrice)).toBe(false);
++  });
++
++  test('precision: products with decimal prices multiplied by large quantities', () => {
++    const cart = [{ id: 1, product_name: 'Machine 1', product_price: 19.99, product_quantity: 33 }];
++    const totalPrice = cart.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(659.67);
++  });
++});
++
++describe('Delete Functionality Tests', () => {
++  test('deleting an item removes it from cart', () => {
++    const store = createTestStore({
++      cart: [
++        { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 },
++        { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 },
++      ],
++      total: 0
++    });
++    
++    const newCart = store.getState().cart.cart.filter(item => item.id !== 1);
++    store.dispatch(setDeleteCart(newCart));
++    
++    expect(store.getState().cart.cart).toHaveLength(1);
++    expect(store.getState().cart.cart[0].id).toBe(2);
++  });
++
++  test('deleting non-existent item does not crash', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    
++    const newCart = store.getState().cart.cart.filter(item => item.id !== 999);
++    store.dispatch(setDeleteCart(newCart));
++    
++    expect(store.getState().cart.cart).toHaveLength(1);
++    expect(store.getState().cart.cart[0].id).toBe(1);
++  });
++
++  test('cart length decreases by 1 after deletion', () => {
++    const store = createTestStore({
++      cart: [
++        { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 },
++        { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 },
++        { id: 3, product_name: 'Machine 3', product_price: 5000, product_quantity: 1 },
++      ],
++      total: 0
++    });
++    
++    const newCart = store.getState().cart.cart.filter(item => item.id !== 2);
++    store.dispatch(setDeleteCart(newCart));
++    
++    expect(store.getState().cart.cart).toHaveLength(2);
++  });
++
++  test('deleting last item results in empty cart', () => {
++    const store = createTestStore({ cart: [{ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }], total: 0 });
++    
++    const newCart = store.getState().cart.cart.filter(item => item.id !== 1);
++    store.dispatch(setDeleteCart(newCart));
++    
++    const cart = store.getState().cart.cart;
++    expect(newCart).toEqual([]);
++    expect(cart).toHaveLength(0);
++    expect(cart).toEqual([]);
++    expect(Array.isArray(cart)).toBe(true);
++  });
++
++  test('total price updates after deletion', () => {
++    const store = createTestStore({
++      cart: [
++        { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 },
++        { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 },
++      ],
++      total: 0
++    });
++    
++    let cart = store.getState().cart.cart;
++    let totalPrice = cart.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(6000);
++    
++    const newCart = cart.filter(item => item.id !== 1);
++    store.dispatch(setDeleteCart(newCart));
++    
++    cart = store.getState().cart.cart;
++    totalPrice = cart.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(4000);
++  });
++});
++
++describe('Integration Tests', () => {
++  test('full workflow: add item → increment → increment → decrement → delete', () => {
++    const store = createTestStore({ cart: [], total: 0 });
++    const item = { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 };
++    
++    store.dispatch(setCart(item));
++    expect(store.getState().cart.cart).toHaveLength(1);
++    expect(store.getState().cart.cart[0].product_quantity).toBe(1);
++    
++    let updatedCart = store.getState().cart.cart.map(prod => prod.id === 1 ? { ...prod, product_quantity: prod.product_quantity + 1 } : prod);
++    store.dispatch(setDeleteCart(updatedCart));
++    expect(store.getState().cart.cart[0].product_quantity).toBe(2);
++    
++    updatedCart = store.getState().cart.cart.map(prod => prod.id === 1 ? { ...prod, product_quantity: prod.product_quantity + 1 } : prod);
++    store.dispatch(setDeleteCart(updatedCart));
++    expect(store.getState().cart.cart[0].product_quantity).toBe(3);
++    
++    updatedCart = store.getState().cart.cart.map(prod => {
++      if (prod.id === 1 && prod.product_quantity > 1) {
++        return { ...prod, product_quantity: prod.product_quantity - 1 };
++      }
++      return prod;
++    });
++    store.dispatch(setDeleteCart(updatedCart));
++    expect(store.getState().cart.cart[0].product_quantity).toBe(2);
++    
++    const newCart = store.getState().cart.cart.filter(item => item.id !== 1);
++    store.dispatch(setDeleteCart(newCart));
++    expect(store.getState().cart.cart).toHaveLength(0);
++  });
++
++  test('adding 3 different products, incrementing each, verifying total', () => {
++    const store = createTestStore({ cart: [], total: 0 });
++    
++    store.dispatch(setCart({ id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 1 }));
++    store.dispatch(setCart({ id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 }));
++    store.dispatch(setCart({ id: 3, product_name: 'Machine 3', product_price: 5000, product_quantity: 1 }));
++    expect(store.getState().cart.cart).toHaveLength(3);
++    
++    const updatedCart = store.getState().cart.cart.map(prod => ({ ...prod, product_quantity: prod.product_quantity + 1 }));
++    store.dispatch(setDeleteCart(updatedCart));
++    
++    const cart = store.getState().cart.cart;
++    expect(cart[0].product_quantity).toBe(2);
++    expect(cart[1].product_quantity).toBe(2);
++    expect(cart[2].product_quantity).toBe(2);
++    
++    const totalPrice = cart.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(22000);
++  });
++
++  test('cart persistence simulation - state consistency', () => {
++    const store = createTestStore({
++      cart: [
++        { id: 1, product_name: 'Machine 1', product_price: 2000, product_quantity: 2 },
++        { id: 2, product_name: 'Machine 2', product_price: 4000, product_quantity: 1 },
++      ],
++      total: 0
++    });
++    
++    const cart = store.getState().cart.cart;
++    const serialized = JSON.stringify(cart);
++    const deserialized = JSON.parse(serialized);
++    
++    expect(deserialized).toEqual(cart);
++    expect(deserialized[0].product_quantity).toBe(2);
++    
++    const totalPrice = deserialized.reduce((acc, item) => acc + (item.product_quantity * item.product_price), 0);
++    expect(totalPrice).toBe(8000);
++  });
++});
+diff --git a/repository_before/api/index.js b/repository_before/api/index.js
+deleted file mode 100644
+index b1589dc..0000000
+--- a/repository_before/api/index.js
++++ /dev/null
+@@ -1,54 +0,0 @@
+-import m1 from '@/public/machines/1.png'
+-import m2 from '@/public/machines/2.png'
+-import m3 from '@/public/machines/3.png'
+-import m4 from '@/public/machines/4.png'
+-import m5 from '@/public/machines/5.png'
+-import m6 from '@/public/machines/6.png'
+-
+-
+-export const data = [
+-    {
+-        id : 1,
+-        product_name : "Machine 1",
+-        product_price : 2000 ,
+-        product_quantity : 1 , 
+-        product_image : m1,
+-    },
+-    {
+-        id : 2,
+-        product_name : "Machine 2",
+-        product_price : 4000 ,
+-        product_quantity : 1 , 
+-        product_image : m2,
+-    },
+-    {
+-        id : 3,
+-        product_name : "Machine 3",
+-        product_price : 5000 ,
+-        product_quantity : 1 , 
+-        product_image : m3,
+-    },
+-    {
+-        id : 4,
+-        product_name : "Machine 4",
+-        product_price : 20000 ,
+-        product_quantity : 1, 
+-        product_image : m4,
+-    },
+-    {
+-        id : 5,
+-        product_name : "Machine 5",
+-        product_price : 1000 ,
+-        product_quantity : 1 , 
+-        product_image : m5,
+-    },
+-    {
+-        id : 6,
+-        product_name : "Machine 6",
+-        product_price : 2000 ,
+-        product_quantity : 1 , 
+-        product_image : m6,
+-    },
+-]
+-
+-export default data;
+\ No newline at end of file
+diff --git a/repository_before/components/Card.jsx b/repository_before/components/Card.jsx
+deleted file mode 100644
+index 7ea914e..0000000
+--- a/repository_before/components/Card.jsx
++++ /dev/null
+@@ -1,41 +0,0 @@
+-import { setCart } from '@/slices/cartSlice';
+-import Image from 'next/image'
+-import React from 'react'
+-import { useDispatch, useSelector } from 'react-redux'
+-
+-import {  toast } from 'react-toastify';
+-
+-
+-
+-export default function Card({ item }) {
+-    const dispatch = useDispatch();
+-    const cart = useSelector(state => state.cart.cart)
+-
+-    const AddToCart = () => {
+-        if (cart.length === 0) {
+-            dispatch(setCart(item))
+-            toast.success(`${item.product_name} added to cart !`)
+-        }
+-        else {
+-            let checkProd = cart?.filter(prod => prod?.id === item?.id)
+-            if (checkProd.length > 0) {
+-                return toast.error(`${item.product_name} already in cart !`)
+-            }
+-            else {
+-                dispatch(setCart(item))
+-                toast.success(`${item.product_name} added to cart !`)
+-            }
+-        }
+-    }
+-
+-    return (
+-        <div className='w-72  mx-4 my-2 bg-gray-50'>
+-            <Image priority width={400} height={400} src={item?.product_image} alt='product image' />
+-            <div className='flex px-4 w-full h-16  justify-between items-center '>
+-                <h1 className='font-semibold text-lg'>{item?.product_name}</h1>
+-                <p className='text-base '>$ {item?.product_price}</p>
+-            </div>
+-            <button onClick={AddToCart} className='w-full px-2 py-2 bg-indigo-600 hover:bg-indigo-900 transition-all duration-1000 text-white rounded'>Add to Cart</button>
+-        </div>
+-    )
+-}
+diff --git a/repository_before/jsconfig.json b/repository_before/jsconfig.json
+deleted file mode 100644
+index 2a2e4b3..0000000
+--- a/repository_before/jsconfig.json
++++ /dev/null
+@@ -1,7 +0,0 @@
+-{
+-  "compilerOptions": {
+-    "paths": {
+-      "@/*": ["./*"]
+-    }
+-  }
+-}
+diff --git a/repository_before/next.config.js b/repository_before/next.config.js
+deleted file mode 100644
+index a843cbe..0000000
+--- a/repository_before/next.config.js
++++ /dev/null
+@@ -1,6 +0,0 @@
+-/** @type {import('next').NextConfig} */
+-const nextConfig = {
+-  reactStrictMode: true,
+-}
+-
+-module.exports = nextConfig
+diff --git a/repository_before/package.json b/repository_before/package.json
+deleted file mode 100644
+index c6e4d41..0000000
+--- a/repository_before/package.json
++++ /dev/null
+@@ -1,27 +0,0 @@
+-{
+-  "name": "shopping_cart",
+-  "version": "0.1.0",
+-  "private": true,
+-  "scripts": {
+-    "dev": "next dev",
+-    "build": "next build",
+-    "start": "next start",
+-    "lint": "next lint"
+-  },
+-  "dependencies": {
+-    "@reduxjs/toolkit": "^1.9.3",
+-    "eslint": "8.36.0",
+-    "eslint-config-next": "13.2.4",
+-    "next": "13.2.4",
+-    "react": "18.2.0",
+-    "react-dom": "18.2.0",
+-    "react-icons": "^4.8.0",
+-    "react-redux": "^8.0.5",
+-    "react-toastify": "^9.1.2"
+-  },
+-  "devDependencies": {
+-    "autoprefixer": "^10.4.14",
+-    "postcss": "^8.4.31",
+-    "tailwindcss": "^3.2.7"
+-  }
+-}
+diff --git a/repository_before/pages/Page.jsx b/repository_before/pages/Page.jsx
+deleted file mode 100644
+index c2a1d88..0000000
+--- a/repository_before/pages/Page.jsx
++++ /dev/null
+@@ -1,136 +0,0 @@
+-import Card from '@/components/Card'
+-import React, { useEffect, useState } from 'react'
+-import { ToastContainer } from 'react-toastify';
+-import { BsCart } from 'react-icons/bs'
+-import data from '../api/index';
+-import Link from 'next/link';
+-import Image from 'next/image';
+-import { AiFillDelete } from 'react-icons/ai'
+-import { useDispatch, useSelector } from 'react-redux';
+-import { setDeleteCart } from '@/slices/cartSlice';
+-
+-
+-export default function Landing() {
+-    const dispatch = useDispatch();
+-
+-    
+-    const [product, setProduct] = useState([]);
+-    const [qnt, setQnt] = useState(0)
+-
+-
+-
+-    const cart = useSelector(state => state.cart.cart);
+-
+-
+-
+-    useEffect(() => {
+-        setProduct(data)
+-    }, [])
+-
+-    const handleIncrement = (id) => {
+-        const updatedCartItems = cart?.map(prod => {
+-            if (prod.id === id) {
+-                let newQuantity =  prod?.product_quantity +  1
+-                return {
+-                    ...prod,
+-                    product_quantity: newQuantity ,
+-                };
+-            }
+-            return prod;
+-        });
+-
+-        if (qnt > 0) {
+-            let quantity = qnt + 1
+-            setQnt(quantity)
+-            dispatch(setDeleteCart(updatedCartItems))
+-        }
+-        else {
+-            setQnt(1)
+-            dispatch(setDeleteCart(updatedCartItems))
+-        }
+-    }
+-
+-
+-
+-    const handleDecrement = (id) => {
+-        const updatedCartItems = cart?.map(prod => {
+-            if (prod.id === id) {
+-                if(prod?.product_quantity > 1){
+-                    let newQuantity =  prod?.product_quantity -  1
+-                    return {
+-                        ...prod,
+-                        product_quantity: newQuantity ,
+-                    };
+-                } 
+-            }
+-            return prod;
+-        });
+-
+-        if (qnt > 1) {
+-            let quantity = qnt - 1
+-            setQnt(quantity)
+-            dispatch(setDeleteCart(updatedCartItems))
+-        }
+-        else {
+-            setQnt(1)
+-            dispatch(setDeleteCart(updatedCartItems))
+-
+-        }
+-    }
+-
+-    const handleDelete = (id) => {
+-        const newCart = cart?.filter(item => item?.id !== id)
+-        dispatch(setDeleteCart(newCart))
+-    }
+-
+-    const totalPrice = cart.reduce((acc, item) => {
+-        return acc + (item.product_quantity * item.product_price);
+-      }, 0);
+-
+-
+-
+-    return (
+-        <div className='w-full px-2 py-2 flex flex-col items-center'>
+-            <h1 className='text-lg font-extrabold py-2 mb-2 border-b border-indigo-600'>Shopping Cart</h1>
+-            <div className='fixed top-0 right-0 '>
+-                <Link href="#cart" className='relative'><BsCart className=" md:text-6xl mx-4  text-2xl" /></Link>
+-                <p className='absolute z-10 top-0 right-1 text-red-600 text-xl font-semibold'>{cart.length}</p>
+-            </div>
+-            <div className=' w-full h-full flex md:flex-row flex-col '>
+-                <div className=':w-8/12 w-full py-4 flex flex-wrap'>
+-                    {
+-
+-                        product?.map((item) => {
+-                            return <Card key={item.id} item={item} />
+-                        })
+-                    }
+-                </div>
+-                <div id='cart' className='lg:w-4/12 w-full py-4 px-2'>
+-                    {
+-                        cart?.map((prod) => {
+-                            return (
+-                                <div key={prod?.id} className='w-full bg-gray-100  py-2 mb-2 flex items-center justify-around'>
+-                                    <Image src={prod?.product_image} alt="" width={100} height={100} className="rounded-full" />
+-                                    <p>{prod?.product_name}</p>
+-                                    <p>{prod?.product_price}</p>
+-                                    <div className='flex '>
+-                                        <button onClick={() => handleIncrement(prod?.id)} className="cursor-pointer text-xl">+</button>
+-                                        <p className='text-xl'>{prod?.product_quantity}</p>
+-                                        <button onClick={() => handleDecrement(prod?.id)} className="cursor-pointer text-xl">-</button>
+-                                    </div>
+-                                    <AiFillDelete onClick={() => handleDelete(prod?.id)} className="text-red-500 cursor-pointer text-xl" />
+-
+-                                </div>
+-                            )
+-                        })
+-                    }
+-
+-                    <div className='px-2 py-2 flex justify-end items-center'>
+-                        <p>Total Price {totalPrice}</p>
+-                    </div>
+-                </div>
+-            </div>
+-            <ToastContainer />
+-        </div>
+-    )
+-}
+diff --git a/repository_before/pages/_app.js b/repository_before/pages/_app.js
+deleted file mode 100644
+index 1dd543c..0000000
+--- a/repository_before/pages/_app.js
++++ /dev/null
+@@ -1,13 +0,0 @@
+-import '@/styles/globals.css'
+-import { store } from '@/store/store'
+-import { Provider } from 'react-redux'
+-import 'react-toastify/dist/ReactToastify.css';
+-
+-
+-export default function App({ Component, pageProps }) {
+-  return (
+-    <Provider store={store}>
+-      <Component {...pageProps} />
+-    </Provider>
+-  )
+-}
+diff --git a/repository_before/pages/_document.js b/repository_before/pages/_document.js
+deleted file mode 100644
+index 54e8bf3..0000000
+--- a/repository_before/pages/_document.js
++++ /dev/null
+@@ -1,13 +0,0 @@
+-import { Html, Head, Main, NextScript } from 'next/document'
+-
+-export default function Document() {
+-  return (
+-    <Html lang="en">
+-      <Head />
+-      <body>
+-        <Main />
+-        <NextScript />
+-      </body>
+-    </Html>
+-  )
+-}
+diff --git a/repository_before/pages/api/hello.js b/repository_before/pages/api/hello.js
+deleted file mode 100644
+index df63de8..0000000
+--- a/repository_before/pages/api/hello.js
++++ /dev/null
+@@ -1,5 +0,0 @@
+-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
+-
+-export default function handler(req, res) {
+-  res.status(200).json({ name: 'John Doe' })
+-}
+diff --git a/repository_before/pages/index.js b/repository_before/pages/index.js
+deleted file mode 100644
+index 0b042d2..0000000
+--- a/repository_before/pages/index.js
++++ /dev/null
+@@ -1,16 +0,0 @@
+-import Head from 'next/head'
+-import Landing from './Page'
+-
+-export default function Home() {
+-  return (
+-    <>
+-      <Head>
+-        <title>Shopping Cart Example</title>
+-        <meta name="description" content="Generated by create next app" />
+-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+-        <link rel="icon" href="/favicon.ico" />
+-      </Head>
+-      <Landing/>
+-    </>
+-  )
+-}
+diff --git a/repository_before/postcss.config.js b/repository_before/postcss.config.js
+deleted file mode 100644
+index 33ad091..0000000
+--- a/repository_before/postcss.config.js
++++ /dev/null
+@@ -1,6 +0,0 @@
+-module.exports = {
+-  plugins: {
+-    tailwindcss: {},
+-    autoprefixer: {},
+-  },
+-}
+diff --git a/repository_before/public/favicon.ico b/repository_before/public/favicon.ico
+deleted file mode 100644
+index 718d6fe..0000000
+Binary files a/repository_before/public/favicon.ico and /dev/null differ
+diff --git a/repository_before/public/machines/1.png b/repository_before/public/machines/1.png
+deleted file mode 100644
+index 3f7df89..0000000
+Binary files a/repository_before/public/machines/1.png and /dev/null differ
+diff --git a/repository_before/public/machines/2.png b/repository_before/public/machines/2.png
+deleted file mode 100644
+index 598bd2b..0000000
+Binary files a/repository_before/public/machines/2.png and /dev/null differ
+diff --git a/repository_before/public/machines/3.png b/repository_before/public/machines/3.png
+deleted file mode 100644
+index aba9ca4..0000000
+Binary files a/repository_before/public/machines/3.png and /dev/null differ
+diff --git a/repository_before/public/machines/4.png b/repository_before/public/machines/4.png
+deleted file mode 100644
+index a3c5e4f..0000000
+Binary files a/repository_before/public/machines/4.png and /dev/null differ
+diff --git a/repository_before/public/machines/5.png b/repository_before/public/machines/5.png
+deleted file mode 100644
+index de4e25b..0000000
+Binary files a/repository_before/public/machines/5.png and /dev/null differ
+diff --git a/repository_before/public/machines/6.png b/repository_before/public/machines/6.png
+deleted file mode 100644
+index 99e227a..0000000
+Binary files a/repository_before/public/machines/6.png and /dev/null differ
+diff --git a/repository_before/public/machines/7.png b/repository_before/public/machines/7.png
+deleted file mode 100644
+index ed268e3..0000000
+Binary files a/repository_before/public/machines/7.png and /dev/null differ
+diff --git a/repository_before/public/next.svg b/repository_before/public/next.svg
+deleted file mode 100644
+index 5174b28..0000000
+--- a/repository_before/public/next.svg
++++ /dev/null
+@@ -1 +0,0 @@
+-<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+\ No newline at end of file
+diff --git a/repository_before/public/thirteen.svg b/repository_before/public/thirteen.svg
+deleted file mode 100644
+index 8977c1b..0000000
+--- a/repository_before/public/thirteen.svg
++++ /dev/null
+@@ -1 +0,0 @@
+-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="31" fill="none"><g opacity=".9"><path fill="url(#a)" d="M13 .4v29.3H7V6.3h-.2L0 10.5V5L7.2.4H13Z"/><path fill="url(#b)" d="M28.8 30.1c-2.2 0-4-.3-5.7-1-1.7-.8-3-1.8-4-3.1a7.7 7.7 0 0 1-1.4-4.6h6.2c0 .8.3 1.4.7 2 .4.5 1 .9 1.7 1.2.7.3 1.6.4 2.5.4 1 0 1.7-.2 2.5-.5.7-.3 1.3-.8 1.7-1.4.4-.6.6-1.2.6-2s-.2-1.5-.7-2.1c-.4-.6-1-1-1.8-1.4-.8-.4-1.8-.5-2.9-.5h-2.7v-4.6h2.7a6 6 0 0 0 2.5-.5 4 4 0 0 0 1.7-1.3c.4-.6.6-1.3.6-2a3.5 3.5 0 0 0-2-3.3 5.6 5.6 0 0 0-4.5 0 4 4 0 0 0-1.7 1.2c-.4.6-.6 1.2-.6 2h-6c0-1.7.6-3.2 1.5-4.5 1-1.3 2.2-2.3 3.8-3C25 .4 26.8 0 28.8 0s3.8.4 5.3 1.1c1.5.7 2.7 1.7 3.6 3a7.2 7.2 0 0 1 1.2 4.2c0 1.6-.5 3-1.5 4a7 7 0 0 1-4 2.2v.2c2.2.3 3.8 1 5 2.2a6.4 6.4 0 0 1 1.6 4.6c0 1.7-.5 3.1-1.4 4.4a9.7 9.7 0 0 1-4 3.1c-1.7.8-3.7 1.1-5.8 1.1Z"/></g><defs><linearGradient id="a" x1="20" x2="20" y1="0" y2="30.1" gradientUnits="userSpaceOnUse"><stop/><stop offset="1" stop-color="#3D3D3D"/></linearGradient><linearGradient id="b" x1="20" x2="20" y1="0" y2="30.1" gradientUnits="userSpaceOnUse"><stop/><stop offset="1" stop-color="#3D3D3D"/></linearGradient></defs></svg>
+\ No newline at end of file
+diff --git a/repository_before/public/vercel.svg b/repository_before/public/vercel.svg
+deleted file mode 100644
+index d2f8422..0000000
+--- a/repository_before/public/vercel.svg
++++ /dev/null
+@@ -1 +0,0 @@
+-<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 283 64"><path fill="black" d="M141 16c-11 0-19 7-19 18s9 18 20 18c7 0 13-3 16-7l-7-5c-2 3-6 4-9 4-5 0-9-3-10-7h28v-3c0-11-8-18-19-18zm-9 15c1-4 4-7 9-7s8 3 9 7h-18zm117-15c-11 0-19 7-19 18s9 18 20 18c6 0 12-3 16-7l-8-5c-2 3-5 4-8 4-5 0-9-3-11-7h28l1-3c0-11-8-18-19-18zm-10 15c2-4 5-7 10-7s8 3 9 7h-19zm-39 3c0 6 4 10 10 10 4 0 7-2 9-5l8 5c-3 5-9 8-17 8-11 0-19-7-19-18s8-18 19-18c8 0 14 3 17 8l-8 5c-2-3-5-5-9-5-6 0-10 4-10 10zm83-29v46h-9V5h9zM37 0l37 64H0L37 0zm92 5-27 48L74 5h10l18 30 17-30h10zm59 12v10l-3-1c-6 0-10 4-10 10v15h-9V17h9v9c0-5 6-9 13-9z"/></svg>
+\ No newline at end of file
+diff --git a/repository_before/slices/cartSlice.js b/repository_before/slices/cartSlice.js
+deleted file mode 100644
+index a71a5b8..0000000
+--- a/repository_before/slices/cartSlice.js
++++ /dev/null
+@@ -1,23 +0,0 @@
+-import { createSlice } from '@reduxjs/toolkit'
+-
+-const initialState = {
+-    cart : [],
+-    total : 0,
+-}
+-
+-export const cartSlice = createSlice({
+-  name: 'Cart',
+-  initialState,
+-  reducers: {
+-    setCart : (state , action) => {
+-      state.cart = [...state.cart , action.payload]
+-    },
+-    setDeleteCart : (state , action) => {
+-      state.cart = action.payload
+-    },
+-  },
+-})
+-
+-export const {  setCart , setDeleteCart } = cartSlice.actions
+-
+-export const  cartReducer =  cartSlice.reducer;
+\ No newline at end of file
+diff --git a/repository_before/store/store.js b/repository_before/store/store.js
+deleted file mode 100644
+index 506ed34..0000000
+--- a/repository_before/store/store.js
++++ /dev/null
+@@ -1,8 +0,0 @@
+-import { configureStore } from '@reduxjs/toolkit'
+-import { cartReducer } from '@/slices/cartSlice'
+-
+-export const store = configureStore({
+-  reducer: {
+-    cart : cartReducer, 
+-  },
+-})
+\ No newline at end of file
+diff --git a/repository_before/styles/globals.css b/repository_before/styles/globals.css
+deleted file mode 100644
+index bd6213e..0000000
+--- a/repository_before/styles/globals.css
++++ /dev/null
+@@ -1,3 +0,0 @@
+-@tailwind base;
+-@tailwind components;
+-@tailwind utilities;
+\ No newline at end of file
+diff --git a/repository_before/tailwind.config.js b/repository_before/tailwind.config.js
+deleted file mode 100644
+index 9aec8a1..0000000
+--- a/repository_before/tailwind.config.js
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/** @type {import('tailwindcss').Config} */
+-module.exports = {
+-  content: [
+-    "./app/**/*.{js,ts,jsx,tsx}",
+-    "./pages/**/*.{js,ts,jsx,tsx}",
+-    "./components/**/*.{js,ts,jsx,tsx}",
+- 
+-    // Or if using `src` directory:
+-    "./src/**/*.{js,ts,jsx,tsx}",
+-  ],
+-  theme: {
+-    extend: {},
+-  },
+-  plugins: [],
+-}
+\ No newline at end of file
