@@ -7,8 +7,6 @@ import (
     "tests/elevator"
 )
 
-// TestMovementSim ensures cars move one floor per tick and elapsed time
-// roughly matches the expected number of ticks.
 func TestMovementSim(t *testing.T) {
     c := elevator.NewController()
     // Start car at floor 0 with 3 up stops.

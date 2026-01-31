@@ -43,11 +43,6 @@ func main() {
     start := time.Now().UTC()
     runID := newRunID()
 
-    // Run the existing test runner script (via sh) and capture combined output so
-    // we can parse the same `=== RUN` / `--- PASS:` / `--- FAIL:` lines.
-    // Run the runner from the tests directory so relative paths inside the script work.
-    // Run the test runner but skip the race detector inside the evaluator container
-    // because the evaluate image may not support -race (CGO disabled).
     cmd := exec.Command("sh", "-c", "cd tests && NO_RACE=1 sh run_tests.sh")
     out, err := cmd.CombinedOutput()
     output := string(out)
@@ -151,8 +146,10 @@ func main() {
         report["error"] = nil
     }
 
+  
+    ver := "go 1.18"
     env := map[string]interface{}{
-        "go_version":   runtime.Version(),
+        "go_version":   ver,
         "platform":     runtime.GOOS,
         "os":           runtime.GOOS,
         "architecture": runtime.GOARCH,
