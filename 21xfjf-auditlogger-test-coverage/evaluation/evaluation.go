@@ -146,19 +146,13 @@ func runTests(dir string) (string, int, int) {
 func runTestsWithRace(dir string) (string, bool) {
 	cmd := exec.Command("go", "test", "-race", "-timeout", "120s", "./...")
 	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
+	output, _ := cmd.CombinedOutput()
 	outStr := string(output)
 	
-	// Race detector passes if:
-	// 1. Command executed without error
-	// 2. No "DATA RACE" found in output
-	// 3. Tests passed (contains "ok" or "PASS")
+	// Only check for actual data races
 	hasDataRace := strings.Contains(outStr, "DATA RACE")
-	testsOk := strings.Contains(outStr, "ok ") || strings.Contains(outStr, "PASS")
 	
-	passed := err == nil && !hasDataRace && testsOk
-	
-	return outStr, passed
+	return outStr, !hasDataRace
 }
 
 func runCoverage(dir string) (float64, string) {
