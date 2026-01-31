@@ -1,16 +1,15 @@
-package after
+package tests
 
 import (
     "testing"
     "time"
 
-    "tests/elevator"
 )
 
 func TestMovementSim(t *testing.T) {
-    c := elevator.NewController()
+    c := NewController()
     // Start car at floor 0 with 3 up stops.
-    c.AddCar(elevator.Car{ID: 0, Floor: 0, Direction: 1, Load: 0, MaxCapacity: 10, PendingUpStops: 3})
+    c.AddCar(Car{ID: 0, Floor: 0, Direction: 1, Load: 0, MaxCapacity: 10, PendingUpStops: 3})
 
     tick := 20 * time.Millisecond
     stop := c.StartMovement(tick)

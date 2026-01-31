@@ -10,7 +10,7 @@ if [ "${NO_RACE:-}" = "1" ]; then
 fi
 
 # Run tests (optionally skipping -race) with verbose output. Capture output even if tests fail.
-go test $RACE_FLAG -v ./after/... >"$OUT_FILE" 2>&1 || true
+go test $RACE_FLAG -v . >"$OUT_FILE" 2>&1 || true
 
 cat "$OUT_FILE"
 

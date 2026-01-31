@@ -1,13 +1,12 @@
-package after
+package tests
 
 import (
 	"testing"
 
-	"tests/elevator"
 )
 
 func TestRequestRideInvalidFloors(t *testing.T) {
-	c := elevator.NewController()
+	c := NewController()
 
 	// below min
 	if _, err := c.RequestRide(-1, 1); err == nil {
@@ -21,7 +20,7 @@ func TestRequestRideInvalidFloors(t *testing.T) {
 }
 
 func TestRequestRideValidFloorsReturnsCar(t *testing.T) {
-	c := elevator.NewController()
+	c := NewController()
 
 	id, err := c.RequestRide(1, 2)
 	if err != nil {

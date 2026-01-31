@@ -7,5 +7,5 @@ COPY . .
 
 WORKDIR /src/tests
 
-# Run the tests for the ./after/... package
-RUN go test ./after/...
+# Run the tests for the current directory
+RUN go test .

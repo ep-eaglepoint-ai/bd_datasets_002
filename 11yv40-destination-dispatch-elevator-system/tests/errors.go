@@ -1,4 +1,4 @@
-package elevator
+package tests
 
 import "errors"
 

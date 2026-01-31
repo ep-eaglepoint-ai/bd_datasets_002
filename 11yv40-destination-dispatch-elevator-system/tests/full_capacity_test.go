@@ -1,16 +1,15 @@
-package after
+package tests
 
 import (
     "testing"
 
-    "tests/elevator"
 )
 
 func TestAllCarsFullDeterministicFallback(t *testing.T) {
-    c := elevator.NewController()
+    c := NewController()
 
-    c.AddCar(elevator.Car{ID: 0, Floor: 0, Direction: 0, Load: 10, MaxCapacity: 10})
-    c.AddCar(elevator.Car{ID: 1, Floor: 5, Direction: 0, Load: 10, MaxCapacity: 10})
+    c.AddCar(Car{ID: 0, Floor: 0, Direction: 0, Load: 10, MaxCapacity: 10})
+    c.AddCar(Car{ID: 1, Floor: 5, Direction: 0, Load: 10, MaxCapacity: 10})
 
     id1, err := c.RequestRide(2, 3)
     if err != nil {

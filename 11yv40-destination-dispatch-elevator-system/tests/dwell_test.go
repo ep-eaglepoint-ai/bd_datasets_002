@@ -1,16 +1,15 @@
-package after
+package tests
 
 import (
     "testing"
     "time"
 
-    "tests/elevator"
 )
 
 func TestDoorDwellPreventsMovement(t *testing.T) {
-    c := elevator.NewController()
+    c := NewController()
     // Car at floor 0 with one up stop but doors are opened for dwell.
-    c.AddCar(elevator.Car{ID: 0, Floor: 0, Direction: 1, Load: 0, MaxCapacity: 10, PendingUpStops: 2})
+    c.AddCar(Car{ID: 0, Floor: 0, Direction: 1, Load: 0, MaxCapacity: 10, PendingUpStops: 2})
 
     // Open doors for 5 ticks.
     opened := c.OpenDoors(0, 5)

@@ -1,4 +1,4 @@
-package elevator
+package tests
 
 // Car is a lightweight value type representing an elevator car.
 // Fields are simple and accessed via controller-provided methods.

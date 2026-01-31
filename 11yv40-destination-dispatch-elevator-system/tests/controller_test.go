@@ -1,20 +1,19 @@
-package after
+package tests
 
 import (
     "sync"
     "testing"
 
-    "tests/elevator"
 )
 
 func TestConcurrentReadersNoRace(t *testing.T) {
-    c := elevator.NewController()
+    c := NewController()
     if c == nil {
         t.Fatalf("NewController returned nil")
     }
 
     for i := 0; i < 10; i++ {
-        c.AddCar(elevator.Car{ID: i, Floor: i})
+        c.AddCar(Car{ID: i, Floor: i})
     }
 
     var wg sync.WaitGroup

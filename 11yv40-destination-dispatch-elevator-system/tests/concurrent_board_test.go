@@ -1,18 +1,17 @@
-package after
+package tests
 
 import (
     "sync"
     "testing"
 
-    "tests/elevator"
 )
 
 // TestConcurrentRequestAndBoard ensures that concurrent RequestAndBoard calls
 // cannot exceed car MaxCapacity.
 func TestConcurrentRequestAndBoard(t *testing.T) {
-    c := elevator.NewController()
+    c := NewController()
     // create a car with MaxCapacity 5
-    c.AddCar(elevator.Car{ID: 0, Floor: 0, Direction: 0, Load: 0, MaxCapacity: 5})
+    c.AddCar(Car{ID: 0, Floor: 0, Direction: 0, Load: 0, MaxCapacity: 5})
 
     var wg sync.WaitGroup
     attempts := 20
