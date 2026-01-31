@@ -1,122 +1,234 @@
+diff --git a/52y6d3-robotic-assembly-step-coordinator/README.md b/52y6d3-robotic-assembly-step-coordinator/README.md
+index 7933ca9a..de8bfd4f 100644
+--- a/52y6d3-robotic-assembly-step-coordinator/README.md
++++ b/52y6d3-robotic-assembly-step-coordinator/README.md
+@@ -1,12 +1,6 @@
+ ## Docker Commands list
+ 
+-### 1. BEFORE TEST COMMAND
+-Commands to spin up the app and run tests on `repository_before`. Since it's empty, this will fail.
+-```bash
+-docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1"
+-```
+-
+-### 2. AFTER TEST COMMAND
++### 1. AFTER TEST COMMAND
+ Commands to run tests on `repository_after`.
+ ```bash
+ docker compose up --build
 diff --git a/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch b/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch
-index 6f3d6e75..8ba1162f 100644
+index 8ba1162f..31231b3e 100644
 --- a/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch
 +++ b/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch
-@@ -1,19 +1,69 @@
-+diff --git a/52y6d3-robotic-assembly-step-coordinator/.dockerignore b/52y6d3-robotic-assembly-step-coordinator/.dockerignore
-+index 62af4f65..88184403 100644
-+--- a/52y6d3-robotic-assembly-step-coordinator/.dockerignore
-++++ b/52y6d3-robotic-assembly-step-coordinator/.dockerignore
-+@@ -1,9 +1,7 @@
-+-# Ignore everything by default
-+-*
-+-
-+-# Allow directories we need
-+-!repository_after
-+-!tests
-+-!evaluation
-+-!Dockerfile
-+-!docker-compose.yml
-++# Standard ignore list
-++.git
-++.gitignore
-++patches/
-++trajectory/
-++eval_log.txt
-++*.md
-+diff --git a/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml b/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
-+index a606651f..0b5b14b7 100644
-+--- a/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
-++++ b/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
-+@@ -3,6 +3,6 @@ services:
-+     build: .
-+     command: go test -v ./...
-+     volumes:
-+-      - ./repository_after:/app
-+-      - ./tests:/app/tests
-+-      - ./evaluation:/app/evaluation
-++      - "./repository_after:/app"
-++      - "./tests:/app/tests"
-++      - "./evaluation:/app/evaluation"
+@@ -1,69 +1,122 @@
+-diff --git a/52y6d3-robotic-assembly-step-coordinator/.dockerignore b/52y6d3-robotic-assembly-step-coordinator/.dockerignore
+-index 62af4f65..88184403 100644
+---- a/52y6d3-robotic-assembly-step-coordinator/.dockerignore
+-+++ b/52y6d3-robotic-assembly-step-coordinator/.dockerignore
+-@@ -1,9 +1,7 @@
+--# Ignore everything by default
+--*
+--
+--# Allow directories we need
+--!repository_after
+--!tests
+--!evaluation
+--!Dockerfile
+--!docker-compose.yml
+-+# Standard ignore list
+-+.git
+-+.gitignore
+-+patches/
+-+trajectory/
+-+eval_log.txt
+-+*.md
+-diff --git a/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml b/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
+-index a606651f..0b5b14b7 100644
+---- a/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
+-+++ b/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
+-@@ -3,6 +3,6 @@ services:
+-     build: .
+-     command: go test -v ./...
+-     volumes:
+--      - ./repository_after:/app
+--      - ./tests:/app/tests
+--      - ./evaluation:/app/evaluation
+-+      - "./repository_after:/app"
+-+      - "./tests:/app/tests"
+-+      - "./evaluation:/app/evaluation"
++diff --git a/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch b/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch
++index 6f3d6e75..8ba1162f 100644
++--- a/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch
+++++ b/52y6d3-robotic-assembly-step-coordinator/patches/diff.patch
++@@ -1,19 +1,69 @@
+++diff --git a/52y6d3-robotic-assembly-step-coordinator/.dockerignore b/52y6d3-robotic-assembly-step-coordinator/.dockerignore
+++index 62af4f65..88184403 100644
+++--- a/52y6d3-robotic-assembly-step-coordinator/.dockerignore
++++++ b/52y6d3-robotic-assembly-step-coordinator/.dockerignore
+++@@ -1,9 +1,7 @@
+++-# Ignore everything by default
+++-*
+++-
+++-# Allow directories we need
+++-!repository_after
+++-!tests
+++-!evaluation
+++-!Dockerfile
+++-!docker-compose.yml
++++# Standard ignore list
++++.git
++++.gitignore
++++patches/
++++trajectory/
++++eval_log.txt
++++*.md
+++diff --git a/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml b/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
+++index a606651f..0b5b14b7 100644
+++--- a/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
++++++ b/52y6d3-robotic-assembly-step-coordinator/docker-compose.yml
+++@@ -3,6 +3,6 @@ services:
+++     build: .
+++     command: go test -v ./...
+++     volumes:
+++-      - ./repository_after:/app
+++-      - ./tests:/app/tests
+++-      - ./evaluation:/app/evaluation
++++      - "./repository_after:/app"
++++      - "./tests:/app/tests"
++++      - "./evaluation:/app/evaluation"
++ diff --git a/buildspec.yml b/buildspec.yml
+++index 6103bcf5..0fae062a 100644
+++--- a/buildspec.yml
++++++ b/buildspec.yml
+++@@ -3,11 +3,7 @@ version: 0.2
+++ phases:
+++   build:
+++     commands:
+++-      - echo "Starting build phase..."
+++-      - cd 52y6d3-robotic-assembly-step-coordinator
+++-      - echo "Running 1. BEFORE TEST COMMAND (expected to fail)"
+++-      - docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1" || echo "Baseline check finished"
+++-      - echo "Running 2. AFTER TEST COMMAND"
+++-      - docker compose up --build --abort-on-container-exit
+++-      - echo "Running 3. TEST & REPORT COMMAND"
+++-      - docker compose run --rm app go run evaluation/evaluation.go
++++      - "echo 'Starting build phase...'"
++++      - "cd 52y6d3-robotic-assembly-step-coordinator"
++++      - "docker compose up --build --abort-on-container-exit"
++++      - "docker compose run --rm app go run evaluation/evaluation.go"
+++diff --git a/docker-compose.yml b/docker-compose.yml
++ new file mode 100644
++-index 00000000..6103bcf5
+++index 00000000..9f0d4e9d
++ --- /dev/null
++-+++ b/buildspec.yml
++-@@ -0,0 +1,13 @@
++-+version: 0.2
++-+
++-+phases:
++-+  build:
++-+    commands:
++-+      - echo "Starting build phase..."
++-+      - cd 52y6d3-robotic-assembly-step-coordinator
++-+      - echo "Running 1. BEFORE TEST COMMAND (expected to fail)"
++-+      - docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1" || echo "Baseline check finished"
++-+      - echo "Running 2. AFTER TEST COMMAND"
++-+      - docker compose up --build --abort-on-container-exit
++-+      - echo "Running 3. TEST & REPORT COMMAND"
++-+      - docker compose run --rm app go run evaluation/evaluation.go
++++++ b/docker-compose.yml
+++@@ -0,0 +1,8 @@
++++services:
++++  app:
++++    build: 52y6d3-robotic-assembly-step-coordinator
++++    command: go test -v ./...
++++    volumes:
++++      - "./52y6d3-robotic-assembly-step-coordinator/repository_after:/app"
++++      - "./52y6d3-robotic-assembly-step-coordinator/tests:/app/tests"
++++      - "./52y6d3-robotic-assembly-step-coordinator/evaluation:/app/evaluation"
  diff --git a/buildspec.yml b/buildspec.yml
-+index 6103bcf5..0fae062a 100644
-+--- a/buildspec.yml
-++++ b/buildspec.yml
-+@@ -3,11 +3,7 @@ version: 0.2
-+ phases:
-+   build:
-+     commands:
-+-      - echo "Starting build phase..."
-+-      - cd 52y6d3-robotic-assembly-step-coordinator
-+-      - echo "Running 1. BEFORE TEST COMMAND (expected to fail)"
-+-      - docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1" || echo "Baseline check finished"
-+-      - echo "Running 2. AFTER TEST COMMAND"
-+-      - docker compose up --build --abort-on-container-exit
-+-      - echo "Running 3. TEST & REPORT COMMAND"
-+-      - docker compose run --rm app go run evaluation/evaluation.go
-++      - "echo 'Starting build phase...'"
-++      - "cd 52y6d3-robotic-assembly-step-coordinator"
-++      - "docker compose up --build --abort-on-container-exit"
-++      - "docker compose run --rm app go run evaluation/evaluation.go"
-+diff --git a/docker-compose.yml b/docker-compose.yml
- new file mode 100644
--index 00000000..6103bcf5
-+index 00000000..9f0d4e9d
- --- /dev/null
--+++ b/buildspec.yml
--@@ -0,0 +1,13 @@
--+version: 0.2
--+
--+phases:
--+  build:
--+    commands:
--+      - echo "Starting build phase..."
--+      - cd 52y6d3-robotic-assembly-step-coordinator
--+      - echo "Running 1. BEFORE TEST COMMAND (expected to fail)"
--+      - docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1" || echo "Baseline check finished"
--+      - echo "Running 2. AFTER TEST COMMAND"
--+      - docker compose up --build --abort-on-container-exit
--+      - echo "Running 3. TEST & REPORT COMMAND"
--+      - docker compose run --rm app go run evaluation/evaluation.go
-++++ b/docker-compose.yml
-+@@ -0,0 +1,8 @@
-++services:
-++  app:
-++    build: 52y6d3-robotic-assembly-step-coordinator
-++    command: go test -v ./...
-++    volumes:
-++      - "./52y6d3-robotic-assembly-step-coordinator/repository_after:/app"
-++      - "./52y6d3-robotic-assembly-step-coordinator/tests:/app/tests"
-++      - "./52y6d3-robotic-assembly-step-coordinator/evaluation:/app/evaluation"
+-index 6103bcf5..0fae062a 100644
++index 0fae062a..fb7798be 100644
+ --- a/buildspec.yml
+ +++ b/buildspec.yml
+-@@ -3,11 +3,7 @@ version: 0.2
++@@ -1,9 +1,8 @@
++ version: 0.2
++-
+  phases:
+    build:
+      commands:
+--      - echo "Starting build phase..."
+--      - cd 52y6d3-robotic-assembly-step-coordinator
+--      - echo "Running 1. BEFORE TEST COMMAND (expected to fail)"
+--      - docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1" || echo "Baseline check finished"
+--      - echo "Running 2. AFTER TEST COMMAND"
+--      - docker compose up --build --abort-on-container-exit
+--      - echo "Running 3. TEST & REPORT COMMAND"
+--      - docker compose run --rm app go run evaluation/evaluation.go
+-+      - "echo 'Starting build phase...'"
+-+      - "cd 52y6d3-robotic-assembly-step-coordinator"
+-+      - "docker compose up --build --abort-on-container-exit"
+-+      - "docker compose run --rm app go run evaluation/evaluation.go"
++-      - "echo 'Starting build phase...'"
++-      - "cd 52y6d3-robotic-assembly-step-coordinator"
++-      - "docker compose up --build --abort-on-container-exit"
++-      - "docker compose run --rm app go run evaluation/evaluation.go"
+++      - echo "Building project..."
+++      - cd 52y6d3-robotic-assembly-step-coordinator
+++      - docker compose up --build --abort-on-container-exit
+++      - docker compose run --rm app go run evaluation/evaluation.go
+ diff --git a/docker-compose.yml b/docker-compose.yml
+-new file mode 100644
+-index 00000000..9f0d4e9d
+---- /dev/null
++index 9f0d4e9d..0770a225 100644
++--- a/docker-compose.yml
+ +++ b/docker-compose.yml
+-@@ -0,0 +1,8 @@
+-+services:
+-+  app:
+-+    build: 52y6d3-robotic-assembly-step-coordinator
+-+    command: go test -v ./...
+-+    volumes:
+-+      - "./52y6d3-robotic-assembly-step-coordinator/repository_after:/app"
+-+      - "./52y6d3-robotic-assembly-step-coordinator/tests:/app/tests"
+-+      - "./52y6d3-robotic-assembly-step-coordinator/evaluation:/app/evaluation"
++@@ -1,7 +1,7 @@
++ services:
++   app:
++-    build: 52y6d3-robotic-assembly-step-coordinator
++-    command: go test -v ./...
+++    build: "./52y6d3-robotic-assembly-step-coordinator"
+++    command: "go test -v ./..."
++     volumes:
++       - "./52y6d3-robotic-assembly-step-coordinator/repository_after:/app"
++       - "./52y6d3-robotic-assembly-step-coordinator/tests:/app/tests"
 diff --git a/buildspec.yml b/buildspec.yml
-index 0fae062a..fb7798be 100644
+deleted file mode 100644
+index fb7798be..00000000
 --- a/buildspec.yml
-+++ b/buildspec.yml
-@@ -1,9 +1,8 @@
- version: 0.2
--
- phases:
-   build:
-     commands:
--      - "echo 'Starting build phase...'"
--      - "cd 52y6d3-robotic-assembly-step-coordinator"
--      - "docker compose up --build --abort-on-container-exit"
--      - "docker compose run --rm app go run evaluation/evaluation.go"
-+      - echo "Building project..."
-+      - cd 52y6d3-robotic-assembly-step-coordinator
-+      - docker compose up --build --abort-on-container-exit
-+      - docker compose run --rm app go run evaluation/evaluation.go
++++ /dev/null
+@@ -1,8 +0,0 @@
+-version: 0.2
+-phases:
+-  build:
+-    commands:
+-      - echo "Building project..."
+-      - cd 52y6d3-robotic-assembly-step-coordinator
+-      - docker compose up --build --abort-on-container-exit
+-      - docker compose run --rm app go run evaluation/evaluation.go
 diff --git a/docker-compose.yml b/docker-compose.yml
-index 9f0d4e9d..0770a225 100644
+deleted file mode 100644
+index 0770a225..00000000
 --- a/docker-compose.yml
-+++ b/docker-compose.yml
-@@ -1,7 +1,7 @@
- services:
-   app:
--    build: 52y6d3-robotic-assembly-step-coordinator
--    command: go test -v ./...
-+    build: "./52y6d3-robotic-assembly-step-coordinator"
-+    command: "go test -v ./..."
-     volumes:
-       - "./52y6d3-robotic-assembly-step-coordinator/repository_after:/app"
-       - "./52y6d3-robotic-assembly-step-coordinator/tests:/app/tests"
++++ /dev/null
+@@ -1,8 +0,0 @@
+-services:
+-  app:
+-    build: "./52y6d3-robotic-assembly-step-coordinator"
+-    command: "go test -v ./..."
+-    volumes:
+-      - "./52y6d3-robotic-assembly-step-coordinator/repository_after:/app"
+-      - "./52y6d3-robotic-assembly-step-coordinator/tests:/app/tests"
+-      - "./52y6d3-robotic-assembly-step-coordinator/evaluation:/app/evaluation"
