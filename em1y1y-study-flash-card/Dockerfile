@@ -3,13 +3,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN npm install jest-environment-jsdom
+
 # Copy package.json + package-lock.json
 COPY package*.json ./
 
 # Install all dependencies + devDependencies
 RUN npm install --legacy-peer-deps
 
-RUN npm install jest-environment-jsdom
+
 
 # Copy everything else
 COPY . .
