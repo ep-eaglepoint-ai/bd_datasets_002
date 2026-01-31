@@ -5,7 +5,10 @@ import subprocess
 import pytest
 from pathlib import Path
 
-def run_repo_tests(repo_dir_name):
+# Cache results to avoid re-running tests multiple times
+_TEST_RESULTS_CACHE = {}
+
+def run_repo_tests(repo_dir_name, extra_args=None):
     """Utility to run pytest on a specific repository and return results."""
     project_root = Path(__file__).parent.parent
     repo_path = project_root / repo_dir_name
@@ -15,59 +18,82 @@ def run_repo_tests(repo_dir_name):
         return None, "Test file not found"
 
     cmd = [sys.executable, "-m", "pytest", str(test_file), "-v"]
+    if extra_args:
+        cmd.extend(extra_args)
+        
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_path)
     
-    # Ensure current dir is project root so relative imports in repo work if needed
     result = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=str(project_root))
     return result.stdout, result.stderr
 
-def parse_outcomes(stdout):
-    """Parse pytest verbose output for test outcomes."""
-    outcomes = {}
-    if not stdout: return outcomes
-    for line in stdout.splitlines():
-        if "::" in line and (" PASSED" in line or " FAILED" in line or " ERROR" in line):
-            parts = line.split()
-            if len(parts) >= 2:
-                nodeid = parts[0]
-                status = parts[1]
-                test_name = nodeid.split("::")[-1]
-                outcomes[test_name] = status
-    return outcomes
-
-def test_meta_test_file_availability():
-    """Meta-test: Verify that 'test_cache.py' exists in the selected repository."""
+def get_outcomes():
     repo_dir = os.environ.get('TEST_REPO_DIR', 'repository_after')
-    project_root = Path(__file__).parent.parent
-    test_file = project_root / repo_dir / "test_cache.py"
-    assert test_file.exists(), f"Configuration Error: {repo_dir}/test_cache.py is missing!"
+    if repo_dir not in _TEST_RESULTS_CACHE:
+        stdout, stderr = run_repo_tests(repo_dir, extra_args=["--cov=lru_ttl_cache", "--cov-report=term-missing"])
+        
+        outcomes = {}
+        if stdout:
+            for line in stdout.splitlines():
+                if "::" in line and (" PASSED" in line or " FAILED" in line or " ERROR" in line):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        nodeid = parts[0]
+                        status = parts[1]
+                        test_name = nodeid.split("::")[-1]
+                        outcomes[test_name] = status
+        
+        coverage = None
+        if stdout:
+            for line in stdout.splitlines():
+                if "TOTAL" in line:
+                    parts = line.split()
+                    coverage = parts[-1]
+                    break
+        
+        _TEST_RESULTS_CACHE[repo_dir] = {
+            "outcomes": outcomes,
+            "coverage": coverage,
+            "stdout": stdout,
+            "stderr": stderr
+        }
+    return _TEST_RESULTS_CACHE[repo_dir]
 
-def test_meta_detects_buggy_zero_capacity():
-    """Meta-test: Verify that the implementation's bugs are correctly identified."""
-    repo_dir = os.environ.get('TEST_REPO_DIR', 'repository_after')
-    stdout, _ = run_repo_tests(repo_dir)
-    outcomes = parse_outcomes(stdout)
-    
-    # This test is expected to fail on the current implementation (it crashes with KeyError)
-    assert outcomes.get("test_requirement_zero_capacity") == "FAILED", \
-        "The test suite failed to catch the zero-capacity bug (or the test didn't run)!"
+def assert_test_passed(test_name):
+    data = get_outcomes()
+    outcomes = data["outcomes"]
+    assert test_name in outcomes, f"Test '{test_name}' not found in suite!"
+    assert outcomes[test_name] == "PASSED", f"Test '{test_name}' failed! Output:\n{data['stdout']}"
 
-def test_meta_verifies_core_requirements_pass():
-    """Meta-test: Verify that the test suite correctly passes for working features."""
-    repo_dir = os.environ.get('TEST_REPO_DIR', 'repository_after')
-    stdout, _ = run_repo_tests(repo_dir)
-    outcomes = parse_outcomes(stdout)
-    
-    # Core features that are implemented correctly
-    required_passes = [
-        "test_requirement_lru_ordering",
-        "test_requirement_atomic_update",
-        "test_requirement_prune_expired_count",
-        "test_requirement_high_load",
-        "test_very_short_ttl",  # stale read
-        "test_requirement_get_non_existent_no_lru_impact"
-    ]
-    
-    for test in required_passes:
-        assert outcomes.get(test) == "PASSED", f"Core requirement test {test} failed or was not run!"
+# Exactly 22 Meta Tests
+
+def test_meta_prune_expired_empty(): assert_test_passed("test_prune_expired_empty")
+def test_meta_put_same_key_multiple_times(): assert_test_passed("test_put_same_key_multiple_times")
+def test_meta_capacity_one_edge_case(): assert_test_passed("test_capacity_one_edge_case")
+def test_meta_expired_item_doesnt_count_toward_capacity(): assert_test_passed("test_expired_item_doesnt_count_toward_capacity")
+def test_meta_mixed_expired_and_valid_eviction(): assert_test_passed("test_mixed_expired_and_valid_eviction")
+def test_meta_put_after_prune(): assert_test_passed("test_put_after_prune")
+def test_meta_expiry_map_consistency(): assert_test_passed("test_expiry_map_consistency")
+def test_meta_very_short_ttl(): assert_test_passed("test_very_short_ttl")
+def test_meta_alternating_put_get_operations(): assert_test_passed("test_alternating_put_get_operations")
+def test_meta_requirement_lru_ordering(): assert_test_passed("test_requirement_lru_ordering")
+def test_meta_requirement_atomic_update(): assert_test_passed("test_requirement_atomic_update")
+def test_meta_requirement_prune_expired_count(): assert_test_passed("test_requirement_prune_expired_count")
+def test_meta_requirement_zero_capacity(): assert_test_passed("test_requirement_zero_capacity")
+def test_meta_requirement_negative_capacity(): assert_test_passed("test_requirement_negative_capacity")
+def test_meta_requirement_zero_ttl(): assert_test_passed("test_requirement_zero_ttl")
+def test_meta_requirement_negative_ttl(): assert_test_passed("test_requirement_negative_ttl")
+def test_meta_explicit_delete_non_existent(): assert_test_passed("test_explicit_delete_non_existent")
+def test_meta_requirement_high_load(): assert_test_passed("test_requirement_high_load")
+def test_meta_requirement_get_non_existent_no_lru_impact(): assert_test_passed("test_requirement_get_non_existent_no_lru_impact")
+
+def test_meta_internal_delete_usage(): 
+    assert_test_passed("test_internal_delete_usage_get")
+    assert_test_passed("test_internal_delete_usage_put")
+
+def test_meta_internal_prune_usage(): 
+    assert_test_passed("test_prune_expired_usage")
+
+def test_meta_code_coverage():
+    data = get_outcomes()
+    assert data["coverage"] == "100%", f"Coverage is {data['coverage']}, expected 100%"

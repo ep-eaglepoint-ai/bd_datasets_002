@@ -18,3 +18,8 @@ evaluation/*/
 
 # Specifically ignore the old report.json at root of evaluation
 evaluation/report.json
+
+# Test & Coverage
+.coverage
+.pytest_cache/
+htmlcov/
