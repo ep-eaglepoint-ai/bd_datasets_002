@@ -3,12 +3,11 @@ version: 0.2
 phases:
   build:
     commands:
-      - make build
-      - make test
+      - "make test"
   post_build:
     commands:
-      - make evaluate
+      - "make evaluate"
 
 artifacts:
   files:
-    - evaluation/report.json
+    - "evaluation/report.json"
