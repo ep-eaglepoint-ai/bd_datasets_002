@@ -91,7 +91,9 @@ def pytest_unconfigure(config):
 
     try:
         # Run tests in the tests/ directory
-        subprocess.run(["pytest", "-p", "pytest_collector", "tests/"], capture_output=True)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = f".{os.pathsep}{env.get('PYTHONPATH', '')}"
+        subprocess.run(["pytest", "-p", "pytest_collector", "tests/"], capture_output=True, text=True, env=env)
         
         if os.path.exists('pytest_results.json'):
             with open('pytest_results.json', 'r') as f:
