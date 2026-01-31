@@ -34,10 +34,7 @@ ENV PYTHONPATH=/app/repository_after/backend
 # Link node_modules so tests can find them
 RUN ln -s /app/frontend_deps/node_modules /app/repository_after/frontend/node_modules
 
-# Create symlink for frontend tests
-# This allows vitest to find the test file while keeping source in /app/tests
-RUN mkdir -p /app/repository_after/frontend/src/__tests__ && \
-    ln -s /app/tests/frontend.test.ts /app/repository_after/frontend/src/__tests__/frontend.test.ts
-
+# Frontend tests are now directly in repository_after/frontend/src/__tests__/
+# No symlink needed
 # Default command
 CMD ["/bin/bash"]
