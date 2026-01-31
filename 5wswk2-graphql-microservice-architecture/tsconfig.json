@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": [
+    "repository_after/**/*.ts",
+    "tests/**/*.ts",
+    "evaluation/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "repository_before"
+  ]
+}
