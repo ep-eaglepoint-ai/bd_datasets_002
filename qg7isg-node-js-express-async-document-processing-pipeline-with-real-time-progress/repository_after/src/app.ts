@@ -62,6 +62,8 @@ const shutdown = async () => {
   console.log('Shutting down gracefully...');
   jobEventsSubscriber.disconnect();
   wsManager.close();
+  const prisma = (await import('./config/database')).default;
+  await prisma.$disconnect();
   server.close(() => {
     console.log('HTTP server closed');
     process.exit(0);

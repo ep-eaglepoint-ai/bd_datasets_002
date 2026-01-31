@@ -47,7 +47,8 @@ export const worker = new Worker<JobData>(
       }
 
       const fields = schema.fields as any[];
-      const validator = new ValidationService(fields);
+      const validationRules = schema.validationRules as Record<string, any>;
+      const validator = new ValidationService(fields, validationRules);
       const parser = createParser(filename, fileType);
 
       let recordsProcessed = 0;
@@ -57,15 +58,16 @@ export const worker = new Worker<JobData>(
 
       // Process records
       for await (const { data: rawRecord, index } of parser.parse()) {
-        // Check for cancellation
-        const currentJob = await prisma.job.findUnique({
-          where: { id: jobId },
-          select: { status: true },
-        });
+        if (index % 10 === 0) {
+          const currentJob = await prisma.job.findUnique({
+            where: { id: jobId },
+            select: { status: true },
+          });
 
-        if (currentJob?.status === 'CANCELLED') {
-          console.log(`Job ${jobId} was cancelled`);
-          return;
+          if (currentJob?.status === 'CANCELLED') {
+            console.log(`Job ${jobId} was cancelled`);
+            return;
+          }
         }
 
         // Transform record
@@ -108,11 +110,20 @@ export const worker = new Worker<JobData>(
           }
         }
 
-        // Update progress periodically (every 2 seconds)
         const now = Date.now();
         if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
           const totalSoFar = recordsProcessed + recordsFailed;
-          const progress = totalSoFar < 10000 ? Math.floor((totalSoFar / 10000) * 99) : 99;
+          // Updated progress: use a more realistic capped progress if total is unknown
+          // or ideally use file size / stream position if we had it.
+          // For now, let's just make it slightly more intelligent by not hardcoding 10,000
+          // If we had recordsTotal (stored on job creation), we could use it.
+          const totalRecords = await prisma.job.findUnique({ where: { id: jobId }, select: { recordsTotal: true } });
+          let progress = 0;
+          if (totalRecords?.recordsTotal && totalRecords.recordsTotal > 0) {
+             progress = Math.floor((totalSoFar / totalRecords.recordsTotal) * 100);
+          } else {
+             progress = Math.min(99, Math.floor(totalSoFar / 100)); // Sample logic
+          }
 
           await prisma.job.update({
             where: { id: jobId },
@@ -217,6 +228,7 @@ const shutdown = async () => {
   console.log('Worker shutting down...');
   jobEventsPublisher.quit();
   await worker.close();
+  await prisma.$disconnect();
   process.exit(0);
 };
 

@@ -3,26 +3,41 @@ import prisma from '../config/database';
 import redis from '../config/redis';
 
 export const healthCheck = async (req: Request, res: Response): Promise<void> => {
+  const services: Record<string, string> = {
+    database: 'unknown',
+    redis: 'unknown',
+  };
+
   try {
     // Check database connectivity
-    await prisma.$queryRaw`SELECT 1`;
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      services.database = 'connected';
+    } catch (e) {
+      services.database = 'disconnected';
+    }
     
     // Check Redis connectivity
-    await redis.ping();
+    try {
+      await redis.ping();
+      services.redis = 'connected';
+    } catch (e) {
+      services.redis = 'disconnected';
+    }
 
-    res.status(200).json({
-      status: 'healthy',
+    const isHealthy = Object.values(services).every(status => status === 'connected');
+
+    res.status(isHealthy ? 200 : 503).json({
+      status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
-      services: {
-        database: 'connected',
-        redis: 'connected',
-      },
+      services,
     });
   } catch (error) {
     console.error('Health check failed:', error);
     res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
+      services,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

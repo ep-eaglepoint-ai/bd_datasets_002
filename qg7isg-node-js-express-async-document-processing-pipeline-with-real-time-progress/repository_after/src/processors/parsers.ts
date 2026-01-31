@@ -49,44 +49,70 @@ export class JSONParser extends FileParser {
   }
 }
 
+import sax from 'sax';
+
 export class XMLFileParser extends FileParser {
   async *parse(): AsyncGenerator<ParsedRecord> {
-    const xmlContent = fs.readFileSync(this.filePath, 'utf-8');
-    const parser = new FastXMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '@_',
+    const stream = fs.createReadStream(this.filePath);
+    const saxStream = sax.createStream(true, { trim: true });
+    
+    let index = 0;
+    let currentRecord: any = null;
+    let currentTag: string | null = null;
+    let depth = 0;
+    let recordDepth = -1;
+
+    // We'll use a queue to store records found during streaming
+    const queue: ParsedRecord[] = [];
+    let error: Error | null = null;
+    let isStreamDone = false;
+
+    saxStream.on('opentag', (node) => {
+      depth++;
+      // Assume the pertama level is root, second level is record
+      // This is a heuristic similar to the original extractRecords
+      if (depth === 2 && recordDepth === -1) {
+        recordDepth = depth;
+        currentRecord = {};
+      }
+      currentTag = node.name;
     });
 
-    const result = parser.parse(xmlContent);
-    
-    // Assume XML has a root element with array of records
-    // Adjust this based on actual XML structure
-    const records = this.extractRecords(result);
-    
-    for (let i = 0; i < records.length; i++) {
-      yield { data: records[i], index: i };
-    }
-  }
-
-  private extractRecords(obj: any): any[] {
-    // Find the first array in the object structure
-    if (Array.isArray(obj)) {
-      return obj;
-    }
-
-    for (const key in obj) {
-      if (Array.isArray(obj[key])) {
-        return obj[key];
+    saxStream.on('text', (text) => {
+      if (currentRecord && currentTag && depth === recordDepth + 1) {
+        currentRecord[currentTag] = text;
       }
-      if (typeof obj[key] === 'object') {
-        const nested = this.extractRecords(obj[key]);
-        if (nested.length > 0) {
-          return nested;
-        }
+    });
+
+    saxStream.on('closetag', (tagName) => {
+      if (depth === recordDepth) {
+        queue.push({ data: currentRecord, index: index++ });
+        currentRecord = null;
+      }
+      depth--;
+      currentTag = null;
+    });
+
+    saxStream.on('error', (e) => {
+      error = e;
+    });
+
+    saxStream.on('end', () => {
+      isStreamDone = true;
+    });
+
+    stream.pipe(saxStream);
+
+    // Generator logic to yield records as they arrive in the queue
+    while (!isStreamDone || queue.length > 0) {
+      if (error) throw error;
+      if (queue.length > 0) {
+        yield queue.shift()!;
+      } else {
+        // Give some time for the stream to process
+        await new Promise(resolve => setTimeout(resolve, 5));
       }
     }
-
-    return [obj];
   }
 }
 

@@ -3,9 +3,11 @@ import { ValidationRule, SchemaField } from '../types';
 
 export class ValidationService {
   private schema: ZodSchema;
+  private validationRules: Record<string, any>;
 
-  constructor(fields: SchemaField[]) {
+  constructor(fields: SchemaField[], validationRules: Record<string, any> = {}) {
     this.schema = this.buildSchema(fields);
+    this.validationRules = validationRules;
   }
 
   private buildSchema(fields: SchemaField[]): ZodSchema {
@@ -102,6 +104,19 @@ export class ValidationService {
         }],
       };
     }
+  }
+
+  // Placeholder for applying cross-field validation rules
+  applyValidationRules(data: any): { success: boolean; message?: string } {
+    // Current implementation: basic structure check based on validationRules JSON
+    // This can be expanded to support complex logic defined in the schema
+    if (this.validationRules.requireAtLeastOne && Array.isArray(this.validationRules.requireAtLeastOne)) {
+      const hasOne = this.validationRules.requireAtLeastOne.some((field: string) => !!data[field]);
+      if (!hasOne) {
+        return { success: false, message: `At least one of [${this.validationRules.requireAtLeastOne.join(', ')}] must be provided` };
+      }
+    }
+    return { success: true };
   }
 }
 
