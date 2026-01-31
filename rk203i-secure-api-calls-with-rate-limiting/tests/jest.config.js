@@ -1,7 +1,9 @@
+const repo = process.env.REPO || 'repository_after';
+
 module.exports = {
   testEnvironment: 'node',
   rootDir: '..',
-  roots: ['<rootDir>/tests', '<rootDir>/repository_after'],
+  roots: ['<rootDir>/tests', `<rootDir>/${repo}`],
   testMatch: ['<rootDir>/tests/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testPathIgnorePatterns: ['/node_modules/'],
@@ -9,12 +11,12 @@ module.exports = {
   silent: true,
   reporters: ['<rootDir>/tests/summary-reporter.js'],
   transform: {
-    '^.+\\.tsx?$': ['<rootDir>/repository_after/node_modules/ts-jest', {
-      tsconfig: '<rootDir>/repository_after/tsconfig.json',
+    '^.+\\.tsx?$': ['ts-jest', {
+      tsconfig: '<rootDir>/tsconfig.json',
       diagnostics: false
     }]
   },
   moduleNameMapper: {
-    '^@api$': '<rootDir>/repository_after/telebirr_calls'
+    '^@api$': `<rootDir>/${repo}/telebirr_calls`
   }
 };
