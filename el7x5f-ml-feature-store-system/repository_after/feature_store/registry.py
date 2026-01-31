@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .db import DatabaseSettings, create_engine_and_session_factory
 from .dsl import Feature, FeatureMetadata, FeatureSource, PythonTransform, SQLTransform
-from .models import Base, FeatureDefinitionModel, FeatureLineageEdgeModel, FeatureStatsModel
+from .models import Base, FeatureDefinitionModel, FeatureLineageEdgeModel, FeatureProcessingStateModel, FeatureStatsModel
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,7 @@ class FeatureRegistry:
     def _session(self) -> Session:
         return self._SessionLocal()
 
-    def register(self, feature: Feature) -> None:
+    def register(self, feature: Feature, *, catalog_hook=None) -> None:
         """Upsert a feature definition and its lineage edges."""
 
         with self._session() as session:
@@ -68,6 +68,8 @@ class FeatureRegistry:
                 },
                 transform=self._serialize_transform(feature),
                 depends_on={"depends_on": list(feature.depends_on)},
+                schema=feature.schema or {},
+                default_value=None if feature.default_value is None else {"value": feature.default_value},
             )
 
             if existing is None:
@@ -81,6 +83,8 @@ class FeatureRegistry:
                 existing.source = row.source
                 existing.transform = row.transform
                 existing.depends_on = row.depends_on
+                existing.schema = row.schema
+                existing.default_value = row.default_value
 
                 session.execute(
                     delete(FeatureLineageEdgeModel).where(
@@ -92,6 +96,28 @@ class FeatureRegistry:
                 session.add(FeatureLineageEdgeModel(upstream=upstream, downstream=feature.name))
 
             session.commit()
+
+        if catalog_hook is not None:
+            catalog_hook.publish_feature(
+                {
+                    "name": feature.name,
+                    "version": feature.metadata.version,
+                    "description": feature.metadata.description,
+                    "owner": feature.metadata.owner,
+                    "tags": list(feature.metadata.tags),
+                    "entity_keys": list(feature.entity_keys),
+                    "event_timestamp": feature.event_timestamp,
+                    "source": {
+                        "name": feature.source.name,
+                        "kind": feature.source.kind,
+                        "identifier": feature.source.identifier,
+                    },
+                    "transform": self._serialize_transform(feature),
+                    "depends_on": list(feature.depends_on),
+                    "schema": feature.schema or {},
+                    "default_value": feature.default_value,
+                }
+            )
 
     def get(self, name: str, version: Optional[str] = None) -> Feature:
         version = version or "v1"
@@ -120,9 +146,59 @@ class FeatureRegistry:
                     "source": r.source,
                     "transform": r.transform,
                     "depends_on": r.depends_on.get("depends_on", []),
+                    "schema": r.schema or {},
+                    "default_value": None if r.default_value is None else r.default_value.get("value"),
                 }
                 for r in rows
             ]
+
+    def set_processing_state(
+        self,
+        *,
+        feature_name: str,
+        feature_version: str,
+        state_key: str,
+        state: Dict[str, Any],
+    ) -> None:
+        with self._session() as session:
+            existing = session.execute(
+                select(FeatureProcessingStateModel).where(
+                    FeatureProcessingStateModel.feature_name == feature_name,
+                    FeatureProcessingStateModel.feature_version == feature_version,
+                    FeatureProcessingStateModel.state_key == state_key,
+                )
+            ).scalar_one_or_none()
+
+            if existing is None:
+                session.add(
+                    FeatureProcessingStateModel(
+                        feature_name=feature_name,
+                        feature_version=feature_version,
+                        state_key=state_key,
+                        state=state,
+                    )
+                )
+            else:
+                existing.state = state
+
+            session.commit()
+
+    def get_processing_state(
+        self,
+        *,
+        feature_name: str,
+        feature_version: str,
+        state_key: str,
+    ) -> Optional[Dict[str, Any]]:
+        with self._session() as session:
+            row = session.execute(
+                select(FeatureProcessingStateModel).where(
+                    FeatureProcessingStateModel.feature_name == feature_name,
+                    FeatureProcessingStateModel.feature_version == feature_version,
+                    FeatureProcessingStateModel.state_key == state_key,
+                )
+            ).scalar_one_or_none()
+            return None if row is None else row.state
 
     def lineage_graph(self) -> nx.DiGraph:
         g = nx.DiGraph()
@@ -189,4 +265,6 @@ class FeatureRegistry:
             transform=tx,
             metadata=md,
             depends_on=tuple(row.depends_on.get("depends_on", [])),
+            default_value=None if row.default_value is None else row.default_value.get("value"),
+            schema=row.schema or {},
         )

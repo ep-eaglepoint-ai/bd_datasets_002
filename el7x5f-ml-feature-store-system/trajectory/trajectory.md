@@ -24,7 +24,7 @@ At this stage I asked myself a few “risk” questions:
 - **What will be hardest to fix later if I get it wrong now?**
   Training–serving consistency and lineage. Those require early architectural decisions.
 - **What will be easiest to stub without blocking progress?**
-  Spark/Faust/GE integrations—because those can be optional modules with stable interfaces.
+  Spark/Faust integrations—because those can be exposed behind stable interfaces and exercised via lightweight “requires dependency” tests.
 - **What needs to be testable inside Docker without extra operational complexity?**
   The core system behavior. That’s why I planned tests around mocks and lightweight local stores.
 
@@ -36,6 +36,7 @@ I wrote down a few invariants I wanted the implementation to guarantee:
 
 - **A Feature is a definition, not just a column**: it must declare entity keys, event time, source binding, transformation type, metadata, and dependencies.
 - **Lineage must be explicit and queryable**: if `derived_feature` depends on `base_feature`, I should be able to reconstruct that graph.
+- **Definitions must be usable operationally**: in addition to metadata and lineage, the registry needs to persist basic schemas/default values and processing state (e.g., batch watermarks) so pipelines can be incremental and reproducible.
 - **Online retrieval must be deterministic**:
   - If a value is missing, return a default (not an exception).
   - If values are stale (older than a max age), return defaults.
@@ -59,12 +60,22 @@ I avoided clever metaprogramming because feature definitions become an organizat
 
 Key decision: I modeled transformations as _types_ (`SQLTransform`, `PythonTransform`) rather than just raw strings/callables. That makes downstream code and validation easier because the transform “kind” is always known.
 
+After the initial core was in place, I extended this contract with **automatic dependency tracking**:
+- SQL dependencies can be inferred from `{{upstream_feature}}` placeholders.
+- Python dependencies can be attached explicitly via a small `@depends_on(...)` decorator.
+
+This kept feature definitions explicit while reducing the risk of stale/mismatched lineage.
+
 ### 4.2 Registry: SQLAlchemy + lineage edges
 
 I used a SQLAlchemy-backed registry storing:
 
 - Feature definitions (including metadata/source/depends_on)
 - Lineage edges as a separate table
+
+As the lifecycle requirements got stricter, I added two more pieces of state to the registry:
+- **Schema + default value** (so serving and validation have a single source of truth per feature version)
+- **Processing state** (a small key/value JSON state per feature/version, used for batch watermarks and incremental processing bookkeeping)
 
 In my head, I kept a strict separation:
 
@@ -84,6 +95,8 @@ I implemented:
 
 The critical part wasn’t the data structure—it was enforcing predictable outcomes for missing/stale values.
 
+Once the semantics were stable, I also added a RedisTimeSeries-backed implementation so the system can use TS.* commands when the module is available. I kept the same retrieval API and the same staleness behavior, and I added an alert hook so staleness can be monitored.
+
 ### 4.4 Point-in-time join: start with a reference implementation
 
 Point-in-time joins are subtle and easy to get wrong. My strategy was:
@@ -93,6 +106,8 @@ Point-in-time joins are subtle and easy to get wrong. My strategy was:
 3. keep the door open for a Spark window-function implementation later.
 
 This gave me high confidence in semantics, and a known target for a future Spark version.
+
+In the newer iteration, I added a Spark PIT join function using window functions so the same semantics can be executed efficiently at scale.
 
 ---
 
@@ -134,6 +149,12 @@ The edge cases I explicitly covered:
 - Online store returns defaults on staleness
 - PIT join selects the latest past value and does not use future values
 
+As the implementation expanded, I added focused tests for the new lifecycle hooks without turning the suite into a “bring up Kafka/Spark” integration harness:
+- DSL dependency inference (SQL placeholder + Python decorator)
+- Registry persistence for schema/default values and processing state
+- Redis freshness alerting behavior
+- Great Expectations validation and MLflow tagging behavior (with pytest warning filters to keep output clean)
+
 ---
 
 ## 7. Evaluation + Reproducibility
@@ -152,9 +173,9 @@ This is important because it documents not only that tests passed, but _which_ r
 
 If the goal becomes “full platform coverage” rather than “correctness core,” my next steps would be:
 
-- Add Spark PIT join implementation with window functions and watermarking
-- Implement Kafka/Faust windowed aggregations and watermark eviction
-- Replace the Redis hash implementation with RedisTimeSeries-backed writes
-- Flesh out Great Expectations profiling + drift detection with alert hooks
+- Drive true end-to-end batch execution in Docker (Spark runtime + offline store I/O) rather than library-level scaffolding
+- Drive true end-to-end streaming execution in Docker (Kafka broker + Faust workers) rather than “build topology” scaffolding
+- Hook batch/stream materialization to a real RedisTimeSeries instance (TS.CREATE / TS.ADD at scale) and validate performance characteristics
+- Expand Great Expectations beyond in-memory suite generation to a real DataContext-backed workflow (suite stores, checkpointing, and production-grade alert routing)
 
 But I intentionally didn’t overbuild those parts here: I kept the interfaces and scaffolding so those integrations can be added without changing the core semantics or breaking tests.

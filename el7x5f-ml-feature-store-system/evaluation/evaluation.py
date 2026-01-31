@@ -152,6 +152,11 @@ def map_criteria(tests: list[dict]) -> dict:
         "pit_join_correct": check("test_point_in_time_join_picks_latest_past_value"),
         "pit_join_no_leakage": check("test_point_in_time_join_prevents_leakage_future_feature_is_not_used"),
         "api_discovery": check("test_api_health_and_feature_listing"),
+        "catalog_hook": check("test_catalog_hook_called"),
+        "redis_timeseries": check("test_redis_timeseries_write_and_get"),
+        "schema_validation": check("test_schema_validation_success"),
+        "drift_psi": check("test_drift_psi_alert"),
+        "spark_optional": check("test_point_in_time_join_spark_requires_pyspark"),
     }
 
 

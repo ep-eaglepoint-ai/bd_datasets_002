@@ -55,3 +55,7 @@ def test_api_health_and_feature_listing(monkeypatch, tmp_path):
     assert r.status_code == 200
     payload = r.json()
     assert any(item["name"] == "f1" for item in payload)
+
+    r = client.get("/lineage")
+    assert r.status_code == 200
+    assert "nodes" in r.json()

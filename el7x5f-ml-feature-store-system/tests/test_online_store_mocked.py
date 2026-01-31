@@ -7,6 +7,14 @@ import fakeredis
 from repository_after.feature_store.serving import RedisOnlineStore, RedisOnlineStoreSettings
 
 
+class _Sink:
+    def __init__(self):
+        self.events = []
+
+    def emit(self, *, alert_type: str, payload):
+        self.events.append((alert_type, payload))
+
+
 def test_online_store_get_defaults_when_missing(monkeypatch):
     import redis as redis_mod
 
@@ -40,7 +48,8 @@ def test_online_store_staleness_returns_defaults(monkeypatch):
 
     monkeypatch.setattr(redis_mod.Redis, "from_url", staticmethod(_from_url))
 
-    store = RedisOnlineStore(RedisOnlineStoreSettings(redis_url="redis://does-not-matter/0"))
+    sink = _Sink()
+    store = RedisOnlineStore(RedisOnlineStoreSettings(redis_url="redis://does-not-matter/0", alert_sink=sink))
 
     old_time = datetime.now(tz=timezone.utc) - timedelta(seconds=3600)
     store.write_features(
@@ -58,6 +67,7 @@ def test_online_store_staleness_returns_defaults(monkeypatch):
         max_age_seconds=10,
     )
     assert out == {"f1": 0}
+    assert sink.events and sink.events[0][0] == "feature_stale"
 
 
 def test_online_store_batch(monkeypatch):

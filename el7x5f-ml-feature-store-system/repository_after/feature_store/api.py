@@ -5,10 +5,11 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .registry import FeatureRegistry, RegistrySettings
 from .serving import RedisOnlineStore, RedisOnlineStoreSettings
+from .dsl import FeatureSource, FeatureMetadata, Feature, SQLTransform
 
 
 class FeatureSummary(BaseModel):
@@ -22,6 +23,8 @@ class FeatureSummary(BaseModel):
     source: Dict[str, Any]
     transform: Dict[str, Any]
     depends_on: List[str]
+    feature_schema: Dict[str, Any] = Field(default_factory=dict, alias="schema")
+    default_value: Optional[Any] = None
 
 
 class GetOnlineRequest(BaseModel):
@@ -36,6 +39,21 @@ class GetOnlineBatchRequest(BaseModel):
     entity_keys: List[str]
     feature_names: List[str]
     max_age_seconds: Optional[int] = None
+
+
+class RegisterFeatureRequest(BaseModel):
+    name: str
+    version: str = "v1"
+    description: str
+    owner: str
+    tags: List[str] = []
+    entity_keys: List[str]
+    event_timestamp: str
+    source: Dict[str, Any]
+    transform: Dict[str, Any]
+    depends_on: List[str] = []
+    feature_schema: Dict[str, Any] = Field(default_factory=dict, alias="schema")
+    default_value: Optional[Any] = None
 
 
 @dataclass(frozen=True)
@@ -98,6 +116,41 @@ def create_app(settings: AppSettings) -> FastAPI:
             defaults=None,
             max_age_seconds=req.max_age_seconds,
         )
+
+    @app.get("/lineage")
+    def lineage(reg: FeatureRegistry = Depends(get_registry)):
+        g = reg.lineage_graph()
+        return {"nodes": list(g.nodes()), "edges": [{"from": u, "to": v} for u, v in g.edges()]}
+
+    @app.post("/features/register")
+    def register_feature(req: RegisterFeatureRequest, reg: FeatureRegistry = Depends(get_registry)):
+        src = FeatureSource(
+            name=req.source.get("name", "source"),
+            kind=req.source.get("kind", "sql"),
+            identifier=req.source.get("identifier", ""),
+        )
+        if req.transform.get("kind") != "sql":
+            raise HTTPException(status_code=400, detail="Only sql transforms are supported via REST")
+        tx = SQLTransform(sql=req.transform.get("sql", ""))
+
+        f = Feature(
+            name=req.name,
+            entity_keys=tuple(req.entity_keys),
+            event_timestamp=req.event_timestamp,
+            source=src,
+            transform=tx,
+            metadata=FeatureMetadata(
+                description=req.description,
+                owner=req.owner,
+                tags=tuple(req.tags),
+                version=req.version,
+            ),
+            depends_on=tuple(req.depends_on),
+            schema=req.feature_schema,
+            default_value=req.default_value,
+        )
+        reg.register(f)
+        return {"status": "registered", "name": req.name, "version": req.version}
 
     @app.get("/ui", response_class=HTMLResponse)
     def web_ui(reg: FeatureRegistry = Depends(get_registry)):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 
@@ -44,6 +45,31 @@ class PythonTransform(Transform):
     kind: str = "python"
 
 
+_SQL_DEP_RE = re.compile(r"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}")
+
+
+def infer_dependencies_from_sql(sql: str) -> Tuple[str, ...]:
+    """Infer feature dependencies from SQL.
+
+    Convention: downstream SQL may reference other features using placeholders
+    like `{{upstream_feature_name}}`. This keeps dependency tracking explicit
+    while avoiding full SQL parsing.
+    """
+
+    deps = tuple(sorted(set(_SQL_DEP_RE.findall(sql or ""))))
+    return deps
+
+
+def depends_on(*feature_names: str):
+    """Decorator to attach feature dependencies to Python transform callables."""
+
+    def _decorator(func: Callable[[Any], Any]):
+        setattr(func, "__feature_dependencies__", tuple(feature_names))
+        return func
+
+    return _decorator
+
+
 @dataclass
 class Feature:
     """Declarative feature definition.
@@ -63,6 +89,7 @@ class Feature:
     metadata: FeatureMetadata
     depends_on: Tuple[str, ...] = ()
     default_value: Optional[Any] = None
+    schema: Optional[Dict[str, Any]] = None
 
     def dependency_set(self) -> Set[str]:
         return set(self.depends_on)
@@ -79,10 +106,25 @@ def feature(
     owner: str,
     tags: Sequence[str] = (),
     version: str = "v1",
-    depends_on: Sequence[str] = (),
+    depends_on: Sequence[Any] = (),
     default_value: Optional[Any] = None,
+    schema: Optional[Dict[str, Any]] = None,
 ) -> Feature:
     """Convenience constructor for Feature definitions."""
+
+    inferred: Tuple[str, ...] = ()
+    if not depends_on:
+        if isinstance(transform, SQLTransform):
+            inferred = infer_dependencies_from_sql(transform.sql)
+        elif isinstance(transform, PythonTransform):
+            inferred = tuple(getattr(transform.func, "__feature_dependencies__", ()))
+
+    deps: List[str] = []
+    for d in (list(depends_on) if depends_on else list(inferred)):
+        if isinstance(d, Feature):
+            deps.append(d.name)
+        else:
+            deps.append(str(d))
 
     return Feature(
         name=name,
@@ -96,6 +138,7 @@ def feature(
             tags=tuple(tags),
             version=version,
         ),
-        depends_on=tuple(depends_on),
+        depends_on=tuple(deps),
         default_value=default_value,
+        schema=schema,
     )

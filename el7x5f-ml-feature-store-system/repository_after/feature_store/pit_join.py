@@ -56,3 +56,47 @@ def point_in_time_join_pandas(
 
     # Drop the feature timestamp unless user explicitly needs it
     return joined.drop(columns=[feature_time_col])
+
+
+def point_in_time_join_spark(
+    *,
+    labels_df,
+    features_df,
+    entity_keys: Sequence[str],
+    label_time_col: str,
+    feature_time_col: str,
+    feature_cols: Sequence[str],
+):
+    """Point-in-time correct join (Spark).
+
+    Uses a left join with condition feature_time <= label_time, then selects the
+    latest feature per label row via a window ordered by feature_time desc.
+    """
+
+    try:
+        from pyspark.sql import Window
+        import pyspark.sql.functions as F
+    except Exception as e:  # pragma: no cover
+        raise RuntimeError("PySpark is required for point_in_time_join_spark") from e
+
+    # Cast time columns to timestamp for correct ordering/comparisons.
+    labels_cast = labels_df.withColumn(label_time_col, F.to_timestamp(F.col(label_time_col)))
+    feats_cast = features_df.withColumn(feature_time_col, F.to_timestamp(F.col(feature_time_col)))
+
+    # Assign stable row id to each label row so we can window per label
+    labels = labels_cast.withColumn("__label_row_id", F.monotonically_increasing_id())
+
+    join_cond = [labels[k] == feats_cast[k] for k in entity_keys] + [
+        feats_cast[feature_time_col] <= labels[label_time_col]
+    ]
+
+    joined = labels.join(feats_cast, on=join_cond, how="left")
+
+    w = Window.partitionBy("__label_row_id").orderBy(F.col(feature_time_col).desc_nulls_last())
+    ranked = joined.withColumn("__rn", F.row_number().over(w))
+    best = ranked.where(F.col("__rn") == 1)
+
+    # Select original label columns plus requested feature columns
+    label_cols = [c for c in labels_df.columns]
+    out_cols = label_cols + list(feature_cols)
+    return best.select(*out_cols)
