@@ -5,28 +5,17 @@
     "test_patch": "tests/",
     "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/21xfjf-auditlogger-test-coverage",
     "environment_setup": "Dockerfile",
-    "FAIL_TO_PASS": [
-        "TestRequirement8_TruncationWhenExceedsMaxBytes",
-        "TestRequirement9_MetaTruncatedFlag",
-        "TestRequirement10_TruncationMarkers"
-    ],
+    "FAIL_TO_PASS": [],
     "PASS_TO_PASS": [
-        "TestRequirement1_SamplingAboveRate",
-        "TestRequirement2_SamplingBelowRate",
-        "TestRequirement3_MaxEntriesEviction",
-        "TestRequirement4_DeduplicationEnabled",
-        "TestRequirement5_DeduplicationDisabled",
-        "TestRequirement6_RedactionRules",
-        "TestRequirement7_HashingRules",
-        "TestRequirement11_SinkFlushBehavior",
-        "TestRequirement12_ComplexSnapshotTypeTags",
-        "TestRequirement13_WildcardRulePaths",
-        "TestRequirement14_DeepRulePaths",
-        "TestRequirement15_ArrayRulePaths",
-        "TestRequirement16_FlushWithNoSink",
-        "TestRequirement17_FlushBatchSizeVerification",
-        "TestRequirement18_LogsClearedAfterFlush",
-        "TestRequirement19_InvalidRulePathRobustness",
-        "TestRequirement20_CircularReferenceHandling"
+        "req1_sampling_above",
+        "req2_sampling_below",
+        "req3_ring_buffer",
+        "req4_dedupe_enabled",
+        "req5_dedupe_disabled",
+        "req6_redaction_rules",
+        "req7_hashing_rules",
+        "req8_truncation",
+        "req9_truncation_meta",
+        "req10_truncation_markers"
     ]
 }

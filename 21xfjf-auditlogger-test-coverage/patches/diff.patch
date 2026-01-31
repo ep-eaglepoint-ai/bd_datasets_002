@@ -1,72 +1,1748 @@
---- repository_before/auditlogger/auditlogger.go	2026-01-26 10:32:51.030594130 +0300
-+++ repository_after/auditlogger/auditlogger.go	2026-01-26 11:44:13.286047181 +0300
-@@ -93,10 +93,14 @@
- 	if maxEntries <= 0 {
- 		maxEntries = 500
- 	}
-+
-+	// FIXED: Allow small MaxApproxBytes values for truncation to work
-+	// Only use default if not specified (0 or negative)
- 	maxApprox := options.MaxApproxBytes
+diff -ruN repository_before/auditlogger/auditlogger.go repository_after/auditlogger/auditlogger.go
+--- repository_before/auditlogger/auditlogger.go	2026-01-26 10:32:51.000000000 +0300
++++ repository_after/auditlogger/auditlogger.go	1970-01-01 03:00:00.000000000 +0300
+@@ -1,704 +0,0 @@
+-package auditlogger
+-
+-import (
+-	"context"
+-	"encoding/hex"
+-	"fmt"
+-	"hash/fnv"
+-	"reflect"
+-	"sort"
+-	"strings"
+-	"sync"
+-	"time"
+-)
+-
+-type AuditLogEntry struct {
+-	Timestamp string `json:"timestamp"`
+-	ID        string `json:"id"`
+-	Meta      struct {
+-		SampledIn   bool `json:"sampledIn"`
+-		Deduped     bool `json:"deduped"`
+-		Truncated   bool `json:"truncated"`
+-		ApproxBytes int  `json:"approxBytes"`
+-	} `json:"meta"`
+-	Data any `json:"data"`
+-}
+-
+-type Clock interface {
+-	NowISO() string
+-}
+-
+-type RandomSource interface {
+-	Next() float64 // [0,1)
+-}
+-
+-type Sink interface {
+-	Write(ctx context.Context, batch []AuditLogEntry) error
+-}
+-
+-type RuleAction struct {
+-	Kind      string // "redact" | "hash"
+-	With      string // for redact
+-	Salt      string // for hash
+-	PrefixLen int    // for hash, default 12
+-}
+-
+-type Rule struct {
+-	Path   string
+-	Action RuleAction
+-}
+-
+-type Options struct {
+-	MaxEntries     int
+-	MaxApproxBytes int
+-	SampleRate     float64
+-	Dedupe         bool
+-	Rules          []Rule
+-	Sink           Sink
+-
+-	FlushBatchSize int
+-	FlushInterval  time.Duration
+-
+-	Clock  Clock
+-	Random RandomSource
+-}
+-
+-type AuditLogger struct {
+-	mu sync.Mutex
+-
+-	logs []AuditLogEntry
+-
+-	maxEntries     int
+-	maxApproxBytes int
+-	sampleRate     float64
+-	dedupe         bool
+-	rules          []Rule
+-	sink           Sink
+-
+-	flushBatchSize int
+-	flushInterval  time.Duration
+-
+-	clock  Clock
+-	random RandomSource
+-
+-	lastSnapshotID string
+-
+-	flushTimer *time.Timer
+-	flushing   bool
+-	pending    bool
+-}
+-
+-func New(options Options) *AuditLogger {
+-	maxEntries := options.MaxEntries
+-	if maxEntries <= 0 {
+-		maxEntries = 500
+-	}
+-	maxApprox := options.MaxApproxBytes
 -	if maxApprox < 128 {
-+	if maxApprox <= 0 {
- 		maxApprox = 250_000
- 	}
-+
- 	sampleRate := clamp01(options.SampleRate)
- 	if options.Clock == nil {
- 		options.Clock = systemClock{}
-@@ -282,7 +286,6 @@
- 
- func (systemClock) NowISO() string { return time.Now().UTC().Format(time.RFC3339Nano) }
- 
+-		maxApprox = 250_000
+-	}
+-	sampleRate := clamp01(options.SampleRate)
+-	if options.Clock == nil {
+-		options.Clock = systemClock{}
+-	}
+-	if options.Random == nil {
+-		options.Random = mathRandom{}
+-	}
+-	bs := options.FlushBatchSize
+-	if bs <= 0 {
+-		bs = 50
+-	}
+-	fi := options.FlushInterval
+-	if fi < 0 {
+-		fi = 250 * time.Millisecond
+-	}
+-
+-	return &AuditLogger{
+-		logs:           make([]AuditLogEntry, 0, maxEntries),
+-		maxEntries:     maxEntries,
+-		maxApproxBytes: maxApprox,
+-		sampleRate:     sampleRate,
+-		dedupe:         options.Dedupe,
+-		rules:          options.Rules,
+-		sink:           options.Sink,
+-		flushBatchSize: bs,
+-		flushInterval:  fi,
+-		clock:          options.Clock,
+-		random:         options.Random,
+-	}
+-}
+-
+-func (a *AuditLogger) LogRequest(ctx any) {
+-	sampledIn := a.random.Next() < a.sampleRate
+-	if !sampledIn {
+-		return
+-	}
+-
+-	raw := safeClone(ctx)
+-	ruled := applyRules(raw, a.rules)
+-
+-	stable := stableStringify(ruled)
+-	approxBytes := approxUtf8Bytes(stable)
+-
+-	truncated := false
+-	finalData := ruled
+-	if approxBytes > a.maxApproxBytes {
+-		truncated = true
+-		finalData = truncateToBudget(ruled, a.maxApproxBytes)
+-	}
+-
+-	finalStable := stableStringify(finalData)
+-	id := cheapHash(finalStable)
+-
+-	a.mu.Lock()
+-	defer a.mu.Unlock()
+-
+-	deduped := a.dedupe && a.lastSnapshotID == id
+-	if deduped {
+-		return
+-	}
+-	a.lastSnapshotID = id
+-
+-	var entry AuditLogEntry
+-	entry.Timestamp = a.clock.NowISO()
+-	entry.ID = id
+-	entry.Meta.SampledIn = sampledIn
+-	entry.Meta.Deduped = deduped
+-	entry.Meta.Truncated = truncated
+-	if truncated {
+-		entry.Meta.ApproxBytes = approxUtf8Bytes(finalStable)
+-	} else {
+-		entry.Meta.ApproxBytes = approxBytes
+-	}
+-	entry.Data = finalData
+-
+-	a.pushRingLocked(entry)
+-	a.scheduleFlushLocked()
+-}
+-
+-func (a *AuditLogger) GetLogCount() int {
+-	a.mu.Lock()
+-	defer a.mu.Unlock()
+-	return len(a.logs)
+-}
+-
+-func (a *AuditLogger) GetLogsSnapshot() []AuditLogEntry {
+-	a.mu.Lock()
+-	defer a.mu.Unlock()
+-	out := make([]AuditLogEntry, len(a.logs))
+-	copy(out, a.logs)
+-	return out
+-}
+-
+-func (a *AuditLogger) FlushNow(ctx context.Context) error {
+-	if a.sink == nil {
+-		return nil
+-	}
+-	return a.flushInternal(ctx)
+-}
+-
+-func (a *AuditLogger) pushRingLocked(entry AuditLogEntry) {
+-	a.logs = append(a.logs, entry)
+-	if len(a.logs) > a.maxEntries {
+-		extra := len(a.logs) - a.maxEntries
+-		a.logs = append([]AuditLogEntry{}, a.logs[extra:]...)
+-	}
+-}
+-
+-func (a *AuditLogger) scheduleFlushLocked() {
+-	if a.sink == nil {
+-		return
+-	}
+-
+-	if a.flushInterval == 0 {
+-		go func() { _ = a.flushInternal(context.Background()) }()
+-		return
+-	}
+-
+-	if a.flushTimer != nil {
+-		return
+-	}
+-
+-	a.flushTimer = time.AfterFunc(a.flushInterval, func() {
+-		a.mu.Lock()
+-		a.flushTimer = nil
+-		a.mu.Unlock()
+-		_ = a.flushInternal(context.Background())
+-	})
+-}
+-
+-func (a *AuditLogger) flushInternal(ctx context.Context) error {
+-	a.mu.Lock()
+-	if a.sink == nil {
+-		a.mu.Unlock()
+-		return nil
+-	}
+-	if a.flushing {
+-		a.pending = true
+-		a.mu.Unlock()
+-		return nil
+-	}
+-	a.flushing = true
+-	a.mu.Unlock()
+-
+-	defer func() {
+-		a.mu.Lock()
+-		a.flushing = false
+-		a.mu.Unlock()
+-	}()
+-
+-	for {
+-		a.mu.Lock()
+-		logsCopy := make([]AuditLogEntry, len(a.logs))
+-		copy(logsCopy, a.logs)
+-		a.mu.Unlock()
+-
+-		for i := 0; i < len(logsCopy); {
+-			end := i + a.flushBatchSize
+-			if end > len(logsCopy) {
+-				end = len(logsCopy)
+-			}
+-			batch := logsCopy[i:end]
+-			if err := a.sink.Write(ctx, batch); err != nil {
+-				return err
+-			}
+-			i = end
+-		}
+-
+-		a.mu.Lock()
+-		a.logs = nil
+-		p := a.pending
+-		a.pending = false
+-		hasMore := len(a.logs) > 0
+-		a.mu.Unlock()
+-
+-		if !(p && hasMore) {
+-			return nil
+-		}
+-	}
+-}
+-
+-type systemClock struct{}
+-
+-func (systemClock) NowISO() string { return time.Now().UTC().Format(time.RFC3339Nano) }
+-
 -// Default non-deterministic random; tests should inject their own.
- type mathRandom struct{}
- 
- func (mathRandom) Next() float64 { return float64(time.Now().UnixNano()%1_000_000) / 1_000_000.0 }
-@@ -307,8 +310,6 @@
- 	return hex.EncodeToString(h.Sum(nil))
- }
- 
+-type mathRandom struct{}
+-
+-func (mathRandom) Next() float64 { return float64(time.Now().UnixNano()%1_000_000) / 1_000_000.0 }
+-
+-func clamp01(n float64) float64 {
+-	if n < 0 {
+-		return 0
+-	}
+-	if n > 1 {
+-		return 1
+-	}
+-	return n
+-}
+-
+-func approxUtf8Bytes(s string) int {
+-	return len([]byte(s))
+-}
+-
+-func cheapHash(s string) string {
+-	h := fnv.New32a()
+-	_, _ = h.Write([]byte(s))
+-	return hex.EncodeToString(h.Sum(nil))
+-}
+-
 -// safeClone deep-clones common JSON-like structures and tags special types.
 -// It attempts to avoid infinite loops using reflect-based identity when possible.
- func safeClone(input any) any {
- 	visited := map[uintptr]any{}
- 
-@@ -410,8 +411,6 @@
- 	return clone(input)
- }
- 
+-func safeClone(input any) any {
+-	visited := map[uintptr]any{}
+-
+-	var clone func(v any) any
+-	clone = func(v any) any {
+-		if v == nil {
+-			return nil
+-		}
+-
+-		rv := reflect.ValueOf(v)
+-		rt := rv.Type()
+-
+-		switch rv.Kind() {
+-		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+-			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+-			reflect.Float32, reflect.Float64, reflect.String:
+-			return v
+-		case reflect.Func:
+-			return map[string]any{"__type": "Function", "name": rt.String()}
+-		}
+-
+-		if t, ok := v.(time.Time); ok {
+-			return map[string]any{"__type": "Date", "value": t.UTC().Format(time.RFC3339Nano)}
+-		}
+-		if err, ok := v.(error); ok {
+-			return map[string]any{
+-				"__type":  "Error",
+-				"name":    reflect.TypeOf(err).String(),
+-				"message": err.Error(),
+-			}
+-		}
+-
+-		switch rv.Kind() {
+-		case reflect.Map:
+-			if rv.IsNil() {
+-				return nil
+-			}
+-			ptr := rv.Pointer()
+-			if existing, ok := visited[ptr]; ok {
+-				return existing
+-			}
+-			out := map[string]any{}
+-			visited[ptr] = out
+-			for _, k := range rv.MapKeys() {
+-				ks := fmt.Sprint(k.Interface())
+-				out[ks] = clone(rv.MapIndex(k).Interface())
+-			}
+-			return out
+-
+-		case reflect.Slice, reflect.Array:
+-			if rv.Kind() == reflect.Slice && rv.IsNil() {
+-				return nil
+-			}
+-			var ptr uintptr
+-			if rv.Kind() == reflect.Slice && rv.Len() > 0 {
+-				ptr = rv.Pointer()
+-				if existing, ok := visited[ptr]; ok {
+-					return existing
+-				}
+-			}
+-			out := make([]any, rv.Len())
+-			if ptr != 0 {
+-				visited[ptr] = out
+-			}
+-			for i := 0; i < rv.Len(); i++ {
+-				out[i] = clone(rv.Index(i).Interface())
+-			}
+-			return out
+-
+-		case reflect.Pointer:
+-			if rv.IsNil() {
+-				return nil
+-			}
+-			ptr := rv.Pointer()
+-			if existing, ok := visited[ptr]; ok {
+-				return existing
+-			}
+-			visited[ptr] = map[string]any{"__type": "Circular"}
+-			c := clone(rv.Elem().Interface())
+-			visited[ptr] = c
+-			return c
+-
+-		case reflect.Struct:
+-			out := map[string]any{}
+-			for i := 0; i < rv.NumField(); i++ {
+-				f := rt.Field(i)
+-				if f.PkgPath != "" {
+-					continue
+-				}
+-				out[f.Name] = clone(rv.Field(i).Interface())
+-			}
+-			return out
+-
+-		default:
+-			return fmt.Sprint(v)
+-		}
+-	}
+-
+-	return clone(input)
+-}
+-
 -// stableStringify returns deterministic output for maps/slices (sorted keys).
 -// It is used for hashing/dedupe, not as a public JSON format.
- func stableStringify(v any) string {
- 	var sb strings.Builder
- 	seen := map[uintptr]bool{}
-@@ -468,7 +467,9 @@
- 			for i, ks := range keyStrs {
- 				if i > 0 {
- 					sb.WriteString(",")
- 				}
-+				sb.WriteString(`"`)
- 				sb.WriteString(ks)
-+				sb.WriteString(`"`)
- 				sb.WriteString(":")
- 				write(kv[ks].Interface())
- 			}
-@@ -498,7 +499,9 @@
- 			}
- 			sb.WriteString("]")
- 		default:
-+			sb.WriteString(`"`)
- 			sb.WriteString(fmt.Sprint(x))
-+			sb.WriteString(`"`)
- 		}
- 	}
- 
-@@ -701,4 +704,4 @@
- 		}
- 	}
- 	return map[string]any{"__truncated": true, "kind": fmt.Sprintf("%T", value)}
+-func stableStringify(v any) string {
+-	var sb strings.Builder
+-	seen := map[uintptr]bool{}
+-
+-	var write func(x any)
+-	write = func(x any) {
+-		if x == nil {
+-			sb.WriteString("null")
+-			return
+-		}
+-		rv := reflect.ValueOf(x)
+-
+-		switch rv.Kind() {
+-		case reflect.String:
+-			sb.WriteString(`"`)
+-			sb.WriteString(rv.String())
+-			sb.WriteString(`"`)
+-		case reflect.Bool:
+-			if rv.Bool() {
+-				sb.WriteString("true")
+-			} else {
+-				sb.WriteString("false")
+-			}
+-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+-			sb.WriteString(fmt.Sprintf("%d", rv.Int()))
+-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+-			sb.WriteString(fmt.Sprintf("%d", rv.Uint()))
+-		case reflect.Float32, reflect.Float64:
+-			sb.WriteString(fmt.Sprintf("%g", rv.Float()))
+-		case reflect.Map:
+-			if rv.IsNil() {
+-				sb.WriteString("null")
+-				return
+-			}
+-			ptr := rv.Pointer()
+-			if ptr != 0 {
+-				if seen[ptr] {
+-					sb.WriteString(`{"__type":"Circular"}`)
+-					return
+-				}
+-				seen[ptr] = true
+-			}
+-			sb.WriteString("{")
+-			keys := rv.MapKeys()
+-			keyStrs := make([]string, 0, len(keys))
+-			kv := make(map[string]reflect.Value, len(keys))
+-			for _, k := range keys {
+-				ks := fmt.Sprint(k.Interface())
+-				keyStrs = append(keyStrs, ks)
+-				kv[ks] = rv.MapIndex(k)
+-			}
+-			sort.Strings(keyStrs)
+-			for i, ks := range keyStrs {
+-				if i > 0 {
+-					sb.WriteString(",")
+-				}
+-				sb.WriteString(ks)
+-				sb.WriteString(":")
+-				write(kv[ks].Interface())
+-			}
+-			sb.WriteString("}")
+-		case reflect.Slice, reflect.Array:
+-			if rv.Kind() == reflect.Slice && rv.IsNil() {
+-				sb.WriteString("null")
+-				return
+-			}
+-			ptr := uintptr(0)
+-			if rv.Kind() == reflect.Slice && rv.Len() > 0 {
+-				ptr = rv.Pointer()
+-			}
+-			if ptr != 0 {
+-				if seen[ptr] {
+-					sb.WriteString(`[{"__type":"Circular"}]`)
+-					return
+-				}
+-				seen[ptr] = true
+-			}
+-			sb.WriteString("[")
+-			for i := 0; i < rv.Len(); i++ {
+-				if i > 0 {
+-					sb.WriteString(",")
+-				}
+-				write(rv.Index(i).Interface())
+-			}
+-			sb.WriteString("]")
+-		default:
+-			sb.WriteString(fmt.Sprint(x))
+-		}
+-	}
+-
+-	write(v)
+-	return sb.String()
 -}
+-
+-func applyRules(snapshot any, rules []Rule) any {
+-	if len(rules) == 0 {
+-		return snapshot
+-	}
+-	root := safeClone(snapshot)
+-
+-	for _, rule := range rules {
+-		matches := findMatches(root, rule.Path)
+-		for _, m := range matches {
+-			parent := m.parent
+-			key := m.key
+-			if parent == nil || key == "" {
+-				continue
+-			}
+-			current, ok := parent[key]
+-			if !ok {
+-				continue
+-			}
+-			switch rule.Action.Kind {
+-			case "redact":
+-				with := rule.Action.With
+-				if with == "" {
+-					with = "[REDACTED]"
+-				}
+-				parent[key] = with
+-			case "hash":
+-				prefixLen := rule.Action.PrefixLen
+-				if prefixLen <= 0 {
+-					prefixLen = 12
+-				}
+-				st := stableStringify(current)
+-				h := cheapHash(rule.Action.Salt + st)
+-				if prefixLen > len(h) {
+-					prefixLen = len(h)
+-				}
+-				parent[key] = fmt.Sprintf("[HASH:%s]", h[:prefixLen])
+-			}
+-		}
+-	}
+-	return root
+-}
+-
+-type match struct {
+-	parent map[string]any
+-	key    string
+-}
+-
+-func findMatches(root any, pathExpr string) []match {
+-	if !strings.HasPrefix(pathExpr, "$.") {
+-		return nil
+-	}
+-	tokens := tokenize(pathExpr[2:])
+-	out := []match{}
+-
+-	var visit func(node any, parent map[string]any, key string, ti int)
+-	visit = func(node any, parent map[string]any, key string, ti int) {
+-		if ti == len(tokens) {
+-			if parent != nil && key != "" {
+-				out = append(out, match{parent: parent, key: key})
+-			}
+-			return
+-		}
+-		t := tokens[ti]
+-
+-		if t.kind == "deep" {
+-			visit(node, parent, key, ti+1)
+-			switch n := node.(type) {
+-			case []any:
+-				for i := range n {
+-					visit(n[i], nil, "", ti)
+-				}
+-			case map[string]any:
+-				for k := range n {
+-					visit(n[k], n, k, ti)
+-				}
+-			}
+-			return
+-		}
+-
+-		switch n := node.(type) {
+-		case map[string]any:
+-			if t.kind == "wildcard" {
+-				for k := range n {
+-					visit(n[k], n, k, ti+1)
+-				}
+-				return
+-			}
+-			if t.kind == "field" {
+-				child, ok := n[t.name]
+-				if !ok {
+-					return
+-				}
+-				visit(child, n, t.name, ti+1)
+-				return
+-			}
+-		case []any:
+-			if t.kind == "wildcard" || t.kind == "arrayAll" {
+-				for i := range n {
+-					visit(n[i], nil, "", ti+1)
+-				}
+-				return
+-			}
+-		default:
+-			return
+-		}
+-	}
+-
+-	visit(root, nil, "", 0)
+-	return out
+-}
+-
+-type token struct {
+-	kind string // field | wildcard | arrayAll | deep
+-	name string
+-}
+-
+-func tokenize(p string) []token {
+-	parts := strings.Split(p, ".")
+-	toks := make([]token, 0, len(parts))
+-	for _, part := range parts {
+-		switch {
+-		case part == "**":
+-			toks = append(toks, token{kind: "deep"})
+-		case part == "*":
+-			toks = append(toks, token{kind: "wildcard"})
+-		case strings.HasSuffix(part, "[*]"):
+-			name := strings.TrimSuffix(part, "[*]")
+-			toks = append(toks, token{kind: "field", name: name})
+-			toks = append(toks, token{kind: "arrayAll"})
+-		default:
+-			toks = append(toks, token{kind: "field", name: part})
+-		}
+-	}
+-	return toks
+-}
+-
+-func truncateToBudget(value any, maxBytes int) any {
+-	clone := safeClone(value)
+-
+-	var summarize func(v any, depth int) any
+-	summarize = func(v any, depth int) any {
+-		if v == nil {
+-			return nil
+-		}
+-		switch vv := v.(type) {
+-		case map[string]any:
+-			if depth <= 0 {
+-				return map[string]any{"__truncated": true, "kind": "Object", "keys": len(vv)}
+-			}
+-			keys := make([]string, 0, len(vv))
+-			for k := range vv {
+-				keys = append(keys, k)
+-			}
+-			sort.Strings(keys)
+-			limit := 20
+-			if len(keys) < limit {
+-				limit = len(keys)
+-			}
+-			out := map[string]any{}
+-			for i := 0; i < limit; i++ {
+-				k := keys[i]
+-				out[k] = summarize(vv[k], depth-1)
+-			}
+-			if len(keys) > limit {
+-				out["__moreKeys"] = len(keys) - limit
+-			}
+-			return out
+-		case []any:
+-			if depth <= 0 {
+-				return map[string]any{"__truncated": true, "kind": "Array", "length": len(vv)}
+-			}
+-			limit := 10
+-			if len(vv) < limit {
+-				limit = len(vv)
+-			}
+-			out := make([]any, 0, limit+1)
+-			for i := 0; i < limit; i++ {
+-				out = append(out, summarize(vv[i], depth-1))
+-			}
+-			if len(vv) > limit {
+-				out = append(out, map[string]any{"__more": len(vv) - limit})
+-			}
+-			return out
+-		default:
+-			return v
+-		}
+-	}
+-
+-	for depth := 6; depth >= 0; depth-- {
+-		cand := summarize(clone, depth)
+-		if approxUtf8Bytes(stableStringify(cand)) <= maxBytes {
+-			return cand
+-		}
+-	}
+-	return map[string]any{"__truncated": true, "kind": fmt.Sprintf("%T", value)}
+-}
+diff -ruN repository_before/auditlogger_test.go repository_after/auditlogger_test.go
+--- repository_before/auditlogger_test.go	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/auditlogger_test.go	2026-01-31 11:49:50.444729502 +0300
+@@ -0,0 +1,1022 @@
++package auditlogger_test
++
++import (
++	"context"
++	"errors"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"example.com/auditlogger/auditlogger"
++)
++
++// ==================== FAKE IMPLEMENTATIONS ====================
++
++// FakeClock returns a fixed timestamp for deterministic testing
++type FakeClock struct {
++	FixedTime string
 +}
++
++func (f FakeClock) NowISO() string {
++	return f.FixedTime
++}
++
++// FakeRandomSource returns controlled float64 values
++type FakeRandomSource struct {
++	mu     sync.Mutex
++	values []float64
++	index  int
++}
++
++func NewFakeRandom(values ...float64) *FakeRandomSource {
++	return &FakeRandomSource{values: values}
++}
++
++func (f *FakeRandomSource) Next() float64 {
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	if len(f.values) == 0 {
++		return 0.0
++	}
++	val := f.values[f.index%len(f.values)]
++	f.index++
++	return val
++}
++
++// FakeSink captures batches passed to Write
++type FakeSink struct {
++	mu      sync.Mutex
++	Batches [][]auditlogger.AuditLogEntry
++	Err     error
++}
++
++func (f *FakeSink) Write(ctx context.Context, batch []auditlogger.AuditLogEntry) error {
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	if f.Err != nil {
++		return f.Err
++	}
++	batchCopy := make([]auditlogger.AuditLogEntry, len(batch))
++	copy(batchCopy, batch)
++	f.Batches = append(f.Batches, batchCopy)
++	return nil
++}
++
++func (f *FakeSink) GetBatches() [][]auditlogger.AuditLogEntry {
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	return f.Batches
++}
++
++func (f *FakeSink) TotalEntries() int {
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	count := 0
++	for _, b := range f.Batches {
++		count += len(b)
++	}
++	return count
++}
++
++// ==================== REQUIREMENT 1 & 2: SAMPLING BEHAVIOR ====================
++
++func TestSampling_RandomAboveSampleRate_NoLogCreated(t *testing.T) {
++	// Requirement 1: When random >= sampleRate, no log entry is created
++	tests := []struct {
++		name       string
++		sampleRate float64
++		randomVal  float64
++	}{
++		{"random equals sampleRate", 0.5, 0.5},
++		{"random above sampleRate", 0.5, 0.7},
++		{"random at 1.0 with full sample", 1.0, 1.0},
++		{"random at 0.99 with 0.5 rate", 0.5, 0.99},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			logger := auditlogger.New(auditlogger.Options{
++				SampleRate: tt.sampleRate,
++				Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++				Random:     NewFakeRandom(tt.randomVal),
++			})
++
++			logger.LogRequest(map[string]any{"key": "value"})
++
++			if count := logger.GetLogCount(); count != 0 {
++				t.Errorf("Expected 0 logs when random(%f) >= sampleRate(%f), got %d",
++					tt.randomVal, tt.sampleRate, count)
++			}
++		})
++	}
++}
++
++func TestSampling_RandomBelowSampleRate_OneLogCreated(t *testing.T) {
++	// Requirement 2: When random < sampleRate, exactly one log entry is created
++	tests := []struct {
++		name       string
++		sampleRate float64
++		randomVal  float64
++	}{
++		{"random below sampleRate", 0.5, 0.3},
++		{"random at 0 with any positive rate", 0.1, 0.0},
++		{"random just below sampleRate", 0.5, 0.49},
++		{"full sampling rate", 1.0, 0.99},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			logger := auditlogger.New(auditlogger.Options{
++				SampleRate: tt.sampleRate,
++				Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++				Random:     NewFakeRandom(tt.randomVal),
++			})
++
++			logger.LogRequest(map[string]any{"key": "value"})
++
++			if count := logger.GetLogCount(); count != 1 {
++				t.Errorf("Expected 1 log when random(%f) < sampleRate(%f), got %d",
++					tt.randomVal, tt.sampleRate, count)
++			}
++		})
++	}
++}
++
++func TestSampling_ZeroSampleRate_NoLogs(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 0.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.0),
++	})
++
++	logger.LogRequest(map[string]any{"test": "data"})
++
++	if count := logger.GetLogCount(); count != 0 {
++		t.Errorf("Expected 0 logs with sampleRate=0, got %d", count)
++	}
++}
++
++// ==================== REQUIREMENT 3: RING BUFFER EVICTION ====================
++
++func TestRingBuffer_EvictsOldestEntries(t *testing.T) {
++	// Requirement 3: When more than maxEntries logged, oldest are evicted
++	maxEntries := 3
++	logger := auditlogger.New(auditlogger.Options{
++		MaxEntries: maxEntries,
++		SampleRate: 1.0,
++		Dedupe:     false,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	// Log 5 entries
++	for i := 1; i <= 5; i++ {
++		logger.LogRequest(map[string]any{"entry": i})
++	}
++
++	if count := logger.GetLogCount(); count != maxEntries {
++		t.Errorf("Expected %d entries, got %d", maxEntries, count)
++	}
++
++	// Verify only the newest entries remain (entries 3, 4, 5)
++	logs := logger.GetLogsSnapshot()
++	for i, log := range logs {
++		data, ok := log.Data.(map[string]any)
++		if !ok {
++			t.Fatalf("Expected map data, got %T", log.Data)
++		}
++		expectedEntry := i + 3 // entries 3, 4, 5
++		if data["entry"] != expectedEntry {
++			t.Errorf("Entry %d: expected entry=%d, got %v", i, expectedEntry, data["entry"])
++		}
++	}
++}
++
++func TestRingBuffer_MaintainsOrder(t *testing.T) {
++	maxEntries := 5
++	logger := auditlogger.New(auditlogger.Options{
++		MaxEntries: maxEntries,
++		SampleRate: 1.0,
++		Dedupe:     false,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	// Log 10 entries
++	for i := 1; i <= 10; i++ {
++		logger.LogRequest(map[string]any{"seq": i})
++	}
++
++	logs := logger.GetLogsSnapshot()
++	if len(logs) != maxEntries {
++		t.Fatalf("Expected %d logs, got %d", maxEntries, len(logs))
++	}
++
++	// Check order: should be 6, 7, 8, 9, 10
++	for i, log := range logs {
++		data := log.Data.(map[string]any)
++		expected := i + 6
++		if data["seq"] != expected {
++			t.Errorf("Position %d: expected seq=%d, got %v", i, expected, data["seq"])
++		}
++	}
++}
++
++// ==================== REQUIREMENT 4 & 5: DEDUPLICATION ====================
++
++func TestDedupe_Enabled_DuplicatesNotStored(t *testing.T) {
++	// Requirement 4: With dedupe enabled, same snapshot = single entry
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Dedupe:     true,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	sameData := map[string]any{"user": "alice", "action": "login"}
++
++	logger.LogRequest(sameData)
++	logger.LogRequest(sameData)
++	logger.LogRequest(sameData)
++
++	if count := logger.GetLogCount(); count != 1 {
++		t.Errorf("Expected 1 log with dedupe enabled, got %d", count)
++	}
++}
++
++func TestDedupe_Disabled_DuplicatesStored(t *testing.T) {
++	// Requirement 5: With dedupe disabled, identical snapshots logged multiple times
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Dedupe:     false,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	sameData := map[string]any{"user": "alice", "action": "login"}
++
++	logger.LogRequest(sameData)
++	logger.LogRequest(sameData)
++	logger.LogRequest(sameData)
++
++	if count := logger.GetLogCount(); count != 3 {
++		t.Errorf("Expected 3 logs with dedupe disabled, got %d", count)
++	}
++}
++
++func TestDedupe_DifferentDataNotDeduped(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Dedupe:     true,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"user": "alice"})
++	logger.LogRequest(map[string]any{"user": "bob"})
++	logger.LogRequest(map[string]any{"user": "charlie"})
++
++	if count := logger.GetLogCount(); count != 3 {
++		t.Errorf("Expected 3 different logs, got %d", count)
++	}
++}
++
++// ==================== REQUIREMENT 6: REDACTION RULES ====================
++
++func TestRedaction_SimplePathDefaultReplacement(t *testing.T) {
++	// Requirement 6: Redaction replaces with [REDACTED]
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path:   "$.user.password",
++				Action: auditlogger.RuleAction{Kind: "redact"},
++			},
++		},
++	})
++
++	logger.LogRequest(map[string]any{
++		"user": map[string]any{
++			"name":     "alice",
++			"password": "secret123",
++		},
++	})
++
++	logs := logger.GetLogsSnapshot()
++	if len(logs) != 1 {
++		t.Fatalf("Expected 1 log, got %d", len(logs))
++	}
++
++	data := logs[0].Data.(map[string]any)
++	user := data["user"].(map[string]any)
++
++	if user["password"] != "[REDACTED]" {
++		t.Errorf("Expected password to be [REDACTED], got %v", user["password"])
++	}
++	if user["name"] != "alice" {
++		t.Errorf("Expected name to remain 'alice', got %v", user["name"])
++	}
++}
++
++func TestRedaction_CustomReplacement(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path:   "$.secret",
++				Action: auditlogger.RuleAction{Kind: "redact", With: "***HIDDEN***"},
++			},
++		},
++	})
++
++	logger.LogRequest(map[string]any{"secret": "mysecret", "public": "visible"})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++
++	if data["secret"] != "***HIDDEN***" {
++		t.Errorf("Expected custom replacement, got %v", data["secret"])
++	}
++}
++
++func TestRedaction_WildcardPath(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path:   "$.users.*.password",
++				Action: auditlogger.RuleAction{Kind: "redact"},
++			},
++		},
++	})
++
++	logger.LogRequest(map[string]any{
++		"users": map[string]any{
++			"alice": map[string]any{"password": "pass1"},
++			"bob":   map[string]any{"password": "pass2"},
++		},
++	})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++	users := data["users"].(map[string]any)
++
++	alice := users["alice"].(map[string]any)
++	bob := users["bob"].(map[string]any)
++
++	if alice["password"] != "[REDACTED]" {
++		t.Errorf("Expected alice password redacted, got %v", alice["password"])
++	}
++	if bob["password"] != "[REDACTED]" {
++		t.Errorf("Expected bob password redacted, got %v", bob["password"])
++	}
++}
++
++// ==================== REQUIREMENT 7: HASHING RULES ====================
++
++func TestHashing_DeterministicOutput(t *testing.T) {
++	// Requirement 7: Hashing produces deterministic [HASH:...] values
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path: "$.user.email",
++				Action: auditlogger.RuleAction{
++					Kind:      "hash",
++					Salt:      "testsalt",
++					PrefixLen: 8,
++				},
++			},
++		},
++	})
++
++	logger.LogRequest(map[string]any{
++		"user": map[string]any{"email": "test@example.com"},
++	})
++
++	// Create new logger with same config
++	logger2 := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path: "$.user.email",
++				Action: auditlogger.RuleAction{
++					Kind:      "hash",
++					Salt:      "testsalt",
++					PrefixLen: 8,
++				},
++			},
++		},
++	})
++
++	logger2.LogRequest(map[string]any{
++		"user": map[string]any{"email": "test@example.com"},
++	})
++
++	logs1 := logger.GetLogsSnapshot()
++	logs2 := logger2.GetLogsSnapshot()
++
++	data1 := logs1[0].Data.(map[string]any)
++	data2 := logs2[0].Data.(map[string]any)
++
++	user1 := data1["user"].(map[string]any)
++	user2 := data2["user"].(map[string]any)
++
++	hash1 := user1["email"].(string)
++	hash2 := user2["email"].(string)
++
++	if !strings.HasPrefix(hash1, "[HASH:") {
++		t.Errorf("Expected hash prefix [HASH:, got %s", hash1)
++	}
++	if hash1 != hash2 {
++		t.Errorf("Expected deterministic hashes, got %s vs %s", hash1, hash2)
++	}
++}
++
++func TestHashing_DifferentSaltsDifferentHashes(t *testing.T) {
++	makeLogger := func(salt string) *auditlogger.AuditLogger {
++		return auditlogger.New(auditlogger.Options{
++			SampleRate: 1.0,
++			Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++			Random:     NewFakeRandom(0.1),
++			Rules: []auditlogger.Rule{
++				{
++					Path:   "$.data",
++					Action: auditlogger.RuleAction{Kind: "hash", Salt: salt, PrefixLen: 12},
++				},
++			},
++		})
++	}
++
++	logger1 := makeLogger("salt1")
++	logger2 := makeLogger("salt2")
++
++	logger1.LogRequest(map[string]any{"data": "value"})
++	logger2.LogRequest(map[string]any{"data": "value"})
++
++	data1 := logger1.GetLogsSnapshot()[0].Data.(map[string]any)
++	data2 := logger2.GetLogsSnapshot()[0].Data.(map[string]any)
++
++	if data1["data"] == data2["data"] {
++		t.Errorf("Expected different hashes for different salts")
++	}
++}
++
++func TestHashing_HasCorrectFormat(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path:   "$.token",
++				Action: auditlogger.RuleAction{Kind: "hash", Salt: "salt", PrefixLen: 6},
++			},
++		},
++	})
++
++	logger.LogRequest(map[string]any{"token": "secret-token"})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++	hashed := data["token"].(string)
++
++	if !strings.HasPrefix(hashed, "[HASH:") || !strings.HasSuffix(hashed, "]") {
++		t.Errorf("Expected [HASH:...] format, got %s", hashed)
++	}
++}
++
++// ==================== REQUIREMENT 8, 9, 10: TRUNCATION ====================
++
++func TestTruncation_LargeInputTruncated(t *testing.T) {
++	// Requirement 8: Large inputs truncated with small maxApproxBytes
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate:     1.0,
++		MaxApproxBytes: 150,
++		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:         NewFakeRandom(0.1),
++	})
++
++	largeData := map[string]any{
++		"field1": "this is a long string value",
++		"field2": "another long string here",
++		"field3": "and yet another one",
++		"nested": map[string]any{
++			"deep1": "deeply nested value",
++			"deep2": "another deep value",
++		},
++	}
++
++	logger.LogRequest(largeData)
++
++	logs := logger.GetLogsSnapshot()
++	if len(logs) != 1 {
++		t.Fatalf("Expected 1 log, got %d", len(logs))
++	}
++
++	// Requirement 9: meta.Truncated should be true
++	if !logs[0].Meta.Truncated {
++		t.Error("Expected Meta.Truncated to be true")
++	}
++}
++
++func TestTruncation_ContainsTruncationMarkers(t *testing.T) {
++	// Requirement 10: Output contains __truncated, __more, or __moreKeys
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate:     1.0,
++		MaxApproxBytes: 128,
++		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:         NewFakeRandom(0.1),
++	})
++
++	// Create a large nested structure
++	largeData := make(map[string]any)
++	for i := 0; i < 50; i++ {
++		largeData[strings.Repeat("k", 10)+string(rune('a'+i%26))] = strings.Repeat("v", 50)
++	}
++
++	logger.LogRequest(largeData)
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data
++
++	found := containsTruncationMarkers(data)
++	if !found {
++		t.Error("Expected truncation markers (__truncated, __more, or __moreKeys) in data")
++	}
++}
++
++func containsTruncationMarkers(v any) bool {
++	switch val := v.(type) {
++	case map[string]any:
++		if _, ok := val["__truncated"]; ok {
++			return true
++		}
++		if _, ok := val["__more"]; ok {
++			return true
++		}
++		if _, ok := val["__moreKeys"]; ok {
++			return true
++		}
++		for _, child := range val {
++			if containsTruncationMarkers(child) {
++				return true
++			}
++		}
++	case []any:
++		for _, item := range val {
++			if containsTruncationMarkers(item) {
++				return true
++			}
++		}
++	}
++	return false
++}
++
++func TestTruncation_SmallDataNotTruncated(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate:     1.0,
++		MaxApproxBytes: 10000,
++		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:         NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"small": "data"})
++
++	logs := logger.GetLogsSnapshot()
++	if logs[0].Meta.Truncated {
++		t.Error("Expected Meta.Truncated to be false for small data")
++	}
++}
++
++// ==================== FLUSHING TESTS ====================
++
++func TestFlush_BatchSizeRespected(t *testing.T) {
++	sink := &FakeSink{}
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate:     1.0,
++		FlushBatchSize: 3,
++		FlushInterval:  -1,
++		Sink:           sink,
++		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:         NewFakeRandom(0.1),
++		Dedupe:         false,
++	})
++
++	for i := 0; i < 7; i++ {
++		logger.LogRequest(map[string]any{"i": i})
++	}
++
++	err := logger.FlushNow(context.Background())
++	if err != nil {
++		t.Fatalf("FlushNow error: %v", err)
++	}
++
++	batches := sink.GetBatches()
++	if len(batches) < 2 {
++		t.Errorf("Expected multiple batches, got %d", len(batches))
++	}
++
++	for _, batch := range batches {
++		if len(batch) > 3 {
++			t.Errorf("Batch size %d exceeds FlushBatchSize 3", len(batch))
++		}
++	}
++
++	if sink.TotalEntries() != 7 {
++		t.Errorf("Expected 7 total entries flushed, got %d", sink.TotalEntries())
++	}
++}
++
++func TestFlush_ClearsLogsAfterSuccess(t *testing.T) {
++	sink := &FakeSink{}
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate:    1.0,
++		FlushInterval: -1,
++		Sink:          sink,
++		Clock:         FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:        NewFakeRandom(0.1),
++		Dedupe:        false,
++	})
++
++	logger.LogRequest(map[string]any{"test": 1})
++	logger.LogRequest(map[string]any{"test": 2})
++
++	if logger.GetLogCount() != 2 {
++		t.Fatalf("Expected 2 logs before flush")
++	}
++
++	err := logger.FlushNow(context.Background())
++	if err != nil {
++		t.Fatalf("FlushNow error: %v", err)
++	}
++
++	if logger.GetLogCount() != 0 {
++		t.Errorf("Expected 0 logs after flush, got %d", logger.GetLogCount())
++	}
++}
++
++func TestFlush_NoSinkNoError(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Sink:       nil,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"test": "data"})
++
++	err := logger.FlushNow(context.Background())
++	if err != nil {
++		t.Errorf("Expected no error with nil sink, got %v", err)
++	}
++}
++
++// ==================== SNAPSHOTTING SPECIAL TYPES ====================
++
++func TestSnapshot_TimeType(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	testTime := time.Date(2024, 6, 15, 12, 30, 0, 0, time.UTC)
++	logger.LogRequest(map[string]any{"timestamp": testTime})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++	ts := data["timestamp"].(map[string]any)
++
++	if ts["__type"] != "Date" {
++		t.Errorf("Expected __type='Date', got %v", ts["__type"])
++	}
++	if _, ok := ts["value"]; !ok {
++		t.Error("Expected 'value' field in Date representation")
++	}
++}
++
++func TestSnapshot_ErrorType(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	testErr := errors.New("test error message")
++	logger.LogRequest(map[string]any{"error": testErr})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++	errData := data["error"].(map[string]any)
++
++	if errData["__type"] != "Error" {
++		t.Errorf("Expected __type='Error', got %v", errData["__type"])
++	}
++	if errData["message"] != "test error message" {
++		t.Errorf("Expected message='test error message', got %v", errData["message"])
++	}
++}
++
++func TestSnapshot_FunctionType(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	testFunc := func(x int) int { return x * 2 }
++	logger.LogRequest(map[string]any{"callback": testFunc})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++	fn := data["callback"].(map[string]any)
++
++	if fn["__type"] != "Function" {
++		t.Errorf("Expected __type='Function', got %v", fn["__type"])
++	}
++}
++
++func TestSnapshot_NestedMapsAndSlices(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	nested := map[string]any{
++		"level1": map[string]any{
++			"level2": map[string]any{
++				"values": []any{1, 2, 3},
++			},
++		},
++		"array": []any{
++			map[string]any{"a": 1},
++			map[string]any{"b": 2},
++		},
++	}
++
++	logger.LogRequest(nested)
++
++	logs := logger.GetLogsSnapshot()
++	if len(logs) != 1 {
++		t.Fatalf("Expected 1 log, got %d", len(logs))
++	}
++
++	data := logs[0].Data.(map[string]any)
++	if data["level1"] == nil {
++		t.Error("Expected level1 to exist")
++	}
++}
++
++func TestSnapshot_CircularReference_NoPanic(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	circular := make(map[string]any)
++	circular["self"] = circular
++
++	defer func() {
++		if r := recover(); r != nil {
++			t.Errorf("Snapshot panicked on circular reference: %v", r)
++		}
++	}()
++
++	logger.LogRequest(circular)
++
++	if logger.GetLogCount() != 1 {
++		t.Error("Expected log to be created even with circular reference")
++	}
++}
++
++// ==================== ROBUSTNESS TESTS ====================
++
++func TestRobustness_InvalidRulePath_NoCrash(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path:   "invalid.path",
++				Action: auditlogger.RuleAction{Kind: "redact"},
++			},
++			{
++				Path:   "also_invalid",
++				Action: auditlogger.RuleAction{Kind: "hash", Salt: "salt"},
++			},
++		},
++	})
++
++	data := map[string]any{"key": "value", "invalid": map[string]any{"path": "secret"}}
++
++	logger.LogRequest(data)
++
++	logs := logger.GetLogsSnapshot()
++	if len(logs) != 1 {
++		t.Fatalf("Expected 1 log, got %d", len(logs))
++	}
++
++	logData := logs[0].Data.(map[string]any)
++	if logData["key"] != "value" {
++		t.Errorf("Expected key='value', got %v", logData["key"])
++	}
++}
++
++func TestRobustness_NilInput(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(nil)
++
++	if logger.GetLogCount() != 1 {
++		t.Error("Expected log even with nil input")
++	}
++}
++
++func TestRobustness_EmptyMap(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{})
++
++	if logger.GetLogCount() != 1 {
++		t.Error("Expected log for empty map")
++	}
++}
++
++// ==================== META FIELD TESTS ====================
++
++func TestMeta_SampledInTrue(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"test": true})
++
++	logs := logger.GetLogsSnapshot()
++	if !logs[0].Meta.SampledIn {
++		t.Error("Expected Meta.SampledIn to be true")
++	}
++}
++
++func TestMeta_DedupedFalseForFirstEntry(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Dedupe:     true,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"test": true})
++
++	logs := logger.GetLogsSnapshot()
++	if logs[0].Meta.Deduped {
++		t.Error("Expected Meta.Deduped to be false for first entry")
++	}
++}
++
++func TestMeta_ApproxBytesPopulated(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"data": "some value"})
++
++	logs := logger.GetLogsSnapshot()
++	if logs[0].Meta.ApproxBytes <= 0 {
++		t.Errorf("Expected positive ApproxBytes, got %d", logs[0].Meta.ApproxBytes)
++	}
++}
++
++func TestEntry_TimestampFromClock(t *testing.T) {
++	fixedTime := "2024-06-15T10:30:00Z"
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: fixedTime},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"test": true})
++
++	logs := logger.GetLogsSnapshot()
++	if logs[0].Timestamp != fixedTime {
++		t.Errorf("Expected timestamp %s, got %s", fixedTime, logs[0].Timestamp)
++	}
++}
++
++func TestEntry_IDGenerated(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++	})
++
++	logger.LogRequest(map[string]any{"test": true})
++
++	logs := logger.GetLogsSnapshot()
++	if logs[0].ID == "" {
++		t.Error("Expected non-empty ID")
++	}
++}
++
++// ==================== DEEP WILDCARD TESTS ====================
++
++func TestRules_DeepWildcard(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path:   "$.**.secret",
++				Action: auditlogger.RuleAction{Kind: "redact"},
++			},
++		},
++	})
++
++	logger.LogRequest(map[string]any{
++		"level1": map[string]any{
++			"secret": "hidden1",
++			"level2": map[string]any{
++				"secret": "hidden2",
++			},
++		},
++		"secret": "hidden0",
++	})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++
++	if data["secret"] != "[REDACTED]" {
++		t.Errorf("Expected top-level secret redacted, got %v", data["secret"])
++	}
++
++	level1 := data["level1"].(map[string]any)
++	if level1["secret"] != "[REDACTED]" {
++		t.Errorf("Expected level1 secret redacted, got %v", level1["secret"])
++	}
++
++	level2 := level1["level2"].(map[string]any)
++	if level2["secret"] != "[REDACTED]" {
++		t.Errorf("Expected level2 secret redacted, got %v", level2["secret"])
++	}
++}
++
++// ==================== ARRAY PATH TESTS ====================
++
++func TestRules_ArrayWildcard(t *testing.T) {
++	logger := auditlogger.New(auditlogger.Options{
++		SampleRate: 1.0,
++		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
++		Random:     NewFakeRandom(0.1),
++		Rules: []auditlogger.Rule{
++			{
++				Path:   "$.users[*].password",
++				Action: auditlogger.RuleAction{Kind: "redact"},
++			},
++		},
++	})
++
++	logger.LogRequest(map[string]any{
++		"users": []any{
++			map[string]any{"name": "alice", "password": "pass1"},
++			map[string]any{"name": "bob", "password": "pass2"},
++		},
++	})
++
++	logs := logger.GetLogsSnapshot()
++	data := logs[0].Data.(map[string]any)
++	users := data["users"].([]any)
++
++	for i, u := range users {
++		user := u.(map[string]any)
++		if user["password"] != "[REDACTED]" {
++			t.Errorf("Expected user %d password redacted, got %v", i, user["password"])
++		}
++	}
++}
+\ No newline at end of file
+diff -ruN repository_before/go.mod repository_after/go.mod
+--- repository_before/go.mod	2026-01-26 10:33:39.000000000 +0300
++++ repository_after/go.mod	2026-01-31 11:47:41.610437167 +0300
+@@ -1,3 +1,7 @@
+-module example.com/auditlogger
++module example.com/auditlogger-tests
+ 
+ go 1.21
++
++require example.com/auditlogger v0.0.0
++
++replace example.com/auditlogger => ../repository_before
 \ No newline at end of file

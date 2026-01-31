@@ -1,26 +1,14 @@
 FROM golang:1.21-alpine
 
-# Install git for version info
+WORKDIR /app
+
 RUN apk add --no-cache git
 
-WORKDIR /app
-COPY . /app
+COPY . .
 
-# Create reports directory
-RUN mkdir -p /app/evaluation/reports
+# Initialize go modules
+RUN cd /app/repository_before && go mod download || true
+RUN cd /app/repository_after && go mod download || true
+RUN cd /app/tests && go mod download || true
 
-# Initialize modules
-WORKDIR /app/repository_before
-RUN go mod tidy
-
-WORKDIR /app/repository_after
-RUN go mod tidy
-
-WORKDIR /app/tests
-RUN go mod tidy
-
-WORKDIR /app/evaluation
-RUN go mod tidy
-
-WORKDIR /app
-CMD ["sh", "-c", "cd /app/evaluation && go run evaluation.go"]
+CMD ["go", "run", "/app/evaluation/evaluation.go"]

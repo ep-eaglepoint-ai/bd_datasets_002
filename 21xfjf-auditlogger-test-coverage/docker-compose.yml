@@ -1,27 +1,26 @@
 version: '3.8'
 
 services:
-  repository-before:
+  # Run tests (repository_after tests the repository_before code)
+  after:
     build: .
+    working_dir: /app/repository_after
+    command: go test -v ./...
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    command: sh -c "cd /app/tests && go test -v -run '/BeforeVersion' ./..."
 
-  repository-after:
+  # Run meta tests
+  meta:
     build: .
+    working_dir: /app/tests
+    command: go test -v ./...
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    command: sh -c "cd /app/tests && go test -v -run '/AfterVersion' ./..."
 
-  evaluation:
+  # Run full evaluation
+  evaluate:
     build: .
+    working_dir: /app
+    command: go run /app/evaluation/evaluation.go
     volumes:
       - ./evaluation/reports:/app/evaluation/reports
-    working_dir: /app/evaluation
-    command: sh -c "go run evaluation.go"
-
-  all-tests:
-    build: .
-    volumes:
-      - ./evaluation/reports:/app/evaluation/reports
-    command: sh -c "cd /app/tests && go test -v ./... && cd /app/evaluation && go run evaluation.go"
