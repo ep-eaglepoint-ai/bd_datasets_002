@@ -17,6 +17,10 @@ pkg/
 *.out
 *.test
 
+# Go modules (auto-generated in Docker)
+go.mod
+go.sum
+
 # Logs and temp files
 *.log
 logs/
@@ -28,7 +32,8 @@ dist/
 build/
 coverage.*
 
-# Ignore evaluation reports contents, but keep the placeholder
-evaluation/reports/**
-!evaluation/reports/.gitkeep
+# Ignore evaluation reports JSON files, but keep directory structure
+evaluation/reports/
 report.json
+
+

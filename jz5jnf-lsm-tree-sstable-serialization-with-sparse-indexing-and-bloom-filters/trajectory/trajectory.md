@@ -1,31 +1,105 @@
-1. Audit the Original Code (Identify Problems)
-I audited the original repository structure under `repository_before/` and the Go test suite under `tests/` to understand what was missing for the LSM-Tree SSTable storage layer. The baseline had no `MemTable` implementation, no SSTable serialization, and no Bloom Filter logic; all of the behavior was implicitly specified by the tests and the task README. The tests clearly required an on-disk format of `[KeyLen][Key][ValLen][Val]`, sparse indexing over every Nth key, and a footer with offsets and a magic number, but there was no code that tracked precise byte offsets or wrote a footer. There was also no bitset-based Bloom Filter, which is essential both conceptually and for space-efficiency in LSM trees. I treated the tests and problem statement as the specification and cross-checked them against common LSM-Tree and Bloom Filter references such as [“Log-Structured Merge-Trees”](https://www.cs.umb.edu/~poneil/lsmtree.pdf), [Martin Kleppmann’s “Designing Data-Intensive Applications”](https://dataintensive.net/), and the [Bloom filter article](https://en.wikipedia.org/wiki/Bloom_filter) to confirm expectations around immutability, membership tests, and binary layouts.
+git add # Trajectory Report: LSM-Tree SSTable Implementation
 
-2. Define a Contract First
-I defined an explicit contract for the storage layer before writing code. Functionally, `MemTable.FlushToSSTable(filename string, sparseIndexInterval int)` had to: (a) snapshot the current in-memory state under a read lock, (b) write entries strictly as `[KeyLen(uint32 LE)][Key][ValLen(uint32 LE)][Val]`, (c) construct a Bloom Filter over all keys, (d) build a sparse index that only samples every Nth key, and (e) append a footer `[BloomFilterOffset(uint64 LE)][SparseIndexOffset(uint64 LE)][MagicNumber(uint32 LE)]`. From a determinism and testability standpoint, I required that given the same inserted keys/values and `sparseIndexInterval`, the resulting file be byte-stable so the tests (and the evaluation program) could reliably parse and re-check it. Concurrency-wise, the MemTable had to guard concurrent writes with `sync.RWMutex` and ensure flushing used `RLock` only, never mutating state during serialization. I also adopted a consistent endianness contract using `encoding/binary` with `binary.LittleEndian` across all lengths, offsets, and the magic number, following the Go docs at [`encoding/binary`](https://pkg.go.dev/encoding/binary).
+## 1. Audit the Original Code (Identify Problems)
 
-3. Rework the Structure for Efficiency / Simplicity
-I defined a focused `MemTable` type in `repository_after/memtable.go` as a thin wrapper around a `map[string][]byte` plus a `sync.RWMutex`, instead of introducing a more complex skip list or tree structure that was not required by the tests. For flushing, I split responsibilities into: (1) collecting sorted entries from the MemTable (`getSortedEntries`), (2) streaming records to disk via `bufio.Writer`, and (3) appending Bloom Filter, sparse index, and footer as logically distinct segments. On the read side, I introduced `SSTableReader` with clear phases: read footer, read Bloom Filter, read sparse index, then expose `Get` and `GetAllEntries` operations. This separation keeps each unit small and understandable and makes it easy to reason about offsets, boundaries, and invariants. The design mirrors common LSM/SSTable layouts as described in resources like the [LevelDB paper and code structure overview](https://github.com/google/leveldb) while remaining minimal for this exercise.
+The baseline `repository_before/` was empty, requiring a complete implementation of an LSM-Tree SSTable storage layer. The test suite in `tests/` and problem statement revealed critical requirements: binary format `[KeyLen][Key][ValLen][Val]`, sparse indexing every Nth key, footer with offsets and magic number, and a bitset-based Bloom Filter. The primary failure mode identified was offset mismanagement—indexes pointing to mid-record positions rather than record headers. The problem statement emphasized the sequencing paradox of constructing a footer that must contain pointers to variable-length sections, requiring precise byte counting.
 
-4. Rebuild Core Logic / Flows
-I rebuilt the core flow of “MemTable to SSTable” as a deterministic, single-purpose path. When `FlushToSSTable` is called, it acquires an `RLock`, copies all entries into a slice of `(key, value)` pairs, sorts them lexicographically by key, and then iterates in order. For each entry, the function (1) conditionally records the current byte offset into a `[]SparseIndexEntry` if the position is a multiple of `sparseIndexInterval`, (2) adds the key to the Bloom Filter, and (3) writes `[KeyLen][Key][ValLen][Val]` to the buffered writer, incrementing a `currentOffset` counter that always represents the byte position of the next record header. After all records are written and flushed, the function queries the OS file descriptor for the current position to get exact `bloomFilterOffset` and later `sparseIndexOffset`. On the reader side, `NewSSTableReader` uses `readFooter` to seek from the end, validates the `MagicNumber`, then reconstructs the Bloom Filter and sparse index so `Get` can use Bloom → binary search → bounded linear scan to locate values efficiently.
+**Root Cause Analysis**: The absence of offset tracking during serialization would lead to incorrect sparse index entries. Without explicit byte cursor management, implementations often miscalculate positions, causing readers to seek into the middle of records.
 
-5. Move Critical Operations to Stable Boundaries
-I moved all critical I/O and offset-sensitive operations to clear, stable boundaries to avoid off-by-one and mid-record index bugs. Instead of trying to infer offsets after the fact, I maintained a `currentOffset` in memory that I updated immediately after each successful `binary.Write` or `Write` call; this ensures the sparse index always points to the start of the key-length prefix (the record header), as required by the spec. To avoid mixing buffered and unbuffered writes incorrectly, I used a single `bufio.Writer` for all serialized segments (records, Bloom Filter, sparse index, footer), only consulting `file.Seek` and `file.Stat` for reading positions and not writing bytes directly through the raw `*os.File`. On the read side, `SSTableReader` treats the footer as the stable root of truth and reconstructs the in-memory structures from that, mirroring common SSTable readers (e.g., as described in [ScyllaDB’s SSTable format docs](https://opensource.docs.scylladb.com/stable/architecture/sstable/index.html)).
+**Reference**: [Log-Structured Merge-Trees](https://www.cs.umb.edu/~poneil/lsmtree.pdf), [Designing Data-Intensive Applications](https://dataintensive.net/)
 
-6. Simplify Verification / Meta-Checks
-I relied on the provided Go tests as both the contract and meta-checks of my implementation, but I also made sure the layout was easy to reason about manually. The `GetAllEntries` helper deliberately re-traverses the raw file from offset 0 up to `bloomFilterOffset`, decoding `[KeyLen][Key][ValLen][Val]` in a simple loop; this mirrors the write logic and acts as a meta-check that the format is self-consistent. The tests cover corner cases such as empty MemTable flushing (which should fail), varied key/value sizes, and sparse index correctness, all of which validate that offsets and lengths are handled correctly. By avoiding any reflection-based encoding (e.g., `encoding/gob` or `encoding/json`) and sticking to explicit `binary.Write` calls, I eliminated opaque serialization paths and made it straightforward to cross-check behavior with tools like `hexdump` if needed. The overall approach follows the philosophy of “make illegal states unrepresentable” discussed in various testing and design resources, such as [Fowler’s article on deterministic tests](https://martinfowler.com/articles/nonDeterminism.html).
+## 2. Define a Refactoring Contract
 
-7. Stable Execution / Automation
-I ensured the solution runs deterministically in automation environments via Go tooling and Docker. Locally, `go test ./...` validates the `repository_after` implementation against the `tests` package. The repository also includes a Docker setup with `docker-compose.yml`, and the README now documents the minimal commands necessary to run `docker-compose run --rm test-before`, `docker-compose run --rm test-after`, and `docker-compose run --rm evaluation` so CI or manual runs behave identically. The evaluation program in `evaluation/evaluation.go` is designed to introspect the generated SSTable files and assert low-level properties (offset correctness, Bloom Filter layout, footer presence); I treated a successful run of `go run ./evaluation` as the final automated confirmation. This aligns with best practices for reproducible infrastructure and test environments as described in resources like the [12-Factor App](https://12factor.net/dev-prod-parity) and Go’s [Testing package documentation](https://pkg.go.dev/testing).
+**Functional Contract**: `MemTable.FlushToSSTable(filename, sparseIndexInterval)` must: (a) snapshot state under RLock, (b) write entries as `[KeyLen(uint32 LE)][Key][ValLen(uint32 LE)][Val]`, (c) build Bloom Filter over all keys, (d) sample every Nth key for sparse index, (e) append footer `[BloomFilterOffset(uint64 LE)][SparseIndexOffset(uint64 LE)][MagicNumber(uint32 LE)]`.
 
-8. Eliminate Flakiness & Hidden Coupling
-I eliminated potential sources of flakiness or hidden coupling by keeping the MemTable purely in-memory and the SSTable files fully self-describing. There is no reliance on global state, environment-specific paths, or time-based logic; flush behavior depends only on the current map contents and the `sparseIndexInterval` argument. Concurrency is controlled strictly via `sync.RWMutex`, with `Put` taking `Lock` and reading APIs (including `FlushToSSTable`) using `RLock`, which prevents races during flush without introducing deadlocks or shared mutable state across files. The Bloom Filter implementation uses a private bitset and FNV-1a-style hashing, so no external libraries, network calls, or non-deterministic sources influence membership checks. This echoes guidance on avoiding shared mutable state and implicit coupling from resources like [“Go Concurrency Patterns”](https://go.dev/blog/pipelines) and [“Shared mutable state is the root of all evil”](https://blog.golang.org/share-memory-by-communicating).
+**Determinism Contract**: Given identical inputs and `sparseIndexInterval`, output files must be byte-identical for test reproducibility.
 
-9. Normalize for Predictability & Maintainability
-I normalized naming and structure so that future maintainers can quickly align the code with the mental model from the problem statement. Types like `MemTable`, `BloomFilter`, and `SSTableReader` have narrow, explicit responsibilities, and helper types like `SparseIndexEntry` clarify what’s stored in the on-disk index. The binary layout is consistently described and implemented with `binary.LittleEndian`, and all offsets are `uint64`, which matches the footer structure and avoids ambiguity about integer sizes. The repository structure itself is predictable: `repository_after/` holds the Go implementation, `tests/` holds the Go tests, `evaluation/` contains the evaluation harness and `reports/` subdirectory for results, and `trajectory/` holds this narrative. I also updated `.gitignore` to ignore common build artifacts (`bin/`, `dist/`, logs, temp files) while explicitly keeping `evaluation/reports/**` tracked so evaluation outputs remain visible without polluting the rest of the tree.
+**Concurrency Contract**: MemTable uses `sync.RWMutex`; `Put` requires `Lock`, `FlushToSSTable` uses `RLock` to allow concurrent reads during flush.
 
-10. Result: Measurable Gains / Predictable Signals
-The final implementation passes all Go tests under `tests/` and the evaluation harness under `evaluation/`, which explicitly checks each of the requirements (binary format, sparse index sampling, Bloom Filter structure, footer correctness, and concurrency safety). The on-disk SSTable format is compact, strictly length-prefixed, and fully described by the footer, enabling efficient point lookups without loading the whole file into memory. The Bloom Filter provides a low-cost, probabilistic rejection path for missing keys, and the sparse index ensures bounded seeks for reads even as tables grow. Overall, the storage layer is now deterministic, introspectable, and aligned with LSM-Tree best practices, giving stable, predictable signals for both automated grading and human review.Trajectory Transferability Notes
-The same audit → contract → design → execution → verify structure generalizes cleanly to other domains. For **Refactoring → Testing**, I would audit existing flaky or brittle tests, define a testing contract (deterministic inputs, no reliance on wall-clock time or shared state), redesign test fixtures and helpers for isolation, execute the refactor of test code, and verify via meta-tests (e.g., running tests under stress or with randomized seeds) that behavior remains stable. For **Refactoring → Performance Optimization**, I would audit hotspots with profiling tools, define latency/throughput SLOs, redesign critical paths or data structures, implement targeted optimizations, and verify improvement with repeatable benchmarks. For **Refactoring → Full-Stack Development**, I would audit UX flows and API boundaries, define contracts for APIs, UX, and error handling, design client/server interfaces and component hierarchies, implement the flows, and verify via integration/end-to-end tests and UX review. For **Refactoring → Code Generation**, I would audit current manual boilerplate, define correctness and safety contracts for generated code, design templates and generation pipelines, implement generators, and verify by compiling, testing, and possibly formally checking the generated artifacts.Core Principle (Applies to All)
-Across all of these scenarios, the core trajectory structure does not change: **Audit → Contract → Design → Execute → Verify** remains constant. What changes are the artifacts (e.g., SSTable files vs. HTTP APIs vs. test suites) and the specific metrics or guarantees we care about (e.g., offset correctness vs. latency vs. UX). By preserving the structure and only shifting focus, I can approach diverse engineering problems in a repeatable, evaluation-safe way that is transparent to both humans and automated systems.
+**Endianness Contract**: All binary fields use `binary.LittleEndian` consistently via `encoding/binary`.
+
+**Reference**: [Design by Contract](https://martinfowler.com/bliki/DesignByContract.html), [encoding/binary package](https://pkg.go.dev/encoding/binary)
+
+## 3. Map Issue Statement to Code and Tests
+
+The problem statement identified three critical failure modes:
+1. **Offset Mismanagement**: Tests verify offsets point to `KeyLength` field start (REQ-7)
+2. **Footer Sequencing Paradox**: Footer must contain offsets to sections written after data, requiring careful position tracking
+3. **Bloom Filter Implementation**: Must use bitset with bitwise ops, not map/array (REQ-4)
+
+Test failures would manifest as: incorrect sparse index lookups, footer parsing errors, or Bloom Filter false negatives. The evaluation harness (`evaluation/evaluation.go`) validates all 8 requirements programmatically.
+
+**Reference**: [Root Cause Analysis](https://www.atlassian.com/incident-management/postmortem/root-cause-analysis)
+
+## 4. Analyze Instance and Dependency Structure
+
+**MemTable Structure**: Simple `map[string][]byte` with `sync.RWMutex`, avoiding complex data structures not required by tests. Entries are sorted lexicographically during flush to ensure deterministic ordering.
+
+**Flush Flow**: (1) Acquire RLock, (2) Collect sorted entries, (3) Stream to disk via `bufio.Writer`, (4) Track `currentOffset` for each record, (5) Write Bloom Filter, (6) Write sparse index, (7) Write footer with offsets.
+
+**Reader Structure**: `SSTableReader` reconstructs in-memory structures from footer: read footer → validate magic → read Bloom Filter → read sparse index → enable `Get` operations.
+
+**Dependency Isolation**: No global state, no network calls, no time-based logic. All behavior is deterministic based on input data.
+
+**Reference**: [Separation of Concerns](https://martinfowler.com/bliki/SeparationOfConcerns.html)
+
+## 5. Evaluate Test Strategy
+
+**Test Coverage**: Tests validate binary format (REQ-1), sparse index sampling (REQ-2), footer structure (REQ-3), Bloom Filter bitset (REQ-4), bufio usage (REQ-5), endianness (REQ-6), offset correctness (REQ-7), and concurrency safety (REQ-8).
+
+**Test Isolation**: Each test uses `t.TempDir()` for file isolation. No shared state between tests.
+
+**Edge Cases Covered**: Empty MemTable, large datasets, various key/value sizes, unicode keys, concurrent operations during flush.
+
+**Gaps Identified**: Tests verify functionality but could add more adversarial cases (corrupted files, invalid offsets, malformed footer). However, current coverage is sufficient for requirement validation.
+
+**Reference**: [Test Isolation](https://martinfowler.com/articles/mocksArentStubs.html), [Test Pyramid](https://martinfowler.com/bliki/TestPyramid.html)
+
+## 6. Reason About Refactor Approach
+
+**High-Level Solution**:
+- **Explicit Offset Tracking**: Maintain `currentOffset` counter updated immediately after each write, ensuring sparse index entries point to record headers
+- **Stable Boundaries**: Use `bufio.Writer` for all writes, query file position only for reading offsets, never mix buffered/unbuffered writes
+- **Deterministic Serialization**: Sort entries before writing, use consistent endianness, avoid reflection-based encoding
+- **Self-Describing Format**: Footer acts as root of truth; readers reconstruct structures from footer offsets
+
+**Verification Strategy**: 
+- Tests validate round-trip correctness (write → read → compare)
+- Evaluation harness checks low-level binary properties
+- Manual inspection possible via `hexdump` due to explicit binary format
+
+**Reference**: [Explicit vs Implicit Design](https://peps.python.org/pep-0020/)
+
+## 7. Verification and Validation Thinking
+
+**Deterministic Behavior**: Same inputs produce identical outputs, enabling reliable testing and evaluation.
+
+**Offset Correctness**: Sparse index offsets verified to point to `KeyLength` field start by seeking and reading length prefix.
+
+**Bloom Filter Correctness**: Bitset implementation verified through direct inspection of bitset bytes and bitwise operation testing.
+
+**Concurrency Safety**: RLock allows concurrent reads during flush; tests verify no data corruption under concurrent writes.
+
+**File Structure Validation**: Footer magic number, offset ranges, and section boundaries all validated programmatically.
+
+**Reference**: [Verification Mindset](https://martinfowler.com/bliki/TestPyramid.html)
+
+## 8. Result: Measurable Gains
+
+All 8 requirements pass validation. The implementation is:
+- **Deterministic**: Byte-stable output for identical inputs
+- **Correct**: Offsets point to record headers, footer is valid, Bloom Filter works
+- **Efficient**: Sparse index enables bounded seeks, Bloom Filter provides fast rejection
+- **Safe**: Concurrency controlled via RWMutex, no data races
+- **Maintainable**: Clear separation of concerns, explicit offset tracking, self-documenting structure
+
+The solution follows LSM-Tree best practices while remaining minimal and testable.
+
+## Trajectory Transferability
+
+The **Audit → Contract → Design → Execute → Verify** structure applies universally:
+- **Refactoring Tests**: Audit flaky tests → define isolation contract → redesign fixtures → execute → verify stability
+- **Performance Optimization**: Audit hotspots → define SLOs → redesign paths → implement → verify benchmarks
+- **Full-Stack Development**: Audit UX flows → define API contracts → design interfaces → implement → verify integration
+
+The core principle remains: **Audit → Contract → Design → Execute → Verify**. Only the artifacts and metrics change.

@@ -1,4 +1,13 @@
 services:
+  test-before:
+    build: .
+    command: go test -v ./tests/... || true
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - GO111MODULE=on
+
   test-after:
     build: .
     command: go test -v ./tests/...

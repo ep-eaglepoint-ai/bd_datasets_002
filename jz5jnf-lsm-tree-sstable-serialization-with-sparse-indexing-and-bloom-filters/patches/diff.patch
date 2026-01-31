@@ -1,9 +1,6 @@
-diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
-deleted file mode 100644
-index e69de29b..00000000
 diff --git a/repository_after/memtable.go b/repository_after/memtable.go
 new file mode 100644
-index 00000000..f0828d00
+index 0000000..f0828d0
 --- /dev/null
 +++ b/repository_after/memtable.go
 @@ -0,0 +1,305 @@
@@ -314,7 +311,7 @@ index 00000000..f0828d00
 +}
 diff --git a/repository_after/sstable_reader.go b/repository_after/sstable_reader.go
 new file mode 100644
-index 00000000..bc58d964
+index 0000000..bc58d96
 --- /dev/null
 +++ b/repository_after/sstable_reader.go
 @@ -0,0 +1,344 @@
@@ -662,3 +659,6 @@ index 00000000..bc58d964
 +
 +	return result, nil
 +}
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+new file mode 100644
+index 0000000..e69de29
