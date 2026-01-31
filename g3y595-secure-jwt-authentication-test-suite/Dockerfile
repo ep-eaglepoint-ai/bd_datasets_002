@@ -2,7 +2,8 @@ FROM node:20-slim AS node-tests
 WORKDIR /app/repository_after
 
 COPY repository_after/package.json ./package.json
-RUN npm install --no-audit --no-fund
+COPY repository_after/package-lock.json ./package-lock.json
+RUN npm ci --no-audit --no-fund
 
 WORKDIR /app
 COPY repository_before ./repository_before

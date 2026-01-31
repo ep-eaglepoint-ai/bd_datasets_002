@@ -134,9 +134,27 @@ function runCommand(label, command, args, cwd) {
   };
 }
 
+function hasDocker() {
+  // Some evaluators run in environments without Docker.
+  // In that case, fall back to running the suite directly on the host.
+  const result = spawnSync("docker", ["version"], {
+    encoding: "utf8",
+    stdio: "pipe",
+    timeout: 10_000,
+  });
+  return result.status === 0;
+}
+
 function runAuthSuite() {
   // Real Jest + RTL auth suite in repository_after against repository_before.
   if (process.env.INSIDE_DOCKER === "true") {
+    const cwd = getRepositoryAfterCwd();
+    ensureNpmInstall(cwd);
+    return runCommand("auth_suite", "npm", ["test"], cwd);
+  }
+
+  // If Docker is not available, run directly on the host.
+  if (!hasDocker()) {
     const cwd = getRepositoryAfterCwd();
     ensureNpmInstall(cwd);
     return runCommand("auth_suite", "npm", ["test"], cwd);
@@ -153,6 +171,13 @@ function runAuthSuite() {
 function runMetaSuite() {
   // Mutation-style meta suite under /tests.
   if (process.env.INSIDE_DOCKER === "true") {
+    const cwd = getRepositoryAfterCwd();
+    ensureNpmInstall(cwd);
+    return runCommand("meta_suite", "npm", ["run", "test:meta"], cwd);
+  }
+
+  // If Docker is not available, run directly on the host.
+  if (!hasDocker()) {
     const cwd = getRepositoryAfterCwd();
     ensureNpmInstall(cwd);
     return runCommand("meta_suite", "npm", ["run", "test:meta"], cwd);

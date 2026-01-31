@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import path from "path";
 
@@ -9,7 +9,6 @@ const defaultAppModulePath = path.resolve(
 );
 
 function loadFreshAppModule() {
-  jest.resetModules();
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const mod = require(process.env.APP_MODULE_PATH || defaultAppModulePath);
   return mod as typeof import("../../../repository_before/src/App");
@@ -287,13 +286,14 @@ describe("JWT Authentication — security-critical flows", () => {
     const p1 = httpClient.request({ endpoint: "/api/protected" });
     const p2 = httpClient.request({ endpoint: "/api/protected" });
     const p3 = httpClient.request({ endpoint: "/api/protected" });
+    const settled = Promise.allSettled([p1, p2, p3]);
 
     await advance(200);
 
     // Assert: all reject and tokens are cleared
-    await expect(p1).rejects.toThrow();
-    await expect(p2).rejects.toThrow();
-    await expect(p3).rejects.toThrow();
+    const results = await settled;
+    expect(results).toHaveLength(3);
+    results.forEach((r) => expect(r.status).toBe("rejected"));
     expect((httpClient as any).tokens).toBeNull();
     expect((httpClient as any).requestQueue).toHaveLength(0);
   });
@@ -352,9 +352,7 @@ describe("JWT Authentication — security-critical flows", () => {
     });
 
     // Assert
-    await expect(req).rejects.toEqual(
-      expect.objectContaining({ status: 401 })
-    );
+    await expect(req).rejects.toEqual(expect.objectContaining({ status: 401 }));
     expect(queueSpy).not.toHaveBeenCalled();
     expect(refreshSpy).not.toHaveBeenCalled();
   });
@@ -680,7 +678,6 @@ describe("JWT Authentication — UI + state management", () => {
   test("loading state displays during authentication", async () => {
     jest.useFakeTimers();
     const { default: App } = loadFreshAppModule();
-    const { fireEvent } = require("@testing-library/react");
     render(<App />);
 
     const emailInput = screen.getByPlaceholderText(/you@company\.com/i);
@@ -836,7 +833,11 @@ describe("JWT Authentication — UI + state management", () => {
     (httpClient as any).getStoredRefreshToken = () => originalRefreshToken;
 
     // Arrange: force access token near expiry so the next protected call triggers proactive refresh
-    const login2 = mockBackend.login("admin@fintech.com", "Admin123!", "ip-ui-rt");
+    const login2 = mockBackend.login(
+      "admin@fintech.com",
+      "Admin123!",
+      "ip-ui-rt"
+    );
     await advance(300);
     const loginRes = await login2;
     httpClient.setTokens({
@@ -845,7 +846,9 @@ describe("JWT Authentication — UI + state management", () => {
     });
 
     // Act: fetch protected data
-    await user.click(screen.getByRole("button", { name: /fetch protected data/i }));
+    await user.click(
+      screen.getByRole("button", { name: /fetch protected data/i })
+    );
     await advance(200);
 
     // Assert: UI success, and refresh token rotation happened in backend
