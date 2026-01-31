@@ -9,6 +9,7 @@ import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Modal } from '@/components/ui/Modal';
 import { DataExportModal } from '@/components/forms/DataExportModal';
+import { DataImportModal } from '@/components/forms/DataImportModal';
 
 export default function Home() {
   const { initialize, isLoading, selectedGoalId, selectGoal } = useGoalStore();
@@ -16,6 +17,7 @@ export default function Home() {
   const [activeView, setActiveView] = useState<'goals' | 'analytics' | 'settings'>('goals');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   // Initialize store on mount
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function Home() {
       onViewChange={setActiveView}
       onCreateClick={() => setShowCreateForm(true)}
       onExportClick={() => setShowExportModal(true)}
+      onImportClick={() => setShowImportModal(true)}
     >
       <div className="relative">
         {/* Main Content Areas */}
@@ -68,7 +71,13 @@ export default function Home() {
         {showExportModal && (
            <DataExportModal onClose={() => setShowExportModal(false)} />
         )}
+
+        {/* Import Modal */}
+        {showImportModal && (
+           <DataImportModal onClose={() => setShowImportModal(false)} />
+        )}
       </div>
     </AppLayout>
   );
 }
+

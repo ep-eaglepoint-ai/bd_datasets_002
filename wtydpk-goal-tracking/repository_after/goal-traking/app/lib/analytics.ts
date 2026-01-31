@@ -878,3 +878,106 @@ export async function computeAllAnalytics(
   
   return { velocity, estimationAccuracy, outcomeQuality };
 }
+
+// ============================================================================
+// Retrospective Analysis for Decision Records
+// ============================================================================
+
+export interface RetrospectiveInsight {
+  totalDecisions: number;
+  decisionFrequency: 'high' | 'medium' | 'low' | 'none';
+  commonPatterns: string[];
+  successfulDecisions: number;
+  learningsExtracted: number;
+  recommendedActions: string[];
+  retrospectiveCoverage: number; // Percentage of completed goals with retrospectives
+}
+
+interface DecisionRecord {
+  id: string;
+  goalId?: string;
+  milestoneId?: string;
+  decision: string;
+  rationale?: string;
+  outcome?: 'positive' | 'negative' | 'neutral';
+  retrospectiveNotes?: string;
+  createdAt: string;
+}
+
+/**
+ * Analyzes decision records to extract patterns and learnings
+ */
+export function analyzeRetrospective(
+  goals: Goal[],
+  decisionRecords: DecisionRecord[]
+): RetrospectiveInsight {
+  const completedGoals = goals.filter(g => g.state === 'completed');
+  const goalsWithRetrospectives = new Set(
+    decisionRecords
+      .filter(d => d.retrospectiveNotes && d.retrospectiveNotes.trim() !== '')
+      .map(d => d.goalId)
+      .filter(Boolean)
+  );
+  
+  const retrospectiveCoverage = completedGoals.length > 0
+    ? (goalsWithRetrospectives.size / completedGoals.length) * 100
+    : 0;
+  
+  // Decision frequency analysis
+  const decisionsPerMonth = decisionRecords.length / Math.max(1, 
+    Math.ceil((Date.now() - new Date(goals[0]?.createdAt || Date.now()).getTime()) / (30 * 24 * 60 * 60 * 1000))
+  );
+  
+  let decisionFrequency: 'high' | 'medium' | 'low' | 'none' = 'none';
+  if (decisionsPerMonth >= 10) decisionFrequency = 'high';
+  else if (decisionsPerMonth >= 5) decisionFrequency = 'medium';
+  else if (decisionsPerMonth >= 1) decisionFrequency = 'low';
+  
+  // Outcome analysis
+  const successfulDecisions = decisionRecords.filter(d => d.outcome === 'positive').length;
+  const learningsExtracted = decisionRecords.filter(d => 
+    d.retrospectiveNotes && d.retrospectiveNotes.length > 20
+  ).length;
+  
+  // Pattern extraction from decision text
+  const decisionWords = decisionRecords
+    .flatMap(d => d.decision.toLowerCase().split(/\s+/))
+    .filter(w => w.length > 4);
+  
+  const wordFrequency = new Map<string, number>();
+  decisionWords.forEach(word => {
+    wordFrequency.set(word, (wordFrequency.get(word) || 0) + 1);
+  });
+  
+  const commonPatterns = Array.from(wordFrequency.entries())
+    .filter(([, count]) => count >= 3)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([word]) => word);
+  
+  // Generate recommendations
+  const recommendedActions: string[] = [];
+  
+  if (retrospectiveCoverage < 50) {
+    recommendedActions.push('Add retrospective notes to more completed goals');
+  }
+  if (decisionFrequency === 'low' || decisionFrequency === 'none') {
+    recommendedActions.push('Document more decisions to improve traceability');
+  }
+  if (successfulDecisions < decisionRecords.length * 0.5) {
+    recommendedActions.push('Review decision-making process to improve outcomes');
+  }
+  if (learningsExtracted < decisionRecords.length * 0.3) {
+    recommendedActions.push('Extract more learnings from past decisions');
+  }
+  
+  return {
+    totalDecisions: decisionRecords.length,
+    decisionFrequency,
+    commonPatterns,
+    successfulDecisions,
+    learningsExtracted,
+    recommendedActions,
+    retrospectiveCoverage: Math.round(retrospectiveCoverage),
+  };
+}

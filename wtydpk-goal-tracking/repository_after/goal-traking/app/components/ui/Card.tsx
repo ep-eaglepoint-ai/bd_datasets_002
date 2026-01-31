@@ -4,13 +4,16 @@ import { cn } from '@/lib/utils';
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'glass' | 'solid' | 'panel';
   hoverEffect?: boolean;
+  interactive?: boolean;
 }
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant = 'glass', hoverEffect = false, children, ...props }, ref) => {
+  ({ className, variant = 'glass', hoverEffect = false, interactive = false, children, ...props }, ref) => {
     return (
       <div
         ref={ref}
+        role={interactive ? 'button' : undefined}
+        tabIndex={interactive ? 0 : undefined}
         className={cn(
           "rounded-xl overflow-hidden p-6",
           {
@@ -18,9 +21,16 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
             "glass": variant === 'glass' && !hoverEffect,
             "bg-card border border-border text-card-foreground shadow-sm": variant === 'solid',
             "glass-panel": variant === 'panel',
+            "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2": interactive,
           },
           className
         )}
+        onKeyDown={interactive ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            (e.target as HTMLElement).click();
+          }
+        } : undefined}
         {...props}
       >
         {children}
