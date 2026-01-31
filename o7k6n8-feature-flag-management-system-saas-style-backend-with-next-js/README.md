@@ -2,12 +2,22 @@
 
 # Commands
 
-## Test Repositry After
+## Test Repository After
 ```bash
 docker-compose run --rm test
 ```
 
 ## Run Evaluation
 ```bash
-docker-compose run --rm test npm run eval 
+docker-compose run --rm test npm run eval
+```
+
+## Start Development Server Manually
+```bash
+docker-compose up -d app
+```
+
+## Stop All Services
+```bash
+docker-compose down
 ```
