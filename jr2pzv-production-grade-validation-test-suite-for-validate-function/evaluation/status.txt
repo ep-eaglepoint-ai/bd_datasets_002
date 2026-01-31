@@ -1,4 +1,0 @@
-Evaluation completed: True
-Tests passed: 83
-Tests failed: 0
-Environment: docker
