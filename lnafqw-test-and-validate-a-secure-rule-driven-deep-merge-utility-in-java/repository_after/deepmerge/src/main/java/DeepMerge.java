@@ -3,6 +3,11 @@ import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
 
+/**
+ * Secure, Rule-Driven Deep Merge Utility.
+ * Supports Map/List/Set/array merging with configurable strategies,
+ * cycle detection, cloning, blocked-key filtering, and path-based rules.
+ */
 public final class DeepMerge {
 
     private DeepMerge() {}
@@ -11,14 +16,21 @@ public final class DeepMerge {
     public enum NullPolicy { SOURCE_WINS, TARGET_WINS, SKIP }
     public enum ConflictPolicy { SOURCE_WINS, TARGET_WINS, ERROR }
 
-    // FIX: PathRule must be defined BEFORE Options class
+    /**
+     * Path-based rule for customizing merge behavior at specific paths.
+     */
     public static final class PathRule {
         public final String pathGlob;
         public final Set<String> extraBlockedKeys;
         public final ArrayStrategy arrayStrategyOverride;
         public final boolean freezeSubtree;
 
-        public PathRule(String pathGlob, Set<String> extraBlockedKeys, ArrayStrategy arrayStrategyOverride, boolean freezeSubtree) {
+        public PathRule(
+                String pathGlob,
+                Set<String> extraBlockedKeys,
+                ArrayStrategy arrayStrategyOverride,
+                boolean freezeSubtree
+        ) {
             this.pathGlob = pathGlob;
             this.extraBlockedKeys = (extraBlockedKeys == null) ? Set.of() : Set.copyOf(extraBlockedKeys);
             this.arrayStrategyOverride = arrayStrategyOverride;
@@ -26,6 +38,9 @@ public final class DeepMerge {
         }
     }
 
+    /**
+     * Configuration options for the merge operation.
+     */
     public static final class Options {
         public boolean protectKeys = true;
         public Set<String> blockedKeys = new HashSet<>(Arrays.asList(
@@ -51,6 +66,9 @@ public final class DeepMerge {
         }
     }
 
+    /**
+     * Result of a merge operation.
+     */
     public static final class Result {
         public final Object value;
         public final long keysVisited;
@@ -63,6 +81,9 @@ public final class DeepMerge {
         }
     }
 
+    /**
+     * Context passed to custom merge hooks.
+     */
     public static final class Context {
         public final Object target;
         public final Object source;
@@ -84,6 +105,9 @@ public final class DeepMerge {
         public RuleMatch ruleMatch() { return state.rulesAt(path); }
     }
 
+    /**
+     * Result of matching path rules.
+     */
     public static final class RuleMatch {
         public final ArrayStrategy arrayStrategy;
         public final Set<String> blockedKeys;
@@ -111,7 +135,6 @@ public final class DeepMerge {
             Set<String> blocked = new HashSet<>();
             if (options.protectKeys) blocked.addAll(options.blockedKeys);
 
-            // FIX: Use PathRule directly, not Options.PathRule
             for (PathRule r : options.rules) {
                 if (globMatch(r.pathGlob, path)) {
                     blocked.addAll(r.extraBlockedKeys);
@@ -123,6 +146,8 @@ public final class DeepMerge {
         }
     }
 
+    // ---- Public API ----
+
     public static Object merge(Object target, Object source) {
         return merge(target, source, new Options()).value;
     }
@@ -133,6 +158,8 @@ public final class DeepMerge {
         Object out = mergeInternal(target, source, state, "root");
         return new Result(out, state.keysVisited, state.nodesVisited);
     }
+
+    // ---- Core merge ----
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static Object mergeInternal(Object target, Object source, State state, String path) {
@@ -176,6 +203,7 @@ public final class DeepMerge {
                 if (handled) return target;
             }
 
+            // Map
             if (source instanceof Map) {
                 if (!opt.mergeMaps) {
                     return opt.cloneAssignedValues ? deepCloneContainer(source, new IdentityHashMap<>()) : source;
@@ -202,6 +230,7 @@ public final class DeepMerge {
                 return tgt;
             }
 
+            // List
             if (source instanceof List) {
                 List<?> src = (List<?>) source;
                 List<Object> tgt = (target instanceof List) ? (List<Object>) target : new ArrayList<>();
@@ -243,13 +272,15 @@ public final class DeepMerge {
                 }
             }
 
+            // Array
             if (source.getClass().isArray()) {
                 int srcLen = Array.getLength(source);
                 List<Object> srcList = new ArrayList<>(srcLen);
                 for (int i = 0; i < srcLen; i++) srcList.add(Array.get(source, i));
 
                 Object listTarget = (target != null && target.getClass().isArray())
-                        ? arrayToList(target) : (target instanceof List ? target : new ArrayList<>());
+                        ? arrayToList(target)
+                        : (target instanceof List ? target : new ArrayList<>());
 
                 Object mergedList = mergeInternal(listTarget, srcList, state, path);
 
@@ -260,6 +291,7 @@ public final class DeepMerge {
                 return out;
             }
 
+            // Set
             if (source instanceof Set) {
                 if (!opt.mergeSets) {
                     return opt.cloneAssignedValues ? deepCloneContainer(source, new IdentityHashMap<>()) : source;
@@ -332,6 +364,8 @@ public final class DeepMerge {
         };
     }
 
+    // ---- Helpers ----
+
     private static boolean isMergeable(Object v) {
         if (v == null) return false;
         return (v instanceof Map) || (v instanceof List) || (v instanceof Set) || v.getClass().isArray();
@@ -368,7 +402,7 @@ public final class DeepMerge {
         return v;
     }
 
-    @SuppressWarnings({"rawtypes"})
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private static Object deepCloneContainer(Object v, IdentityHashMap<Object, Object> seen) {
         if (v == null) return null;
         if (!isMergeable(v)) return deepCloneLeaf(v);
@@ -405,8 +439,10 @@ public final class DeepMerge {
     private static boolean globMatch(String glob, String path) {
         if (glob == null || glob.isEmpty()) return false;
         if (glob.equals(path)) return true;
+
         String[] g = glob.split("\\.");
         String[] p = path.split("\\.");
+
         return matchSeg(g, 0, p, 0);
     }
 
@@ -420,9 +456,14 @@ public final class DeepMerge {
             return false;
         }
         if (pi >= p.length) return false;
+
         String gs = g[gi];
-        if (gs.equals("*")) return matchSeg(g, gi + 1, p, pi + 1);
-        if (gs.equals(p[pi])) return matchSeg(g, gi + 1, p, pi + 1);
+        if (gs.equals("*")) {
+            return matchSeg(g, gi + 1, p, pi + 1);
+        }
+        if (gs.equals(p[pi])) {
+            return matchSeg(g, gi + 1, p, pi + 1);
+        }
         return false;
     }
 }

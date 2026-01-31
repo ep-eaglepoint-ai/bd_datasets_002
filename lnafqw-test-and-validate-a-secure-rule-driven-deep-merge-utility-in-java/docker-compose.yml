@@ -1,25 +1,19 @@
 version: '3.8'
 
 services:
-  repository-before:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - MODE=before
+  test-impl:
+    build: .
+    working_dir: /app/repository_after/deepmerge
+    command: mvn test
 
-  repository-after:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - MODE=after
+  test-meta:
+    build: .
+    working_dir: /app/tests
+    command: mvn test
 
-  evaluation:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - MODE=evaluation
+  evaluate:
+    build: .
+    working_dir: /app
+    command: java evaluation/evaluation.java
     volumes:
-      - ./evaluation/reports:/app/reports
+      - ./evaluation/reports:/app/evaluation/reports
