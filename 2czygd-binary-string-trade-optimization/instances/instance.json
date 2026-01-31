@@ -1,0 +1,19 @@
+{
+    "instance_id": "2CZYGD",
+    "problem_statement": "You are a Principal Engineer at a network infrastructure optimization company. Your team is building a real-time analysis system for fiber optic network segments where each segment can be either active ('1') or inactive ('0'). Network engineers want to maximize active coverage by performing strategic 'flip trades' - deactivating isolated active segments to gain the resources needed to activate critical inactive bottlenecks. The system must process thousands of range-specific optimization queries per second across massive network topology strings to provide instant recommendations for maintenance windows.\n\nImplement a function maxActiveAfterTrades(s: str, queries: List[List[int]]) -> List[int] that solves the following constrained string transformation problem across multiple independent range queries.\n\nYou are given:\n- s: A binary string of length n where '1' represents an active section and '0' represents an inactive section\n- queries: A 2D array where queries[i] = [li, ri] defines a substring range\n\nTrade Operation Rules:\nFor each query, you can perform at most one trade on the substring s[li...ri]:\nStep 1 - Deactivation: Select a contiguous block of '1's that is surrounded by '0's on both sides. Convert all selected '1's to '0's.\nStep 2 - Activation: Select a contiguous block of '0's that is surrounded by '1's on both sides (after Step 1). Convert all selected '0's to '1's.\n\nCritical Constraint: The 'surrounded by' condition is evaluated with virtual augmentation:\n- The substring s[li...ri] is treated as if augmented: t = '1' + s[li...ri] + '1'\n- These virtual '1's at boundaries help define 'surrounded' conditions\n- The virtual '1's DO NOT count toward the final active section count\n\nOutput Specification:\nReturn an array answer where answer[i] is the maximum number of active sections ('1's) achievable in the substring s[li...ri] after performing the optimal trade (or no trade if that's better).\n\nImportant: Each query is independent - modifications do not persist across queries.\n\nConstraints & Requirements:\n- Time Complexity: O(q × n) or better, where q = number of queries, n = string length\n- Space Complexity: Must not exceed O(n) auxiliary space per query\n- Efficiently iterate through blocks; avoid nested brute-force searches over all substrings\n- Correctly compute net gain (activated_1s - deactivated_1s) and select maximum positive gain\n- Implement block detection using iteration and state tracking (no regex or external libraries)\n- Handle edge cases: all zeros, all ones, single-character queries, alternating patterns",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/2czygd-binary-string-trade-optimization",
+    "environment_setup": "Dockerfile",
+    "category": "sft",
+    "priority": 1,
+    "bucket_tag": "performance_optimization",
+    "category_tag": "code_quality_reliability",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": [
+        "test_all_zeros",
+        "test_all_ones",
+        "test_single_character",
+        "test_empty_substring"
+    ]
+}

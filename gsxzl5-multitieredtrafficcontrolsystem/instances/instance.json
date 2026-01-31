@@ -1,0 +1,11 @@
+{
+            "instance_id": "GSXZL5",
+            "problem_statement": "The existing API infrastructure lacks traffic policing, making it vulnerable to DoS attacks and credential stuffing. This task requires a multi-tiered rate limiting middleware that distinguishes between anonymous IP traffic and authenticated UserID traffic, including automated reputation-based banning and sub-2ms latency overhead.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/gsxzl5-multitieredtrafficcontrolsystem",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
