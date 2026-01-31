@@ -1,19 +1,13 @@
 version: 0.2
 
 phases:
-  pre_build:
-    commands:
-      - echo "Starting build..."
-      - docker build -t hailu3548/jr2pzv-app .
   build:
     commands:
-      - echo "Running Tests..."
-      - docker run --rm hailu3548/jr2pzv-app sh -c "cd repository_after && go test -v -race ./..."
+      - make build
+      - make test
   post_build:
     commands:
-      - echo "Running Evaluation..."
-      - docker run --rm -v $(pwd)/evaluation:/app/evaluation hailu3548/jr2pzv-app python evaluation/evaluation.py
-      - echo "Build completed."
+      - make evaluate
 
 artifacts:
   files:
