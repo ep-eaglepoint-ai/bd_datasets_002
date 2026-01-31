@@ -16,7 +16,7 @@ public class SeasonStats {
         this.matchesPlayed = matchesPlayed;
         this.totalGoalsScored = totalGoalsScored;
         this.totalFoulsCommitted = totalFoulsCommitted;
-        this.matchStats = matchStats;
+        this.matchStats = new java.util.ArrayList<>(matchStats);
     }
 
     public String getTeam() {

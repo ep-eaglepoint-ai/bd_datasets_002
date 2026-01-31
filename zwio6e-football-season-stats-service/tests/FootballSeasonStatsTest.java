@@ -122,6 +122,15 @@ public class FootballSeasonStatsTest {
         for (Object m : matches) {
             int g = getIntField(m, "getGoalsFor");
             int f = getIntField(m, "getFouls");
+            int ga = getIntField(m, "getGoalsAgainst");
+            int shots = getIntField(m, "getShots");
+            int matchDay = getIntField(m, "getMatchDay");
+            
+            // Verify all fields are present and valid
+            Assertions.assertTrue(ga >= 0, "goalsAgainst should be non-negative");
+            Assertions.assertTrue(shots >= 0, "shots should be non-negative");
+            Assertions.assertTrue(matchDay >= 1 && matchDay <= 38, "matchDay should be 1-38");
+            
             calcGoals += g;
             calcFouls += f;
             
@@ -249,6 +258,14 @@ public class FootballSeasonStatsTest {
              Class<?> dtoClass = Class.forName("com.example.gamestats.SeasonStats");
              for (Field f : dtoClass.getDeclaredFields()) {
                  Assertions.assertTrue(java.lang.reflect.Modifier.isFinal(f.getModifiers()), "DTO fields should be final for immutability: " + f.getName());
+             }
+         } catch (Exception e) {}
+         
+         // Check MatchStats immutability
+         try {
+             Class<?> matchClass = Class.forName("com.example.gamestats.MatchStats");
+             for (Field f : matchClass.getDeclaredFields()) {
+                 Assertions.assertTrue(java.lang.reflect.Modifier.isFinal(f.getModifiers()), "MatchStats fields should be final for immutability: " + f.getName());
              }
          } catch (Exception e) {}
     }
