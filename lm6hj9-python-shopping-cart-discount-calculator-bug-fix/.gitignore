@@ -4,6 +4,10 @@ __pycache__/
 .venv/
 .env
 
+# Evaluation reports
+evaluation/reports/
+
+
 # Node
 node_modules/
 

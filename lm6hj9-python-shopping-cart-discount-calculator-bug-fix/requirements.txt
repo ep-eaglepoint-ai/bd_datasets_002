@@ -1,1 +1,2 @@
-# Add your Python dependencies here
+# Python dependencies for shopping cart system
+# No external dependencies required - uses only standard library
