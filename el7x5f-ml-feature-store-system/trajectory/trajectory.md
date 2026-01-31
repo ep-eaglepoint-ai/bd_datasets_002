@@ -61,6 +61,7 @@ I avoided clever metaprogramming because feature definitions become an organizat
 Key decision: I modeled transformations as _types_ (`SQLTransform`, `PythonTransform`) rather than just raw strings/callables. That makes downstream code and validation easier because the transform “kind” is always known.
 
 After the initial core was in place, I extended this contract with **automatic dependency tracking**:
+
 - SQL dependencies can be inferred from `{{upstream_feature}}` placeholders.
 - Python dependencies can be attached explicitly via a small `@depends_on(...)` decorator.
 
@@ -74,6 +75,7 @@ I used a SQLAlchemy-backed registry storing:
 - Lineage edges as a separate table
 
 As the lifecycle requirements got stricter, I added two more pieces of state to the registry:
+
 - **Schema + default value** (so serving and validation have a single source of truth per feature version)
 - **Processing state** (a small key/value JSON state per feature/version, used for batch watermarks and incremental processing bookkeeping)
 
@@ -95,7 +97,7 @@ I implemented:
 
 The critical part wasn’t the data structure—it was enforcing predictable outcomes for missing/stale values.
 
-Once the semantics were stable, I also added a RedisTimeSeries-backed implementation so the system can use TS.* commands when the module is available. I kept the same retrieval API and the same staleness behavior, and I added an alert hook so staleness can be monitored.
+Once the semantics were stable, I also added a RedisTimeSeries-backed implementation so the system can use TS.\* commands when the module is available. I kept the same retrieval API and the same staleness behavior, and I added an alert hook so staleness can be monitored.
 
 ### 4.4 Point-in-time join: start with a reference implementation
 
@@ -150,6 +152,7 @@ The edge cases I explicitly covered:
 - PIT join selects the latest past value and does not use future values
 
 As the implementation expanded, I added focused tests for the new lifecycle hooks without turning the suite into a “bring up Kafka/Spark” integration harness:
+
 - DSL dependency inference (SQL placeholder + Python decorator)
 - Registry persistence for schema/default values and processing state
 - Redis freshness alerting behavior
