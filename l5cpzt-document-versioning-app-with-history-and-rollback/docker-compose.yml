@@ -3,6 +3,7 @@ services:
     build:
       context: ./repository_after/backend
       dockerfile: Dockerfile
+    image: hailu3548/document-app-backend:latest
     command: sh -c "python manage.py migrate && python manage.py seed_demo && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./repository_after/backend:/app
@@ -17,7 +18,7 @@ services:
     build:
       context: ./repository_after/frontend
       dockerfile: Dockerfile
-    command: npm run dev -- --host 0.0.0.0
+    image: hailu3548/document-app-frontend:latest
     volumes:
       - ./repository_after/frontend:/app
       - /app/node_modules
@@ -25,5 +26,15 @@ services:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend
+
+  evaluator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hailu3548/document-app-evaluator:latest
+    volumes:
+      - .:/app
     depends_on:
       - backend
