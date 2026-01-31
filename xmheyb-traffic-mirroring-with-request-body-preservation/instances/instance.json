@@ -5,7 +5,22 @@
             "test_patch": "tests/",
             "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xmheyb-traffic-mirroring-with-request-body-preservation",
             "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
+            "FAIL_TO_PASS": [
+                "TestBodyBufferReading",
+                "TestShadowRequestAsync",
+                "TestShadowRequestUsesNewContext",
+                "TestContentLengthUpdated",
+                "TestLiveResponseReturned",
+                "TestShadowPanicRecovery",
+                "TestOriginalBodyClosed",
+                "TestShadowHeadersCopied",
+                "TestShadowPreservesMethodAndPath",
+                "TestLiveRequestNoBlocking",
+                "TestEmptyBody",
+                "TestLargeBody",
+                "TestShadowTimeout",
+                "TestConcurrentRequests"
+            ],
             "PASS_TO_PASS": []
         }
         
