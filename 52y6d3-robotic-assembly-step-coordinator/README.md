@@ -1,12 +1,6 @@
 ## Docker Commands list
 
-### 1. BEFORE TEST COMMAND
-Commands to spin up the app and run tests on `repository_before`. Since it's empty, this will fail.
-```bash
-docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1"
-```
-
-### 2. AFTER TEST COMMAND
+### 1. AFTER TEST COMMAND
 Commands to run tests on `repository_after`.
 ```bash
 docker compose up --build
