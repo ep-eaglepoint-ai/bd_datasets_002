@@ -59,6 +59,7 @@ export const useNotesStore = defineStore("notes", {
       }
     },
     async fetchNotes(notebookId: number | null = null, search: string = "") {
+      this.searchQuery = search;
       this.loading = true;
       try {
         let url = `${API_URL}/notes/?`;

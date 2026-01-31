@@ -18,7 +18,8 @@
     "highlight.js": "^11.9.0",
     "date-fns": "^3.3.1",
     "@heroicons/vue": "^2.1.1",
-    "dompurify": "^3.0.9"
+    "dompurify": "^3.0.9",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "@types/node": "^20.11.19",
@@ -33,6 +34,7 @@
     "@types/marked": "^5.0.2",
     "@types/dompurify": "^3.0.5",
     "jsdom": "^24.0.0",
-    "@vue/test-utils": "^2.4.4"
+    "@vue/test-utils": "^2.4.4",
+    "@types/lodash": "^4.14.202"
   }
 }

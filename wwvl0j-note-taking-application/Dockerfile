@@ -13,6 +13,12 @@ WORKDIR /app
 COPY repository_after/backend/requirements.txt backend-requirements.txt
 RUN pip install --no-cache-dir -r backend-requirements.txt
 
+# Install root-level test dependencies
+COPY package.json /app/package.json
+COPY vitest.config.ts /app/vitest.config.ts
+RUN npm install --no-audit
+
+# Copy frontend dependencies
 COPY repository_after/frontend/package.json frontend_deps/package.json
 RUN cd frontend_deps && npm install --no-audit
 
@@ -27,6 +33,11 @@ ENV PYTHONPATH=/app/repository_after/backend
 # Symlink node_modules from frontend_deps to repository_after/frontend
 # Link node_modules so tests can find them
 RUN ln -s /app/frontend_deps/node_modules /app/repository_after/frontend/node_modules
+
+# Create symlink for frontend tests
+# This allows vitest to find the test file while keeping source in /app/tests
+RUN mkdir -p /app/repository_after/frontend/src/__tests__ && \
+    ln -s /app/tests/frontend.test.ts /app/repository_after/frontend/src/__tests__/frontend.test.ts
 
 # Default command
 CMD ["/bin/bash"]
