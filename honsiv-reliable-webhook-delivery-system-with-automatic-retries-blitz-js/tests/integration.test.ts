@@ -24,7 +24,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("Integration: Full webhook delivery flow", () => {
+describe("Integration", () => {
 
 
   it("should maintain complete audit trail through full flow", async () => {

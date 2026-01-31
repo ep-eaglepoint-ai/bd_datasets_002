@@ -1,6 +1,4 @@
 /**
- * Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types
- * 
  * Tests verify that:
  * - Endpoints have all required fields (URL, secret, enabled, eventTypes)
  * - Only enabled endpoints receive webhooks

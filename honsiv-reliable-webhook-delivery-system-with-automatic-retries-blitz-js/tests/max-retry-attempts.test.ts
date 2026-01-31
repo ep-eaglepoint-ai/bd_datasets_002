@@ -1,6 +1,4 @@
 /**
- * Requirement 8: Configurable maximum retry attempts (default: 10)
- * 
  * Tests verify that:
  * - Default max attempts is 10
  * - Max attempts is configurable via environment variable

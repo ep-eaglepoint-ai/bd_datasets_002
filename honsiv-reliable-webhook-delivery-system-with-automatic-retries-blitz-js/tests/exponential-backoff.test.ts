@@ -1,6 +1,4 @@
 /**
- * Requirement 7: Use exponential backoff with jitter between retries
- * 
  * Tests verify that:
  * - Backoff delay increases exponentially
  * - Jitter is applied to prevent thundering herd
