@@ -162,17 +162,17 @@ class TestAuditLogChangeTracking:
         
         initial_count = AuditLog.objects.filter(
             object_id=project_a.id,
-            action__in=['delete', 'update']
+            action__in=['delete', 'update', 'soft_delete']
         ).count()
         
         # Delete (soft-delete) the project
         response = auth_client_owner_a.delete(f'/api/projects/{project_a.id}/')
         assert response.status_code == 204
         
-        # Should have a delete or update audit log (soft-delete triggers update)
+        # Should have a soft_delete audit log
         new_count = AuditLog.objects.filter(
             object_id=project_a.id,
-            action__in=['delete', 'update']
+            action__in=['delete', 'update', 'soft_delete']
         ).count()
         
         assert new_count > initial_count, (
@@ -221,7 +221,7 @@ class TestAuditLogContent:
         
         if audit_log:
             assert audit_log.organization_id is not None
-            assert audit_log.action in ['create', 'update', 'delete']
+            assert audit_log.action in ['create', 'update', 'delete', 'soft_delete', 'restore']
             assert audit_log.model_name is not None
             assert audit_log.object_id is not None
             assert audit_log.object_repr is not None

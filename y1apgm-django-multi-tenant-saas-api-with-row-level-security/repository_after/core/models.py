@@ -251,6 +251,8 @@ class AuditLog(BaseModel):
         ('create', 'Create'),
         ('update', 'Update'),
         ('delete', 'Delete'),
+        ('soft_delete', 'Soft Delete'),
+        ('restore', 'Restore'),
     ]
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='audit_logs')

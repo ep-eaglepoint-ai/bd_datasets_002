@@ -15,6 +15,17 @@ class TestApplicationStartup:
     """Test that the Django application starts successfully."""
 
     @pytest.mark.django_db
+    def test_django_system_checks_pass(self):
+        """Verify Django system checks pass (equivalent to python manage.py check)."""
+        from django.core.management import call_command
+        from io import StringIO
+        
+        out = StringIO()
+        # This will raise an exception if any system checks fail
+        call_command('check', '--fail-level', 'ERROR', stdout=out, stderr=StringIO())
+        # If we get here, the checks passed
+
+    @pytest.mark.django_db
     def test_django_apps_loaded(self):
         """Verify Django apps are properly loaded."""
         from django.apps import apps

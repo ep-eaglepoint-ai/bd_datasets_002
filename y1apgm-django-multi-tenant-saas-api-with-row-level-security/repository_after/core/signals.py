@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save, pre_save, pre_delete
 from django.dispatch import receiver
 
-from .models import Project, Task, AuditLog, get_current_tenant, get_current_user
+from .models import Project, Task, Organization, User, AuditLog, get_current_tenant, get_current_user
 
 # Store for tracking old values before save
 _old_values = {}
@@ -26,14 +26,42 @@ def get_model_field_values(instance):
     return values
 
 
+def get_organization_for_audit(instance, sender):
+    """Get the organization for audit logging based on model type."""
+    tenant = get_current_tenant()
+    if tenant:
+        return tenant
+    
+    # For tenant-scoped models
+    if hasattr(instance, 'organization'):
+        return instance.organization
+    
+    # For Organization model itself
+    if sender == Organization:
+        return instance
+    
+    # For User model, try to get from first membership
+    if sender == User:
+        membership = instance.memberships.first()
+        if membership:
+            return membership.organization
+    
+    return None
+
+
 @receiver(pre_save, sender=Project)
 @receiver(pre_save, sender=Task)
+@receiver(pre_save, sender=Organization)
+@receiver(pre_save, sender=User)
 def store_old_values(sender, instance, **kwargs):
     """Store old values before save for change tracking."""
     if instance.pk:
         try:
             # Get the old instance from database
-            old_instance = sender.all_objects.get(pk=instance.pk)
+            if hasattr(sender, 'all_objects'):
+                old_instance = sender.all_objects.get(pk=instance.pk)
+            else:
+                old_instance = sender.objects.get(pk=instance.pk)
             _old_values[f"{sender.__name__}_{instance.pk}"] = get_model_field_values(old_instance)
         except sender.DoesNotExist:
             pass
@@ -41,14 +69,15 @@ def store_old_values(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Project)
 @receiver(post_save, sender=Task)
+@receiver(post_save, sender=Organization)
+@receiver(post_save, sender=User)
 def log_model_save(sender, instance, created, **kwargs):
     """Create audit log entry for create/update operations."""
-    tenant = get_current_tenant()
-    if not tenant:
-        tenant = instance.organization
-
+    organization = get_organization_for_audit(instance, sender)
+    if not organization:
+        return  # Skip if no organization context
+    
     user = get_current_user()
-    action = 'create' if created else 'update'
     
     changes = {}
     if not created:
@@ -65,7 +94,20 @@ def log_model_save(sender, instance, created, **kwargs):
                     'old': old_val,
                     'new': new_val
                 }
+        
+        # Detect soft delete vs regular update
+        # If is_deleted changed from False to True, this is a soft_delete
+        if 'is_deleted' in changes:
+            if changes['is_deleted'].get('old') == 'False' and changes['is_deleted'].get('new') == 'True':
+                action = 'soft_delete'
+            elif changes['is_deleted'].get('old') == 'True' and changes['is_deleted'].get('new') == 'False':
+                action = 'restore'
+            else:
+                action = 'update'
+        else:
+            action = 'update'
     else:
+        action = 'create'
         # For create, record all field values as new
         new_values = get_model_field_values(instance)
         for field_name, value in new_values.items():
@@ -76,7 +118,7 @@ def log_model_save(sender, instance, created, **kwargs):
                 }
 
     AuditLog.objects.create(
-        organization=tenant,
+        organization=organization,
         user=user,
         action=action,
         model_name=sender.__name__,
@@ -88,12 +130,14 @@ def log_model_save(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=Project)
 @receiver(pre_delete, sender=Task)
+@receiver(pre_delete, sender=Organization)
+@receiver(pre_delete, sender=User)
 def log_model_delete(sender, instance, **kwargs):
-    """Create audit log entry for delete operations."""
-    tenant = get_current_tenant()
-    if not tenant:
-        tenant = instance.organization
-
+    """Create audit log entry for hard delete operations."""
+    organization = get_organization_for_audit(instance, sender)
+    if not organization:
+        return  # Skip if no organization context
+    
     user = get_current_user()
     
     # Record all field values being deleted
@@ -107,7 +151,7 @@ def log_model_delete(sender, instance, **kwargs):
             }
 
     AuditLog.objects.create(
-        organization=tenant,
+        organization=organization,
         user=user,
         action='delete',
         model_name=sender.__name__,

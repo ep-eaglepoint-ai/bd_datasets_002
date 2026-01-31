@@ -46,6 +46,10 @@ class TenantMiddleware(MiddlewareMixin):
                         request.membership = membership
                         set_current_tenant(organization)
                         set_current_user(user)
+                        
+                        # Track last_login on successful authentication
+                        user.last_login = timezone.now()
+                        user.save(update_fields=['last_login'])
             except (AuthenticationFailed, Exception):
                 pass
         

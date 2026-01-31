@@ -49,6 +49,52 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         serializer = OrganizationMembershipSerializer(memberships, many=True)
         return Response(serializer.data)
 
+    def perform_destroy(self, instance):
+        """Soft delete instead of hard delete."""
+        instance.soft_delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
+    def restore(self, request, pk=None):
+        """Restore a soft-deleted organization (Admin/Owner only)."""
+        try:
+            # Use all_objects to find deleted organizations
+            org = Organization.all_objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response({'error': 'Organization not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Verify user has permission to restore this org
+        membership = OrganizationMembership.objects.filter(
+            user=request.user,
+            organization=org,
+            role__in=['owner', 'admin']
+        ).first()
+        
+        if not membership:
+            return Response(
+                {'error': 'You do not have permission to restore this organization'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if not org.is_deleted:
+            return Response(
+                {'error': 'Organization is not deleted'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        org.restore()
+        serializer = self.get_serializer(org)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def deleted(self, request):
+        """List all soft-deleted organizations the user can restore."""
+        deleted_orgs = Organization.all_objects.filter(
+            memberships__user=request.user,
+            memberships__role__in=['owner', 'admin'],
+            is_deleted=True
+        ).distinct()
+        serializer = self.get_serializer(deleted_orgs, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
     def invite_member(self, request, pk=None):
         """Invite a new member to the organization (Admin/Owner only)."""
