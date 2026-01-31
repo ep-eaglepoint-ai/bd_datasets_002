@@ -429,8 +429,8 @@ diff -ruN repository_before/backend/schemas.py repository_after/backend/schemas.
 \ No newline at end of file
 diff -ruN repository_before/frontend/index.html repository_after/frontend/index.html
 --- repository_before/frontend/index.html	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/frontend/index.html	2026-01-31 10:28:17.883660454 +0300
-@@ -0,0 +1,25 @@
++++ repository_after/frontend/index.html	2026-01-31 16:01:03.035078933 +0300
+@@ -0,0 +1,30 @@
 +<!DOCTYPE html>
 +<html lang="en">
 +<head>
@@ -439,15 +439,20 @@ diff -ruN repository_before/frontend/index.html repository_after/frontend/index.
 +  <title>VoltSafe - Home Load Balancer</title>
 +  <style>
 +    * {
-+      margin: 0;
-+      padding: 0;
 +      box-sizing: border-box;
 +    }
++    
 +    body {
++      margin: 0;
++      padding: 0;
 +      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
++      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
 +      min-height: 100vh;
 +      color: #fff;
++    }
++    
++    #app {
++      min-height: 100vh;
 +    }
 +  </style>
 +</head>
@@ -621,6 +626,538 @@ diff -ruN repository_before/frontend/src/App.vue repository_after/frontend/src/A
 +  color: #666;
 +  border-top: 1px solid #333;
 +  margin-top: 40px;
++}
++</style>
+\ No newline at end of file
+diff -ruN repository_before/frontend/src/components/ApplianceCard.vue repository_after/frontend/src/components/ApplianceCard.vue
+--- repository_before/frontend/src/components/ApplianceCard.vue	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/src/components/ApplianceCard.vue	2026-01-31 16:00:45.499301840 +0300
+@@ -0,0 +1,254 @@
++<template>
++  <div :class="['appliance-card', { 'is-on': appliance.is_on, 'is-toggling': isToggling }]">
++    <div class="card-header">
++      <div class="appliance-icon">
++        {{ getApplianceIcon(appliance.name) }}
++      </div>
++      <div class="appliance-info">
++        <h3 class="appliance-name">{{ appliance.name }}</h3>
++        <span class="appliance-wattage">{{ appliance.wattage }}W</span>
++      </div>
++    </div>
++
++    <div class="card-body">
++      <div class="status-indicator">
++        <span :class="['status-dot', appliance.is_on ? 'on' : 'off']"></span>
++        <span class="status-text">{{ appliance.is_on ? 'Active' : 'Standby' }}</span>
++      </div>
++
++      <div v-if="appliance.is_on" class="power-consumption">
++        <span class="consumption-label">Drawing</span>
++        <span class="consumption-value">{{ appliance.wattage }}W</span>
++      </div>
++    </div>
++
++    <div class="card-footer">
++      <button
++        @click="handleToggle"
++        :disabled="isToggling"
++        :class="['toggle-btn', appliance.is_on ? 'turn-off' : 'turn-on']"
++      >
++        <span v-if="isToggling" class="spinner"></span>
++        <span v-else>
++          {{ appliance.is_on ? 'Turn OFF' : 'Turn ON' }}
++        </span>
++      </button>
++    </div>
++  </div>
++</template>
++
++<script setup>
++const props = defineProps({
++  appliance: {
++    type: Object,
++    required: true
++  },
++  isToggling: {
++    type: Boolean,
++    default: false
++  }
++})
++
++const emit = defineEmits(['toggle'])
++
++const handleToggle = () => {
++  if (!props.isToggling) {
++    emit('toggle', { 
++      id: props.appliance.id, 
++      isOn: !props.appliance.is_on 
++    })
++  }
++}
++
++const getApplianceIcon = (name) => {
++  const nameLower = name.toLowerCase()
++  if (nameLower.includes('heater')) return '🔥'
++  if (nameLower.includes('ev') || nameLower.includes('charger')) return '🔌'
++  if (nameLower.includes('oven')) return '🍳'
++  if (nameLower.includes('water')) return '💧'
++  if (nameLower.includes('air') || nameLower.includes('ac')) return '❄️'
++  if (nameLower.includes('washer') || nameLower.includes('dryer')) return '👕'
++  if (nameLower.includes('fridge') || nameLower.includes('refrigerator')) return '🧊'
++  if (nameLower.includes('tv') || nameLower.includes('television')) return '📺'
++  if (nameLower.includes('light')) return '💡'
++  return '⚡'
++}
++</script>
++
++<style scoped>
++.appliance-card {
++  background: linear-gradient(145deg, #1a1a2e, #16213e);
++  border-radius: 16px;
++  padding: 20px;
++  border: 1px solid rgba(255, 255, 255, 0.1);
++  transition: all 0.3s ease;
++  display: flex;
++  flex-direction: column;
++  gap: 16px;
++}
++
++.appliance-card:hover {
++  transform: translateY(-2px);
++  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
++}
++
++.appliance-card.is-on {
++  border-color: rgba(0, 255, 136, 0.3);
++  box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
++}
++
++.appliance-card.is-toggling {
++  opacity: 0.8;
++  pointer-events: none;
++}
++
++.card-header {
++  display: flex;
++  align-items: center;
++  gap: 14px;
++}
++
++.appliance-icon {
++  font-size: 2rem;
++  width: 50px;
++  height: 50px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  background: rgba(255, 255, 255, 0.05);
++  border-radius: 12px;
++}
++
++.appliance-info {
++  flex: 1;
++}
++
++.appliance-name {
++  font-size: 1.1rem;
++  color: #fff;
++  margin: 0 0 4px 0;
++  font-weight: 600;
++}
++
++.appliance-wattage {
++  font-size: 0.9rem;
++  color: #00d4ff;
++  font-weight: 500;
++}
++
++.card-body {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  padding: 12px 0;
++  border-top: 1px solid rgba(255, 255, 255, 0.05);
++  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
++}
++
++.status-indicator {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++}
++
++.status-dot {
++  width: 10px;
++  height: 10px;
++  border-radius: 50%;
++  transition: all 0.3s ease;
++}
++
++.status-dot.on {
++  background: #00ff88;
++  box-shadow: 0 0 10px #00ff88;
++  animation: glow 2s infinite;
++}
++
++.status-dot.off {
++  background: #555;
++}
++
++@keyframes glow {
++  0%, 100% { box-shadow: 0 0 10px #00ff88; }
++  50% { box-shadow: 0 0 20px #00ff88; }
++}
++
++.status-text {
++  font-size: 0.9rem;
++  color: #888;
++}
++
++.power-consumption {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-end;
++}
++
++.consumption-label {
++  font-size: 0.75rem;
++  color: #666;
++}
++
++.consumption-value {
++  font-size: 1rem;
++  color: #00ff88;
++  font-weight: 600;
++}
++
++.card-footer {
++  margin-top: auto;
++}
++
++.toggle-btn {
++  width: 100%;
++  padding: 12px 20px;
++  border: none;
++  border-radius: 10px;
++  font-size: 1rem;
++  font-weight: 600;
++  cursor: pointer;
++  transition: all 0.3s ease;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: 8px;
++}
++
++.toggle-btn.turn-on {
++  background: linear-gradient(135deg, #00d4ff, #00ff88);
++  color: #000;
++}
++
++.toggle-btn.turn-on:hover:not(:disabled) {
++  transform: scale(1.02);
++  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
++}
++
++.toggle-btn.turn-off {
++  background: rgba(255, 100, 100, 0.2);
++  color: #ff9999;
++  border: 1px solid rgba(255, 100, 100, 0.3);
++}
++
++.toggle-btn.turn-off:hover:not(:disabled) {
++  background: rgba(255, 100, 100, 0.3);
++}
++
++.toggle-btn:disabled {
++  cursor: not-allowed;
++  opacity: 0.7;
++}
++
++.spinner {
++  width: 18px;
++  height: 18px;
++  border: 2px solid transparent;
++  border-top-color: currentColor;
++  border-radius: 50%;
++  animation: spin 0.8s linear infinite;
++}
++
++@keyframes spin {
++  to { transform: rotate(360deg); }
++}
++</style>
+\ No newline at end of file
+diff -ruN repository_before/frontend/src/components/LoadMeter.vue repository_after/frontend/src/components/LoadMeter.vue
+--- repository_before/frontend/src/components/LoadMeter.vue	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/src/components/LoadMeter.vue	2026-01-31 16:00:28.287751572 +0300
+@@ -0,0 +1,268 @@
++<template>
++  <div class="load-meter">
++    <div class="meter-header">
++      <h2>⚡ Current Consumption</h2>
++      <span :class="['status-badge', status]">{{ statusLabel }}</span>
++    </div>
++    
++    <div class="meter-display">
++      <div class="meter-value">
++        <span class="current">{{ currentLoad.toFixed(1) }}</span>
++        <span class="separator">/</span>
++        <span class="max">{{ maxLoad }}</span>
++        <span class="unit">W</span>
++      </div>
++      
++      <div class="meter-bar-container">
++        <div 
++          class="meter-bar" 
++          :style="{ width: percentage + '%' }"
++          :class="status"
++        >
++          <div class="meter-glow"></div>
++        </div>
++        <div class="meter-markers">
++          <span class="marker" style="left: 70%">70%</span>
++          <span class="marker" style="left: 90%">90%</span>
++        </div>
++      </div>
++      
++      <div class="meter-percentage">
++        {{ percentage.toFixed(1) }}% utilized
++      </div>
++    </div>
++
++    <div class="meter-info">
++      <div class="info-item">
++        <span class="label">Available Capacity:</span>
++        <span class="value">{{ availableCapacity.toFixed(1) }}W</span>
++      </div>
++      <div class="info-item">
++        <span class="label">Safety Limit:</span>
++        <span class="value">{{ maxLoad }}W</span>
++      </div>
++    </div>
++  </div>
++</template>
++
++<script setup>
++import { computed } from 'vue'
++
++const props = defineProps({
++  currentLoad: {
++    type: Number,
++    required: true,
++    default: 0
++  },
++  maxLoad: {
++    type: Number,
++    required: true,
++    default: 5000
++  },
++  status: {
++    type: String,
++    required: true,
++    default: 'safe'
++  }
++})
++
++const percentage = computed(() => {
++  return Math.min((props.currentLoad / props.maxLoad) * 100, 100)
++})
++
++const availableCapacity = computed(() => {
++  return Math.max(props.maxLoad - props.currentLoad, 0)
++})
++
++const statusLabel = computed(() => {
++  switch (props.status) {
++    case 'critical':
++      return '🔴 CRITICAL'
++    case 'warning':
++      return '🟡 WARNING'
++    default:
++      return '🟢 SAFE'
++  }
++})
++</script>
++
++<style scoped>
++.load-meter {
++  background: linear-gradient(145deg, #1a1a2e, #16213e);
++  border-radius: 16px;
++  padding: 24px;
++  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
++  border: 1px solid rgba(255, 255, 255, 0.1);
++}
++
++.meter-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  margin-bottom: 20px;
++}
++
++.meter-header h2 {
++  font-size: 1.3rem;
++  color: #fff;
++  margin: 0;
++}
++
++.status-badge {
++  padding: 6px 14px;
++  border-radius: 20px;
++  font-size: 0.85rem;
++  font-weight: 600;
++  text-transform: uppercase;
++  letter-spacing: 0.5px;
++}
++
++.status-badge.safe {
++  background: rgba(0, 255, 136, 0.2);
++  color: #00ff88;
++  border: 1px solid rgba(0, 255, 136, 0.3);
++}
++
++.status-badge.warning {
++  background: rgba(255, 200, 0, 0.2);
++  color: #ffc800;
++  border: 1px solid rgba(255, 200, 0, 0.3);
++}
++
++.status-badge.critical {
++  background: rgba(255, 100, 100, 0.2);
++  color: #ff6464;
++  border: 1px solid rgba(255, 100, 100, 0.3);
++  animation: pulse 1s infinite;
++}
++
++@keyframes pulse {
++  0%, 100% { opacity: 1; }
++  50% { opacity: 0.7; }
++}
++
++.meter-display {
++  margin-bottom: 20px;
++}
++
++.meter-value {
++  text-align: center;
++  margin-bottom: 16px;
++}
++
++.meter-value .current {
++  font-size: 3rem;
++  font-weight: 700;
++  background: linear-gradient(90deg, #00d4ff, #00ff88);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++}
++
++.meter-value .separator {
++  color: #555;
++  font-size: 2rem;
++  margin: 0 8px;
++}
++
++.meter-value .max {
++  font-size: 1.5rem;
++  color: #888;
++}
++
++.meter-value .unit {
++  font-size: 1.2rem;
++  color: #666;
++  margin-left: 4px;
++}
++
++.meter-bar-container {
++  position: relative;
++  height: 24px;
++  background: rgba(255, 255, 255, 0.1);
++  border-radius: 12px;
++  overflow: hidden;
++  margin-bottom: 8px;
++}
++
++.meter-bar {
++  height: 100%;
++  border-radius: 12px;
++  transition: width 0.5s ease, background 0.3s ease;
++  position: relative;
++  overflow: hidden;
++}
++
++.meter-bar.safe {
++  background: linear-gradient(90deg, #00ff88, #00d4ff);
++}
++
++.meter-bar.warning {
++  background: linear-gradient(90deg, #ffc800, #ff9500);
++}
++
++.meter-bar.critical {
++  background: linear-gradient(90deg, #ff6464, #ff3333);
++}
++
++.meter-glow {
++  position: absolute;
++  top: 0;
++  left: 0;
++  right: 0;
++  height: 50%;
++  background: linear-gradient(180deg, rgba(255,255,255,0.3), transparent);
++  border-radius: 12px 12px 0 0;
++}
++
++.meter-markers {
++  position: absolute;
++  top: 0;
++  left: 0;
++  right: 0;
++  height: 100%;
++  pointer-events: none;
++}
++
++.meter-markers .marker {
++  position: absolute;
++  top: 50%;
++  transform: translate(-50%, -50%);
++  font-size: 0.65rem;
++  color: rgba(255, 255, 255, 0.4);
++  border-left: 1px dashed rgba(255, 255, 255, 0.3);
++  padding-left: 4px;
++  height: 100%;
++  display: flex;
++  align-items: center;
++}
++
++.meter-percentage {
++  text-align: center;
++  color: #888;
++  font-size: 0.9rem;
++}
++
++.meter-info {
++  display: flex;
++  justify-content: space-between;
++  padding-top: 16px;
++  border-top: 1px solid rgba(255, 255, 255, 0.1);
++}
++
++.info-item {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++}
++
++.info-item .label {
++  font-size: 0.8rem;
++  color: #666;
++}
++
++.info-item .value {
++  font-size: 1.1rem;
++  color: #00d4ff;
++  font-weight: 600;
 +}
 +</style>
 \ No newline at end of file
