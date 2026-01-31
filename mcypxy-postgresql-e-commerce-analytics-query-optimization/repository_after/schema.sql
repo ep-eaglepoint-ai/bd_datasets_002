@@ -53,15 +53,22 @@ CREATE TABLE order_items (
     discount DECIMAL(10, 2) DEFAULT 0
 );
 
-CREATE INDEX idx_orders_date_status_amount ON orders(order_date, status) 
-INCLUDE (total_amount) WHERE status != 'cancelled';
+CREATE INDEX idx_orders_date_status ON orders(order_date, status) 
+INCLUDE (total_amount, customer_id) WHERE status != 'cancelled';
 
-CREATE INDEX idx_orders_date_status_id ON orders(order_date, status, order_id) 
-WHERE status != 'cancelled';
+CREATE INDEX idx_order_items_order ON order_items(order_id) 
+INCLUDE (product_id, quantity, unit_price);
 
-CREATE INDEX idx_order_items_product_order ON order_items(product_id, order_id);
+CREATE INDEX idx_order_items_product ON order_items(product_id) 
+INCLUDE (order_id, quantity, unit_price);
 
-CREATE INDEX idx_orders_customer_status_date ON orders(customer_id, status, order_date) 
-WHERE status != 'cancelled';
+CREATE INDEX idx_products_category ON products(category_id) 
+INCLUDE (product_id, name);
+
+CREATE INDEX idx_orders_customer ON orders(customer_id, status) 
+INCLUDE (order_id, total_amount, order_date) WHERE status != 'cancelled';
 
 CREATE INDEX idx_inventory_product ON inventory(product_id) INCLUDE (quantity);
+
+CREATE INDEX idx_customers_first_purchase ON customers(first_purchase_date) 
+INCLUDE (customer_id);

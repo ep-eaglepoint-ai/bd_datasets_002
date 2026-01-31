@@ -38,6 +38,7 @@ def db_conn():
             cur.execute(f.read())
         with open("repository_before/seed_test.sql") as f:
             cur.execute(f.read())
+        cur.execute("SELECT pg_stat_reset()")
         conn.commit()
     
     yield conn
@@ -52,6 +53,13 @@ def execute_query(conn, query):
         results = cur.fetchall()
         elapsed = time.time() - start
         return results, elapsed
+
+
+def get_query_plan(conn, query):
+    """Get EXPLAIN output for a query."""
+    with conn.cursor() as cur:
+        cur.execute(f"EXPLAIN {query}")
+        return cur.fetchall()
 
 
 def test_daily_revenue_trend(db_conn):
@@ -211,3 +219,74 @@ def test_category_performance_comparison(db_conn):
     print(f"Query took {elapsed:.3f}s")
     assert len(results) >= 0
     assert elapsed < 2.0, f"Query took {elapsed:.2f}s, expected <2s"
+
+
+def test_index_storage_budget(db_conn):
+    """Validate total index size is under 2GB budget."""
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT pg_size_pretty(SUM(pg_relation_size(indexrelid))::bigint) as total_size,
+                   SUM(pg_relation_size(indexrelid))::bigint as total_bytes
+            FROM pg_stat_user_indexes
+        """)
+        result = cur.fetchone()
+        total_bytes = result[1]
+        print(f"Total index size: {result[0]}")
+        assert total_bytes <= 2 * 1024 * 1024 * 1024, f"Index storage {result[0]} exceeds 2GB budget"
+
+
+def test_no_sequential_scans_on_large_tables(db_conn):
+    """Ensure no sequential scans on tables with >1M rows."""
+    queries = [
+        ("Query 1", """SELECT DATE(order_date) as day, SUM(total_amount) as revenue, COUNT(*) as order_count
+            FROM orders WHERE order_date >= NOW() - INTERVAL '90 days' AND status != 'cancelled'
+            GROUP BY DATE(order_date) ORDER BY day"""),
+        ("Query 5", """SELECT customer_id, total_spent, order_count, NTILE(100) OVER (ORDER BY total_spent) as percentile
+            FROM (SELECT c.customer_id, SUM(o.total_amount) as total_spent, COUNT(o.order_id) as order_count
+                  FROM customers c JOIN orders o ON o.customer_id = c.customer_id
+                  WHERE o.status != 'cancelled' GROUP BY c.customer_id) customer_totals
+            ORDER BY percentile DESC, total_spent DESC""")
+    ]
+    
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT relname, n_live_tup FROM pg_stat_user_tables WHERE n_live_tup > 1000000")
+        large_tables = {row[0] for row in cur.fetchall()}
+    
+    for name, query in queries:
+        plan = get_query_plan(db_conn, query)
+        plan_text = ' '.join([str(row[0]) for row in plan]).lower()
+        for table in large_tables:
+            assert f"seq scan on {table}" not in plan_text, f"{name}: Sequential scan detected on large table '{table}'"
+
+
+def test_work_mem_limit(db_conn):
+    """Verify all queries respect 500MB work_mem limit using EXPLAIN ANALYZE."""
+    with db_conn.cursor() as cur:
+        cur.execute("SET work_mem = '500MB'")
+        db_conn.commit()
+    
+    queries = [
+        ("Query 1", """SELECT DATE(order_date) as day, SUM(total_amount) as revenue, COUNT(*) as order_count
+            FROM orders WHERE order_date >= NOW() - INTERVAL '90 days' AND status != 'cancelled'
+            GROUP BY DATE(order_date) ORDER BY day"""),
+        ("Query 5", """SELECT customer_id, total_spent, order_count, NTILE(100) OVER (ORDER BY total_spent) as percentile
+            FROM (SELECT c.customer_id, SUM(o.total_amount) as total_spent, COUNT(o.order_id) as order_count
+                  FROM customers c JOIN orders o ON o.customer_id = c.customer_id
+                  WHERE o.status != 'cancelled' GROUP BY c.customer_id) customer_totals
+            ORDER BY percentile DESC, total_spent DESC"""),
+        ("Query 6", """WITH monthly_revenue AS (
+            SELECT p.category_id, DATE_TRUNC('month', o.order_date) as month, SUM(oi.quantity * oi.unit_price) as revenue
+            FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id
+            WHERE o.status != 'cancelled' GROUP BY p.category_id, DATE_TRUNC('month', o.order_date))
+            SELECT c.name as category, curr.month, curr.revenue as current_revenue, prev.revenue as previous_revenue,
+            ROUND(((curr.revenue - prev.revenue) / NULLIF(prev.revenue, 0)) * 100, 2) as growth_pct
+            FROM monthly_revenue curr JOIN monthly_revenue prev ON prev.category_id = curr.category_id 
+            AND prev.month = curr.month - INTERVAL '1 month' JOIN categories c ON c.category_id = curr.category_id
+            WHERE curr.month >= NOW() - INTERVAL '12 months' ORDER BY c.name, curr.month""")
+    ]
+    
+    for name, query in queries:
+        with db_conn.cursor() as cur:
+            cur.execute(f"EXPLAIN (ANALYZE, BUFFERS) {query}")
+            plan = '\n'.join([row[0] for row in cur.fetchall()])
+            assert 'temp written' not in plan.lower(), f"{name} exceeded work_mem and wrote to disk"

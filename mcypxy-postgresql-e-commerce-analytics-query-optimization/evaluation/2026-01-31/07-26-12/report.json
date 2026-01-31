@@ -1,0 +1,150 @@
+{
+  "run_id": "ut89ex7d",
+  "started_at": "2026-01-31T07:26:12.555138+00:00",
+  "finished_at": "2026-01-31T07:26:46.071286+00:00",
+  "duration_seconds": 33.516148,
+  "success": true,
+  "error": null,
+  "environment": {
+    "python_version": "3.12.12",
+    "platform": "Linux-6.17.12-300.fc43.x86_64-x86_64-with-glibc2.41",
+    "os": "Linux",
+    "os_release": "6.17.12-300.fc43.x86_64",
+    "architecture": "x86_64",
+    "hostname": "7c2e41a2abd9",
+    "git_commit": "unknown",
+    "git_branch": "unknown"
+  },
+  "results": {
+    "before": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_query.py::test_daily_revenue_trend",
+          "name": "test_daily_revenue_trend",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_top_products_by_category",
+          "name": "test_top_products_by_category",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_customer_cohort_analysis",
+          "name": "test_customer_cohort_analysis",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_inventory_turnover",
+          "name": "test_inventory_turnover",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_customer_lifetime_value",
+          "name": "test_customer_lifetime_value",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_category_performance_comparison",
+          "name": "test_category_performance_comparison",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_storage_budget",
+          "name": "test_index_storage_budget",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_no_sequential_scans_on_large_tables",
+          "name": "test_no_sequential_scans_on_large_tables",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_work_mem_limit",
+          "name": "test_work_mem_limit",
+          "outcome": "passed"
+        }
+      ],
+      "summary": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.12, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python3.12\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 9 items\n\ntests/test_query.py::test_daily_revenue_trend PASSED                     [ 11%]\ntests/test_query.py::test_top_products_by_category PASSED                [ 22%]\ntests/test_query.py::test_customer_cohort_analysis PASSED                [ 33%]\ntests/test_query.py::test_inventory_turnover PASSED                      [ 44%]\ntests/test_query.py::test_customer_lifetime_value PASSED                 [ 55%]\ntests/test_query.py::test_category_performance_comparison PASSED         [ 66%]\ntests/test_query.py::test_index_storage_budget PASSED                    [ 77%]\ntests/test_query.py::test_no_sequential_scans_on_large_tables PASSED     [ 88%]\ntests/test_query.py::test_work_mem_limit PASSED                          [100%]\n\n============================== 9 passed in 16.62s ==============================\n",
+      "stderr": ""
+    },
+    "after": {
+      "success": true,
+      "exit_code": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_query.py::test_daily_revenue_trend",
+          "name": "test_daily_revenue_trend",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_top_products_by_category",
+          "name": "test_top_products_by_category",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_customer_cohort_analysis",
+          "name": "test_customer_cohort_analysis",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_inventory_turnover",
+          "name": "test_inventory_turnover",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_customer_lifetime_value",
+          "name": "test_customer_lifetime_value",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_category_performance_comparison",
+          "name": "test_category_performance_comparison",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_index_storage_budget",
+          "name": "test_index_storage_budget",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_no_sequential_scans_on_large_tables",
+          "name": "test_no_sequential_scans_on_large_tables",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_query.py::test_work_mem_limit",
+          "name": "test_work_mem_limit",
+          "outcome": "passed"
+        }
+      ],
+      "summary": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.12, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python3.12\ncachedir: .pytest_cache\nrootdir: /app\ncollecting ... collected 9 items\n\ntests/test_query.py::test_daily_revenue_trend PASSED                     [ 11%]\ntests/test_query.py::test_top_products_by_category PASSED                [ 22%]\ntests/test_query.py::test_customer_cohort_analysis PASSED                [ 33%]\ntests/test_query.py::test_inventory_turnover PASSED                      [ 44%]\ntests/test_query.py::test_customer_lifetime_value PASSED                 [ 55%]\ntests/test_query.py::test_category_performance_comparison PASSED         [ 66%]\ntests/test_query.py::test_index_storage_budget PASSED                    [ 77%]\ntests/test_query.py::test_no_sequential_scans_on_large_tables PASSED     [ 88%]\ntests/test_query.py::test_work_mem_limit PASSED                          [100%]\n\n============================== 9 passed in 16.26s ==============================\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "before_tests_passed": true,
+      "after_tests_passed": true,
+      "before_total": 9,
+      "before_passed": 9,
+      "before_failed": 0,
+      "after_total": 9,
+      "after_passed": 9,
+      "after_failed": 0
+    }
+  }
+}
