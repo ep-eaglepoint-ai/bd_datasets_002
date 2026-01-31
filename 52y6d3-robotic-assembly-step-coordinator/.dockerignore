@@ -1,0 +1,9 @@
+# Ignore everything by default
+*
+
+# Allow directories we need
+!repository_after
+!tests
+!evaluation
+!Dockerfile
+!docker-compose.yml

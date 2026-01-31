@@ -21,28 +21,32 @@
 
 ## Metadata
 - Programming Languages: Go
-- Frameworks: (none)
-- Libraries: (none)
-- Databases: (none)
-- Tools: (none)
-- Best Practices: (none)
-- Performance Metrics: (none)
-- Security Standards: (none)
+- Tools: Docker
+
+## Docker Commands
+
+### 1. BEFORE TEST COMMAND
+Commands to spin up the app and run tests on `repository_before`. Since it's empty, this will fail.
+```bash
+docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1"
+```
+
+### 2. AFTER TEST COMMAND
+Commands to run tests on `repository_after`.
+```bash
+docker compose up --build
+```
+
+### 3. TEST & REPORT COMMAND
+Commands to run evaluation and generate reports.
+```bash
+docker compose run --rm app go run evaluation/evaluation.go
+```
 
 ## Structure
-- repository_before/: baseline code (`__init__.py`)
-- repository_after/: optimized code (`__init__.py`)
-- tests/: test suite (`__init__.py`)
-- evaluation/: evaluation scripts (`evaluation.py`)
-- instances/: sample/problem instances (JSON)
+- repository_before/: baseline code (empty)
+- repository_after/: optimized code (Task Orchestrator implementation)
+- tests/: Go test suite
+- evaluation/: evaluation/evaluation.go and reports/
 - patches/: patches for diffing
-- trajectory/: notes or write-up (Markdown)
-
-## Quick start
-- Run tests locally: `python -m pytest -q tests`
-- With Docker: `docker compose up --build --abort-on-container-exit`
-- Add dependencies to `requirements.txt`
-
-## Notes
-- Keep commits focused and small.
-- Open a PR when ready for review.
+- trajectory/: Engineering Trajectory roadmap
