@@ -95,4 +95,68 @@ describe('Search & Replace', () => {
         const content = await page.$eval('textarea', el => el.value);
         expect(content).toBe('orange banana orange cherry');
     });
+
+    test('Replace with pending debounce works correctly', async () => {
+        // Type in the textarea to create pending debounce
+        await page.click('textarea');
+        await page.type('textarea', ' extra');
+
+        // Immediately perform a replace operation (before debounce fires)
+        await page.type('#search-input', 'apple');
+        await new Promise(r => setTimeout(r, 100));
+
+        const replaceToggle = await page.$$("xpath///button[text()='Replace']");
+        if (replaceToggle.length > 0) {
+            await replaceToggle[0].click();
+            await page.waitForSelector('input[placeholder="Replace with..."]', { visible: true });
+        }
+
+        await page.type('input[placeholder="Replace with..."]', 'grape');
+
+        const replaceAllBtn = await page.$$("xpath///button[text()='Replace All']");
+        if (replaceAllBtn.length > 0) {
+            await replaceAllBtn[0].click();
+            await new Promise(r => setTimeout(r, 300));
+        }
+
+        const content = await page.$eval('textarea', el => el.value);
+        expect(content).toBe('grape banana grape cherry extra');
+
+        // Undo should work correctly
+        await page.keyboard.down('Control');
+        await page.keyboard.press('z');
+        await page.keyboard.up('Control');
+        await new Promise(r => setTimeout(r, 100));
+
+        const afterUndo = await page.$eval('textarea', el => el.value);
+        expect(afterUndo).toContain('apple');
+    });
+
+    test('Regex toggle preserves search behavior', async () => {
+        // Search with regex mode off (should escape special chars)
+        await page.type('#search-input', '.');
+        await new Promise(r => setTimeout(r, 200));
+
+        // With regex off, '.' should not match anything (no literal dot in content)
+        let matchesSpan = await page.evaluate(() => {
+            const spans = Array.from(document.querySelectorAll('span'));
+            return spans.find(s => s.textContent.includes('matches'));
+        });
+        expect(matchesSpan).toBeFalsy();
+
+        // Enable regex mode - now '.' should match everything
+        const regexCheckbox = await page.$('input[type="checkbox"]');
+        if (regexCheckbox) {
+            await regexCheckbox.click();
+            await new Promise(r => setTimeout(r, 200));
+        }
+
+        // Should now show matches (since . matches any char in regex)
+        matchesSpan = await page.evaluate(() => {
+            const spans = Array.from(document.querySelectorAll('span'));
+            const match = spans.find(s => s.textContent.includes('matches'));
+            return match ? match.textContent : null;
+        });
+        expect(matchesSpan).toBeTruthy();
+    });
 });

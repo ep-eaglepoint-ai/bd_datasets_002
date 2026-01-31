@@ -69,51 +69,81 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const undo = () => {
+    // Calculate next state synchronously based on current closure values
+    let newStack = [...history.stack];
+    let newIndex = history.index;
+    let newCode = code;
+
+    // If there's a pending debounce, we treat the current 'code' as a new entry
+    // that needs to be effectively "saved" before we step back.
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
-      updateHistory(code);
-      setHistory(prev => {
-        if (prev.index > 0) {
-          const newIndex = prev.index - 1;
-          setCode(prev.stack[newIndex]);
-          return { ...prev, index: newIndex };
-        }
-        return prev;
-      });
-      return;
+
+      // Flush pending changes to stack
+      if (newStack[newIndex] !== code) {
+        newStack = newStack.slice(0, newIndex + 1);
+        newStack.push(code);
+        // After pushing pending, the "tip" is at newStack.length - 1.
+        // The "undo" action means we want to go back to previous committed state.
+        // Which is the state at 'newIndex' (before push).
+        // So newIndex doesn't move forward to tip, it stays at committed.
+        // Effectively: Tip = Current Dirty. Commited = Previous.
+        // We want to show Commit.
+      }
+      
+      // If we flushed, newCode should be the one at newIndex (committed)
+      newCode = newStack[newIndex];
+    } else {
+      // Standard undo
+      if (newIndex > 0) {
+        newIndex--;
+        newCode = newStack[newIndex];
+      }
     }
 
-    setHistory(prev => {
-      if (prev.index > 0) {
-        const newIndex = prev.index - 1;
-        setCode(prev.stack[newIndex]);
-        return { ...prev, index: newIndex };
-      }
-      return prev;
-    });
+    setHistory({ stack: newStack, index: newIndex });
+    setCode(newCode);
   };
 
   const redo = () => {
+    let newStack = [...history.stack];
+    let newIndex = history.index;
+    let newCode = code;
+
+    // If pending changes exist, we flush them.
+    // This effectively puts us at the "Future" (End of stack).
+    // So distinct Redo is not possible immediately, but state is made consistent.
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
-      updateHistory(code);
-      return;
+
+      if (newStack[newIndex] !== code) {
+        newStack = newStack.slice(0, newIndex + 1);
+        newStack.push(code);
+        newIndex = newStack.length - 1; // Move to the new tip
+      }
+      // newCode is already 'code', so no visual change, just committed to history.
+    } else {
+      // Standard redo
+      if (newIndex < newStack.length - 1) {
+        newIndex++;
+        newCode = newStack[newIndex];
+      }
     }
 
-    setHistory(prev => {
-      if (prev.index < prev.stack.length - 1) {
-        const newIndex = prev.index + 1;
-        setCode(prev.stack[newIndex]);
-        return { ...prev, index: newIndex };
-      }
-      return prev;
-    });
+    setHistory({ stack: newStack, index: newIndex });
+    setCode(newCode);
   };
 
   const findAndReplace = () => {
     if (!searchTerm) return;
+
+    // Clear any pending debounce
+    if (historyTimeout.current) {
+      clearTimeout(historyTimeout.current);
+      historyTimeout.current = null;
+    }
 
     try {
       setRegexError('');
@@ -127,8 +157,22 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
 
       const newCode = code.replace(regex, replaceTerm);
       if (newCode !== code) {
+        // Add both current state and new state in a single setHistory call
+        // to avoid React batching issues
+        setHistory(prev => {
+          const newStack = prev.stack.slice(0, prev.index + 1);
+          // Add current code if different from latest
+          if (prev.stack[prev.index] !== code) {
+            newStack.push(code);
+          }
+          // Add the new replaced code
+          newStack.push(newCode);
+          return {
+            stack: newStack,
+            index: newStack.length - 1
+          };
+        });
         setCode(newCode);
-        updateHistory(newCode);
       }
     } catch (e) {
       setRegexError(e.message);
@@ -172,11 +216,36 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const uploadCode = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Capture current code before async FileReader runs
+      const currentCode = code;
+
+      // Clear any pending debounce
+      if (historyTimeout.current) {
+        clearTimeout(historyTimeout.current);
+        historyTimeout.current = null;
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target.result;
+        if (typeof content !== 'string') return;
+
+        // Add both current state and uploaded content in a single setHistory call
+        // to avoid React batching issues
+        setHistory(prev => {
+          const newStack = prev.stack.slice(0, prev.index + 1);
+          // Add current code if different from latest
+          if (prev.stack[prev.index] !== currentCode) {
+            newStack.push(currentCode);
+          }
+          // Add the uploaded content
+          newStack.push(content);
+          return {
+            stack: newStack,
+            index: newStack.length - 1
+          };
+        });
         setCode(content);
-        updateHistory(content);
 
         const nameParts = file.name.split('.');
         const ext = nameParts.length > 1 ? nameParts.pop()?.toLowerCase() : '';
@@ -211,6 +280,12 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const resetCode = () => {
+    // Clear any pending debounce
+    if (historyTimeout.current) {
+      clearTimeout(historyTimeout.current);
+      historyTimeout.current = null;
+    }
+
     const defaultCode = '// Write your code here\n';
     setCode(defaultCode);
     setHistory({ stack: [defaultCode], index: 0 });
@@ -219,13 +294,27 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     setSearchTerm('');
     setReplaceTerm('');
     setRegexError('');
+    setUseRegex(false);
+    setReplaceMode(false);
+    setLanguage('javascript');
+    setMatchCount(0);
   };
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(code);
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch (error) {
+      console.error('Failed to copy code:', error);
+    }
   };
 
   const formatCode = () => {
+    // Clear any pending debounce
+    if (historyTimeout.current) {
+      clearTimeout(historyTimeout.current);
+      historyTimeout.current = null;
+    }
+
     const normalizedCode = code.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = normalizedCode.split('\n');
     let indentLevel = 0;
@@ -253,9 +342,62 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       return indented;
     }).join('\n');
 
-    setCode(formatted);
-    updateHistory(formatted);
+    if (formatted !== code) {
+      // Add both current state and formatted state in a single setHistory call
+      // to avoid React batching issues
+      setHistory(prev => {
+        const newStack = prev.stack.slice(0, prev.index + 1);
+        // Add current code if different from latest
+        if (prev.stack[prev.index] !== code) {
+          newStack.push(code);
+        }
+        // Add the formatted code
+        newStack.push(formatted);
+        return {
+          stack: newStack,
+          index: newStack.length - 1
+        };
+      });
+      setCode(formatted);
+    }
   };
+
+  const undoRef = useRef(undo);
+  const redoRef = useRef(redo);
+  const saveCodeRef = useRef(saveCode);
+
+  useEffect(() => {
+    undoRef.current = undo;
+    redoRef.current = redo;
+    saveCodeRef.current = saveCode;
+  });
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveCodeRef.current();
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoRef.current();
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redoRef.current();
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('search-input')?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Tab') {
@@ -307,26 +449,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
           }
         }, 0);
       }
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      saveCode();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-      e.preventDefault();
-      redo();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-      e.preventDefault();
-      document.getElementById('search-input')?.focus();
     }
   };
 
@@ -523,8 +645,8 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
                 onClick={findAndReplace}
                 disabled={!!regexError}
                 className={`px-3 py-1 rounded transition-colors text-sm ${regexError
-                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
               >
                 Replace All
