@@ -53,6 +53,7 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
+      - ./repository_before:/app/repository_before
       - ./repository_after/backend:/app/repository_after/backend
       - ./repository_after/frontend:/app/repository_after/frontend
       - /app/repository_after/frontend/node_modules
@@ -61,4 +62,5 @@ services:
     working_dir: /app
     environment:
       DATABASE_URL: "sqlite+aiosqlite:///:memory:"
-    command: ts-node evaluation/evaluation.ts
+      PYTHONPATH: "/app"
+    command: python3 evaluation/evaluation.py

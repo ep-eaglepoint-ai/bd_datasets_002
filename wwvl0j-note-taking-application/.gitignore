@@ -38,3 +38,5 @@ coverage/
 
 # Environment
 .env
+
+evaluation/reports
