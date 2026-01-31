@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"traffic-mirroring/proxy"
+	"traffic-mirroring/repository_after/proxy"
 )
 
 // SimpleUpstreamHandler creates a simple handler that responds with the request body
