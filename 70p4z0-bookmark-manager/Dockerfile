@@ -5,17 +5,11 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Copy repository_after directory (only if it exists)
-RUN test -d repository_after && COPY repository_after ./repository_after || true
-
 # Install dependencies
 RUN npm install
 
 # Copy source code
 COPY . .
 
-# Install test dependencies
-RUN npm install
-
-# Default command
+# Default command (can be overridden in docker-compose)
 CMD ["npm", "run", "dev"]
