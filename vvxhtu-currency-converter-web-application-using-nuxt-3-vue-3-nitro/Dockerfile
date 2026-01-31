@@ -5,17 +5,13 @@ WORKDIR /app
 # Copy project files
 COPY . /app
 
-# Install dependencies for repository_after
-WORKDIR /app/repository_after
+# Install dependencies at project root (for jest and tests)
 RUN npm install --legacy-peer-deps && \
-    echo "Checking if jest installed..." && \
+    echo "Checking if jest installed at root..." && \
     ls -la node_modules/.bin/jest || true
 
 # Set environment
 ENV NODE_ENV=test
-
-# Back to root
-WORKDIR /app
 
 # Default command
 CMD ["npm", "test"]

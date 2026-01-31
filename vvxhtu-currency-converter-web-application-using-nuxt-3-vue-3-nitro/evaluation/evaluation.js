@@ -7,7 +7,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-function runTests(repoPath) {
+function runTests(repoPath, projectRoot) {
   const results = {
     passed: 0,
     failed: 0,
@@ -17,17 +17,17 @@ function runTests(repoPath) {
   };
 
   // Check if repository has implementation
-  const implPath = path.join(repoPath, 'currencyConverter.ts');
+  const implPath = path.join(repoPath, 'utils', 'currencyConverter.ts');
   if (!fs.existsSync(implPath)) {
     results.error = 'No implementation found';
     return results;
   }
 
   try {
-    // Run Jest tests
+    // Run Jest tests from project root (tests are at root level)
     const output = execSync(
-      `cd ${repoPath} && npm test -- --ci --json --testLocationInResults`,
-      { 
+      `cd ${projectRoot} && npm test -- --ci --json --testLocationInResults`,
+      {
         encoding: 'utf-8',
         env: { ...process.env, NODE_ENV: 'test' },
         stdio: ['pipe', 'pipe', 'pipe']
@@ -104,7 +104,7 @@ function main() {
 
   // Run tests on repository_after
   console.log('🔍 Evaluating repository_after...');
-  const afterResults = runTests(repoAfter);
+  const afterResults = runTests(repoAfter, projectRoot);
   console.log(`   ✓ Passed: ${afterResults.passed}`);
   console.log(`   ✗ Failed: ${afterResults.failed}`);
   if (afterResults.error) {
