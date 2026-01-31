@@ -271,6 +271,39 @@ class WorkStealing:
                 return True
             from_worker.assign_job(stolen)
         return False
+    
+    def steal_jobs(self, count: int = 1) -> List[str]:
+        """Attempt to steal jobs from overloaded workers to underloaded ones."""
+        stolen_job_ids = []
+        
+        overloaded = self.find_overloaded_workers()
+        underloaded = self.find_underloaded_workers()
+        
+        if not overloaded or not underloaded:
+            return stolen_job_ids
+        
+        for from_worker in overloaded:
+            if len(stolen_job_ids) >= count:
+                break
+            
+            job_ids = list(from_worker.info.current_jobs)
+            for job_id in job_ids:
+                if len(stolen_job_ids) >= count:
+                    break
+                
+                for to_worker in underloaded:
+                    capacity = to_worker.info.max_concurrent_jobs
+                    current = len(to_worker.info.current_jobs)
+                    
+                    if current < capacity:
+                        # Move job reference
+                        if job_id in from_worker.info.current_jobs:
+                            from_worker.info.current_jobs.remove(job_id)
+                            to_worker.info.current_jobs.append(job_id)
+                            stolen_job_ids.append(job_id)
+                            break
+        
+        return stolen_job_ids
 
 
 class GracefulShutdown:

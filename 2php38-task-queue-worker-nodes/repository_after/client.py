@@ -316,6 +316,40 @@ class TaskQueue:
         """Clear all jobs from the queue."""
         self._priority_queue.clear()
         self._update_metrics()
+    
+    def list_jobs(
+        self,
+        status: Optional[str] = None,
+        priority: Optional[str] = None,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+    ) -> List[Job]:
+        """List jobs with optional filters."""
+        return self._api.list_jobs(status=status, priority=priority, limit=limit, cursor=cursor)
+    
+    def get_queue_depths(self) -> Dict[Priority, int]:
+        """Get queue depths per priority level."""
+        return self._priority_queue.size_by_priority()
+    
+    def get_workers(self) -> List[WorkerNode]:
+        """Get all registered workers."""
+        return self._worker_registry.get_all_workers()
+    
+    def get_worker_count(self) -> int:
+        """Get number of registered workers."""
+        return self._worker_registry.get_worker_count()
+    
+    def get_dlq_jobs(self, limit: int = 50) -> List[Job]:
+        """Get jobs from dead-letter queue."""
+        return self._retry_manager.get_dlq()[:limit]
+    
+    def retry_job(self, job_id: str) -> Optional[Job]:
+        """Retry a failed job from DLQ."""
+        job = self._retry_manager.requeue_from_dlq(job_id, reset_attempts=True)
+        if job:
+            self._priority_queue.enqueue(job)
+            self._update_metrics()
+        return job
 
 
 class AsyncTaskQueue:

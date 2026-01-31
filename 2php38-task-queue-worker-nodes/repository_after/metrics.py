@@ -339,20 +339,38 @@ class QueueManagementAPI:
     
     def list_jobs(
         self,
-        status: Optional[JobStatus] = None,
-        priority: Optional[Priority] = None,
+        status: Optional[str] = None,
+        priority: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
+        cursor: Optional[str] = None,
     ) -> List[Job]:
         with self._lock:
             jobs = list(self._jobs.values())
             
-            if status:
-                jobs = [j for j in jobs if j.status == status]
-            if priority:
-                jobs = [j for j in jobs if j.priority == priority.value]
+            jobs.sort(key=lambda j: j.created_at, reverse=True)
             
-            return jobs[offset : offset + limit]
+            if status:
+                target_status = status.upper() if isinstance(status, str) else status
+                jobs = [j for j in jobs if (
+                    j.status.value.upper() == target_status if hasattr(j.status, 'value') 
+                    else str(j.status).upper() == target_status
+                )]
+            if priority:
+                target_priority = priority.upper() if isinstance(priority, str) else priority
+                jobs = [j for j in jobs if (
+                    Priority(j.priority).name == target_priority
+                )]
+            
+            if cursor:
+                start_idx = 0
+                for i, job in enumerate(jobs):
+                    if job.id == cursor:
+                        start_idx = i + 1
+                        break
+                jobs = jobs[start_idx:]
+            
+            return jobs[:limit]
     
     def get_queue_stats(self) -> QueueStats:
         return self._metrics.get_stats()

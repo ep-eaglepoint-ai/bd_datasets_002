@@ -63,6 +63,37 @@ class JobPayload(BaseModel, Generic[T]):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+PayloadT = TypeVar("PayloadT", bound=BaseModel)
+
+
+class TypedJob(BaseModel, Generic[PayloadT]):
+    """Type-safe job model with generic payload."""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    payload: PayloadT
+    priority: Priority = Priority.NORMAL
+    status: JobStatus = JobStatus.PENDING
+    
+    scheduled_at: Optional[datetime] = None
+    delay_ms: int = 0
+    cron_expression: Optional[str] = None
+    timezone: str = "UTC"
+    depends_on: List[str] = Field(default_factory=list)
+    dependent_jobs: List[str] = Field(default_factory=list)
+    retry_config: "RetryConfig" = Field(default_factory=lambda: RetryConfig())
+    attempt: int = 0
+    last_error: Optional[str] = None
+    unique_key: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    worker_id: Optional[str] = None
+    on_success: Optional[str] = None
+    on_failure: Optional[str] = None
+    
+    model_config = {"use_enum_values": True}
+
+
 class Job(BaseModel):
     """Core job model representing a task in the queue."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

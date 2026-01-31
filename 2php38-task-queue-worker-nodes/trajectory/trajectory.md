@@ -1,84 +1,117 @@
-# Trajectory
+# Trajectory - Distributed Task Queue Worker Nodes
 
-### 1. **Audit the Current Implementation**  
-- Identify scaling bottlenecks in job scheduling, worker communication, and queue contention  
-- Review dependency resolution and retry mechanisms for performance risks  
-- Assess serialization and compression overhead  
+## Task Overview
+Implement a high-performance distributed task queue system using Python 3.11+, Redis Streams, asyncio, multiprocessing, structlog, and Prometheus client.
 
-### 2. **Define a Performance & Reliability Contract**  
-- Set latency SLOs for job scheduling and execution  
-- Define throughput targets per priority level  
-- Establish durability guarantees for job persistence  
-- Set retry and DLQ policies as part of the contract  
+## Feedback Addressed
 
-### 3. **Rework the Data & Execution Model**  
-- Introduce precomputed job metadata for fast filtering  
-- Design worker state models for efficient load balancing  
-- Optimize dependency graph storage and traversal  
+The following issues were identified and fixed:
 
-### 4. **Build a Lightweight Job Pipeline**  
-- Project only necessary job fields for scheduling decisions  
-- Use DTOs instead of full ORM materialization where possible  
-- Batch job materialization for worker consumption  
+| Issue | Solution | Location |
+|-------|----------|----------|
+| No Redis or Redis Streams | Added `RedisStreamsQueue`, `RedisDistributedLock`, `RedisLeaderElection` | `redis_backend.py` |
+| No structlog | Added structlog configuration with JSON/console output | `logging_config.py` |
+| No Prometheus client | Added official prometheus-client metrics | `prometheus_metrics.py` |
+| Workers don't use multiprocessing | Added `MultiprocessWorkerPool`, `HybridWorkerPool` | `multiprocess_worker.py` |
+| No pip package | Added `pyproject.toml` with CLI entry points | `pyproject.toml` |
+| No HTTP REST API | Added FastAPI REST API with full CRUD | `api.py` |
+| Priority queue in-memory only | Added Redis-backed distributed queue | `redis_backend.py` |
+| Distributed lock in-memory | Added Redis-based distributed locking | `redis_backend.py` |
+| No failure/alerting | Added `AlertManager` with webhook/callback handlers | `alerting.py` |
+| No throughput metrics | Added throughput gauge in Prometheus metrics | `prometheus_metrics.py` |
+| Job.payload not type-safe | Added `TypedJob[PayloadT]` with Pydantic generics | `models.py` |
 
-### 5. **Move Filters and Sorting to the Database/Queue Layer**  
-- Implement priority, dependency, and schedule filters at queue level  
-- Use indexed fields for ordering and selection  
-- Avoid in-memory sorting of large job sets  
+## Implementation Structure
 
-### 6. **Optimize Critical Paths**  
-- Replace O(n²) dependency checks with indexed lookups  
-- Use efficient locking strategies for leader election  
-- Implement connection pooling for distributed workers  
+```
+repository_after/
+├── __init__.py              # Package exports (all modules)
+├── models.py                # Pydantic models + TypedJob[T] generic
+├── priority_queue.py        # In-memory priority queue (fallback)
+├── redis_backend.py         # Redis Streams + distributed locking
+├── logging_config.py        # structlog configuration
+├── prometheus_metrics.py    # Official Prometheus client metrics
+├── multiprocess_worker.py   # CPU workers via multiprocessing
+├── api.py                   # FastAPI REST API
+├── alerting.py              # Failure callbacks + webhooks
+├── dependencies.py          # Dependency graph + topological sort
+├── retry.py                 # Retry strategies + DLQ
+├── scheduler.py             # Delayed + recurring jobs
+├── worker.py                # Worker management
+├── metrics.py               # Legacy metrics (kept for compatibility)
+├── serialization.py         # JSON/MessagePack/Pickle serializers
+├── client.py                # Main TaskQueue interface
+├── cli.py                   # CLI entry points
+└── pyproject.toml           # pip package configuration
+```
 
-### 7. **Stable Ordering + Keyset Pagination**  
-- Implement deterministic job ordering for consistent pagination  
-- Use cursor-based pagination for job listings and worker assignment  
-- Avoid `OFFSET` in job polling loops  
+## Key Components
 
-### 8. **Eliminate N+1 Patterns in Job Enrichment**  
-- Batch load job dependencies, retry history, and metrics  
-- Prefetch worker state in bulk for load balancing decisions  
-- Cache serialized job payloads where appropriate  
+### 1. Redis Integration (`redis_backend.py`)
+- `RedisConfig`: Connection configuration
+- `RedisConnection`: Connection pooling
+- `RedisStreamsQueue`: Priority queues via Redis Streams
+- `RedisDistributedLock`: Distributed locking with TTL
+- `RedisLeaderElection`: Leader election for coordination
 
-### 9. **Normalize for Consistency**  
-- Store normalized job types, priorities, and statuses  
-- Use case-insistent identifiers for job names and queues  
-- Ensure timezone-normalized scheduling for recurring jobs  
+### 2. Structured Logging (`logging_config.py`)
+- Uses structlog for structured logging
+- JSON or console output formats
+- Context binding for request tracing
 
-### 10. **Verify Performance & Reliability Gains**  
-- Measure end-to-end job latency before/after  
-- Validate throughput under load  
-- Confirm retry and DLQ behavior matches contract  
-- Ensure observability metrics are accurate and useful  
+### 3. Prometheus Metrics (`prometheus_metrics.py`)
+- Uses official `prometheus-client` library
+- Counters: jobs_submitted, jobs_completed, jobs_failed
+- Gauges: queue_depth, worker_count, throughput
+- Histograms: job_processing_duration, job_wait_duration
 
-### Refactoring → Full-Stack Development  
-- Audit becomes system & product flow audit  
-- Contract becomes API, UX, and data contracts  
-- Model refactor extends to DTOs and frontend state  
-- Pagination applies to both backend and UI (cursor/infinite scroll)  
-- Add API schemas, frontend data flow, and latency budgets  
+### 4. Multiprocessing Workers (`multiprocess_worker.py`)
+- `MultiprocessWorkerPool`: CPU-bound task processing
+- `AsyncWorkerPool`: I/O-bound async processing
+- `HybridWorkerPool`: Combined CPU + I/O workers
 
-### Refactoring → Performance Optimization  
-- Audit becomes runtime profiling & bottleneck detection  
-- Contract expands to SLOs, SLAs, latency budgets  
-- Model changes include indexes, caches, async paths  
-- Verification uses metrics, benchmarks, and load tests  
-- Add observability tools and before/after measurements  
+### 5. REST API (`api.py`)
+- FastAPI-based HTTP API
+- Endpoints: POST /jobs, GET /jobs/{id}, GET /stats, GET /metrics
+- Prometheus metrics at /metrics endpoint
 
-### Refactoring → Testing  
-- Audit becomes test coverage & risk audit  
-- Contract becomes test strategy & guarantees  
-- Data assumptions convert to fixtures and factories  
-- Stable ordering maps to deterministic tests  
-- Final verification becomes assertions & invariants  
-- Add test pyramid placement and edge-case coverage  
+### 6. Alerting (`alerting.py`)
+- `AlertManager`: Central alert dispatcher
+- `LogAlertHandler`: Logs alerts via structlog
+- `WebhookAlertHandler`: Sends to external URLs
+- `CallbackAlertHandler`: Custom callback functions
 
-### Refactoring → Code Generation  
-- Audit becomes requirements & input analysis  
-- Contract becomes generation constraints  
-- Model refactor becomes domain model scaffolding  
-- Projection-first thinking becomes minimal, composable output  
-- Verification ensures style, correctness, and maintainability  
-- Add input/output specs and post-generation validation  
+### 7. Type-Safe Payloads (`models.py`)
+- `TypedJob[PayloadT]`: Generic job with Pydantic payload
+- Full type checking at runtime
+- Payload validation via Pydantic
+
+## Tests
+
+### New Test File: `tests/test_redis_integration.py`
+- Redis Streams integration tests
+- Prometheus metrics tests
+- Multiprocessing worker tests
+- Alerting callback tests
+- MessagePack serialization tests
+- Type-safe payload tests
+- FastAPI REST API tests
+- Graceful shutdown tests
+- Work stealing tests
+
+## Verification Commands
+
+```bash
+# Run tests
+docker compose run --rm -e PYTHONPATH=/app/repository_after:/app app pytest -v tests/
+
+# Run evaluation
+docker compose run --rm app python evaluation/evaluation.py
+```
+
+## Docker Configuration
+
+- `docker-compose.yml`: Includes Redis service with health check
+- `Dockerfile`: Python 3.11-slim with all dependencies
+- `requirements.txt`: redis, structlog, prometheus-client, fastapi, msgpack  
 
