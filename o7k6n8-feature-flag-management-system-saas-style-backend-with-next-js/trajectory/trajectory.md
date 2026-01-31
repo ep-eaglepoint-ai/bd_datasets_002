@@ -1,228 +1,174 @@
-# Trajectory: Feature Flag Management System (SaaS-Style Backend with Next.js)
-
+# Feature Flag Management System - Trajectory
 
 ## 1. Problem Statement
 
-The prompt says: Modern applications need a safe and flexible way to release features without redeploying code. Enabling a feature for all users at once increases the risk of bugs, outages, and poor user experience. Teams also need the ability to test features with specific users, gradually roll out changes, and instantly disable problematic functionality.
+Based on the prompt/requirement, I identified the core problem: **Modern applications need a safe and flexible way to release features without redeploying code**. The requirement stated that enabling a feature for all users at once increases the risk of bugs, outages, and poor user experience. Teams also need the ability to test features with specific users, gradually roll out changes, and instantly disable problematic functionality.
 
-I needed to build a centralized Feature Flag Management System that allows controlled feature releases, user-specific overrides, and percentage-based rollouts through a secure, backend-driven architecture with a minimal administrative interface.
+The project required building a centralized Feature Flag Management System that addresses these challenges by providing:
+- Controlled feature releases
+- User-specific overrides
+- Percentage-based rollouts
+- A secure, backend-driven architecture with a minimal administrative interface
 
----
+Based on the prompt/requirement, I identified this as a classic feature flag management problem similar to systems like LaunchDarkly or Split, but requiring a custom implementation suitable for a SaaS backend.
 
 ## 2. Requirements
 
-The prompt says: The system must meet these criteria:
+Based on the prompt/requirement, I identified these functional requirements that the system must meet:
 
-1. **User authentication with role-based access** - Admin and user roles with different permissions
-2. **Admin CRUD operations for feature flags** - Create, update, delete flags with unique keys and descriptions
-3. **Global enable/disable toggle** - Each flag must have a global enabled/disabled state
-4. **Percentage-based rollout (0-100%)** - Gradual feature rollout to a percentage of users
-5. **Per-user overrides** - Admins can enable/disable flags for specific users, taking priority over all other rules
-6. **Deterministic flag evaluation** - Same user must consistently receive the same flag result
-7. **Single endpoint for evaluated flags** - Return all evaluated flags for the logged-in user in one request
-8. **Audit logging** - Track all feature flag changes with who made the change and when
-
----
+1. **User authentication with role-based access** - The system needed to distinguish between admin and regular users
+2. **Admin CRUD operations for feature flags** - Create, update, delete functionality
+3. **Feature flag attributes** - Each flag must have a unique key, description, global enabled toggle, and percentage-based rollout (0-100)
+4. **Per-user overrides** - These must take priority over all other rules
+5. **Deterministic flag evaluation** - Same user must consistently receive the same flag result
+6. **Single endpoint for evaluated flags** - Return all evaluated flags for the logged-in user in one request
+7. **Audit logging** - Track all feature flag changes
+8. **Minimal admin interface** - Login, flags list, flag detail/edit, and user lookup pages
 
 ## 3. Constraints
 
-I identified these technical constraints:
+Based on the prompt/requirement, I identified these technical constraints:
 
-1. **Technology Stack**: Next.js (App Router) with TypeScript
-2. **Database**: Relational database required with clear schema design and indexes
-3. **Authentication**: JWT-based with role checking
-4. **API Design**: RESTful endpoints with server-side evaluation
-5. **Frontend**: Minimal admin-style interface (login, flags list, flag detail/edit, user lookup)
-
----
+1. **Technology stack** - Must use Next.js with App Router and TypeScript
+2. **Database** - Must use a relational database with clear schema design and indexes
+3. **Security** - APIs must be secure with proper authentication and authorization
+4. **Clean architecture** - Production-ready patterns suitable for SaaS backend
+5. **UI constraints** - Frontend should be intentionally minimal
 
 ## 4. Research and Resources
 
-I researched the following resources to understand feature flag best practices and implementation patterns:
+During the design phase, I researched the following concepts and patterns:
 
-### Documentation and Articles
-- [Prisma ORM Documentation](https://www.prisma.io/docs) - For database schema design and ORM patterns
-- [Next.js App Router Documentation](https://nextjs.org/docs/app) - For server-side API routes and middleware
-- [JWT Official Documentation](https://jwt.io/) - For secure token-based authentication
-- [Bcrypt Documentation](https://www.npmjs.com/package/bcryptjs) - For password hashing
-- [Feature Flag Best Practices (LaunchDarkly Blog)](https://launchdarkly.com/blog/) - For understanding rollout strategies
+### 4.1 Feature Flag Concepts
 
-### Key Concepts Researched
-- **Deterministic Hashing**: I researched how to implement consistent user bucketing using SHA-256 hashing of `userId:flagKey` to ensure the same user always gets the same result for a given flag.
-- **Priority Order**: I studied how user overrides should take precedence over percentage rollouts, which should take precedence over global enable/disable.
-- **Cascading Deletes**: I learned how Prisma handles cascade deletes for maintaining referential integrity when flags or users are deleted.
+- **Percentage-based rollouts**: I studied how services like LaunchDarkly implement gradual rollouts using consistent hashing
+- **User targeting**: I researched patterns for per-user flag overrides that always take priority
+- **Deterministic evaluation**: I investigated hashing algorithms for consistent flag results
 
----
+### 4.2 Next.js Patterns
+
+- **App Router**: I reviewed Next.js 13+ App Router patterns for server actions and API routes
+- **Authentication**: I studied JWT-based authentication with role-based access control
+- **Middleware**: I explored Next.js middleware for request authentication
+
+### 4.3 Database Design
+
+- **Prisma ORM**: I researched Prisma schema patterns for relational models
+- **Indexes**: I studied optimal indexing strategies for query performance
+- **Cascading deletes**: I explored foreign key constraints for data integrity
+
+### 4.4 Key Resources Referenced
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [JWT.io](https://jwt.io/) - For token verification
+- [bcryptjs](https://www.npmjs.com/package/bcryptjs) - For password hashing
 
 ## 5. Choosing Methods and Why
 
-### Database Choice: PostgreSQL with Prisma ORM
+### 5.1 Database Selection: PostgreSQL with Prisma
 
-I chose PostgreSQL because the prompt requires a relational database, and I needed strong consistency for audit logs and user overrides. I selected Prisma ORM because it provides type-safe database access and clean schema definitions.
+I chose PostgreSQL as the relational database because:
+- It provides ACID compliance essential for audit logging
+- It supports complex queries for flag evaluation
+- It's production-ready and widely used in SaaS applications
 
-I chose this over raw SQL because Prisma's schema syntax makes the database structure self-documenting, and the generated TypeScript types ensure compile-time safety across the entire codebase.
+I selected Prisma as the ORM because:
+- It provides type-safe database access with TypeScript
+- It has excellent migration support
+- Its schema definition is clear and declarative
 
-### Authentication: JWT with bcrypt Password Hashing
+### 5.2 Authentication: JWT with bcrypt
 
-I implemented JWT-based authentication because it allows stateless session management, which scales well for API-centric applications. I used bcrypt with 12 rounds for password hashing because it provides strong protection against rainbow table attacks while being computationally feasible.
+I chose JWT (JSON Web Tokens) for authentication because:
+- It's stateless and scales well
+- It can include user roles in the token payload
+- It's widely supported and secure when properly implemented
 
-I chose this combination because JWTs can be easily validated on each request without database lookups, while bcrypt ensures passwords are never stored in plain text.
+I chose bcrypt for password hashing because:
+- It's computationally expensive to prevent brute force attacks
+- It includes salt automatically to prevent rainbow table attacks
+- It's the industry standard for password storage
 
-### Rollout Algorithm: SHA-256 Hashing
+### 5.3 Rollout Algorithm: SHA-256 Hashing
 
-I implemented deterministic rollout using SHA-256 hashing of `${userId}:${flagKey}`. I chose this approach because:
+I chose SHA-256 hashing for deterministic rollouts because:
+- It's cryptographically secure and produces uniform distribution
+- It can be implemented with Node.js built-in crypto module
+- The hash is deterministic: `hash(userId + flagKey)` always produces the same result
 
-1. **Consistency**: The same user will always get the same hash value for the same flag, ensuring consistent behavior across requests.
-2. **Distribution**: Hash values are uniformly distributed, so a 50% rollout will approximately target half of all users.
-3. **Simplicity**: No external dependencies or complex data structures are needed—just a single hash operation.
+The algorithm works by:
+1. Concatenating userId and flag key: `${userId}:${flag.key}`
+2. Creating a SHA-256 hash
+3. Converting the first 8 hex characters to an integer (0-4,294,967,295)
+4. Taking modulo 100 to get a percentage (0-99)
+5. Adding 1 to get 1-100 range
+6. Comparing against the flag's rollout percentage
 
-I chose SHA-256 over MD5 because it's cryptographically secure and widely supported, even though MD5 would also work for this purpose.
+### 5.4 Priority Order for Flag Evaluation
 
-### Middleware Pattern: Higher-Order Function
+I chose this evaluation priority order because:
+1. **User override first** - Admin decisions for specific users must take precedence
+2. **Global disabled check** - If flag is globally off, no one gets it
+3. **Rollout 0 check** - Optimization for common case
+4. **Rollout 100 check** - Optimization for full enablement
+5. **Deterministic rollout** - For gradual rollouts
 
-I implemented authentication middleware as a higher-order function (`withAuth`) that wraps route handlers. I chose this pattern because it keeps authentication logic DRY and allows per-route role requirements to be specified declaratively.
+This order ensures that admin overrides always work, while providing efficient short-circuiting### for common cases.
 
-This approach works because the wrapper function extracts the JWT from the Authorization header, validates it, checks role requirements, and then calls the original handler with the authenticated user attached to the request.
+ 5.5 API Design: REST with Bearer Tokens
 
----
+I chose REST APIs with Bearer token authentication because:
+- It's simple and intuitive
+- It integrates well with Next.js App Router
+- It supports all required operations (CRUD, evaluation)
 
 ## 6. Solution Implementation and Explanation
 
-### Database Schema Design
+### 6.1 Database Schema Design
 
-I designed the schema with four models: User, FeatureFlag, UserOverride, and AuditLog.
+Based on the requirements, I designed the Prisma schema with four models:
 
-```prisma
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+**User Model**: Stores authentication data and roles
+- `id`, `email`, `password`, `role` (ADMIN/USER)
+- Relations to overrides and audit logs
+- Index on email for fast lookups
 
-  overrides UserOverride[]
-  auditLogs AuditLog[]
-}
-```
+**FeatureFlag Model**: Stores flag configuration
+- `id`, `key` (unique), `description`, `enabled`, `rolloutPercentage`
+- Relations to overrides and audit logs
+- Indexes on key (unique lookup) and enabled (filtering)
 
-I created the User model first because it serves as the foundation for authentication and authorization. The unique email constraint ensures no duplicate accounts can exist, and the default USER role provides a safe fallback.
+**UserOverride Model**: Stores per-user flag overrides
+- `id`, `userId`, `flagId`, `enabled`
+- Unique constraint on `[userId, flagId]` ensures one override per user per flag
+- Cascade delete for data integrity
 
-```prisma
-model FeatureFlag {
-  id                String   @id @default(cuid())
-  key               String   @unique
-  description       String
-  enabled           Boolean  @default(false)
-  rolloutPercentage Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+**AuditLog Model**: Tracks all flag changes
+- `id`, `userId`, `flagId`, `action`, `oldValue`, `newValue`, `timestamp`
+- Stores JSON for flexible old/new value storage
+- Indexes on userId, flagId, timestamp, and action for filtering
 
-  overrides UserOverride[]
-  auditLogs AuditLog[]
-}
-```
-
-I created the FeatureFlag model with a unique key constraint because flag keys are the primary identifier used by client applications. The default `enabled: false` and `rolloutPercentage: 0` ensure new flags are off by default until explicitly enabled.
-
-```prisma
-model UserOverride {
-  id        String      @id @default(cuid())
-  userId    String
-  flagId    String
-  enabled   Boolean
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, flagId])
-}
-```
-
-I created the UserOverride model with a composite unique constraint because each user should have at most one override per flag. The cascade delete ensures that when a user or flag is deleted, their associated overrides are automatically removed.
-
-```prisma
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  flagId    String
-  action    String   // 'CREATE', 'UPDATE', 'DELETE'
-  oldValue  Json?    // Store old flag data as JSON
-  newValue  Json?    // Store new flag data as JSON
-  timestamp DateTime @default(now())
-
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
-}
-```
-
-I created the AuditLog model with JSON fields for oldValue and newValue because flag structures may evolve over time, and JSON preserves the complete state without requiring schema migrations.
-
-### Authentication Implementation
+### 6.2 Authentication Implementation
 
 I implemented authentication in `src/lib/auth.ts`:
 
-```typescript
-export function generateToken(user: AuthUser): string {
-  return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-}
-```
+**Password hashing**: Used bcrypt with 12 rounds for secure storage
 
-I generated tokens with a 24-hour expiration because it balances security with usability. I included the user role in the token claims so role checks can happen without additional database queries.
+**JWT generation**: Created tokens with user id, email, and role, expiring in 24 hours
 
-```typescript
-export function verifyToken(token: string): AuthUser | null {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
-    return decoded;
-  } catch {
-    return null;
-  }
-}
-```
+**Token verification**: Implemented JWT verification with proper error handling
 
-I implemented token verification with try-catch because JWT verification throws on expired or invalid tokens, and I needed to handle both cases gracefully by returning null.
+**User authentication**: Combined password verification with database lookup
 
-### Middleware Implementation
+### 6.3 Middleware Authentication
 
-I implemented the authentication middleware as a higher-order function:
+I created `src/lib/middleware.ts` with a `withAuth` wrapper:
+- Extracts Bearer token from Authorization header
+- Verifies token and attaches user to request
+- Supports optional role checking for authorization
 
-```typescript
-export async function withAuth(
-  handler: (req: AuthenticatedRequest, context: any) => Promise<NextResponse>,
-  requiredRole?: 'ADMIN' | 'USER'
-) {
-  return async (req: NextRequest, context: any) => {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await getUserFromToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    if (requiredRole && user.role !== requiredRole) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    (req as AuthenticatedRequest).user = user;
-    return handler(req as AuthenticatedRequest, context);
-  };
-}
-```
-
-I extracted the token by removing the "Bearer " prefix because the Authorization header uses that format. I checked for the required role after validating the token because there's no point checking permissions for an unauthenticated user.
-
-### Feature Flag Evaluation Implementation
+### 6.4 Feature Flag Evaluation
 
 I implemented the core evaluation logic in `src/lib/featureFlags.ts`:
 
@@ -258,94 +204,128 @@ export function evaluateFlagForUser(flag: any, userId: string): boolean {
 }
 ```
 
-I implemented the evaluation with explicit priority ordering because I needed a clear decision flow:
+### 6.5 API Routes Implementation
 
-1. **User overrides first** - These are explicit admin decisions for specific users and must take precedence.
-2. **Global enabled check** - If the flag is disabled globally, no further evaluation is needed.
-3. **0% and 100% shortcuts** - These edge cases avoid unnecessary hash computation.
-4. **Percentage rollout** - For partial rollouts, I use hash-based bucketing to ensure consistency.
+I implemented RESTful API routes for all operations:
 
-I chose to use the first 8 characters of the SHA-256 hash because it provides 32 bits of entropy (4 billion possible values), which is more than sufficient for percentage distribution. The modulo 100 operation maps this to a 1-100 range that can be compared directly with the rollout percentage.
+**Authentication APIs**:
+- `POST /api/auth/login` - User login with email/password
+- `POST /api/auth/logout` - Token invalidation (client-side)
+- `GET /api/auth/me` - Get current user info
 
-### API Endpoints
+**Flag APIs**:
+- `GET /api/flags` - List all flags (admin)
+- `POST /api/flags` - Create new flag (admin)
+- `GET /api/flags/[id]` - Get flag details (admin)
+- `PUT /api/flags/[id]` - Update flag (admin)
+- `DELETE /api/flags/[id]` - Delete flag (admin)
+- `GET /api/flags/evaluate` - Get evaluated flags for current user
 
-I created RESTful endpoints organized by resource:
+**Override APIs**:
+- `GET /api/flags/[id]/overrides` - List overrides for a flag (admin)
+- `POST /api/flags/[id]/overrides` - Create override (admin)
+- `DELETE /api/flags/[id]/overrides/[overrideId]` - Delete override (admin)
 
-**Authentication Endpoints:**
-- `POST /api/auth/login` - Authenticates users and returns JWT tokens
-- `GET /api/auth/me` - Returns the current user's information
-- `POST /api/auth/logout` - Client-side token clearing
+**Audit APIs**:
+- `GET /api/audit` - List audit logs with filtering (admin)
 
-**Flags Endpoints:**
-- `GET /api/flags` - Lists all flags (admin only)
-- `POST /api/flags` - Creates new flags (admin only)
-- `GET /api/flags/:id` - Gets flag details with overrides (admin only)
-- `PUT /api/flags/:id` - Updates flags (admin only)
-- `DELETE /api/flags/:id` - Deletes flags (admin only)
+Each API validates inputs, checks authorization, performs database operations, and logs audit entries.
 
-**Overrides Endpoints:**
-- `GET /api/flags/:id/overrides` - Lists user overrides for a flag (admin only)
-- `POST /api/flags/:id/overrides` - Creates/updates user overrides (admin only)
-- `DELETE /api/flags/:id/overrides/:overrideId` - Removes overrides (admin only)
+### 6.6 Frontend Implementation
 
-**Evaluation Endpoint:**
-- `GET /api/flags/evaluate` - Returns all evaluated flags for the logged-in user
+I built minimal admin pages using Next.js App Router and Tailwind CSS:
 
-I created a dedicated evaluate endpoint because client applications need to fetch all relevant flags in a single request rather than making individual requests per flag.
-
----
+- `/login` - Login form
+- `/flags` - List of all feature flags
+- `/flags/[id]` - Flag detail with edit form
+- `/flags/[id]/overrides/new` - Create user override
+- `/users` - List of users
+- `/users/[id]` - User detail with their overrides
+- `/audit` - Audit log viewer
 
 ## 7. Handling Requirements, Constraints, and Edge Cases
 
-### Requirements Coverage
+### 7.1 Requirements Handling
 
-| Requirement | How I Handled It |
-|-------------|------------------|
-| User authentication with roles | JWT tokens with role claims, middleware checks |
-| Admin CRUD for flags | REST endpoints with ADMIN role requirement |
-| Unique key and description | Database unique constraint, validation |
-| Global enable/disable | `enabled` boolean field on FeatureFlag |
-| Percentage rollout (0-100) | `rolloutPercentage` integer with validation |
-| Per-user overrides | UserOverride model with priority in evaluation |
-| Deterministic evaluation | SHA-256 hash of `userId:flagKey` |
-| Single endpoint for evaluated flags | `/api/flags/evaluate` returns all flags |
-| Audit logging | AuditLog model records all changes |
+| Requirement | Implementation |
+|-------------|----------------|
+| User authentication with roles | JWT tokens with ADMIN/USER roles, bcrypt password hashing |
+| Admin CRUD for flags | REST APIs with role-based middleware protection |
+| Unique key and description | Prisma unique constraint on key, required fields in schema |
+| Global enable/disable | `enabled` boolean field on FeatureFlag model |
+| Percentage rollout 0-100 | `rolloutPercentage` integer field with 0-100 validation |
+| Per-user overrides | UserOverride model with unique constraint, checked first in evaluation |
+| Deterministic evaluation | SHA-256 hashing of userId:flagKey for consistent results |
+| Single endpoint for flags | `GET /api/flags/evaluate` returns all flags for logged-in user |
+| Admin interface | Minimal pages for flag and user management |
+| Audit logging | AuditLog model capturing all flag changes with old/new values |
 
-### Constraint Coverage
+### 7.2 Constraints Handling
 
-| Constraint | How I Handled It |
-|------------|------------------|
-| Next.js App Router | Used Next.js 14+ App Router with server components |
-| Relational database | PostgreSQL with Prisma ORM |
-| JWT authentication | bcrypt for passwords, jsonwebtoken for sessions |
-| RESTful APIs | Consistent URL patterns and HTTP methods |
-| Minimal frontend | Login, flags list, flag detail, user lookup pages |
+| Constraint | Implementation |
+|------------|----------------|
+| Next.js App Router | All pages and APIs use App Router patterns |
+| TypeScript | Full type safety with Prisma generated types |
+| PostgreSQL | Configured in docker-compose.yml, Prisma schema uses postgresql provider |
+| Clean architecture | Separation of concerns: lib/ for utilities, app/api/ for routes |
+| Secure APIs | Authentication middleware on all protected routes |
+| Minimal UI | Simple Tailwind-styled pages without complex components |
 
-### Edge Cases Handled
+### 7.3 Edge Cases Handled
 
-**Edge Case 1: No overrides exist for a user**
-I handled this by checking if `flag.overrides` is undefined or empty before searching, and if no override is found, the function proceeds to the next evaluation step.
+**Edge Case 1: Rollout percentage at boundaries**
+- If `rolloutPercentage === 0`, immediately return false (optimization)
+- If `rolloutPercentage === 100`, immediately return true (optimization)
+- This avoids unnecessary hash computation for common cases
 
-**Edge Case 2: Rollout percentage is exactly 0 or 100**
-I added explicit checks for these values to avoid unnecessary hash computation. A 0% rollout always returns false, and 100% always returns true.
+**Edge Case 2: User override priority**
+- User overrides are checked first in evaluation logic
+- This ensures admin can always force a flag state for specific users
+- Works regardless of global flag state or rollout percentage
 
-**Edge Case 3: Flag key is modified during rollout**
-I chose to hash `userId:flagKey` instead of `userId:flagId` because flag keys are what client applications use, and changing a key would effectively start a new rollout with different user distribution.
+**Edge Case 3: Hash collision handling**
+- SHA-256 produces uniform distribution across 0-4 billion values
+- Taking only first 8 hex characters gives 32-bit integer (0 to 4,294,967,295)
+- Modulo 100 provides percentage distribution with acceptable variance
+- No practical collision issues for feature flag use cases
 
-**Edge Case 4: User or flag is deleted**
-I implemented cascade delete on the UserOverride foreign keys so that when a user or flag is deleted, their associated overrides are automatically removed. This prevents orphaned records.
+**Edge Case 4: Concurrent flag updates**
+- Prisma transactions ensure atomic flag updates
+- Audit logs are created within the same request for consistency
+- Optimistic locking could be added for high-contention scenarios
 
-**Edge Case 5: Concurrent flag updates**
-Prisma's transactional operations ensure that audit logs are created atomically with flag updates. If either operation fails, both are rolled back.
+**Edge Case 5: Invalid token handling**
+- Middleware returns 401 for missing or invalid tokens
+- Auth APIs handle expired tokens gracefully
+- User lookup failsafe prevents issues with deleted users
 
-**Edge Case 6: Token expiration**
-I set JWT expiration to 24 hours and implemented proper error handling so expired tokens return a 401 Unauthorized response rather than crashing.
+**Edge Case 6: Database connection failures**
+- Prisma client is instantiated per-request to avoid connection pooling issues
+- Error handling returns appropriate 500 responses
+- Docker health checks monitor database connectivity
 
-**Edge Case 7: Database connection failures**
-I wrapped all database operations in try-catch blocks and return 500 Internal Server Error responses with logged error details for debugging.
+**Edge Case 7: Rollout percentage validation**
+- API validates 0-100 range before database operations
+- Prisma could add database-level check constraint for additional safety
+- Frontend form prevents invalid inputs
 
----
+**Edge Case 8: Unique key constraint violations**
+- Database unique constraint prevents duplicate flag keys
+- API returns 400 error with clear message
+- User can retry with different key
 
-## Summary
+### 7.4 Production Considerations
 
-I built a complete Feature Flag Management System by first designing a relational database schema that captures users, flags, overrides, and audit logs. I implemented JWT-based authentication with role checking to secure admin operations. I created a deterministic rollout algorithm using SHA-256 hashing that ensures consistent user bucketing. I exposed all functionality through RESTful API endpoints that follow consistent patterns for CRUD operations, overrides, and flag evaluation. The system handles all specified requirements while maintaining clean separation between authentication, authorization, business logic, and data access layers.
+The implementation includes several production-ready patterns:
+
+- **Environment variables**: JWT_SECRET and DATABASE_URL from .env
+- **Password hashing**: bcrypt with 12 rounds for security
+- **Token expiration**: 24-hour token lifetime
+- **Error handling**: Consistent error responses across APIs
+- **Input validation**: Server-side validation of all inputs
+- **Audit logging**: Complete history of flag changes
+- **Index optimization**: Database indexes for common query patterns
+- **Cascading deletes**: Automatic cleanup of related records
+- **Docker support**: docker-compose.yml for easy deployment
+
+The solution is suitable for a SaaS backend as specified in the requirements, with clean architecture, secure APIs, and production-ready patterns.
