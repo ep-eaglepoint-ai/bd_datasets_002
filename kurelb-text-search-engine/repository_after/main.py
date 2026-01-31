@@ -47,6 +47,13 @@ class OptimizedSearchEngine:
 
         # Stats for TF-IDF
         self.doc_freqs = defaultdict(int) # term -> num_docs_containing_term
+        # IDF caching without per-query recomputation.
+        # We maintain a global offset that accounts for changes in N (doc count)
+        # so we only update per-term cache entries for terms that appear in the
+        # newly indexed document.
+        self.idf_cache = {}  # term -> (log(N/df) - _idf_offset)
+        self._doc_count = 0
+        self._idf_offset = 0.0
 
         self.search_history = []
         self.stem_cache = {}
@@ -87,6 +94,22 @@ class OptimizedSearchEngine:
         return word
 
     def add_document(self, doc):
+        # If doc_id already exists, treat this as an update (N unchanged).
+        is_update = doc.doc_id in self.documents
+        if is_update:
+            self._remove_document(doc.doc_id, adjust_doc_count=False)
+
+        # Update global doc count / IDF offset for new documents only.
+        if not is_update:
+            old_n = self._doc_count
+            new_n = old_n + 1
+            self._doc_count = new_n
+            if old_n > 0:
+                # All IDFs change by log(new_n/old_n) when N changes.
+                self._idf_offset += math.log(new_n / old_n)
+        else:
+            new_n = self._doc_count
+
         # Store in dictionary
         self.documents[doc.doc_id] = doc
         doc.indexed_at = time.time()
@@ -125,12 +148,70 @@ class OptimizedSearchEngine:
             })
             self.doc_freqs[term] += 1
 
+            # Cache IDF for this term, adjusted by the global offset.
+            df = self.doc_freqs[term]
+            idf_real = math.log(new_n / df) if df > 0 else 0.0
+            self.idf_cache[term] = idf_real - self._idf_offset
+
             # Store sparse vector data
             doc_vector[term] = count
             sq_sum += count * count
 
         self.doc_vectors[doc.doc_id] = doc_vector
         self.doc_magnitudes[doc.doc_id] = math.sqrt(sq_sum)
+
+    def _remove_document(self, doc_id, *, adjust_doc_count=True):
+        doc = self.documents.get(doc_id)
+        if not doc:
+            return
+
+        old_vector = self.doc_vectors.get(doc_id, {})
+
+        # Remove postings and update DF/IDF for affected terms.
+        for term in list(old_vector.keys()):
+            postings = self.index.get(term)
+            if postings is not None:
+                self.index[term] = [p for p in postings if p.get('doc_id') != doc_id]
+                if not self.index[term]:
+                    del self.index[term]
+
+            if term in self.doc_freqs:
+                self.doc_freqs[term] -= 1
+                if self.doc_freqs[term] <= 0:
+                    del self.doc_freqs[term]
+                    self.idf_cache.pop(term, None)
+                else:
+                    # Recompute cached value for this term (N may be adjusted below).
+                    pass
+
+        # Remove per-doc data.
+        self.doc_vectors.pop(doc_id, None)
+        self.doc_magnitudes.pop(doc_id, None)
+        self.documents.pop(doc_id, None)
+
+        # Adjust N/offset if requested.
+        if adjust_doc_count:
+            old_n = self._doc_count
+            new_n = max(0, old_n - 1)
+            self._doc_count = new_n
+
+            if new_n == 0:
+                # Everything should be empty now.
+                self._idf_offset = 0.0
+            elif old_n > 0:
+                self._idf_offset += math.log(new_n / old_n)
+
+        # Recompute IDF cache entries for terms that still exist in doc_freqs.
+        n = self._doc_count
+        if n > 0:
+            for term in old_vector.keys():
+                df = self.doc_freqs.get(term)
+                if df:
+                    idf_real = math.log(n / df)
+                    self.idf_cache[term] = idf_real - self._idf_offset
+
+    def remove_document(self, doc_id):
+        self._remove_document(doc_id, adjust_doc_count=True)
 
     def search(self, query):
         # Append to list instead of string concatenation
@@ -145,15 +226,11 @@ class OptimizedSearchEngine:
 
         # Use Inverted Index and Pre-computed Stats
         scores = defaultdict(float)
-        N = len(self.documents)
-
         for term in stemmed_query:
             if term not in self.index:
                 continue
 
-            # IDF calculated from stored DF
-            df = self.doc_freqs[term]
-            idf = math.log(N / df) if df > 0 else 0
+            idf = self.idf_cache.get(term, 0.0) + self._idf_offset
 
             # Retrieve postings (O(1))
             postings = self.index[term]
@@ -165,7 +242,6 @@ class OptimizedSearchEngine:
 
                 if doc_len > 0:
                     tf = tf_raw / doc_len
-                    # TF-IDF scoring
                     scores[doc_id] += (tf * idf * 100)
 
         results = []
@@ -322,9 +398,7 @@ class OptimizedSearchEngine:
         tf = raw_count / doc.word_count if doc.word_count > 0 else 0
 
         # O(1) IDF Lookup
-        N = len(self.documents)
-        df = self.doc_freqs[term_stemmed]
-        idf = math.log(N / df) if df > 0 else 0
+        idf = self.idf_cache.get(term_stemmed, 0.0) + self._idf_offset
 
         return tf * idf
 
@@ -355,12 +429,22 @@ class OptimizedSearchEngine:
         }
 
     def rebuild_index(self):
+        # Restore documents
+        docs_backup = list(self.documents.values())
+
         self.index.clear()
         self.documents.clear()
         self.doc_vectors.clear()
         self.doc_magnitudes.clear()
         self.doc_freqs.clear()
+        self.idf_cache.clear()
+        self._doc_count = 0
+        self._idf_offset = 0.0
         self.search_history = []
+
+        # Re-index
+        for doc in docs_backup:
+            self.add_document(doc)
 
     def get_index_stats(self):
         total_terms = len(self.index)
