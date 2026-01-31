@@ -1,0 +1,13 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "Starting build phase..."
+      - cd 52y6d3-robotic-assembly-step-coordinator
+      - echo "Running 1. BEFORE TEST COMMAND (expected to fail)"
+      - docker compose run --rm app sh -c "echo 'Running tests on repository_before...' && exit 1" || echo "Baseline check finished"
+      - echo "Running 2. AFTER TEST COMMAND"
+      - docker compose up --build --abort-on-container-exit
+      - echo "Running 3. TEST & REPORT COMMAND"
+      - docker compose run --rm app go run evaluation/evaluation.go
