@@ -1,51 +1,9 @@
 services:
-  app-before:
-    build: .
-    environment:
-      - NO_COLOR=1
-    command: >
-      sh -c "
-      set +e;
-      output=\$$(REPO=repository_before NO_COLOR=1 deno test -A tests/billing_service_test.ts 2>&1);
-      passed=\$$(echo \"\$$output\" | grep -c '\\.\\.\\. ok');
-      failed=\$$(echo \"\$$output\" | grep -c '\\.\\.\\. FAILED');
-      total=\$$((passed + failed));
-      echo '';
-      if [ \$$failed -gt 0 ]; then
-        echo 'Test Suites: 1 failed, 1 passed, 1 total';
-        echo \"Tests:       \$$failed failed, \$$passed passed, \$$total total\";
-      else
-        echo 'Test Suites: 1 passed, 1 total';
-        echo \"Tests:       \$$passed passed, \$$total total\";
-      fi;
-      echo 'Snapshots:   0 total';
-      exit 0
-      "
-    volumes:
-      - .:/app
-
   app-after:
     build: .
     environment:
       - NO_COLOR=1
-    command: >
-      sh -c "
-      set +e;
-      output=\$$(REPO=repository_after NO_COLOR=1 deno test -A tests/billing_service_test.ts 2>&1);
-      passed=\$$(echo \"\$$output\" | grep -c '\\.\\.\\. ok');
-      failed=\$$(echo \"\$$output\" | grep -c '\\.\\.\\. FAILED');
-      total=\$$((passed + failed));
-      echo '';
-      if [ \$$failed -gt 0 ]; then
-        echo 'Test Suites: 1 failed, 1 passed, 1 total';
-        echo \"Tests:       \$$failed failed, \$$passed passed, \$$total total\";
-      else
-        echo 'Test Suites: 1 passed, 1 total';
-        echo \"Tests:       \$$passed passed, \$$total total\";
-      fi;
-      echo 'Snapshots:   0 total';
-      exit 0
-      "
+    command: deno test -A repository_after/tests/billing_service_test.ts
     volumes:
       - .:/app
 
@@ -53,4 +11,4 @@ services:
     build: .
     command: deno run -A evaluation/evaluation.ts
     volumes:
-      - .:/app
+      - ./evaluation:/app/evaluation

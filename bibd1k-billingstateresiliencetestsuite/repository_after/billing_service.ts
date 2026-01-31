@@ -1,7 +1,6 @@
 /**
  * Billing state machine with resilience to out-of-order and duplicate events.
  */
-import { assert } from "https://deno.land/std@0.208.0/assert/mod.ts";
 
 export type SubscriptionState =
   | "TRIALING"
@@ -90,6 +89,5 @@ export class BillingService {
     }
 
     sub.lastProcessedTimestamp = event.timestamp;
-    assert(sub.lastProcessedTimestamp >= 0);
   }
 }

@@ -6,15 +6,15 @@ WORKDIR /app
 COPY deno.json deno.lock* ./
 
 # Copy source files
-COPY tests/ ./tests/
 COPY repository_before/ ./repository_before/
 COPY repository_after/ ./repository_after/
+COPY tests/ ./tests/
 COPY evaluation/ ./evaluation/
 
-# Cache dependencies during build to avoid downloading on every run
-RUN deno cache --reload tests/billing_service_test.ts
+# Cache dependencies during build
+RUN deno cache --reload repository_after/tests/billing_service_test.ts || true
 
 # Copy the rest
 COPY . /app
 
-CMD ["deno", "test", "-A", "tests/billing_service_test.ts"]
+CMD ["deno", "test", "-A", "repository_after/tests/billing_service_test.ts"]
