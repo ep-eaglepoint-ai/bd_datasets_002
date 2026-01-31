@@ -12,5 +12,5 @@ RUN mkdir -p /app/classes && \
     javac -cp /app/classes -d /app/classes /app/tests/BoundedCacheTest.java && \
     javac -d /app/classes /app/evaluation/Evaluation.java
 
-CMD ["java", "-cp", "/app/classes", "com.example.cache.BoundedCache"]
+CMD ["echo", "build success"]
 
