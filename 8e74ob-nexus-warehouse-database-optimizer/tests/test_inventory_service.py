@@ -248,43 +248,49 @@ class TestRequirement6Benchmarking:
     
     @pytest.fixture
     def large_db(self, db_session):
-        pallets = []
-
-        for i in range(200_000):
-            pallets.append(
-                Pallet(
-                    pallet_uuid=str(uuid.uuid4()),
-                    sku=f"SKU-{random.randint(0, 10_000_000):08d}",
-                    zone_code=f"ZONE-{random.randint(0, 50)}",
-                    shelf_level=random.randint(1, 15),
-                )
-            )
-
-        db_session.bulk_save_objects(pallets)
-        db_session.commit()
-        return pallets
+        """Create 5M records for benchmarking (optimized insertion)"""
+        total_rows = 5_000_000
+        batch_size = 50_000
+        
+        # Use bulk_insert_mappings for memory efficiency and speed
+        for _ in range(0, total_rows, batch_size):
+            mappings = []
+            for _ in range(batch_size):
+                mappings.append({
+                    'pallet_uuid': str(uuid.uuid4()),
+                    'sku': f"SKU-{random.randint(0, 10_000_000):08d}",
+                    'zone_code': f"ZONE-{random.randint(0, 50)}",
+                    'shelf_level': random.randint(1, 15)
+                })
+            db_session.bulk_insert_mappings(Pallet, mappings)
+            db_session.commit()
+        
+        return True
     
     def test_sku_lookup_p99_performance(self, service, large_db, db_engine, db_session):
-        """Benchmark 5000 randomized SKU lookups for p99 latency"""
-        skus = [f'SKU-{random.randint(0, 7999):06d}' for _ in range(5000)]
+        """Benchmark randomized SKU lookups for p99 latency against 5M rows"""
         
-        def run_benchmark():
+        def run_benchmark(count=1000):
+            # Use random SKUs to force index traversals (often misses, which works best for diff)
+            skus = [f'SKU-{random.randint(0, 10_000_000):08d}' for _ in range(count)]
             latencies = []
             for sku in skus:
                 start = time.perf_counter()
                 service.get_pallet_location(sku)
                 latencies.append((time.perf_counter() - start) * 1000)
             latencies.sort()
+            if not latencies: return 0
             p99_index = int(len(latencies) * 0.99)
-            return latencies[p99_index]
+            idx = min(p99_index, len(latencies) - 1)
+            return latencies[idx]
 
-        # Measure current (optimized if after)
-        current_p99 = run_benchmark()
-        
+        # In 'after' implementation (Optimized), we run extensive test
         if is_after_implementation():
+            # 5000 lookups should be fast with index (< 5 seconds)
+            current_p99 = run_benchmark(count=5000)
             assert current_p99 < 1.5, f"Optimized p99 latency should be <1.5ms, got {current_p99:.2f}ms"
             
-            # Now simulate baseline by dropping the index
+            # Comparative - Simulate baseline by dropping index
             inspector = inspect(db_engine)
             indexes = inspector.get_indexes('pallets')
             sku_indices = [idx['name'] for idx in indexes if idx['name'] and 'sku' in idx['name'].lower()]
@@ -294,16 +300,19 @@ class TestRequirement6Benchmarking:
                     db_session.execute(text(f"DROP INDEX {idx_name}"))
                 db_session.commit()
                 
-                # Measure baseline
-                baseline_p99 = run_benchmark()
+                # Baseline on 5M rows is slow (O(N) scan). Use fewer lookups to keep test runtime reasonable.
+                # 50 lookups * ~200ms/lookup = ~10s
+                baseline_p99 = run_benchmark(count=50)
                 
-                print(f"Performance: Optimized={current_p99:.2f}ms, Baseline={baseline_p99:.2f}ms")
+                print(f"Performance (5M rows): Optimized={current_p99:.2f}ms, Baseline={baseline_p99:.2f}ms")
                 assert baseline_p99 > current_p99, "Optimized version must be faster than baseline"
-                assert current_p99 < (baseline_p99 * 0.5), "Optimization should reduce latency by at least 50%"
+                assert current_p99 < (baseline_p99 * 0.1), "Optimization should reduce latency by at least 10x"
             else:
                  pytest.fail("Could not find index to drop for comparative testing")
         else:
-            # Baseline implementation should fail strict performance check
+            # 'Before' implementation - Expected to FAIL performance check.
+            # Use small count to fail fast.
+            current_p99 = run_benchmark(count=50)
             assert current_p99 < 1, f"p99 latency should be <1ms, got {current_p99:.2f}ms"
 
 
