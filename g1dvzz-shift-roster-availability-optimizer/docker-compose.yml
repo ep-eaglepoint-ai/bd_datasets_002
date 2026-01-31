@@ -1,6 +1,23 @@
+
 services:
-  app:
+  before:
     build: .
-    command: pytest -q tests
+    environment:
+      - TARGET=BEFORE
+    command: pytest -v tests/test_overall.py
+    volumes:
+      - .:/app
+
+  after:
+    build: .
+    environment:
+      - TARGET=AFTER
+    command: pytest -v tests/test_overall.py
+    volumes:
+      - .:/app
+
+  evaluate:
+    build: .
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app
