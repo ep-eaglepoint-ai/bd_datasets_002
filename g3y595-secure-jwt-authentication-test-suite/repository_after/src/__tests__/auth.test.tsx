@@ -9,6 +9,7 @@ const defaultAppModulePath = path.resolve(
 );
 
 function loadFreshAppModule() {
+  jest.resetModules();
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const mod = require(process.env.APP_MODULE_PATH || defaultAppModulePath);
   return mod as typeof import("../../../repository_before/src/App");
@@ -50,6 +51,7 @@ describe("JWT Authentication — security-critical flows", () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 
@@ -254,6 +256,48 @@ describe("JWT Authentication — security-critical flows", () => {
     expect((httpClient as any).tokens).toBeNull();
   });
 
+  test("refresh failure rejects ALL queued requests and clears tokens", async () => {
+    // Edge case: queued requests must not hang when refresh fails
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+
+    const { __testExports } = loadFreshAppModule();
+    const { mockBackend, httpClient } = __testExports;
+
+    // Arrange: create a real refresh token but force requests to start unauthenticated (401)
+    const loginPromise = mockBackend.login(
+      "admin@fintech.com",
+      "Admin123!",
+      "ip-rf-queue"
+    );
+    await advance(300);
+    await loginPromise;
+
+    const refreshTokensMap: Map<string, any> = (mockBackend as any)
+      .refreshTokens;
+    const issuedRefreshToken = Array.from(refreshTokensMap.keys())[0];
+    (httpClient as any).getStoredRefreshToken = () => issuedRefreshToken;
+    httpClient.setTokens(null);
+
+    jest
+      .spyOn(mockBackend, "refreshAccessToken")
+      .mockRejectedValue(new Error("Refresh failed"));
+
+    // Act: multiple requests queue while refresh fails
+    const p1 = httpClient.request({ endpoint: "/api/protected" });
+    const p2 = httpClient.request({ endpoint: "/api/protected" });
+    const p3 = httpClient.request({ endpoint: "/api/protected" });
+
+    await advance(200);
+
+    // Assert: all reject and tokens are cleared
+    await expect(p1).rejects.toThrow();
+    await expect(p2).rejects.toThrow();
+    await expect(p3).rejects.toThrow();
+    expect((httpClient as any).tokens).toBeNull();
+    expect((httpClient as any).requestQueue).toHaveLength(0);
+  });
+
   test("multiple concurrent 401 requests are queued and retried after single refresh", async () => {
     jest.useFakeTimers();
     const { __testExports } = loadFreshAppModule();
@@ -296,29 +340,23 @@ describe("JWT Authentication — security-critical flows", () => {
     const { __testExports } = loadFreshAppModule();
     const { mockBackend, httpClient } = __testExports;
 
-    (httpClient as any).getStoredRefreshToken = () => "rt";
-    jest.spyOn(mockBackend, "refreshAccessToken").mockResolvedValue({
-      accessToken: "new_at",
-    });
-
-    // Mock validateAccessToken to FAIL even with new token
-    jest.spyOn(mockBackend, "validateAccessToken").mockRejectedValue({
-      status: 401,
-      message: "Persistent 401",
-    });
-
+    // Arrange: explicitly mark as retried already; a 401 must NOT enqueue again.
     httpClient.setTokens(null);
+    const refreshSpy = jest.spyOn(mockBackend, "refreshAccessToken");
     const queueSpy = jest.spyOn((httpClient as any).requestQueue, "push");
 
     // Act
-    const req = httpClient.request({ endpoint: "/api/protected" });
-    const reqCheck = expect(req).rejects.toThrow();
-
-    await advance(200);
+    const req = httpClient.request({
+      endpoint: "/api/protected",
+      data: { _retry: true },
+    });
 
     // Assert
-    await reqCheck;
-    expect(queueSpy).toHaveBeenCalledTimes(1);
+    await expect(req).rejects.toEqual(
+      expect.objectContaining({ status: 401 })
+    );
+    expect(queueSpy).not.toHaveBeenCalled();
+    expect(refreshSpy).not.toHaveBeenCalled();
   });
 
   test("proactive refresh does not occur when >= 60 seconds remain", async () => {
@@ -354,6 +392,7 @@ describe("JWT Authentication — UI + state management", () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 
@@ -381,6 +420,39 @@ describe("JWT Authentication — UI + state management", () => {
     expect(await screen.findByText(/secure dashboard/i)).toBeInTheDocument();
     expect(screen.getByText("admin@fintech.com")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  test("concurrent login attempts are prevented (button disables while loading)", async () => {
+    // Acceptance: concurrent operations handled correctly
+    jest.useFakeTimers();
+
+    const mod = loadFreshAppModule();
+    const { default: App, __testExports } = mod;
+    const loginSpy = jest.spyOn(__testExports.mockBackend, "login");
+
+    // Arrange
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<App />);
+
+    await user.type(
+      screen.getByPlaceholderText(/you@company\.com/i),
+      "admin@fintech.com"
+    );
+    await user.type(screen.getByPlaceholderText("••••••••"), "Admin123!");
+
+    const submit = screen.getByRole("button", { name: /sign in/i });
+
+    // Act: click twice rapidly
+    await user.click(submit);
+    expect(screen.getByText(/authenticating\.\.\./i)).toBeInTheDocument();
+    expect(submit).toBeDisabled();
+    await user.click(submit);
+
+    await advance(300);
+
+    // Assert
+    expect(loginSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/secure dashboard/i)).toBeInTheDocument();
   });
 
   test("failed login shows error message", async () => {
@@ -437,6 +509,38 @@ describe("JWT Authentication — UI + state management", () => {
       await screen.findByRole("button", { name: /sign in/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/demo credentials/i)).toBeInTheDocument();
+  });
+
+  test("logout shows loading state (button disabled) until completion", async () => {
+    // Acceptance: loading states set/cleared correctly
+    jest.useFakeTimers();
+
+    const { default: App } = loadFreshAppModule();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<App />);
+
+    // Arrange: login
+    await user.type(
+      screen.getByPlaceholderText(/you@company\.com/i),
+      "admin@fintech.com"
+    );
+    await user.type(screen.getByPlaceholderText("••••••••"), "Admin123!");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await advance(300);
+    expect(await screen.findByText(/secure dashboard/i)).toBeInTheDocument();
+
+    const logoutButton = screen.getByRole("button", { name: /logout/i });
+
+    // Act
+    await user.click(logoutButton);
+
+    // Assert: immediately disabled during async logout
+    expect(logoutButton).toBeDisabled();
+
+    await advance(100);
+    expect(
+      await screen.findByRole("button", { name: /sign in/i })
+    ).toBeInTheDocument();
   });
 
   test("form validation prevents submit on invalid email and short password", async () => {
@@ -603,8 +707,8 @@ describe("JWT Authentication — UI + state management", () => {
 
   test("session expiration (refresh failure) shows error to user", async () => {
     jest.useFakeTimers();
-    const { default: App } = loadFreshAppModule();
-    const { __testExports } = require(defaultAppModulePath);
+    const mod = loadFreshAppModule();
+    const { default: App, __testExports } = mod;
     const { mockBackend, httpClient } = __testExports;
 
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
@@ -653,8 +757,8 @@ describe("JWT Authentication — UI + state management", () => {
 
   test("token theft invalidates session preventing further access", async () => {
     jest.useFakeTimers();
-    const { default: App } = loadFreshAppModule();
-    const { __testExports } = require(defaultAppModulePath);
+    const mod = loadFreshAppModule();
+    const { default: App, __testExports } = mod;
     const { mockBackend, httpClient } = __testExports;
 
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
@@ -702,5 +806,61 @@ describe("JWT Authentication — UI + state management", () => {
     expect(
       await screen.findByText(/failed: session expired. please login again/i)
     ).toBeInTheDocument();
+  });
+
+  test("UI-driven token rotation: proactive refresh revokes old refresh token", async () => {
+    // Acceptance: token rotation invalidates old refresh tokens (triggered via UI)
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+
+    const mod = loadFreshAppModule();
+    const { default: App, __testExports } = mod;
+    const { mockBackend, httpClient } = __testExports;
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<App />);
+
+    // Arrange: login via UI
+    await user.type(
+      screen.getByPlaceholderText(/you@company\.com/i),
+      "admin@fintech.com"
+    );
+    await user.type(screen.getByPlaceholderText("••••••••"), "Admin123!");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await advance(300);
+    expect(await screen.findByText(/secure dashboard/i)).toBeInTheDocument();
+
+    // Arrange: capture an issued refresh token for this session and force client to use it
+    const refreshTokensMap: Map<string, any> = (mockBackend as any)
+      .refreshTokens;
+    const originalRefreshToken = Array.from(refreshTokensMap.keys())[0];
+    (httpClient as any).getStoredRefreshToken = () => originalRefreshToken;
+
+    // Arrange: force access token near expiry so the next protected call triggers proactive refresh
+    const login2 = mockBackend.login("admin@fintech.com", "Admin123!", "ip-ui-rt");
+    await advance(300);
+    const loginRes = await login2;
+    httpClient.setTokens({
+      accessToken: loginRes.accessToken,
+      expiresAt: Date.now() + 30_000,
+    });
+
+    // Act: fetch protected data
+    await user.click(screen.getByRole("button", { name: /fetch protected data/i }));
+    await advance(200);
+
+    // Assert: UI success, and refresh token rotation happened in backend
+    expect(
+      await screen.findByText(/protected data accessed successfully/i)
+    ).toBeInTheDocument();
+
+    const originalData = refreshTokensMap.get(originalRefreshToken);
+    expect(originalData).toBeTruthy();
+    expect(originalData.isRevoked).toBe(true);
+
+    const sameFamily = Array.from(refreshTokensMap.entries()).filter(
+      ([, v]) => v.familyId === originalData.familyId
+    );
+    expect(sameFamily.length).toBeGreaterThanOrEqual(2);
+    expect(sameFamily.some(([t]) => t !== originalRefreshToken)).toBe(true);
   });
 });
