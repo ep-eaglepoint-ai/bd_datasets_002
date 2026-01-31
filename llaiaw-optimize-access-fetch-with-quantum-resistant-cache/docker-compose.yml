@@ -5,11 +5,10 @@ services:
       - NODE_ENV=test
       - REPO=repository_before
     working_dir: /app
-    command: sh -c "cd repository_before && npm test || echo 'Tests failed as expected for repository_before'"
+    command: sh -c "npm test || echo 'Tests failed as expected for repository_before'"
     volumes:
       - .:/app
-      - /app/repository_before/node_modules
-      - /app/repository_after/node_modules
+      - /app/node_modules
 
   app-after:
     build: .
@@ -20,7 +19,7 @@ services:
     command: npm test
     volumes:
       - .:/app
-      - /app/repository_after/node_modules
+      - /app/node_modules
 
   evaluation:
     build: .
@@ -30,5 +29,4 @@ services:
     command: npm run evaluate
     volumes:
       - .:/app
-      - /app/repository_after/node_modules
-      - /app/repository_before/node_modules
+      - /app/node_modules

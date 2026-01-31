@@ -30,9 +30,7 @@ evaluation/*/
 # Logs
 *.log
 
-# But keep important JSON files
+# Keep important JSON files
 !package.json
 !package-lock.json
-!*/package.json
-!*/package-lock.json
 !instances/*.json
