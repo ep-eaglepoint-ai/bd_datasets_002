@@ -1,7 +1,6 @@
-package main
+package claimsdeduplication
 
 import (
-	claimsdeduplication "claims-deduplication"
 	"fmt"
 	"log"
 	"os"
@@ -9,22 +8,22 @@ import (
 
 // ClaimsProcessor orchestrates the entire claims processing pipeline
 type ClaimsProcessor struct {
-	parser       *claimsdeduplication.EDIParser
-	deduplicator *claimsdeduplication.ClaimsDeduplicator
+	parser       *EDIParser
+	deduplicator *ClaimsDeduplicator
 	logger       *log.Logger
 }
 
 // NewClaimsProcessor creates a new claims processor instance
 func NewClaimsProcessor(logger *log.Logger) *ClaimsProcessor {
 	return &ClaimsProcessor{
-		parser:       claimsdeduplication.NewEDIParser(logger),
-		deduplicator: claimsdeduplication.NewClaimsDeduplicator(logger),
+		parser:       NewEDIParser(logger),
+		deduplicator: NewClaimsDeduplicator(logger),
 		logger:       logger,
 	}
 }
 
 // ProcessFile processes a single EDI file and returns deduplicated claims
-func (cp *ClaimsProcessor) ProcessFile(filePath string) (*claimsdeduplication.DeduplicationResult, error) {
+func (cp *ClaimsProcessor) ProcessFile(filePath string) (*DeduplicationResult, error) {
 	cp.logger.Printf("Processing file: %s", filePath)
 	
 	content, err := os.ReadFile(filePath)
@@ -48,8 +47,8 @@ func (cp *ClaimsProcessor) ProcessFile(filePath string) (*claimsdeduplication.De
 }
 
 // ProcessMultipleFiles processes multiple EDI files and aggregates results
-func (cp *ClaimsProcessor) ProcessMultipleFiles(filePaths []string) (*claimsdeduplication.DeduplicationResult, error) {
-	var allClaims []*claimsdeduplication.Claim
+func (cp *ClaimsProcessor) ProcessMultipleFiles(filePaths []string) (*DeduplicationResult, error) {
+	var allClaims []*Claim
 	
 	// First, parse all claims from all files
 	for _, filePath := range filePaths {
