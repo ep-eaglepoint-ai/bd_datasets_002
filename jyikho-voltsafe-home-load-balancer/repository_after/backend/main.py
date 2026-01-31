@@ -68,6 +68,44 @@ async def calculate_current_load(session: AsyncSession, exclude_id: int = None) 
     return float(result.scalar() or 0.0)
 
 
+def create_power_limit_error(appliance_name: str, current_load: float, 
+                              requested_wattage: float, new_total: float) -> dict:
+    """
+    Create a structured error response for power limit exceeded.
+    
+    The response contains:
+    - 'message': A user-friendly, non-technical message suitable for UI display
+    - 'user_message': Same as message, explicitly named for clarity
+    - 'technical_details': Technical information for debugging/logging (optional use)
+    
+    Design Note: The frontend extracts only the 'message' field for display,
+    ensuring end users see clear, non-technical error messages.
+    """
+    exceeded_by = round(new_total - MAX_LOAD_WATTS, 2)
+    
+    # User-friendly message - no technical jargon
+    user_message = (
+        f"Unable to turn on {appliance_name}. "
+        f"This would exceed the home's safe power limit. "
+        f"Please turn off another appliance first."
+    )
+    
+    return {
+        # Primary user-facing message (used by frontend)
+        "message": user_message,
+        "user_message": user_message,
+        "error_type": "POWER_LIMIT_EXCEEDED",
+        # Technical details for debugging/testing - not shown to users
+        "technical_details": {
+            "current_load": current_load,
+            "requested_additional": requested_wattage,
+            "would_be_total": new_total,
+            "max_allowed": MAX_LOAD_WATTS,
+            "exceeded_by": exceeded_by
+        }
+    }
+
+
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
@@ -153,6 +191,10 @@ async def toggle_appliance(
     - Uses a global lock to prevent race conditions
     - Performs atomic capacity check before state transition
     - Ensures idempotent behavior for repeated requests
+    
+    Error Response Design:
+    - Returns user-friendly 'message' field for UI display
+    - Includes 'technical_details' for debugging (not shown to users)
     """
     global power_lock
     
@@ -189,17 +231,12 @@ async def toggle_appliance(
             
             # Precision check: reject if exceeds limit even by 0.01W
             if new_total > MAX_LOAD_WATTS:
+                error_response = create_power_limit_error(
+                    appliance.name, current_load, appliance.wattage, new_total
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "error": "Power limit exceeded",
-                        "message": f"Cannot activate {appliance.name}. Would exceed {MAX_LOAD_WATTS}W safety limit.",
-                        "current_load": current_load,
-                        "requested_additional": appliance.wattage,
-                        "would_be_total": new_total,
-                        "max_allowed": MAX_LOAD_WATTS,
-                        "exceeded_by": round(new_total - MAX_LOAD_WATTS, 2)
-                    }
+                    detail=error_response
                 )
             
             # Safe to turn on

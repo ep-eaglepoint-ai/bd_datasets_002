@@ -517,8 +517,11 @@ class TestPrecisionCalculation:
         assert response.json()["current_load"] == 5000.0
         
     @pytest.mark.asyncio
-    async def test_fractional_wattage_exceeds_by_decimal(self, client):
-        """Test that 2500.5W + 2499.6W = 5000.1W is rejected."""
+    async def test_fractional_wattage_5000_1_rejected(self, client):
+        """
+        Test that 2500.5W + 2499.6W = 5000.1W is rejected.
+        Verifies fractional wattage precision as per Requirement 6.
+        """
         response = await client.post("/api/appliances", json={
             "name": "Precise Device 1",
             "wattage": 2500.5
@@ -539,26 +542,75 @@ class TestPrecisionCalculation:
         
         response = await client.get("/api/load-status")
         assert response.json()["current_load"] == 2500.5
-        
+
     @pytest.mark.asyncio
-    async def test_fractional_wattage_exceeds_by_0_1(self, client):
-        """Test that exceeding by 0.1W is rejected."""
+    async def test_exceeds_limit_by_single_decimal_point_0_1W(self, client):
+        """
+        EXPLICIT TEST: Exceeds limit by a single decimal point (0.1W).
+        
+        Test case: 2500.0W + 2500.1W = 5000.1W
+        Expected: Rejected because it exceeds the 5000W limit by exactly 0.1W.
+        
+        This test explicitly verifies Requirement 6's mandate that the system
+        "rejects the transition even if it exceeds the limit by a single decimal point."
+        """
         response = await client.post("/api/appliances", json={
-            "name": "Device 1",
+            "name": "Device A",
             "wattage": 2500.0
         })
         device1_id = response.json()["id"]
         
         response = await client.post("/api/appliances", json={
-            "name": "Device 2",
+            "name": "Device B - Exceeds by 0.1W",
             "wattage": 2500.1
         })
         device2_id = response.json()["id"]
         
-        await client.post(f"/api/appliances/{device1_id}/toggle", json={"is_on": True})
+        # Turn on first device
+        response = await client.post(f"/api/appliances/{device1_id}/toggle", json={"is_on": True})
+        assert response.status_code == 200
         
+        # Attempt to turn on second device - should be rejected
         response = await client.post(f"/api/appliances/{device2_id}/toggle", json={"is_on": True})
-        assert response.status_code == 403
+        assert response.status_code == 403, \
+            f"Expected 403 Forbidden for exceeding limit by 0.1W, got {response.status_code}"
+        
+        # Verify the exceeded_by value in technical details
+        error_detail = response.json()["detail"]
+        assert "technical_details" in error_detail
+        assert error_detail["technical_details"]["exceeded_by"] == 0.1, \
+            "Expected exceeded_by to be exactly 0.1W"
+
+    @pytest.mark.asyncio
+    async def test_exceeds_limit_by_single_decimal_point_0_01W(self, client):
+        """
+        EXPLICIT TEST: Exceeds limit by the smallest testable decimal (0.01W).
+        
+        Test case: 2500.0W + 2500.01W = 5000.01W
+        Expected: Rejected because it exceeds the 5000W limit by 0.01W.
+        
+        This is an even stricter test of decimal precision handling.
+        """
+        response = await client.post("/api/appliances", json={
+            "name": "Device A",
+            "wattage": 2500.0
+        })
+        device1_id = response.json()["id"]
+        
+        response = await client.post("/api/appliances", json={
+            "name": "Device B - Exceeds by 0.01W",
+            "wattage": 2500.01
+        })
+        device2_id = response.json()["id"]
+        
+        # Turn on first device
+        response = await client.post(f"/api/appliances/{device1_id}/toggle", json={"is_on": True})
+        assert response.status_code == 200
+        
+        # Attempt to turn on second device - should be rejected
+        response = await client.post(f"/api/appliances/{device2_id}/toggle", json={"is_on": True})
+        assert response.status_code == 403, \
+            f"Expected 403 Forbidden for exceeding limit by 0.01W, got {response.status_code}"
         
     @pytest.mark.asyncio
     async def test_fractional_wattage_exactly_at_limit(self, client):
@@ -585,8 +637,8 @@ class TestPrecisionCalculation:
         assert response.json()["current_load"] == 5000.0
 
     @pytest.mark.asyncio
-    async def test_precision_error_message_includes_exceeded_amount(self, client):
-        """Test that error message shows how much limit was exceeded by."""
+    async def test_precision_error_includes_exceeded_amount(self, client):
+        """Test that error response includes how much limit was exceeded by."""
         response = await client.post("/api/appliances", json={
             "name": "Device 1",
             "wattage": 4000.0
@@ -605,8 +657,77 @@ class TestPrecisionCalculation:
         assert response.status_code == 403
         
         error_detail = response.json()["detail"]
-        assert "exceeded_by" in error_detail
-        assert error_detail["exceeded_by"] == 500.5
+        assert "technical_details" in error_detail
+        assert error_detail["technical_details"]["exceeded_by"] == 500.5
+
+
+# =============================================================================
+# User-Friendly Error Message Tests
+# =============================================================================
+class TestUserFriendlyErrorMessages:
+    """
+    Test that API error responses include user-friendly messages.
+    The frontend should display non-technical messages to end users.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_power_limit_error_has_user_friendly_message(self, client):
+        """Test that power limit error includes a user-friendly message."""
+        response = await client.post("/api/appliances", json={
+            "name": "Device 1",
+            "wattage": 4000.0
+        })
+        device1_id = response.json()["id"]
+        
+        response = await client.post("/api/appliances", json={
+            "name": "Device 2",
+            "wattage": 2000.0
+        })
+        device2_id = response.json()["id"]
+        
+        await client.post(f"/api/appliances/{device1_id}/toggle", json={"is_on": True})
+        
+        response = await client.post(f"/api/appliances/{device2_id}/toggle", json={"is_on": True})
+        assert response.status_code == 403
+        
+        error_detail = response.json()["detail"]
+        
+        # Check user-friendly message exists
+        assert "message" in error_detail
+        assert "user_message" in error_detail
+        
+        # Verify message is non-technical (no numbers like "5000.1W")
+        message = error_detail["message"]
+        assert "Unable to turn on" in message or "Cannot turn on" in message
+        assert "safe power limit" in message.lower() or "would exceed" in message.lower()
+        
+    @pytest.mark.asyncio
+    async def test_technical_details_separated_from_user_message(self, client):
+        """Test that technical details are in a separate field from user message."""
+        response = await client.post("/api/appliances", json={
+            "name": "Device 1",
+            "wattage": 3000.0
+        })
+        device1_id = response.json()["id"]
+        
+        response = await client.post("/api/appliances", json={
+            "name": "Device 2",
+            "wattage": 3000.0
+        })
+        device2_id = response.json()["id"]
+        
+        await client.post(f"/api/appliances/{device1_id}/toggle", json={"is_on": True})
+        
+        response = await client.post(f"/api/appliances/{device2_id}/toggle", json={"is_on": True})
+        assert response.status_code == 403
+        
+        error_detail = response.json()["detail"]
+        
+        # Technical details should be in a separate object
+        assert "technical_details" in error_detail
+        assert "current_load" in error_detail["technical_details"]
+        assert "exceeded_by" in error_detail["technical_details"]
+        assert "would_be_total" in error_detail["technical_details"]
 
 
 # =============================================================================

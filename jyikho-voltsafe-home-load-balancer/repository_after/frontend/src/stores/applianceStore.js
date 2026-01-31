@@ -3,6 +3,42 @@ import axios from 'axios'
 
 const API_BASE = '/api'
 
+/**
+ * Extracts a user-friendly error message from API error response.
+ * The API returns structured errors with:
+ * - 'message' or 'user_message': User-friendly text for display
+ * - 'technical_details': Technical info (not shown to users)
+ * 
+ * This function ensures only non-technical messages are displayed.
+ */
+function extractUserFriendlyMessage(errorDetail) {
+  if (!errorDetail) {
+    return 'An unexpected error occurred. Please try again.'
+  }
+  
+  // If it's a string, return as-is
+  if (typeof errorDetail === 'string') {
+    return errorDetail
+  }
+  
+  // If it's an object, extract the user-friendly message
+  if (typeof errorDetail === 'object') {
+    // Prefer 'user_message', then 'message'
+    if (errorDetail.user_message) {
+      return errorDetail.user_message
+    }
+    if (errorDetail.message) {
+      return errorDetail.message
+    }
+    // Fallback for legacy format
+    if (errorDetail.error) {
+      return errorDetail.error
+    }
+  }
+  
+  return 'Unable to complete the request. Please try again.'
+}
+
 export const useApplianceStore = defineStore('appliance', {
   state: () => ({
     appliances: [],
@@ -87,15 +123,10 @@ export const useApplianceStore = defineStore('appliance', {
 
         return { success: true, message: response.data.message }
       } catch (err) {
+        // Extract user-friendly message only - no technical details
         const errorDetail = err.response?.data?.detail
-        let errorMessage = 'Failed to toggle appliance'
-
-        if (typeof errorDetail === 'object' && errorDetail.message) {
-          errorMessage = errorDetail.message
-        } else if (typeof errorDetail === 'string') {
-          errorMessage = errorDetail
-        }
-
+        const errorMessage = extractUserFriendlyMessage(errorDetail)
+        
         this.error = errorMessage
         return { success: false, message: errorMessage }
       } finally {
@@ -108,3 +139,6 @@ export const useApplianceStore = defineStore('appliance', {
     }
   }
 })
+
+// Export for testing
+export { extractUserFriendlyMessage }

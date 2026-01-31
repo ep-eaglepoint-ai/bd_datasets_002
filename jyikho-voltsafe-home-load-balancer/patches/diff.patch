@@ -65,8 +65,8 @@ diff -ruN repository_before/backend/__init__.py repository_after/backend/__init_
 \ No newline at end of file
 diff -ruN repository_before/backend/main.py repository_after/backend/main.py
 --- repository_before/backend/main.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/backend/main.py	2026-01-31 10:47:12.335293327 +0300
-@@ -0,0 +1,276 @@
++++ repository_after/backend/main.py	2026-01-31 19:34:24.294875876 +0300
+@@ -0,0 +1,313 @@
 +"""FastAPI backend for VoltSafe Home Load Balancer."""
 +import asyncio
 +from contextlib import asynccontextmanager
@@ -135,6 +135,44 @@ diff -ruN repository_before/backend/main.py repository_after/backend/main.py
 +        query = query.where(Appliance.id != exclude_id)
 +    result = await session.execute(query)
 +    return float(result.scalar() or 0.0)
++
++
++def create_power_limit_error(appliance_name: str, current_load: float, 
++                              requested_wattage: float, new_total: float) -> dict:
++    """
++    Create a structured error response for power limit exceeded.
++    
++    The response contains:
++    - 'message': A user-friendly, non-technical message suitable for UI display
++    - 'user_message': Same as message, explicitly named for clarity
++    - 'technical_details': Technical information for debugging/logging (optional use)
++    
++    Design Note: The frontend extracts only the 'message' field for display,
++    ensuring end users see clear, non-technical error messages.
++    """
++    exceeded_by = round(new_total - MAX_LOAD_WATTS, 2)
++    
++    # User-friendly message - no technical jargon
++    user_message = (
++        f"Unable to turn on {appliance_name}. "
++        f"This would exceed the home's safe power limit. "
++        f"Please turn off another appliance first."
++    )
++    
++    return {
++        # Primary user-facing message (used by frontend)
++        "message": user_message,
++        "user_message": user_message,
++        "error_type": "POWER_LIMIT_EXCEEDED",
++        # Technical details for debugging/testing - not shown to users
++        "technical_details": {
++            "current_load": current_load,
++            "requested_additional": requested_wattage,
++            "would_be_total": new_total,
++            "max_allowed": MAX_LOAD_WATTS,
++            "exceeded_by": exceeded_by
++        }
++    }
 +
 +
 +@app.get("/api/health")
@@ -222,6 +260,10 @@ diff -ruN repository_before/backend/main.py repository_after/backend/main.py
 +    - Uses a global lock to prevent race conditions
 +    - Performs atomic capacity check before state transition
 +    - Ensures idempotent behavior for repeated requests
++    
++    Error Response Design:
++    - Returns user-friendly 'message' field for UI display
++    - Includes 'technical_details' for debugging (not shown to users)
 +    """
 +    global power_lock
 +    
@@ -258,17 +300,12 @@ diff -ruN repository_before/backend/main.py repository_after/backend/main.py
 +            
 +            # Precision check: reject if exceeds limit even by 0.01W
 +            if new_total > MAX_LOAD_WATTS:
++                error_response = create_power_limit_error(
++                    appliance.name, current_load, appliance.wattage, new_total
++                )
 +                raise HTTPException(
 +                    status_code=status.HTTP_403_FORBIDDEN,
-+                    detail={
-+                        "error": "Power limit exceeded",
-+                        "message": f"Cannot activate {appliance.name}. Would exceed {MAX_LOAD_WATTS}W safety limit.",
-+                        "current_load": current_load,
-+                        "requested_additional": appliance.wattage,
-+                        "would_be_total": new_total,
-+                        "max_allowed": MAX_LOAD_WATTS,
-+                        "exceeded_by": round(new_total - MAX_LOAD_WATTS, 2)
-+                    }
++                    detail=error_response
 +                )
 +            
 +            # Safe to turn on
@@ -367,7 +404,7 @@ diff -ruN repository_before/backend/models.py repository_after/backend/models.py
 \ No newline at end of file
 diff -ruN repository_before/backend/schemas.py repository_after/backend/schemas.py
 --- repository_before/backend/schemas.py	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/backend/schemas.py	2026-01-31 11:14:58.428021539 +0300
++++ repository_after/backend/schemas.py	2026-01-31 19:18:57.633758628 +0300
 @@ -0,0 +1,57 @@
 +"""Pydantic schemas for request/response validation."""
 +from pydantic import BaseModel, Field, ConfigDict
@@ -464,7 +501,7 @@ diff -ruN repository_before/frontend/index.html repository_after/frontend/index.
 \ No newline at end of file
 diff -ruN repository_before/frontend/package.json repository_after/frontend/package.json
 --- repository_before/frontend/package.json	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/frontend/package.json	2026-01-31 10:27:37.956374642 +0300
++++ repository_after/frontend/package.json	2026-01-31 19:18:57.634758649 +0300
 @@ -0,0 +1,24 @@
 +{
 +    "name": "voltsafe-frontend",
@@ -1175,12 +1212,48 @@ diff -ruN repository_before/frontend/src/main.js repository_after/frontend/src/m
 \ No newline at end of file
 diff -ruN repository_before/frontend/src/stores/applianceStore.js repository_after/frontend/src/stores/applianceStore.js
 --- repository_before/frontend/src/stores/applianceStore.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/frontend/src/stores/applianceStore.js	2026-01-31 10:29:28.038112762 +0300
-@@ -0,0 +1,110 @@
++++ repository_after/frontend/src/stores/applianceStore.js	2026-01-31 19:34:41.990360039 +0300
+@@ -0,0 +1,144 @@
 +import { defineStore } from 'pinia'
 +import axios from 'axios'
 +
 +const API_BASE = '/api'
++
++/**
++ * Extracts a user-friendly error message from API error response.
++ * The API returns structured errors with:
++ * - 'message' or 'user_message': User-friendly text for display
++ * - 'technical_details': Technical info (not shown to users)
++ * 
++ * This function ensures only non-technical messages are displayed.
++ */
++function extractUserFriendlyMessage(errorDetail) {
++  if (!errorDetail) {
++    return 'An unexpected error occurred. Please try again.'
++  }
++  
++  // If it's a string, return as-is
++  if (typeof errorDetail === 'string') {
++    return errorDetail
++  }
++  
++  // If it's an object, extract the user-friendly message
++  if (typeof errorDetail === 'object') {
++    // Prefer 'user_message', then 'message'
++    if (errorDetail.user_message) {
++      return errorDetail.user_message
++    }
++    if (errorDetail.message) {
++      return errorDetail.message
++    }
++    // Fallback for legacy format
++    if (errorDetail.error) {
++      return errorDetail.error
++    }
++  }
++  
++  return 'Unable to complete the request. Please try again.'
++}
 +
 +export const useApplianceStore = defineStore('appliance', {
 +  state: () => ({
@@ -1266,15 +1339,10 @@ diff -ruN repository_before/frontend/src/stores/applianceStore.js repository_aft
 +
 +        return { success: true, message: response.data.message }
 +      } catch (err) {
++        // Extract user-friendly message only - no technical details
 +        const errorDetail = err.response?.data?.detail
-+        let errorMessage = 'Failed to toggle appliance'
-+
-+        if (typeof errorDetail === 'object' && errorDetail.message) {
-+          errorMessage = errorDetail.message
-+        } else if (typeof errorDetail === 'string') {
-+          errorMessage = errorDetail
-+        }
-+
++        const errorMessage = extractUserFriendlyMessage(errorDetail)
++        
 +        this.error = errorMessage
 +        return { success: false, message: errorMessage }
 +      } finally {
@@ -1287,10 +1355,13 @@ diff -ruN repository_before/frontend/src/stores/applianceStore.js repository_aft
 +    }
 +  }
 +})
++
++// Export for testing
++export { extractUserFriendlyMessage }
 \ No newline at end of file
 diff -ruN repository_before/frontend/vite.config.js repository_after/frontend/vite.config.js
 --- repository_before/frontend/vite.config.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/frontend/vite.config.js	2026-01-31 10:27:58.532491250 +0300
++++ repository_after/frontend/vite.config.js	2026-01-31 19:18:57.635758670 +0300
 @@ -0,0 +1,18 @@
 +import { defineConfig } from 'vite'
 +import vue from '@vitejs/plugin-vue'
