@@ -1,0 +1,146 @@
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: webhook-postgres
+    environment:
+      POSTGRES_USER: webhook
+      POSTGRES_PASSWORD: webhook_password
+      POSTGRES_DB: webhook_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webhook"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - webhook-network
+
+  # Redis for BullMQ Queue
+  redis:
+    image: redis:7-alpine
+    container_name: webhook-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - webhook-network
+
+    # Database Migration Service - Runs migrations before other services
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webhook-migrate
+    command: sh -c "cd repository_after && npx prisma migrate deploy"
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://webhook:webhook_password@postgres:5432/webhook_db
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webhook-network
+    restart: "no"
+
+  # Webhook Worker Service
+  webhook-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webhook-worker
+    command: npm run worker:webhooks
+    working_dir: /app/repository_after
+    environment:
+      DATABASE_URL: postgresql://webhook:webhook_password@postgres:5432/webhook_db
+      REDIS_URL: redis://redis:6379
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-test-secret}
+      WEBHOOK_MAX_ATTEMPTS: ${WEBHOOK_MAX_ATTEMPTS:-10}
+      WEBHOOK_BASE_DELAY_MS: ${WEBHOOK_BASE_DELAY_MS:-60000}
+      WEBHOOK_MAX_DELAY_MS: ${WEBHOOK_MAX_DELAY_MS:-43200000}
+      WEBHOOK_REQUEST_TIMEOUT_MS: ${WEBHOOK_REQUEST_TIMEOUT_MS:-10000}
+      WEBHOOK_WORKER_CONCURRENCY: ${WEBHOOK_WORKER_CONCURRENCY:-5}
+      NODE_ENV: production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - webhook-network
+    restart: unless-stopped
+
+  # Test Service - Runs tests on repository_after
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webhook-test-after
+    command: npx vitest run tests --config vitest.config.ts
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://webhook:webhook_password@postgres:5432/webhook_db
+      REDIS_URL: redis://redis:6379
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-test-secret}
+      NODE_ENV: test
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - webhook-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
+
+  # Evaluation Service - Runs the evaluation script
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webhook-evaluation
+    command: npx tsx evaluation/evaluation.ts
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://webhook:webhook_password@postgres:5432/webhook_db
+      REDIS_URL: redis://redis:6379
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-test-secret}
+      NODE_ENV: test
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - webhook-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
+      - evaluation_reports:/app/evaluation/reports
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  evaluation_reports:
+    driver: local
+
+networks:
+  webhook-network:
+    driver: bridge

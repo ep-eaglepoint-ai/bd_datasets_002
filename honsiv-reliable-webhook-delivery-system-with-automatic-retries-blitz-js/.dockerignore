@@ -1,0 +1,17 @@
+node_modules
+repository_after/node_modules
+.next
+repository_after/.next
+.blitz
+repository_after/.blitz
+.husky
+repository_after/.husky
+coverage
+repository_after/coverage
+evaluation/reports
+*.log
+.DS_Store
+.git
+.vscode
+.env*.local
+vitest-results-*.json
