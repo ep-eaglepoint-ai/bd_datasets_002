@@ -2,11 +2,11 @@
 // distributed task schedulers.
 //
 // Key properties:
-// - Strict fencing tokens: every successful acquisition returns a monotonically
-//   increasing token derived from the storage layer revision counter.
-// - Watch-based waiting: contenders block on Watch instead of polling.
-// - Atomic revocation: if renewal fails or the lease is preempted, the worker
-//   context is canceled and the heartbeat loop exits permanently for that token.
+//   - Strict fencing tokens: every successful acquisition returns a monotonically
+//     increasing token derived from the storage layer revision counter.
+//   - Watch-based waiting: contenders block on Watch instead of polling.
+//   - Atomic revocation: if renewal fails or the lease is preempted, the worker
+//     context is canceled and the heartbeat loop exits permanently for that token.
 //
 // Preemption / priority note:
 // "Administrative preemption" is represented by any external overwrite that
