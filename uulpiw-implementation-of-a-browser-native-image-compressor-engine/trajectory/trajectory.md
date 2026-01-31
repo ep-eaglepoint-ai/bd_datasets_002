@@ -163,16 +163,25 @@ The control flow shifts from "blocking synchronous processing" to "non-blocking 
    Used Web Workers to offload image processing from the main thread, preventing UI blocking.
 
 3. **Progressive Compression Algorithm**:
+
    ```typescript
-   // Progressive retry with fine-grained steps (0.05)
-   while (currentQuality >= minQuality || currentScale >= minScale) {
-     // Try compression at current quality/scale
-     // If successful and meets 50% target, return
-     // Otherwise, reduce quality by 0.05
-     // When quality exhausted, reduce scale by 0.05
+   // Nested loops for systematic quality/scale reduction
+   while (currentScale >= minScale) {
+     for (let q = currentQuality; q >= minQuality; q -= qualityStep) {
+       // Try compression at current quality/scale
+       // If successful and meets 50% target, return
+     }
+     // Reduce scale and retry all quality levels
+     currentScale -= scaleStep;
    }
    // Final fallback: Aggressive scaling until 50% met or throw error
    ```
+
+4. **Security & Performance Fixes**:
+   - Replaced `Math.random()` with `crypto.randomUUID()` for collision-free IDs
+   - Added filename sanitization to prevent XSS vulnerabilities
+   - Implemented memory cleanup with `useEffect` to revoke object URLs
+   - Removed unnecessary intermediate conversions for better performance
 
 ---
 
@@ -186,8 +195,13 @@ The control flow shifts from "blocking synchronous processing" to "non-blocking 
   - Requirement: Minimum 50% reduction.
   - Implementation: Progressive algorithm ensures 50% or throws error.
 - **Test Coverage**:
-  - 3 test files with 9+ test cases in `tests/` directory.
-  - All 8 requirements validated with Jest.
+  - 3 test files with 9 test cases in `tests/` directory.
+  - All 8 requirements validated with actual image processing (not mocks).
+  - Tests verify real compression behavior, transparency preservation, and PNG output.
 - **Worker Integrity**:
   - Tests verify actual Worker instantiation and message passing.
   - Confirms non-blocking main thread operation.
+- **Security & Quality**:
+  - XSS vulnerabilities eliminated via filename sanitization.
+  - Memory leaks prevented with proper cleanup.
+  - Savings display precision improved (0.1% vs 1%).

@@ -48,8 +48,6 @@ async function tryCompress(
   const width = Math.max(MIN_DIMENSION, Math.floor(img.width * scaleFactor));
   const height = Math.max(MIN_DIMENSION, Math.floor(img.height * scaleFactor));
 
-  if (width < MIN_DIMENSION || height < MIN_DIMENSION) return null;
-
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) return null;
@@ -60,18 +58,14 @@ async function tryCompress(
 
   // Apply lossy compression via WebP roundtrip
   const webpBlob = await compressToWebP(canvas, quality);
-  if (webpBlob) {
-    const webpImg = await createImageBitmap(webpBlob);
-    ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(webpImg, 0, 0);
-    webpImg.close(); // Clean up
-  }
+  const webpImg = await createImageBitmap(webpBlob);
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(webpImg, 0, 0);
+  webpImg.close();
 
   const pngBlob = await convertToPNG(canvas);
 
-  // Clean up context helps? OffscreenCanvas is GC'd.
-
-  if (!pngBlob || pngBlob.size >= targetSize) return null;
+  if (pngBlob.size >= targetSize) return null;
 
   return { blob: pngBlob, width, height };
 }
@@ -110,12 +104,8 @@ async function compressImage(
   scaledCtx.imageSmoothingQuality = "high";
   scaledCtx.drawImage(img, 0, 0, finalWidth, finalHeight);
 
-  // Convert scaled canvas to bitmap for efficient re-use
-  // Using PNG here to preserve quality before the lossy step
-  const scaledBlob = await scaledCanvas.convertToBlob({ type: "image/png" });
-  const scaledImg = await createImageBitmap(scaledBlob);
-
-  img.close(); // Release original
+  const scaledImg = await createImageBitmap(scaledCanvas);
+  img.close();
 
   // Progressive retry with expanding ranges until 50% target is met
   let currentScale = 1.0;
@@ -125,34 +115,28 @@ async function compressImage(
   const minQuality = 0.1;
   const minScale = MIN_DIMENSION / Math.max(finalWidth, finalHeight);
 
-  while (currentQuality >= minQuality || currentScale >= minScale) {
-    const result = await tryCompress(
-      scaledImg,
-      targetSize,
-      currentScale,
-      currentQuality * compressionStrength,
-    );
-    
-    if (result) {
-      scaledImg.close();
-      return {
-        blob: result.blob,
-        width: result.width,
-        height: result.height,
-        originalSize,
-        compressedSize: result.blob.size,
-        savings: ((originalSize - result.blob.size) / originalSize) * 100,
-      };
+  while (currentScale >= minScale) {
+    for (let q = currentQuality; q >= minQuality; q -= qualityStep) {
+      const result = await tryCompress(
+        scaledImg,
+        targetSize,
+        currentScale,
+        q * compressionStrength,
+      );
+      
+      if (result) {
+        scaledImg.close();
+        return {
+          blob: result.blob,
+          width: result.width,
+          height: result.height,
+          originalSize,
+          compressedSize: result.blob.size,
+          savings: ((originalSize - result.blob.size) / originalSize) * 100,
+        };
+      }
     }
-
-    // Progressively reduce quality and scale
-    currentQuality -= qualityStep;
-    if (currentQuality < minQuality) {
-      currentQuality = 0.6;
-      currentScale -= scaleStep;
-    }
-
-    if (currentScale < minScale) break;
+    currentScale -= scaleStep;
   }
 
   // Final fallback: Ensure 50% reduction by aggressive scaling

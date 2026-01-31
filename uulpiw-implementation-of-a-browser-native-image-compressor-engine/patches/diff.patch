@@ -1,24 +1,3 @@
-diff --git a/repository_after/.dockerignore b/repository_after/.dockerignore
-new file mode 100644
-index 0000000..9c8cd3b
---- /dev/null
-+++ b/repository_after/.dockerignore
-@@ -0,0 +1,5 @@
-+node_modules
-+.git
-+.DS_Store
-+dist
-+coverage
-diff --git a/repository_after/.gitignore b/repository_after/.gitignore
-new file mode 100644
-index 0000000..ddabfcd
---- /dev/null
-+++ b/repository_after/.gitignore
-@@ -0,0 +1,4 @@
-+node_modules
-+build
-+.DS_Store
-+*.log
 diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
 deleted file mode 100644
 index e69de29..0000000
@@ -187,123 +166,13 @@ index 0000000..b9d355d
 +.read-the-docs {
 +  color: #888;
 +}
-diff --git a/repository_after/src/App.test.tsx b/repository_after/src/App.test.tsx
-new file mode 100644
-index 0000000..130dd3d
---- /dev/null
-+++ b/repository_after/src/App.test.tsx
-@@ -0,0 +1,104 @@
-+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-+import App from "./App";
-+
-+describe("App", () => {
-+  beforeEach(() => {
-+    // Default mock worker implementation
-+    class Worker {
-+      url: string;
-+      onmessage: ((event: MessageEvent) => void) | null = null;
-+      onerror: ((event: ErrorEvent) => void) | null = null;
-+
-+      constructor(stringUrl: string) {
-+        this.url = stringUrl;
-+      }
-+
-+      postMessage(data: any) {
-+        // Simulate async work with real timeout
-+        setTimeout(() => {
-+          if (this.onmessage) {
-+            // Echo back success with mock result
-+            this.onmessage({
-+              data: {
-+                id: data.id,
-+                result: {
-+                  blob: new Blob(["c"], { type: "image/png" }),
-+                  width: 100,
-+                  height: 100,
-+                  originalSize: 1000,
-+                  compressedSize: 500,
-+                  savings: 50,
-+                },
-+              },
-+            } as MessageEvent);
-+          }
-+        }, 50);
-+      }
-+
-+      terminate() {}
-+    }
-+    // @ts-ignore
-+    window.Worker = Worker;
-+  });
-+
-+  afterEach(() => {
-+    vi.restoreAllMocks();
-+  });
-+
-+  it("Requirement 6: Accepts jpeg, png, and webp", async () => {
-+    render(<App />);
-+
-+    const fileInput = screen.getByLabelText(/Select Images/i);
-+    const jpegFile = new File(["a"], "test.jpeg", { type: "image/jpeg" });
-+    const pngFile = new File(["b"], "test.png", { type: "image/png" });
-+    const webpFile = new File(["c"], "test.webp", { type: "image/webp" });
-+    const txtFile = new File(["d"], "test.txt", { type: "text/plain" });
-+
-+    // Upload mixed files
-+    fireEvent.change(fileInput, {
-+      target: { files: [jpegFile, pngFile, webpFile, txtFile] },
-+    });
-+
-+    // Should process valid images
-+    await waitFor(
-+      () => {
-+        expect(screen.getByText("test.jpeg")).toBeInTheDocument();
-+        expect(screen.getByText("test.png")).toBeInTheDocument();
-+        expect(screen.getByText("test.webp")).toBeInTheDocument();
-+      },
-+      { timeout: 2000 },
-+    );
-+
-+    // Should ignore non-image files
-+    expect(screen.queryByText("test.txt")).not.toBeInTheDocument();
-+  });
-+
-+  it("Requirement 4: Handles multiple files asynchronously (Main thread check)", async () => {
-+    render(<App />);
-+    const fileInput = screen.getByLabelText(/Select Images/i);
-+
-+    // Create 5 files
-+    const files = Array.from(
-+      { length: 5 },
-+      (_, i) => new File(["x"], `img${i}.png`, { type: "image/png" }),
-+    );
-+
-+    // Start processing
-+    fireEvent.change(fileInput, { target: { files } });
-+
-+    // All should be in "Compressing..." state initially
-+    await waitFor(() => {
-+      expect(screen.getAllByText("Compressing...")).toHaveLength(5);
-+    });
-+
-+    // Wait for completion (real time)
-+    await waitFor(
-+      () => {
-+        // 5 "Original: ..." / stats lines implies 5 completions
-+        expect(screen.getAllByText(/Original:/)).toHaveLength(5);
-+      },
-+      { timeout: 3000 },
-+    );
-+  });
-+});
 diff --git a/repository_after/src/App.tsx b/repository_after/src/App.tsx
 new file mode 100644
-index 0000000..477c72e
+index 0000000..2d645cb
 --- /dev/null
 +++ b/repository_after/src/App.tsx
-@@ -0,0 +1,229 @@
-+import React, { useState } from 'react';
+@@ -0,0 +1,235 @@
++import React, { useState, useEffect } from 'react';
 +import { ImageCard } from './components/ImageCard';
 +import { compressImage, CompressionResult } from './utils/compressor';
 +
@@ -374,6 +243,12 @@ index 0000000..477c72e
 +    images.forEach(img => URL.revokeObjectURL(img.preview));
 +    setImages([]);
 +  };
++
++  useEffect(() => {
++    return () => {
++      images.forEach(img => URL.revokeObjectURL(img.preview));
++    };
++  }, [images]);
 +
 +  return (
 +    <div style={{
@@ -542,10 +417,10 @@ index 0000000..6c87de9
 \ No newline at end of file
 diff --git a/repository_after/src/components/ImageCard.tsx b/repository_after/src/components/ImageCard.tsx
 new file mode 100644
-index 0000000..3c516d0
+index 0000000..a0714bf
 --- /dev/null
 +++ b/repository_after/src/components/ImageCard.tsx
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,91 @@
 +import React from 'react';
 +
 +interface ImageCardProps {
@@ -567,13 +442,17 @@ index 0000000..3c516d0
 +  return (bytes / (1024 * 1024)).toFixed(2) + 'MB';
 +};
 +
++const sanitizeFilename = (filename: string): string => {
++  return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
++};
++
 +export const ImageCard: React.FC<ImageCardProps> = ({ file, preview, result, status, error }) => {
 +  const handleDownload = () => {
 +    if (!result) return;
 +    const url = URL.createObjectURL(result.blob);
 +    const a = document.createElement('a');
 +    a.href = url;
-+    a.download = file.name.replace(/\.[^.]+$/, '_compressed.png');
++    a.download = sanitizeFilename(file.name.replace(/\.[^.]+$/, '_compressed.png'));
 +    a.click();
 +    URL.revokeObjectURL(url);
 +  };
@@ -594,7 +473,7 @@ index 0000000..3c516d0
 +      }} />
 +      
 +      <div style={{ fontSize: '14px', marginBottom: '8px', fontWeight: '500' }}>
-+        {file.name}
++        {sanitizeFilename(file.name)}
 +      </div>
 +
 +      {status === 'processing' && (
@@ -608,7 +487,7 @@ index 0000000..3c516d0
 +      {status === 'done' && result && (
 +        <>
 +          <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>
-+            Original: {formatBytes(result.originalSize)} | Compressed: {formatBytes(result.compressedSize)} | Saved: {result.savings.toFixed(0)}%
++            Original: {formatBytes(result.originalSize)} | Compressed: {formatBytes(result.compressedSize)} | Saved: {result.savings.toFixed(1)}%
 +          </div>
 +          <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
 +            Dimensions: {result.width} × {result.height}
@@ -739,99 +618,9 @@ index 0000000..15753af
 +    <App />
 +  </StrictMode>,
 +);
-diff --git a/repository_after/src/utils/compressor.test.ts b/repository_after/src/utils/compressor.test.ts
-new file mode 100644
-index 0000000..e661c95
---- /dev/null
-+++ b/repository_after/src/utils/compressor.test.ts
-@@ -0,0 +1,84 @@
-+import { describe, it, expect, vi, afterEach } from "vitest";
-+import { compressImage } from "./compressor";
-+
-+describe("compressImage", () => {
-+  afterEach(() => {
-+    vi.restoreAllMocks();
-+  });
-+
-+  it("Initializes worker and handles success", async () => {
-+    const postMessageSpy = vi.fn();
-+    const terminateSpy = vi.fn();
-+
-+    // Mock Worker specific to this test
-+    const MockWorker = class {
-+      onmessage: ((event: MessageEvent) => void) | null = null;
-+      onerror: ((event: ErrorEvent) => void) | null = null;
-+      postMessage = postMessageSpy.mockImplementation((data) => {
-+        // Reply immediately
-+        setTimeout(() => {
-+          if (this.onmessage) {
-+            this.onmessage({
-+              data: {
-+                id: data.id,
-+                result: {
-+                  blob: new Blob(["data"], { type: "image/png" }),
-+                  width: 100,
-+                  height: 100,
-+                  originalSize: 1000,
-+                  compressedSize: 500,
-+                  savings: 50,
-+                },
-+              },
-+            } as MessageEvent);
-+          }
-+        }, 0);
-+      });
-+      terminate = terminateSpy;
-+    };
-+
-+    // @ts-ignore
-+    window.Worker = MockWorker;
-+
-+    const file = new File(["abc"], "test.png", { type: "image/png" });
-+    const result = await compressImage(file, 800, 600, 0.5);
-+
-+    expect(postMessageSpy).toHaveBeenCalledWith(
-+      expect.objectContaining({
-+        maxWidth: 800,
-+        maxHeight: 600,
-+        compressionStrength: 0.5,
-+        file,
-+      }),
-+    );
-+
-+    expect(result.width).toBe(100);
-+    expect(terminateSpy).toHaveBeenCalled();
-+  });
-+
-+  it("Handles worker error", async () => {
-+    const MockWorker = class {
-+      onmessage: ((event: MessageEvent) => void) | null = null;
-+      onerror: ((event: ErrorEvent) => void) | null = null;
-+      postMessage = (data: any) => {
-+        setTimeout(() => {
-+          if (this.onmessage) {
-+            this.onmessage({
-+              data: {
-+                id: data.id,
-+                error: "Compression failed",
-+              },
-+            } as MessageEvent);
-+          }
-+        }, 0);
-+      };
-+      terminate = vi.fn();
-+    };
-+
-+    // @ts-ignore
-+    window.Worker = MockWorker;
-+
-+    const file = new File(["abc"], "test.png", { type: "image/png" });
-+    await expect(compressImage(file)).rejects.toThrow("Compression failed");
-+  });
-+});
 diff --git a/repository_after/src/utils/compressor.ts b/repository_after/src/utils/compressor.ts
 new file mode 100644
-index 0000000..399e708
+index 0000000..019626c
 --- /dev/null
 +++ b/repository_after/src/utils/compressor.ts
 @@ -0,0 +1,47 @@
@@ -854,7 +643,7 @@ index 0000000..399e708
 +): Promise<CompressionResult> {
 +  return new Promise((resolve, reject) => {
 +    const worker = new CompressorWorker();
-+    const id = Math.random().toString(36);
++    const id = crypto.randomUUID();
 +
 +    worker.onmessage = (e: MessageEvent) => {
 +      const { id: responseId, result, error } = e.data;
@@ -869,7 +658,7 @@ index 0000000..399e708
 +    };
 +
 +    worker.onerror = (error: ErrorEvent) => {
-+      reject(error);
++      reject(new Error(error.message));
 +      worker.terminate();
 +    };
 +
@@ -884,10 +673,10 @@ index 0000000..399e708
 +}
 diff --git a/repository_after/src/utils/compressor.worker.ts b/repository_after/src/utils/compressor.worker.ts
 new file mode 100644
-index 0000000..f3b6434
+index 0000000..970b814
 --- /dev/null
 +++ b/repository_after/src/utils/compressor.worker.ts
-@@ -0,0 +1,188 @@
+@@ -0,0 +1,172 @@
 +const MIN_DIMENSION = 100;
 +const TARGET_REDUCTION = 0.5;
 +
@@ -938,8 +727,6 @@ index 0000000..f3b6434
 +  const width = Math.max(MIN_DIMENSION, Math.floor(img.width * scaleFactor));
 +  const height = Math.max(MIN_DIMENSION, Math.floor(img.height * scaleFactor));
 +
-+  if (width < MIN_DIMENSION || height < MIN_DIMENSION) return null;
-+
 +  const canvas = new OffscreenCanvas(width, height);
 +  const ctx = canvas.getContext("2d", { alpha: true });
 +  if (!ctx) return null;
@@ -950,18 +737,14 @@ index 0000000..f3b6434
 +
 +  // Apply lossy compression via WebP roundtrip
 +  const webpBlob = await compressToWebP(canvas, quality);
-+  if (webpBlob) {
-+    const webpImg = await createImageBitmap(webpBlob);
-+    ctx.clearRect(0, 0, width, height);
-+    ctx.drawImage(webpImg, 0, 0);
-+    webpImg.close(); // Clean up
-+  }
++  const webpImg = await createImageBitmap(webpBlob);
++  ctx.clearRect(0, 0, width, height);
++  ctx.drawImage(webpImg, 0, 0);
++  webpImg.close();
 +
 +  const pngBlob = await convertToPNG(canvas);
 +
-+  // Clean up context helps? OffscreenCanvas is GC'd.
-+
-+  if (!pngBlob || pngBlob.size >= targetSize) return null;
++  if (pngBlob.size >= targetSize) return null;
 +
 +  return { blob: pngBlob, width, height };
 +}
@@ -1000,12 +783,8 @@ index 0000000..f3b6434
 +  scaledCtx.imageSmoothingQuality = "high";
 +  scaledCtx.drawImage(img, 0, 0, finalWidth, finalHeight);
 +
-+  // Convert scaled canvas to bitmap for efficient re-use
-+  // Using PNG here to preserve quality before the lossy step
-+  const scaledBlob = await scaledCanvas.convertToBlob({ type: "image/png" });
-+  const scaledImg = await createImageBitmap(scaledBlob);
-+
-+  img.close(); // Release original
++  const scaledImg = await createImageBitmap(scaledCanvas);
++  img.close();
 +
 +  // Progressive retry with expanding ranges until 50% target is met
 +  let currentScale = 1.0;
@@ -1015,34 +794,28 @@ index 0000000..f3b6434
 +  const minQuality = 0.1;
 +  const minScale = MIN_DIMENSION / Math.max(finalWidth, finalHeight);
 +
-+  while (currentQuality >= minQuality || currentScale >= minScale) {
-+    const result = await tryCompress(
-+      scaledImg,
-+      targetSize,
-+      currentScale,
-+      currentQuality * compressionStrength,
-+    );
-+    
-+    if (result) {
-+      scaledImg.close();
-+      return {
-+        blob: result.blob,
-+        width: result.width,
-+        height: result.height,
-+        originalSize,
-+        compressedSize: result.blob.size,
-+        savings: ((originalSize - result.blob.size) / originalSize) * 100,
-+      };
++  while (currentScale >= minScale) {
++    for (let q = currentQuality; q >= minQuality; q -= qualityStep) {
++      const result = await tryCompress(
++        scaledImg,
++        targetSize,
++        currentScale,
++        q * compressionStrength,
++      );
++      
++      if (result) {
++        scaledImg.close();
++        return {
++          blob: result.blob,
++          width: result.width,
++          height: result.height,
++          originalSize,
++          compressedSize: result.blob.size,
++          savings: ((originalSize - result.blob.size) / originalSize) * 100,
++        };
++      }
 +    }
-+
-+    // Progressively reduce quality and scale
-+    currentQuality -= qualityStep;
-+    if (currentQuality < minQuality) {
-+      currentQuality = 0.6;
-+      currentScale -= scaleStep;
-+    }
-+
-+    if (currentScale < minScale) break;
++    currentScale -= scaleStep;
 +  }
 +
 +  // Final fallback: Ensure 50% reduction by aggressive scaling

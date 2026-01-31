@@ -19,13 +19,17 @@ const formatBytes = (bytes: number): string => {
   return (bytes / (1024 * 1024)).toFixed(2) + 'MB';
 };
 
+const sanitizeFilename = (filename: string): string => {
+  return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+};
+
 export const ImageCard: React.FC<ImageCardProps> = ({ file, preview, result, status, error }) => {
   const handleDownload = () => {
     if (!result) return;
     const url = URL.createObjectURL(result.blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = file.name.replace(/\.[^.]+$/, '_compressed.png');
+    a.download = sanitizeFilename(file.name.replace(/\.[^.]+$/, '_compressed.png'));
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -46,7 +50,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({ file, preview, result, sta
       }} />
       
       <div style={{ fontSize: '14px', marginBottom: '8px', fontWeight: '500' }}>
-        {file.name}
+        {sanitizeFilename(file.name)}
       </div>
 
       {status === 'processing' && (
@@ -60,7 +64,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({ file, preview, result, sta
       {status === 'done' && result && (
         <>
           <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>
-            Original: {formatBytes(result.originalSize)} | Compressed: {formatBytes(result.compressedSize)} | Saved: {result.savings.toFixed(0)}%
+            Original: {formatBytes(result.originalSize)} | Compressed: {formatBytes(result.compressedSize)} | Saved: {result.savings.toFixed(1)}%
           </div>
           <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
             Dimensions: {result.width} × {result.height}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ImageCard } from './components/ImageCard';
 import { compressImage, CompressionResult } from './utils/compressor';
 
@@ -69,6 +69,12 @@ function App() {
     images.forEach(img => URL.revokeObjectURL(img.preview));
     setImages([]);
   };
+
+  useEffect(() => {
+    return () => {
+      images.forEach(img => URL.revokeObjectURL(img.preview));
+    };
+  }, [images]);
 
   return (
     <div style={{

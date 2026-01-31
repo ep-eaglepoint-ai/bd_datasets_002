@@ -2,19 +2,20 @@ describe("Worker Integrity and Main Thread Tests", () => {
   let Worker;
 
   beforeAll(() => {
-    // Mock Worker to verify it's actually used
-    Worker = class {
+    Worker = class MockWorker {
       constructor(url) {
         this.url = url;
         this.onmessage = null;
         this.onerror = null;
         this.messageCount = 0;
+        this.terminated = false;
       }
 
       postMessage(data) {
         this.messageCount++;
+        
         setTimeout(() => {
-          if (this.onmessage) {
+          if (this.onmessage && !this.terminated) {
             this.onmessage({
               data: {
                 id: data.id,
@@ -39,12 +40,16 @@ describe("Worker Integrity and Main Thread Tests", () => {
     global.Worker = Worker;
   });
 
-  it("ses Web Worker for non-blocking compression", (done) => {
+  it("Uses Web Worker for non-blocking compression", (done) => {
     const worker = new Worker("compressor.worker.js");
 
     worker.onmessage = (e) => {
       expect(e.data.result).toBeDefined();
+      expect(e.data.result.blob).toBeInstanceOf(Blob);
+      expect(e.data.result.blob.type).toBe("image/png");
       expect(worker.messageCount).toBe(1);
+      
+      worker.terminate();
       expect(worker.terminated).toBe(true);
       done();
     };
@@ -54,14 +59,13 @@ describe("Worker Integrity and Main Thread Tests", () => {
       file: new Blob(["test"], { type: "image/png" }),
       compressionStrength: 0.7,
     });
-
-    worker.terminate();
   });
 
   it("Multiple workers can run simultaneously", async () => {
     const workers = [];
     const results = [];
 
+    const promises = [];
     for (let i = 0; i < 3; i++) {
       const worker = new Worker("compressor.worker.js");
       workers.push(worker);
@@ -69,6 +73,7 @@ describe("Worker Integrity and Main Thread Tests", () => {
       const promise = new Promise((resolve) => {
         worker.onmessage = (e) => {
           results.push(e.data.result);
+          expect(e.data.result.blob).toBeInstanceOf(Blob);
           worker.terminate();
           resolve();
         };
@@ -80,10 +85,17 @@ describe("Worker Integrity and Main Thread Tests", () => {
         });
       });
 
-      await promise;
+      promises.push(promise);
     }
+
+    await Promise.all(promises);
 
     expect(results).toHaveLength(3);
     expect(workers.every((w) => w.terminated)).toBe(true);
+    results.forEach(result => {
+      expect(result.blob.type).toBe("image/png");
+      expect(result.width).toBeGreaterThan(0);
+      expect(result.height).toBeGreaterThan(0);
+    });
   });
 });

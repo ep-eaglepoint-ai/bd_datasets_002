@@ -17,7 +17,7 @@ export function compressImage(
 ): Promise<CompressionResult> {
   return new Promise((resolve, reject) => {
     const worker = new CompressorWorker();
-    const id = Math.random().toString(36);
+    const id = crypto.randomUUID();
 
     worker.onmessage = (e: MessageEvent) => {
       const { id: responseId, result, error } = e.data;
@@ -32,7 +32,7 @@ export function compressImage(
     };
 
     worker.onerror = (error: ErrorEvent) => {
-      reject(error);
+      reject(new Error(error.message));
       worker.terminate();
     };
 
