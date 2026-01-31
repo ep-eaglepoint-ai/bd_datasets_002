@@ -60,8 +60,8 @@ func (bd *BreachDetector) ProcessReading(reading TemperatureReading) Status {
 	// Recalculate cumulative duration for the 24-hour window
 	bd.recalculateCumulativeDuration(tracker, reading.Timestamp)
 	
-	// Check if breached (must exceed 30 minutes, not equal)
-	if tracker.cumulativeDuration > MaxCumulativeDuration {
+	// Check if breached (reaches or exceeds 30 minutes)
+	if tracker.cumulativeDuration >= MaxCumulativeDuration {
 		return StatusCompromised
 	}
 	
@@ -81,7 +81,7 @@ func (bd *BreachDetector) GetStatus(shipmentID string, currentTime time.Time) St
 	// Recalculate cumulative duration
 	bd.recalculateCumulativeDuration(tracker, currentTime)
 	
-	if tracker.cumulativeDuration > MaxCumulativeDuration {
+	if tracker.cumulativeDuration >= MaxCumulativeDuration {
 		return StatusCompromised
 	}
 	
@@ -140,6 +140,7 @@ func (bd *BreachDetector) purgeOldReadings(tracker *ShipmentTracker, currentTime
 }
 
 // recalculateCumulativeDuration recalculates the cumulative duration above threshold
+// Optimized to iterate in place instead of allocating a new slice
 func (bd *BreachDetector) recalculateCumulativeDuration(tracker *ShipmentTracker, currentTime time.Time) {
 	tracker.cumulativeDuration = 0
 	
@@ -149,41 +150,45 @@ func (bd *BreachDetector) recalculateCumulativeDuration(tracker *ShipmentTracker
 	
 	windowStart := currentTime.Add(-WindowDuration)
 	
-	// Find readings within the window
-	readingsInWindow := make([]TemperatureReading, 0)
-	for _, reading := range tracker.readings {
-		if !reading.Timestamp.Before(windowStart) && !reading.Timestamp.After(currentTime) {
-			readingsInWindow = append(readingsInWindow, reading)
-		}
-	}
-	
-	if len(readingsInWindow) == 0 {
-		return
-	}
+	// Find the first reading within the window using binary search
+	firstIndex := sort.Search(len(tracker.readings), func(i int) bool {
+		return !tracker.readings[i].Timestamp.Before(windowStart)
+	})
 	
 	// Track periods where temperature is continuously above threshold
 	// We count time from a reading above threshold until the next reading (which may show it dropped)
 	// or until current time if it's the last reading
-	for i := 0; i < len(readingsInWindow)-1; i++ {
-		currentReading := readingsInWindow[i]
-		nextReading := readingsInWindow[i+1]
+	for i := firstIndex; i < len(tracker.readings); i++ {
+		reading := tracker.readings[i]
 		
-		// If current reading is above threshold, count time to next reading
-		// The next reading will show if temperature dropped or continued above
-		if currentReading.Value > ThresholdTemperature {
-			duration := nextReading.Timestamp.Sub(currentReading.Timestamp)
-			tracker.cumulativeDuration += duration
+		// Stop if reading is after current time
+		if reading.Timestamp.After(currentTime) {
+			break
 		}
-	}
-	
-	// Handle the last reading - if it's above threshold, calculate duration to current time
-	lastReading := readingsInWindow[len(readingsInWindow)-1]
-	if lastReading.Value > ThresholdTemperature {
-		// The period from last reading continues until current time
-		// (readingsInWindow already filters to only include readings within the window)
-		duration := currentTime.Sub(lastReading.Timestamp)
-		if duration > 0 {
-			tracker.cumulativeDuration += duration
+		
+		// If current reading is above threshold, calculate duration to next reading or current time
+		if reading.Value > ThresholdTemperature {
+			if i < len(tracker.readings)-1 {
+				// There's a next reading - check if it's within the window
+				nextReading := tracker.readings[i+1]
+				if !nextReading.Timestamp.Before(windowStart) && !nextReading.Timestamp.After(currentTime) {
+					// Next reading is within window - count time to next reading
+					duration := nextReading.Timestamp.Sub(reading.Timestamp)
+					tracker.cumulativeDuration += duration
+				} else {
+					// Next reading is outside window or after current time - count to current time
+					duration := currentTime.Sub(reading.Timestamp)
+					if duration > 0 {
+						tracker.cumulativeDuration += duration
+					}
+				}
+			} else {
+				// This is the last reading - count time to current time
+				duration := currentTime.Sub(reading.Timestamp)
+				if duration > 0 {
+					tracker.cumulativeDuration += duration
+				}
+			}
 		}
 	}
 }
