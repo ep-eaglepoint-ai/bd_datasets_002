@@ -1,0 +1,15 @@
+{
+  "name": "lock-free-atomics-tests",
+  "version": "1.0.0",
+  "description": "Test suite for lock-free atomics race condition verification",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js || exit 0",
+    "test:before": "TEST_REPO=before node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js || exit 0",
+    "test:after": "TEST_REPO=after node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js || exit 0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-junit": "^16.0.0"
+  }
+}

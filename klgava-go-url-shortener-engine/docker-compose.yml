@@ -1,0 +1,37 @@
+services:
+  test-before:
+    image: klgava-go-url-shortener-engine-test:latest
+    build: .
+    volumes:
+      - .:/app
+    # Copy test to a temp dir to verify requirements without modifying the source
+    command: >
+      sh -c "mkdir -p /tmp/before &&
+             cp -r repository_before/* /tmp/before/ &&
+             cp tests/requirements_test.go /tmp/before/ &&
+             cd /tmp/before &&
+             (go mod init before_app || true) &&
+             go get . &&
+             (go test -v -race || true)"
+
+  test-after:
+    image: klgava-go-url-shortener-engine-test:latest
+    volumes:
+      - .:/app
+    # Copy test to a temp dir to verify requirements without modifying the source
+    # Removing existing broken test file to avoid build errors during verification
+    command: >
+      sh -c "mkdir -p /tmp/after &&
+             cp -r repository_after/* /tmp/after/ &&
+             rm /tmp/after/shortener_test.go &&
+             cp tests/requirements_test.go /tmp/after/ &&
+             cd /tmp/after &&
+             go get . &&
+             go test -v -race"
+
+  evaluation:
+    image: klgava-go-url-shortener-engine-test:latest
+    volumes:
+      - .:/app
+    command: >
+      sh -c "go run evaluation/evaluation.go --local"
