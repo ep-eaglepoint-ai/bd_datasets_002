@@ -1,6 +1,17 @@
+version: '3.8'
+
 services:
-  app:
+  # Command 1: Run the Ground Truth solution (Go tests)
+  solution:
     build: .
-    command: pytest -q tests
+    working_dir: /app/repository_after
+    command: go test -v -race ./...
+    volumes:
+      - .:/app
+
+  # Command 2: Execute tests and generate evaluation report
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
     volumes:
       - .:/app

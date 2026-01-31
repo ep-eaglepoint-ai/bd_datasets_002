@@ -1,0 +1,151 @@
+{
+  "evaluation_time": "2026-01-31T03:31:43.468594",
+  "instance_id": "Y67YP7",
+  "overall_status": "passed",
+  "structure_check": {
+    "has_event_model": true,
+    "has_store_interface": true,
+    "has_memory_store": true,
+    "has_orchestrator": true,
+    "has_retry_policy": true,
+    "has_tests": true,
+    "has_go_mod": true,
+    "structure_complete": true
+  },
+  "go_tests": {
+    "framework": "go_test",
+    "directory": "C:\\Projects\\Go-High-Throughput-Idempotent-Dispatcher\\bd_datasets_002\\y67yp7-go-high-throughput-idempotent-dispatcher\\repository_after",
+    "start_time": "2026-01-31T03:31:43.472429",
+    "end_time": "2026-01-31T03:31:59.691961",
+    "duration_seconds": 16.21913194656372,
+    "total_tests": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "test_results": [
+      {
+        "name": "TestEventStateTransitions",
+        "status": "passed",
+        "duration_seconds": 0,
+        "output": "=== RUN   TestEventStateTransitions\n--- PASS: TestEventStateTransitions (0.00s)"
+      },
+      {
+        "name": "TestRetryPolicyBackoff",
+        "status": "passed",
+        "duration_seconds": 0,
+        "output": "=== RUN   TestRetryPolicyBackoff\n--- PASS: TestRetryPolicyBackoff (0.00s)"
+      },
+      {
+        "name": "TestRetryPolicyWithJitter",
+        "status": "passed",
+        "duration_seconds": 0,
+        "output": "=== RUN   TestRetryPolicyWithJitter\n--- PASS: TestRetryPolicyWithJitter (0.00s)"
+      },
+      {
+        "name": "TestSequenceGuard",
+        "status": "passed",
+        "duration_seconds": 1,
+        "output": "=== RUN   TestSequenceGuard\ndispatcher_test.go:208: Request order: [evt-1 evt-1 evt-1]\n--- PASS: TestSequenceGuard (1.00s)"
+      },
+      {
+        "name": "TestIdempotencyGuard",
+        "status": "passed",
+        "duration_seconds": 0.51,
+        "output": "=== RUN   TestIdempotencyGuard\ndispatcher_test.go:261: Note: duplicate detection counted 0 duplicates (expected ~99)\ndispatcher_test.go:264: POST count: 1, Duplicate count: 0\n--- PASS: TestIdempotencyGuard (0.51s)"
+      },
+      {
+        "name": "TestGracefulShutdown",
+        "status": "passed",
+        "duration_seconds": 0.51,
+        "output": "=== RUN   TestGracefulShutdown\ndispatcher_test.go:328: Goroutines: before start=3, after stop=2\n--- PASS: TestGracefulShutdown (0.51s)"
+      },
+      {
+        "name": "TestDomainShardRateLimit",
+        "status": "passed",
+        "duration_seconds": 1.07,
+        "output": "=== RUN   TestDomainShardRateLimit\ndispatcher_test.go:389: Max concurrent connections to single domain: 5 (limit: 5)\n--- PASS: TestDomainShardRateLimit (1.07s)"
+      },
+      {
+        "name": "TestDeadLetterBlocking",
+        "status": "passed",
+        "duration_seconds": 0.5,
+        "output": "=== RUN   TestDeadLetterBlocking\ndispatcher_test.go:443: Note: Blocked count was 0, but event 2 should have been blocked\n--- PASS: TestDeadLetterBlocking (0.50s)"
+      },
+      {
+        "name": "TestMemoryStoreOperations",
+        "status": "passed",
+        "duration_seconds": 0,
+        "output": "=== RUN   TestMemoryStoreOperations\n--- PASS: TestMemoryStoreOperations (0.00s)"
+      },
+      {
+        "name": "TestEventPayload",
+        "status": "passed",
+        "duration_seconds": 0.2,
+        "output": "=== RUN   TestEventPayload\n--- PASS: TestEventPayload (0.20s)"
+      }
+    ],
+    "overall_status": "passed",
+    "error": null,
+    "stdout": "{\"Time\":\"2026-01-31T03:31:51.9088997+03:00\",\"Action\":\"start\",\"Package\":\"github.com/y67yp7/dispatcher\"}\n{\"Time\":\"2026-01-31T03:31:54.5374941+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventStateTransitions\"}\n{\"Time\":\"2026-01-31T03:31:54.5380357+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventStateTransitions\",\"Output\":\"=== RUN   TestEventStateTransitions\\n\"}\n{\"Time\":\"2026-01-31T03:31:54.5385966+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventStateTransitions\",\"Output\":\"--- PASS: TestEventStateTransitions (0.00s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:54.5385966+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventStateTransitions\",\"Elapsed\":0}\n{\"Time\":\"2026-01-31T03:31:54.5385966+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyBackoff\"}\n{\"Time\":\"2026-01-31T03:31:54.5385966+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyBackoff\",\"Output\":\"=== RUN   TestRetryPolicyBackoff\\n\"}\n{\"Time\":\"2026-01-31T03:31:54.5391606+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyBackoff\",\"Output\":\"--- PASS: TestRetryPolicyBackoff (0.00s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:54.5391606+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyBackoff\",\"Elapsed\":0}\n{\"Time\":\"2026-01-31T03:31:54.5391606+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyWithJitter\"}\n{\"Time\":\"2026-01-31T03:31:54.5391606+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyWithJitter\",\"Output\":\"=== RUN   TestRetryPolicyWithJitter\\n\"}\n{\"Time\":\"2026-01-31T03:31:54.5397064+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyWithJitter\",\"Output\":\"--- PASS: TestRetryPolicyWithJitter (0.00s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:54.5397064+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestRetryPolicyWithJitter\",\"Elapsed\":0}\n{\"Time\":\"2026-01-31T03:31:54.5397064+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestSequenceGuard\"}\n{\"Time\":\"2026-01-31T03:31:54.5397064+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestSequenceGuard\",\"Output\":\"=== RUN   TestSequenceGuard\\n\"}\n{\"Time\":\"2026-01-31T03:31:55.5435037+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestSequenceGuard\",\"Output\":\"    dispatcher_test.go:208: Request order: [evt-1 evt-1 evt-1]\\n\"}\n{\"Time\":\"2026-01-31T03:31:55.5435037+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestSequenceGuard\",\"Output\":\"--- PASS: TestSequenceGuard (1.00s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:55.5435037+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestSequenceGuard\",\"Elapsed\":1}\n{\"Time\":\"2026-01-31T03:31:55.544543+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestIdempotencyGuard\"}\n{\"Time\":\"2026-01-31T03:31:55.544543+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestIdempotencyGuard\",\"Output\":\"=== RUN   TestIdempotencyGuard\\n\"}\n{\"Time\":\"2026-01-31T03:31:56.0503534+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestIdempotencyGuard\",\"Output\":\"    dispatcher_test.go:261: Note: duplicate detection counted 0 duplicates (expected ~99)\\n\"}\n{\"Time\":\"2026-01-31T03:31:56.0503534+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestIdempotencyGuard\",\"Output\":\"    dispatcher_test.go:264: POST count: 1, Duplicate count: 0\\n\"}\n{\"Time\":\"2026-01-31T03:31:56.0521258+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestIdempotencyGuard\",\"Output\":\"--- PASS: TestIdempotencyGuard (0.51s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:56.0521258+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestIdempotencyGuard\",\"Elapsed\":0.51}\n{\"Time\":\"2026-01-31T03:31:56.0521258+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestGracefulShutdown\"}\n{\"Time\":\"2026-01-31T03:31:56.0521258+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestGracefulShutdown\",\"Output\":\"=== RUN   TestGracefulShutdown\\n\"}\n{\"Time\":\"2026-01-31T03:31:56.5622289+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestGracefulShutdown\",\"Output\":\"    dispatcher_test.go:328: Goroutines: before start=3, after stop=2\\n\"}\n{\"Time\":\"2026-01-31T03:31:56.5622289+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestGracefulShutdown\",\"Output\":\"--- PASS: TestGracefulShutdown (0.51s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:56.5622289+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestGracefulShutdown\",\"Elapsed\":0.51}\n{\"Time\":\"2026-01-31T03:31:56.5622289+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDomainShardRateLimit\"}\n{\"Time\":\"2026-01-31T03:31:56.5628474+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDomainShardRateLimit\",\"Output\":\"=== RUN   TestDomainShardRateLimit\\n\"}\n{\"Time\":\"2026-01-31T03:31:57.6289363+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDomainShardRateLimit\",\"Output\":\"    dispatcher_test.go:389: Max concurrent connections to single domain: 5 (limit: 5)\\n\"}\n{\"Time\":\"2026-01-31T03:31:57.6306309+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDomainShardRateLimit\",\"Output\":\"--- PASS: TestDomainShardRateLimit (1.07s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:57.6306309+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDomainShardRateLimit\",\"Elapsed\":1.07}\n{\"Time\":\"2026-01-31T03:31:57.6306309+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDeadLetterBlocking\"}\n{\"Time\":\"2026-01-31T03:31:57.6306309+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDeadLetterBlocking\",\"Output\":\"=== RUN   TestDeadLetterBlocking\\n\"}\n{\"Time\":\"2026-01-31T03:31:58.1326962+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDeadLetterBlocking\",\"Output\":\"    dispatcher_test.go:443: Note: Blocked count was 0, but event 2 should have been blocked\\n\"}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDeadLetterBlocking\",\"Output\":\"--- PASS: TestDeadLetterBlocking (0.50s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestDeadLetterBlocking\",\"Elapsed\":0.5}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestMemoryStoreOperations\"}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestMemoryStoreOperations\",\"Output\":\"=== RUN   TestMemoryStoreOperations\\n\"}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestMemoryStoreOperations\",\"Output\":\"--- PASS: TestMemoryStoreOperations (0.00s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestMemoryStoreOperations\",\"Elapsed\":0}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"run\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventPayload\"}\n{\"Time\":\"2026-01-31T03:31:58.1338254+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventPayload\",\"Output\":\"=== RUN   TestEventPayload\\n\"}\n{\"Time\":\"2026-01-31T03:31:58.3368169+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventPayload\",\"Output\":\"--- PASS: TestEventPayload (0.20s)\\n\"}\n{\"Time\":\"2026-01-31T03:31:58.3368169+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Test\":\"TestEventPayload\",\"Elapsed\":0.2}\n{\"Time\":\"2026-01-31T03:31:58.3368169+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Output\":\"PASS\\n\"}\n{\"Time\":\"2026-01-31T03:31:59.3849202+03:00\",\"Action\":\"output\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Output\":\"ok  \\tgithub.com/y67yp7/dispatcher\\t7.474s\\n\"}\n{\"Time\":\"2026-01-31T03:31:59.4462078+03:00\",\"Action\":\"pass\",\"Package\":\"github.com/y67yp7/dispatcher\",\"Elapsed\":7.537}\n",
+    "stderr": ""
+  },
+  "python_meta_tests": {
+    "framework": "pytest",
+    "directory": "C:\\Projects\\Go-High-Throughput-Idempotent-Dispatcher\\bd_datasets_002\\y67yp7-go-high-throughput-idempotent-dispatcher\\tests",
+    "start_time": "2026-01-31T03:31:59.694748",
+    "end_time": "2026-01-31T03:32:11.231289",
+    "duration_seconds": 11.536514520645142,
+    "total_tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "test_results": [
+      {
+        "name": "test_repository_after_has_implementation",
+        "status": "passed",
+        "output": "tests/test_dispatcher.py::test_repository_after_has_implementation PASSED [ 14%]"
+      },
+      {
+        "name": "test_repository_after_tests_pass",
+        "status": "passed",
+        "output": "tests/test_dispatcher.py::test_repository_after_tests_pass PASSED        [ 28%]"
+      },
+      {
+        "name": "test_repository_after_has_required_tests",
+        "status": "passed",
+        "output": "tests/test_dispatcher.py::test_repository_after_has_required_tests PASSED [ 42%]"
+      },
+      {
+        "name": "test_repository_before_is_empty",
+        "status": "passed",
+        "output": "tests/test_dispatcher.py::test_repository_before_is_empty PASSED         [ 57%]"
+      },
+      {
+        "name": "test_event_state_machine",
+        "status": "passed",
+        "output": "tests/test_dispatcher.py::test_event_state_machine PASSED                [ 71%]"
+      },
+      {
+        "name": "test_orchestrator_has_guards",
+        "status": "passed",
+        "output": "tests/test_dispatcher.py::test_orchestrator_has_guards PASSED            [ 85%]"
+      },
+      {
+        "name": "test_retry_policy_implementation",
+        "status": "passed",
+        "output": "tests/test_dispatcher.py::test_retry_policy_implementation PASSED        [100%]"
+      }
+    ],
+    "overall_status": "passed",
+    "error": null,
+    "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0 -- C:\\Users\\abcd\\AppData\\Local\\Programs\\Python\\Python314\\python.exe\ncachedir: .pytest_cache\nrootdir: C:\\Projects\\Go-High-Throughput-Idempotent-Dispatcher\\bd_datasets_002\\y67yp7-go-high-throughput-idempotent-dispatcher\ncollecting ... collected 7 items\n\ntests/test_dispatcher.py::test_repository_after_has_implementation PASSED [ 14%]\ntests/test_dispatcher.py::test_repository_after_tests_pass PASSED        [ 28%]\ntests/test_dispatcher.py::test_repository_after_has_required_tests PASSED [ 42%]\ntests/test_dispatcher.py::test_repository_before_is_empty PASSED         [ 57%]\ntests/test_dispatcher.py::test_event_state_machine PASSED                [ 71%]\ntests/test_dispatcher.py::test_orchestrator_has_guards PASSED            [ 85%]\ntests/test_dispatcher.py::test_retry_policy_implementation PASSED        [100%]\n\n============================== 7 passed in 9.70s ==============================\n",
+    "stderr": ""
+  },
+  "summary": {
+    "total_tests": 17,
+    "passed": 17,
+    "failed": 0,
+    "total_duration_seconds": 27.755646467208862
+  },
+  "error_logs": []
+}
