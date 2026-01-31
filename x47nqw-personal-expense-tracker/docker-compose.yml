@@ -4,9 +4,13 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/repository_after/personal-expense-tracker/node_modules
     environment:
       - NODE_ENV=development
-      - TEST_URL=http://host.docker.internal:3000
+      - TEST_URL=http://localhost:3000
+      - DATABASE_URL=file:./dev.db
+      - NEXTAUTH_SECRET=secret
+      - NEXTAUTH_URL=http://localhost:3000
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: npm run test

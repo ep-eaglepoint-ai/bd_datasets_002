@@ -4,9 +4,10 @@
     "type": "module",
     "description": "Meta package for tests and evaluation of the Personal Expense Tracker",
     "scripts": {
-        "test": "vitest run --config tests/vitest.config.ts",
+        "test": "npx tsx tests/test-runner.ts npx vitest run --config tests/vitest.config.ts",
+        "test:raw": "vitest run --config tests/vitest.config.ts",
         "test:watch": "vitest --config tests/vitest.config.ts",
-        "verify": "npx tsx tests/verify-criteria.ts",
+        "verify:raw": "npx tsx tests/verify-criteria.ts",
         "evaluate": "npx tsx evaluation/evaluation.ts"
     },
     "devDependencies": {

@@ -1,8 +1,9 @@
 // evaluation.ts - Test Evaluation and Report Generation for Personal Expense Tracker
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawn, ChildProcess } from 'child_process';
 import * as os from 'os';
+import * as http from 'http';
 
 interface TestResult {
     nodeid: string;
@@ -66,12 +67,43 @@ interface EvaluationReport {
 }
 
 /**
+ * Wait for a port to be ready
+ */
+function waitForPort(port: number, timeout: number = 180000): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const start = Date.now();
+        const check = () => {
+            if (Date.now() - start > timeout) {
+                reject(new Error(`Timeout waiting for port ${port}`));
+                return;
+            }
+            const req = http.get(`http://127.0.0.1:${port}`, (res) => {
+                if (res.statusCode === 200) {
+                    res.on('data', () => { });
+                    res.on('end', () => resolve());
+                } else {
+                    setTimeout(check, 1000);
+                }
+            });
+            req.on('error', () => {
+                setTimeout(check, 1000);
+            });
+        };
+        check();
+    });
+}
+
+/**
  * Run the verification script and parse results
  */
 async function runVerificationTests(
     repositoryName: string
 ): Promise<RepositoryTestResult> {
     const startTime = Date.now();
+    const appDir = path.join(process.cwd(), 'repository_after', 'personal-expense-tracker');
+    let appProcess: ChildProcess | null = null;
+    let logFile: number | undefined;
+
 
     console.log(`\n${'='.repeat(60)}`);
     console.log(`Running tests for ${repositoryName}...`);
@@ -91,28 +123,45 @@ async function runVerificationTests(
     let exitCode = 0;
 
     try {
-        // Run Vitest with JSON reporter
-        console.log('Running vitest tests...\n');
+        // 1. Setup Database
+        console.log('Setting up database...');
+        execSync('npx prisma db push', { cwd: appDir, stdio: 'inherit' });
 
-        const runVitest = () => {
+        // 2. Start App
+        console.log('Starting app in background...');
+        logFile = fs.openSync(path.join(process.cwd(), 'app.log'), 'w');
+        appProcess = spawn('npm', ['run', 'dev', '--', '-p', '4000'], {
+            cwd: appDir,
+            stdio: ['ignore', logFile, logFile],
+            shell: true as any,
+            env: { ...process.env, NEXTAUTH_URL: 'http://localhost:4000', NEXTAUTH_SECRET: 'secret', DATABASE_URL: 'file:./dev.db' }
+        });
+
+        console.log('Waiting for app to start on port 4000...');
+        await waitForPort(4000);
+        console.log('App is ready!');
+
+        // 3. Run Vitest with JSON reporter
+        console.log('Running vitest tests...\n');
+        const vitestOutput = (() => {
             try {
-                return execSync('npm test -- --reporter=json', {
+                return execSync('npx vitest run --config tests/vitest.config.ts --reporter=json', {
                     encoding: 'utf8',
                     stdio: ['pipe', 'pipe', 'pipe'],
                     timeout: 120000,
+                    shell: true as any,
+                    env: { ...process.env, TEST_URL: 'http://localhost:4000' }
                 });
             } catch (error: any) {
-                // Capture stderr and exitCode from the error object if execSync fails
-                stderr = error.stderr || '';
+                stderr += error.stderr || '';
                 exitCode = error.status || 1;
-                return error.stdout || ''; // Return stdout even on error, as it might contain partial JSON
+                return error.stdout || '';
             }
-        };
+        })();
 
-        const vitestOutput = runVitest();
         stdout = vitestOutput;
 
-        // Extract JSON from output (in case of noise)
+        // Extract JSON from output
         const jsonMatch = vitestOutput.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             try {
@@ -128,38 +177,32 @@ async function runVerificationTests(
                                 outcome: test.status === 'passed' ? 'passed' : 'failed',
                                 duration: Number((test.duration / 1000).toFixed(3)),
                             };
-
                             if (test.status !== 'passed' && test.failureMessages) {
                                 result.error = test.failureMessages.join('\n');
                             }
-
                             tests.push(result);
                         });
                     });
                 }
-
                 summary.total = parsed.numTotalTests || 0;
                 summary.passed = parsed.numPassedTests || 0;
                 summary.failed = parsed.numFailedTests || 0;
                 summary.skipped = parsed.numPendingTests || 0;
                 summary.errors = parsed.numTodoTests || 0;
-
             } catch (e) {
                 console.error('Failed to parse Vitest JSON output');
             }
         }
 
-        // Run the verification script as well if it exists
+        // 4. Run criteria verification
         console.log('Running criteria verification...\n');
         try {
-            const result = execSync(
-                'npm run verify',
-                {
-                    encoding: 'utf8',
-                    stdio: ['pipe', 'pipe', 'pipe'],
-                    timeout: 60000,
-                }
-            );
+            const result = execSync('npx tsx tests/verify-criteria.ts', {
+                encoding: 'utf8',
+                stdio: ['pipe', 'pipe', 'pipe'],
+                timeout: 60000,
+                env: { ...process.env, TEST_URL: 'http://localhost:3000' }
+            });
             stdout += '\n\nVerification Output:\n' + result;
         } catch (error: any) {
             stdout += '\n\nVerification Output:\n' + (error.stdout || '');
@@ -169,6 +212,21 @@ async function runVerificationTests(
     } catch (error: any) {
         stderr += error.message;
         exitCode = 1;
+    } finally {
+        if (appProcess) {
+            console.log('Stopping app...');
+            try {
+                const killed = appProcess.kill('SIGTERM');
+                if (!killed && appProcess.pid) {
+                    execSync(`taskkill /pid ${appProcess.pid} /f /t`, { stdio: 'ignore' });
+                }
+            } catch (e) {
+                // Ignore taskkill errors if process already exited
+            }
+        }
+        if (logFile !== undefined) {
+            fs.closeSync(logFile);
+        }
     }
 
     const duration = Number(((Date.now() - startTime) / 1000).toFixed(3));
