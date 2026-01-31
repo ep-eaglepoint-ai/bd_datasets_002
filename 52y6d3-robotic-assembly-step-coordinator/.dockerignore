@@ -1,9 +1,7 @@
-# Ignore everything by default
-*
-
-# Allow directories we need
-!repository_after
-!tests
-!evaluation
-!Dockerfile
-!docker-compose.yml
+# Standard ignore list
+.git
+.gitignore
+patches/
+trajectory/
+eval_log.txt
+*.md
