@@ -1,8 +1,6 @@
-FROM golang:1.21-alpine
+FROM golang:1.21
 
 WORKDIR /app
-
-RUN apk add --no-cache git
 
 COPY . .
 

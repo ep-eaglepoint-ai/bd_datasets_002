@@ -79,7 +79,7 @@ func (f *FakeSink) TotalEntries() int {
 	return count
 }
 
-// ==================== REQUIREMENT 1 & 2: SAMPLING BEHAVIOR ====================
+// ==================== REQUIREMENT 1: SAMPLING ABOVE RATE ====================
 
 func TestSampling_RandomAboveSampleRate_NoLogCreated(t *testing.T) {
 	// Requirement 1: When random >= sampleRate, no log entry is created
@@ -112,6 +112,22 @@ func TestSampling_RandomAboveSampleRate_NoLogCreated(t *testing.T) {
 	}
 }
 
+func TestSampling_ZeroSampleRate_NoLogs(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate: 0.0,
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.0),
+	})
+
+	logger.LogRequest(map[string]any{"test": "data"})
+
+	if count := logger.GetLogCount(); count != 0 {
+		t.Errorf("Expected 0 logs with sampleRate=0, got %d", count)
+	}
+}
+
+// ==================== REQUIREMENT 2: SAMPLING BELOW RATE ====================
+
 func TestSampling_RandomBelowSampleRate_OneLogCreated(t *testing.T) {
 	// Requirement 2: When random < sampleRate, exactly one log entry is created
 	tests := []struct {
@@ -140,20 +156,6 @@ func TestSampling_RandomBelowSampleRate_OneLogCreated(t *testing.T) {
 					tt.randomVal, tt.sampleRate, count)
 			}
 		})
-	}
-}
-
-func TestSampling_ZeroSampleRate_NoLogs(t *testing.T) {
-	logger := auditlogger.New(auditlogger.Options{
-		SampleRate: 0.0,
-		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
-		Random:     NewFakeRandom(0.0),
-	})
-
-	logger.LogRequest(map[string]any{"test": "data"})
-
-	if count := logger.GetLogCount(); count != 0 {
-		t.Errorf("Expected 0 logs with sampleRate=0, got %d", count)
 	}
 }
 
@@ -223,7 +225,27 @@ func TestRingBuffer_MaintainsOrder(t *testing.T) {
 	}
 }
 
-// ==================== REQUIREMENT 4 & 5: DEDUPLICATION ====================
+func TestRingBuffer_ExactlyAtLimit(t *testing.T) {
+	maxEntries := 5
+	logger := auditlogger.New(auditlogger.Options{
+		MaxEntries: maxEntries,
+		SampleRate: 1.0,
+		Dedupe:     false,
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.1),
+	})
+
+	// Log exactly maxEntries
+	for i := 1; i <= maxEntries; i++ {
+		logger.LogRequest(map[string]any{"entry": i})
+	}
+
+	if count := logger.GetLogCount(); count != maxEntries {
+		t.Errorf("Expected exactly %d entries, got %d", maxEntries, count)
+	}
+}
+
+// ==================== REQUIREMENT 4: DEDUPE ENABLED ====================
 
 func TestDedupe_Enabled_DuplicatesNotStored(t *testing.T) {
 	// Requirement 4: With dedupe enabled, same snapshot = single entry
@@ -245,6 +267,25 @@ func TestDedupe_Enabled_DuplicatesNotStored(t *testing.T) {
 	}
 }
 
+func TestDedupe_DifferentDataNotDeduped(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate: 1.0,
+		Dedupe:     true,
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.1),
+	})
+
+	logger.LogRequest(map[string]any{"user": "alice"})
+	logger.LogRequest(map[string]any{"user": "bob"})
+	logger.LogRequest(map[string]any{"user": "charlie"})
+
+	if count := logger.GetLogCount(); count != 3 {
+		t.Errorf("Expected 3 different logs, got %d", count)
+	}
+}
+
+// ==================== REQUIREMENT 5: DEDUPE DISABLED ====================
+
 func TestDedupe_Disabled_DuplicatesStored(t *testing.T) {
 	// Requirement 5: With dedupe disabled, identical snapshots logged multiple times
 	logger := auditlogger.New(auditlogger.Options{
@@ -262,23 +303,6 @@ func TestDedupe_Disabled_DuplicatesStored(t *testing.T) {
 
 	if count := logger.GetLogCount(); count != 3 {
 		t.Errorf("Expected 3 logs with dedupe disabled, got %d", count)
-	}
-}
-
-func TestDedupe_DifferentDataNotDeduped(t *testing.T) {
-	logger := auditlogger.New(auditlogger.Options{
-		SampleRate: 1.0,
-		Dedupe:     true,
-		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
-		Random:     NewFakeRandom(0.1),
-	})
-
-	logger.LogRequest(map[string]any{"user": "alice"})
-	logger.LogRequest(map[string]any{"user": "bob"})
-	logger.LogRequest(map[string]any{"user": "charlie"})
-
-	if count := logger.GetLogCount(); count != 3 {
-		t.Errorf("Expected 3 different logs, got %d", count)
 	}
 }
 
@@ -340,7 +364,7 @@ func TestRedaction_CustomReplacement(t *testing.T) {
 	data := logs[0].Data.(map[string]any)
 
 	if data["secret"] != "***HIDDEN***" {
-		t.Errorf("Expected custom replacement, got %v", data["secret"])
+		t.Errorf("Expected custom replacement '***HIDDEN***', got %v", data["secret"])
 	}
 }
 
@@ -497,7 +521,7 @@ func TestHashing_HasCorrectFormat(t *testing.T) {
 	}
 }
 
-// ==================== REQUIREMENT 8, 9, 10: TRUNCATION ====================
+// ==================== REQUIREMENT 8: TRUNCATION ====================
 
 func TestTruncation_LargeInputTruncated(t *testing.T) {
 	// Requirement 8: Large inputs truncated with small maxApproxBytes
@@ -527,9 +551,83 @@ func TestTruncation_LargeInputTruncated(t *testing.T) {
 
 	// Requirement 9: meta.Truncated should be true
 	if !logs[0].Meta.Truncated {
-		t.Error("Expected Meta.Truncated to be true")
+		t.Error("Expected Meta.Truncated to be true for large input with small maxApproxBytes")
 	}
 }
+
+func TestTruncation_VerySmallLimit(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate:     1.0,
+		MaxApproxBytes: 50, // Very small
+		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:         NewFakeRandom(0.1),
+	})
+
+	largeData := map[string]any{
+		"level1": map[string]any{
+			"level2": map[string]any{
+				"level3": map[string]any{
+					"data": strings.Repeat("x", 100),
+				},
+			},
+		},
+	}
+
+	logger.LogRequest(largeData)
+
+	logs := logger.GetLogsSnapshot()
+	if !logs[0].Meta.Truncated {
+		t.Error("Expected truncation with very small limit")
+	}
+}
+
+// ==================== REQUIREMENT 9: META.TRUNCATED ====================
+
+func TestTruncation_MetaTruncatedIsTrue(t *testing.T) {
+	// Requirement 9: Verify meta.Truncated is set to true
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate:     1.0,
+		MaxApproxBytes: 100,
+		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:         NewFakeRandom(0.1),
+	})
+
+	// Create data larger than 100 bytes
+	largeData := map[string]any{
+		"key1": strings.Repeat("a", 50),
+		"key2": strings.Repeat("b", 50),
+		"key3": strings.Repeat("c", 50),
+	}
+
+	logger.LogRequest(largeData)
+
+	logs := logger.GetLogsSnapshot()
+	if len(logs) != 1 {
+		t.Fatalf("Expected 1 log, got %d", len(logs))
+	}
+
+	if !logs[0].Meta.Truncated {
+		t.Error("Requirement 9 FAILED: Expected Meta.Truncated to be true")
+	}
+}
+
+func TestTruncation_SmallDataNotTruncated(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate:     1.0,
+		MaxApproxBytes: 10000,
+		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:         NewFakeRandom(0.1),
+	})
+
+	logger.LogRequest(map[string]any{"small": "data"})
+
+	logs := logger.GetLogsSnapshot()
+	if logs[0].Meta.Truncated {
+		t.Error("Expected Meta.Truncated to be false for small data")
+	}
+}
+
+// ==================== REQUIREMENT 10: TRUNCATION MARKERS ====================
 
 func TestTruncation_ContainsTruncationMarkers(t *testing.T) {
 	// Requirement 10: Output contains __truncated, __more, or __moreKeys
@@ -553,7 +651,7 @@ func TestTruncation_ContainsTruncationMarkers(t *testing.T) {
 
 	found := containsTruncationMarkers(data)
 	if !found {
-		t.Error("Expected truncation markers (__truncated, __more, or __moreKeys) in data")
+		t.Error("Requirement 10 FAILED: Expected truncation markers (__truncated, __more, or __moreKeys) in data")
 	}
 }
 
@@ -582,22 +680,6 @@ func containsTruncationMarkers(v any) bool {
 		}
 	}
 	return false
-}
-
-func TestTruncation_SmallDataNotTruncated(t *testing.T) {
-	logger := auditlogger.New(auditlogger.Options{
-		SampleRate:     1.0,
-		MaxApproxBytes: 10000,
-		Clock:          FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
-		Random:         NewFakeRandom(0.1),
-	})
-
-	logger.LogRequest(map[string]any{"small": "data"})
-
-	logs := logger.GetLogsSnapshot()
-	if logs[0].Meta.Truncated {
-		t.Error("Expected Meta.Truncated to be false for small data")
-	}
 }
 
 // ==================== FLUSHING TESTS ====================
@@ -680,6 +762,26 @@ func TestFlush_NoSinkNoError(t *testing.T) {
 	err := logger.FlushNow(context.Background())
 	if err != nil {
 		t.Errorf("Expected no error with nil sink, got %v", err)
+	}
+}
+
+func TestFlush_SinkErrorReturned(t *testing.T) {
+	expectedErr := errors.New("sink write failed")
+	sink := &FakeSink{Err: expectedErr}
+
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate:    1.0,
+		FlushInterval: -1,
+		Sink:          sink,
+		Clock:         FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:        NewFakeRandom(0.1),
+	})
+
+	logger.LogRequest(map[string]any{"test": 1})
+
+	err := logger.FlushNow(context.Background())
+	if err == nil {
+		t.Error("Expected error from sink, got nil")
 	}
 }
 
@@ -803,6 +905,42 @@ func TestSnapshot_CircularReference_NoPanic(t *testing.T) {
 	}
 }
 
+func TestSnapshot_NilSlice(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate: 1.0,
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.1),
+	})
+
+	var nilSlice []string = nil
+	logger.LogRequest(map[string]any{"nilSlice": nilSlice})
+
+	logs := logger.GetLogsSnapshot()
+	data := logs[0].Data.(map[string]any)
+
+	if data["nilSlice"] != nil {
+		t.Errorf("Expected nil for nil slice, got %v", data["nilSlice"])
+	}
+}
+
+func TestSnapshot_NilMap(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate: 1.0,
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.1),
+	})
+
+	var nilMap map[string]any = nil
+	logger.LogRequest(map[string]any{"nilMap": nilMap})
+
+	logs := logger.GetLogsSnapshot()
+	data := logs[0].Data.(map[string]any)
+
+	if data["nilMap"] != nil {
+		t.Errorf("Expected nil for nil map, got %v", data["nilMap"])
+	}
+}
+
 // ==================== ROBUSTNESS TESTS ====================
 
 func TestRobustness_InvalidRulePath_NoCrash(t *testing.T) {
@@ -812,7 +950,7 @@ func TestRobustness_InvalidRulePath_NoCrash(t *testing.T) {
 		Random:     NewFakeRandom(0.1),
 		Rules: []auditlogger.Rule{
 			{
-				Path:   "invalid.path",
+				Path:   "invalid.path", // Doesn't start with $.
 				Action: auditlogger.RuleAction{Kind: "redact"},
 			},
 			{
@@ -1018,5 +1156,65 @@ func TestRules_ArrayWildcard(t *testing.T) {
 		if user["password"] != "[REDACTED]" {
 			t.Errorf("Expected user %d password redacted, got %v", i, user["password"])
 		}
+	}
+}
+
+// ==================== CONCURRENCY TESTS ====================
+
+func TestConcurrency_SimultaneousLogRequests(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate: 1.0,
+		MaxEntries: 100,
+		Dedupe:     false,
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.1),
+	})
+
+	var wg sync.WaitGroup
+	numGoroutines := 50
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			logger.LogRequest(map[string]any{"goroutine": id})
+		}(i)
+	}
+
+	wg.Wait()
+
+	count := logger.GetLogCount()
+	if count != numGoroutines {
+		t.Errorf("Expected %d logs from concurrent requests, got %d", numGoroutines, count)
+	}
+}
+
+// ==================== SAMPLE RATE EDGE CASES ====================
+
+func TestNew_NegativeSampleRate(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate: -0.5, // Should be clamped to 0
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.0),
+	})
+
+	logger.LogRequest(map[string]any{"test": "data"})
+
+	if logger.GetLogCount() != 0 {
+		t.Error("Expected 0 logs with negative (clamped to 0) sampleRate")
+	}
+}
+
+func TestNew_OverOneSampleRate(t *testing.T) {
+	logger := auditlogger.New(auditlogger.Options{
+		SampleRate: 1.5, // Should be clamped to 1
+		Clock:      FakeClock{FixedTime: "2024-01-01T00:00:00Z"},
+		Random:     NewFakeRandom(0.99),
+	})
+
+	logger.LogRequest(map[string]any{"test": "data"})
+
+	if logger.GetLogCount() != 1 {
+		t.Errorf("Expected 1 log with sampleRate clamped to 1, got %d", logger.GetLogCount())
 	}
 }

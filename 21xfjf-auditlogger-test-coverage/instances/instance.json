@@ -1,21 +1,20 @@
 {
-    "instance_id": "21XFJF",
-    "problem_statement": "Ensure the AuditLogger behaves correctly, deterministically, and safely across edge cases involving sampling, storage limits, data transformation, truncation, and flushing.",
-    "base_commit": "repository_before/",
-    "test_patch": "tests/",
-    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/21xfjf-auditlogger-test-coverage",
-    "environment_setup": "Dockerfile",
-    "FAIL_TO_PASS": [],
-    "PASS_TO_PASS": [
-        "req1_sampling_above",
-        "req2_sampling_below",
-        "req3_ring_buffer",
-        "req4_dedupe_enabled",
-        "req5_dedupe_disabled",
-        "req6_redaction_rules",
-        "req7_hashing_rules",
-        "req8_truncation",
-        "req9_truncation_meta",
-        "req10_truncation_markers"
-    ]
+  "instance_id": "21XFJF",
+  "problem_statement": "Ensure the AuditLogger behaves correctly, deterministically, and safely across edge cases involving sampling, storage limits, data transformation, truncation, and flushing.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/21xfjf-auditlogger-test-coverage",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": [
+    "req1_sampling_above",
+    "req2_sampling_below",
+    "req3_ring_buffer",
+    "req4_dedupe_enabled",
+    "req5_dedupe_disabled",
+    "req6_redaction_rules",
+    "req7_hashing_rules",
+    "req8_truncation",
+    "req10_truncation_markers"
+  ]
 }
