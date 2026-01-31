@@ -50,11 +50,12 @@ export class SimulatedSphincsPlusSignature {
     }
 }
 export class HashPartitionCache {
-    private readonly PARTITION_COUNT = 1000;
+    private readonly PARTITION_COUNT = 128; // 128 * 8 bytes = 1024 bytes (Exactly 1KB)
     private readonly TOTAL_RECORDS = 100_000_000;
     private atomic: Int32Array;
 
     constructor() {
+        // SharedArrayBuffer size: 128 partitions * 2 (start, end) * 4 bytes (Int32) = 1KB
         const sab = new SharedArrayBuffer(this.PARTITION_COUNT * 8);
         this.atomic = new Int32Array(sab);
         this.initializePartitions();

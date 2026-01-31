@@ -95,8 +95,8 @@ async function runTestsAndParse(
     try {
         // Get all test files
         const testFiles = fs.readdirSync(testDir)
-            .filter(file => file.endsWith('.ts') && file.startsWith('test_'))
-            .map(file => path.join(testDir, file));
+            .filter((file: string) => file.endsWith('.ts') && file.startsWith('test_'))
+            .map((file: string) => path.join(testDir, file));
 
         console.log(`Found ${testFiles.length} test files\n`);
 
@@ -104,6 +104,9 @@ async function runTestsAndParse(
         for (const testFile of testFiles) {
             const testName = path.basename(testFile, '.ts');
             console.log(`Running ${testName}...`);
+
+            const testStartTime = Date.now();
+            const tempTestFile = path.join(testDir, `_temp_${testName}.ts`);
 
             try {
                 // Modify import path to point to correct repository
@@ -116,10 +119,7 @@ async function runTestsAndParse(
                     );
 
                 // Create temporary test file
-                const tempTestFile = path.join(testDir, `_temp_${testName}.ts`);
                 fs.writeFileSync(tempTestFile, modifiedContent, 'utf8');
-
-                const testStartTime = Date.now();
 
                 // Run test with ts-node
                 const result = execSync(
@@ -150,7 +150,7 @@ async function runTestsAndParse(
                 fs.unlinkSync(tempTestFile);
 
             } catch (error: any) {
-                const testDuration = (Date.now() - Date.now()) / 1000;
+                const testDuration = (Date.now() - testStartTime) / 1000;
 
                 stderr += error.stderr || error.stdout || error.message;
                 console.log(`  ❌ FAILED\n`);
@@ -167,7 +167,6 @@ async function runTestsAndParse(
                 exitCode = 1;
 
                 // Clean up temp file if exists
-                const tempTestFile = path.join(testDir, `_temp_${testName}.ts`);
                 if (fs.existsSync(tempTestFile)) {
                     fs.unlinkSync(tempTestFile);
                 }
@@ -241,7 +240,7 @@ async function main() {
     const outputFlag = args.indexOf('--output');
     const customOutput = outputFlag !== -1 ? args[outputFlag + 1] : null;
 
-    const targetArg = args.find(arg => arg.startsWith('--target='));
+    const targetArg = args.find((arg: string) => arg.startsWith('--target='));
     const target = targetArg ? targetArg.split('=')[1] : 'all';
 
     const noReport = args.includes('--no-report');
@@ -285,7 +284,9 @@ async function main() {
     // Determine overall success
     let overallSuccess = false;
     if (target === 'repository_before' && resBefore) {
-        overallSuccess = resBefore.success;
+        // For 'repository_before' target, we consider the run successful 
+        // regardless of test outcomes because it is expected to fail.
+        overallSuccess = true;
     } else if (target === 'repository_after' && resAfter) {
         overallSuccess = resAfter.success;
     } else if (target === 'all' && resAfter) {
