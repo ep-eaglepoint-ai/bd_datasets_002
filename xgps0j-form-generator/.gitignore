@@ -7,5 +7,10 @@ __pycache__/
 # Node
 node_modules/
 
+# Evaluation reports
+evaluation/reports/
+
+repository_after/.next/
+
 # OS
 .DS_Store

@@ -1,0 +1,40 @@
+# Exclude everything except repository_after and tests
+/*
+!/repository_after
+!/tests
+!/evaluation
+!/jest.config.docker.js
+!/jest.config.js
+
+# Exclude build artifacts and dependencies from repository_after
+repository_after/node_modules
+repository_after/.next
+repository_after/out
+repository_after/dist
+repository_after/build
+repository_after/coverage
+repository_after/.nyc_output
+
+# Exclude environment files
+repository_after/.env*
+
+# Exclude logs and cache
+repository_after/logs
+repository_after/*.log
+repository_after/.npm
+repository_after/.eslintcache
+repository_after/.cache
+repository_after/.parcel-cache
+
+# Exclude IDE files
+repository_after/.vscode
+repository_after/.idea
+repository_after/*.swp
+repository_after/*.swo
+
+# Exclude OS files
+repository_after/.DS_Store
+repository_after/Thumbs.db
+
+# Exclude TypeScript build info
+repository_after/*.tsbuildinfo
