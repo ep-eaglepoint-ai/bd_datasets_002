@@ -48,7 +48,8 @@ export const useSensorStore = defineStore('sensors', () => {
   const playbackStartTime = ref(0);
   const playbackEndTime = ref(0);
   const playbackData = new Map(); // Store full history for playback
-  const playbackIntervalId = ref(null);
+  const playbackCursors = new Map(); // Track current index per sensor for incremental updates
+  const lastPlaybackTime = ref(0); // Track last seek time to detect jumps
 
   // Computed
   const sensorCount = computed(() => sensors.value.length);
@@ -267,57 +268,52 @@ export const useSensorStore = defineStore('sensors', () => {
   }
 
   function seekTo(timestamp) {
+    const previousTime = lastPlaybackTime.value;
     playbackTime.value = timestamp;
+    lastPlaybackTime.value = timestamp;
     
-    // Update buffers based on current playbackTime
-    // We need to find the data points "around" this time or "up to" this time.
-    // For a sparkline of 100 points, we want the 100 points leading up to 'timestamp'.
+    // Detect if this is a "jump" (arbitrary seek) vs incremental advance
+    // A jump is when we go backwards OR skip forward by more than 500ms
+    const isJump = timestamp < previousTime || (timestamp - previousTime) > 500;
     
     for (const [sensorId, data] of playbackData.entries()) {
         const buffer = sensorDataBuffers.get(sensorId);
-        if (!buffer) continue;
+        if (!buffer || data.length === 0) continue;
         
-        // Efficiency: Binary search could be better, but for now just find index
-        // We want the subset of data where t <= playbackTime.
-        // And we want the last 100 of those.
-        
-        // Find index where data exceeds timestamp
-        let idx = -1;
-        // Optimization: track current index per sensor?
-        // For 'seek', binary search is best.
-        
+        // Find target index via binary search
+        let targetIdx = -1;
         let low = 0, high = data.length - 1;
         while (low <= high) {
             const mid = (low + high) >>> 1;
             if (data[mid].timestamp <= timestamp) {
-                idx = mid;
+                targetIdx = mid;
                 low = mid + 1;
             } else {
                 high = mid - 1;
             }
         }
         
-        if (idx !== -1) {
-            const point = data[idx];
-            latestValues[sensorId] = point;
-            
-            // Rebuild buffer?
-            // Expensive to rebuild 50 buffers every frame.
-            // But we are "playing".
-            // If we are playing, we are just advancing. We can just "push" the new points that we passed since last time.
-            // BUT seekTo is arbitrary.
-            
-            // Rebuilding buffer:
-            const startIdx = Math.max(0, idx - 99);
-            const slice = data.slice(startIdx, idx + 1);
-            
-            // Reset buffer? RingBuffer doesn't have "setData".
-            // Let's make a new buffer or clear it.
-            buffer.clear(); 
-            for (const p of slice) {
-                buffer.push(p);
+        if (targetIdx === -1) continue;
+        
+        const currentCursor = playbackCursors.get(sensorId) || -1;
+        
+        if (isJump || currentCursor === -1 || targetIdx < currentCursor) {
+            // Full rebuild for jumps, initial load, or backward seeks
+            const startIdx = Math.max(0, targetIdx - 99);
+            buffer.clear();
+            for (let i = startIdx; i <= targetIdx; i++) {
+                buffer.push(data[i]);
+            }
+        } else if (targetIdx > currentCursor) {
+            // Incremental: just push new points since last cursor
+            for (let i = currentCursor + 1; i <= targetIdx; i++) {
+                buffer.push(data[i]);
             }
         }
+        // else targetIdx === currentCursor, no update needed
+        
+        playbackCursors.set(sensorId, targetIdx);
+        latestValues[sensorId] = data[targetIdx];
     }
     
     updateCounter.value++;
