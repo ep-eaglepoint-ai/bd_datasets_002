@@ -7,6 +7,9 @@ const router = Router();
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { question, options, showResultsBeforeVote, expiresAt } = req.body;
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/15df92e9-b3e3-411b-863b-3690d91dcd59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'polls.ts:POST',message:'POST entry',data:{question,questionType:typeof question,notQuestion:!question},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     if (!question || !Array.isArray(options)) {
       return res.status(400).json({ error: 'question and options (array) required' });
     }
@@ -17,6 +20,13 @@ router.post('/', async (req: Request, res: Response) => {
     if (trimmed.length < 2) {
       return res.status(400).json({ error: 'at least 2 non-empty options required' });
     }
+    const trimmedQuestion = String(question).trim();
+    if (!trimmedQuestion) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/15df92e9-b3e3-411b-863b-3690d91dcd59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'polls.ts:beforeCreate',message:'before create',data:{trimmedQuestion,trimmedLength:trimmedQuestion.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1,H2'})}).catch(()=>{});
+    // #endregion
     const pollId = generatePollId();
     const pollOptions = trimmed.map((text: string) => ({
       id: createOptionId(),
@@ -25,7 +35,7 @@ router.post('/', async (req: Request, res: Response) => {
     }));
     const doc = await PollModel.create({
       pollId,
-      question: String(question).trim(),
+      question: trimmedQuestion,
       options: pollOptions,
       totalVotes: 0,
       showResultsBeforeVote: Boolean(showResultsBeforeVote),
@@ -43,6 +53,10 @@ router.post('/', async (req: Request, res: Response) => {
     };
     return res.status(201).json(serialized);
   } catch (err) {
+    // #region agent log
+    const e = err as Error;
+    fetch('http://127.0.0.1:7244/ingest/15df92e9-b3e3-411b-863b-3690d91dcd59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'polls.ts:catch',message:'create catch',data:{errMessage:e?.message,errName:e?.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H3'})}).catch(()=>{});
+    // #endregion
     return res.status(500).json({ error: 'Failed to create poll' });
   }
 });

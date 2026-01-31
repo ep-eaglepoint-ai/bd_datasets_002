@@ -267,4 +267,18 @@ describe('VotingPage - Error Handling', () => {
       expect(screen.getByText('Poll not found')).toBeInTheDocument();
     });
   });
+
+  it('displays "Poll expired" when poll has expired (GET returns 410)', async () => {
+    mockGetPoll.mockRejectedValue(new Error('Poll expired'));
+    render(
+      <MemoryRouter initialEntries={['/poll/poll123']}>
+        <Routes>
+          <Route path="/poll/:pollId" element={<VotePoll />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Poll expired')).toBeInTheDocument();
+    });
+  });
 });

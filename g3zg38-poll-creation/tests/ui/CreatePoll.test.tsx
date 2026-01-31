@@ -109,6 +109,8 @@ describe('CreatePoll - Requirement 1', () => {
       expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
     });
     expect(mockAddCreatedPoll).toHaveBeenCalledWith('abc123xyz');
+    const shareInput = screen.getByDisplayValue(/\/poll\/abc123xyz$/);
+    expect(shareInput).toBeInTheDocument();
   });
 
   it('disables Add button when 10 options reached', () => {

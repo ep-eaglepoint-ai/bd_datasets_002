@@ -71,7 +71,7 @@ export function CreatePoll() {
   };
 
   const shareUrl = createdPollId
-    ? window.location.origin + (window.location.pathname.replace(/\/$/, '') || '') + '/poll/' + createdPollId
+    ? window.location.origin + '/poll/' + createdPollId
     : '';
 
   if (createdPollId) {
