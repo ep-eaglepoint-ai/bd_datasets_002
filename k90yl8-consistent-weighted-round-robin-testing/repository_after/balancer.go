@@ -1,5 +1,3 @@
-// // filename: balancer.go
-
 package routing
 
 import (
@@ -67,8 +65,6 @@ func (b *DynamicWeightedBalancer) UpdateWeights(newNodes []*Node) {
 	defer b.mu.Unlock()
 	b.nodes = newNodes
 	b.recalculateGains()
-	// Note: currentIndex and currentWeight are intentionally NOT reset to 0
-	// to attempt to preserve the current position in the round-robin cycle.
 }
 
 // GetNextNode selects the next node using Interleaved Weighted Round Robin logic.
@@ -87,9 +83,6 @@ func (b *DynamicWeightedBalancer) GetNextNode() string {
 			b.currentWeight = b.currentWeight - b.gcdWeight
 			if b.currentWeight <= 0 {
 				b.currentWeight = b.maxWeight
-				if b.currentWeight == 0 {
-					return ""
-				}
 			}
 		}
 

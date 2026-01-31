@@ -7,16 +7,14 @@
   "environment_setup": "Dockerfile",
   "FAIL_TO_PASS": [],
   "PASS_TO_PASS": [
-    "Repository tests: 32/32 passed, 0 failed",
-    "Meta-tests: 13/13 passed, 0 failed",
-    "Race detector: enabled and passed",
-    "Sequence continuity preserved across weight changes",
-    "GCD flux (high↔low) handled correctly",
-    "Health flap scenarios validated",
-    "Concurrency safety verified under massive parallelism",
-    "Adversarial inputs (zero, negative, large weights) handled safely",
-    "Boundary slice expansion and reduction tested",
-    "Sequence auditor validates long-run weighted fairness",
-    "Subtest structure enforced and validated"
+    "req1_coverage",
+    "req2_sequence_continuity",
+    "req3_gcd_flux",
+    "req4_health_flaps",
+    "req5_concurrency",
+    "req6_adversarial_zero",
+    "req7_boundary_slice",
+    "req8_subtests",
+    "req9_sequence_auditor"
   ]
 }
