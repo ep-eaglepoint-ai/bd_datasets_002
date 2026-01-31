@@ -1,1 +1,16 @@
-# Add your Python dependencies here
+# FastAPI Backend
+fastapi==0.104.1
+uvicorn==0.24.0
+sqlalchemy==2.0.23
+aiosqlite==0.19.0
+pydantic==2.5.2
+python-multipart==0.0.6
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Utilities
+asyncio==3.4.3
