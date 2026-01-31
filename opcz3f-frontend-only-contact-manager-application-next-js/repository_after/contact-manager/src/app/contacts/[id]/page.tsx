@@ -8,10 +8,64 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Pencil, Trash2, ArrowLeft, Star, Phone, Mail, MapPin, Building2, Calendar, Clock } from "lucide-react"
 import Link from "next/link"
 import { useContactStore } from "@/store"
 import { format } from "date-fns"
+import { renderMarkdown } from "@/lib/markdown"
+
+function ContactDetailSkeleton() {
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center gap-4">
+                <Skeleton className="h-10 w-10 rounded" />
+                <Skeleton className="h-8 w-48" />
+                <div className="flex-1" />
+                <div className="flex gap-2">
+                    <Skeleton className="h-10 w-10" />
+                    <Skeleton className="h-10 w-20" />
+                    <Skeleton className="h-10 w-24" />
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-1">
+                    <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
+                        <Skeleton className="h-32 w-32 rounded-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-6 w-40 mx-auto" />
+                            <Skeleton className="h-4 w-32 mx-auto" />
+                            <Skeleton className="h-4 w-24 mx-auto" />
+                        </div>
+                        <div className="flex gap-2">
+                            <Skeleton className="h-6 w-16 rounded-full" />
+                            <Skeleton className="h-6 w-16 rounded-full" />
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <Skeleton className="h-6 w-40" />
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-16" />
+                            <Skeleton className="h-5 w-48" />
+                        </div>
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-16" />
+                            <Skeleton className="h-5 w-36" />
+                        </div>
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-16" />
+                            <Skeleton className="h-24 w-full" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
 
 export default function ContactDetailsPage() {
     const params = useParams()
@@ -35,8 +89,33 @@ export default function ContactDetailsPage() {
         loadContact()
     }, [params.id, router])
 
-    if (loading) return <div>Loading...</div>
+    if (loading) return <ContactDetailSkeleton />
     if (!contact) return null
+
+    // Check if address has any data
+    const hasAddress = contact.address && (
+        contact.address.street || 
+        contact.address.city || 
+        contact.address.state || 
+        contact.address.zip || 
+        contact.address.country
+    )
+
+    const formatAddress = () => {
+        if (!contact.address) return null
+        const parts = []
+        if (contact.address.street) parts.push(contact.address.street)
+        
+        const cityStateZip = [
+            contact.address.city,
+            contact.address.state,
+            contact.address.zip
+        ].filter(Boolean).join(', ')
+        if (cityStateZip) parts.push(cityStateZip)
+        
+        if (contact.address.country) parts.push(contact.address.country)
+        return parts
+    }
 
     return (
         <div className="space-y-6">
@@ -128,12 +207,26 @@ export default function ContactDetailsPage() {
                                   ))}
                               </div>
                           )}
+
+                          {hasAddress && (
+                              <div className="space-y-2">
+                                  <h3 className="text-sm font-medium text-slate-500">Address</h3>
+                                  <div className="flex items-start gap-3">
+                                      <MapPin className="h-4 w-4 text-slate-400 mt-0.5" />
+                                      <div className="flex-1">
+                                          {formatAddress()?.map((line, i) => (
+                                              <p key={i} className="text-sm">{line}</p>
+                                          ))}
+                                      </div>
+                                  </div>
+                              </div>
+                          )}
                           
                           {contact.notes && (
                                <div className="space-y-2">
                                   <h3 className="text-sm font-medium text-slate-500">Notes</h3>
-                                  <div className="bg-slate-50 p-4 rounded-md text-sm whitespace-pre-wrap">
-                                      {contact.notes}
+                                  <div className="bg-slate-50 p-4 rounded-md text-sm prose prose-sm max-w-none">
+                                      {renderMarkdown(contact.notes)}
                                   </div>
                               </div>
                           )}

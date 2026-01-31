@@ -6,7 +6,7 @@ import { ContactCard } from "./ContactCard"
 import { ContactRow } from "./ContactRow"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { LayoutGrid, List, Search, Plus, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight, Download, Tag } from "lucide-react"
+import { LayoutGrid, List, Search, Plus, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight, Download, Tag, Star } from "lucide-react"
 import Link from "next/link"
 import { Contact } from "@/types"
 
@@ -37,6 +37,7 @@ export function ContactList() {
     const { contacts, fetchContacts, removeContacts, isLoading, viewMode, setViewMode, sort, setSort, applyBulkTag } = useContactStore()
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedTags, setSelectedTags] = useState<string[]>([])
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
     const [currentPage, setCurrentPage] = useState(1)
     
@@ -58,10 +59,10 @@ export function ContactList() {
     const filteredContacts = useMemo(() => {
         return filterAndSortContacts(
             contacts, 
-            { search: searchTerm, tags: selectedTags }, 
+            { search: searchTerm, tags: selectedTags, isFavorite: showFavoritesOnly || undefined }, 
             sort
         )
-    }, [contacts, searchTerm, selectedTags, sort])
+    }, [contacts, searchTerm, selectedTags, showFavoritesOnly, sort])
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE)
@@ -73,7 +74,7 @@ export function ContactList() {
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1)
-    }, [searchTerm, selectedTags])
+    }, [searchTerm, selectedTags, showFavoritesOnly])
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
@@ -226,6 +227,17 @@ export function ContactList() {
                             ))}
                         </SelectContent>
                       </Select>
+
+                      {/* Favorites Filter */}
+                      <Button 
+                        variant={showFavoritesOnly ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                        className={showFavoritesOnly ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""}
+                      >
+                        <Star className={`h-4 w-4 mr-1 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+                        Favorites
+                      </Button>
 
                      <Select 
                         value={sort.field} 

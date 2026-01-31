@@ -6,7 +6,7 @@ import { contactSchema, type ContactSchema } from "@/lib/validations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TagInput } from "@/components/ui/tag-input"
-import { Plus, Trash2, Save, Copy } from "lucide-react"
+import { Plus, Trash2, Save, Copy, PlusCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useContactStore } from "@/store"
 import { toast } from "sonner"
@@ -139,6 +139,33 @@ export function ContactForm({ initialData, contactId }: ContactFormProps) {
         }
     }
 
+    const handleSaveAndAddAnother = async () => {
+        const isValid = await form.trigger()
+        if (!isValid) return
+        
+        const data = form.getValues()
+        try {
+            await addContact(data)
+            toast.success("Contact saved! You can add another.")
+            // Reset form for a new contact
+            form.reset({
+                firstName: "",
+                lastName: "",
+                company: "",
+                jobTitle: "",
+                emails: [{ type: "home", value: "", id: crypto.randomUUID() }],
+                phones: [{ type: "mobile", value: "", id: crypto.randomUUID() }],
+                address: { street: "", city: "", state: "", zip: "", country: "" },
+                tags: [],
+                notes: "",
+                avatarUrl: "",
+                isFavorite: false,
+            })
+        } catch (err) {
+            toast.error("Failed to save contact")
+        }
+    }
+
     return (
         <form onSubmit={form.handleSubmit((d) => onSubmit(d, false))} className="space-y-8 max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-sm border border-slate-200">
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -149,6 +176,12 @@ export function ContactForm({ initialData, contactId }: ContactFormProps) {
                     {contactId && (
                          <Button variant="outline" type="button" onClick={handleDuplicate}>
                             <Copy className="mr-2 h-4 w-4" /> Clone
+                        </Button>
+                    )}
+
+                    {!contactId && (
+                        <Button variant="outline" type="button" onClick={handleSaveAndAddAnother} disabled={form.formState.isSubmitting}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Save & Add Another
                         </Button>
                     )}
                     
