@@ -15,8 +15,6 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/root/go"
 ENV GOBIN="/root/go/bin"
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Make Go available system-wide
 RUN ln -sf /usr/local/go/bin/go /usr/bin/go
