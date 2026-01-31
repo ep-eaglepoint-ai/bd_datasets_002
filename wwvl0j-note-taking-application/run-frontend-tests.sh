@@ -5,6 +5,8 @@ echo "=== Running Frontend Tests ==="
 # Run tests from frontend directory using the symlinked test file
 # The test file is symlinked from /app/tests to /app/repository_after/frontend/src/__tests__
 cd /app/repository_after/frontend
+npm install
+rm -rf node_modules/.vite
 npx vitest run
 
 exit_code=$?

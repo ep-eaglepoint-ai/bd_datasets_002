@@ -13,9 +13,6 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
     environment: "jsdom",
     globals: true,
-    deps: {
-      inline: [/^(?!.*vitest).*$/],
-    },
   },
   server: {
     fs: {

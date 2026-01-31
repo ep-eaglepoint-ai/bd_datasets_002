@@ -41,6 +41,7 @@ services:
       - /app/repository_after/frontend/node_modules
       - ./tests:/app/tests
       - ./evaluation:/app/evaluation
+      - ./run-frontend-tests.sh:/app/run-frontend-tests.sh
     working_dir: /app
     environment:
       DATABASE_URL: "sqlite+aiosqlite:///:memory:"

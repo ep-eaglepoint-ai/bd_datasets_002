@@ -14,9 +14,9 @@ COPY repository_after/backend/requirements.txt backend-requirements.txt
 RUN pip install --no-cache-dir -r backend-requirements.txt
 
 # Install root-level test dependencies
-COPY package.json /app/package.json
-COPY vitest.config.ts /app/vitest.config.ts
-RUN npm install --no-audit
+# COPY package.json /app/package.json
+# COPY vitest.config.ts /app/vitest.config.ts
+# RUN npm install --no-audit
 
 # Copy frontend dependencies
 COPY repository_after/frontend/package.json frontend_deps/package.json
