@@ -18,6 +18,11 @@ export const getAuth = async () => {
             const client = await clientPromise;
             const db = client.db();
             return betterAuth({
+                baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+                trustedOrigins: [
+                    "http://localhost:3000",
+                    process.env.BETTER_AUTH_URL || "http://localhost:3000"
+                ],
                 database: mongodbAdapter(db),
                 emailAndPassword: {
                     enabled: true

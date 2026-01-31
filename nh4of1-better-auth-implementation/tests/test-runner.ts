@@ -14,6 +14,10 @@ const tests = [
     'test-6-no-external-services.ts',
     'test-7-no-third-party-ui.ts',
     'test-8-functional-auth.ts',
+    'test-9-logout.ts',
+    'test-10-invalid-inputs.ts',
+    'test-11-duplicate-users.ts',
+    'test-12-session-management.ts',
 ];
 
 async function runTests() {
@@ -31,7 +35,7 @@ async function runTests() {
                 shell: true
             });
 
-            child.on('close', (code) => {
+            child.on('close', (code: number) => {
                 if (code !== 0) {
                     console.error(`❌ ${test} FAILED with code ${code}`);
                     failed = true;
@@ -42,7 +46,7 @@ async function runTests() {
             });
         });
 
-        if (failed) break; 
+        if (failed) break;
     }
 
     if (failed) {

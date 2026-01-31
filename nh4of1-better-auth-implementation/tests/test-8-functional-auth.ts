@@ -1,9 +1,14 @@
 import { getAuth } from '../repository_after/src/lib/auth';
 import { assert } from './utils';
+import { clearAuthData } from './db-utils';
 
 console.log('Running Test 8: Functional Auth Registration and Login (Direct API)');
 
 async function testFunctionalAuth() {
+    // Clear database before test to allow repeated runs
+    console.log('Clearing database...');
+    await clearAuthData();
+
     const auth = await getAuth();
     const email = `test-${Date.now()}@example.com`;
     const password = 'Password321!';

@@ -16,20 +16,26 @@ export default function SignUp() {
     const handleSignUp = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         setLoading(true);
-        await authClient.signUp.email({
-            email,
-            password,
-            name: username,
-            username,
-        }, {
-            onSuccess: () => {
-                router.push("/dashboard");
-            },
-            onError: (ctx) => {
-                alert(ctx.error.message);
-                setLoading(false);
-            },
-        });
+        try {
+            await authClient.signUp.email({
+                email,
+                password,
+                name: username,
+                username,
+            }, {
+                onSuccess: () => {
+                    router.push("/dashboard");
+                },
+                onError: (ctx) => {
+                    alert(ctx.error.message);
+                    setLoading(false);
+                },
+            });
+        } catch (error) {
+            console.error("SignUp error:", error);
+            alert(`Network error: ${error instanceof Error ? error.message : 'Failed to connect to auth server. Please check if the server is running.'}`);
+            setLoading(false);
+        }
     };
 
     return (
