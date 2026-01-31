@@ -1,11 +1,11 @@
 diff --git a/repository_before/__pycache__/main.cpython-311.pyc b/repository_after/__pycache__/main.cpython-311.pyc
-index 6bd21e67..16ff86d0 100644
+index 3e063bb3..29cbf6c0 100644
 Binary files a/repository_before/__pycache__/main.cpython-311.pyc and b/repository_after/__pycache__/main.cpython-311.pyc differ
 diff --git a/repository_before/main.py b/repository_after/main.py
-index d27665bd..7f6d0c0f 100644
+index d27665bd..d2bd7130 100644
 --- a/repository_before/main.py
 +++ b/repository_after/main.py
-@@ -1,102 +1,110 @@
+@@ -1,102 +1,138 @@
  from typing import Dict, List, Tuple
 +from collections import Counter, defaultdict
  import re
@@ -50,9 +50,6 @@ index d27665bd..7f6d0c0f 100644
 -        text = self._load_text()
 -        count = 1
 -        for char in text:
--            if char == '\n':
--                count = count + 1
--        return count
 +        # Internal state
 +        self._processed = False
 +
@@ -61,42 +58,72 @@ index d27665bd..7f6d0c0f 100644
 +        if self._processed:
 +            return
 +
-+        # Single-pass processing for efficiency
-+        current_position = 0
-+        
++        # Read file content for str.find() based position searching
 +        with open(self.filepath, 'r', encoding='utf-8', errors='replace') as file:
-+            for line in file:
-+                # Count lines starting at 1 (matches original behavior)
-+                for char in line:
-+                    self.character_count += 1
-+                    if char == '\n':
-+                        self.line_count += 1
-+                
-+                # Identify all alphanumeric tokens 
-+                for match in re.finditer(r'[a-zA-Z0-9]+', line):
-+                    token = match.group()
-+                    start_pos = current_position + match.start()
-+                    
-+                    # 1. Update global word count (alphanumeric)
-+                    self.word_count += 1
-+                    
-+                    # 2. Update stats for alphabetic words only
-+                    if token.isalpha():
-+                        lower_token = token.lower()
-+                        self.word_frequencies[lower_token] += 1
-+                        self.word_positions[lower_token].append(start_pos)
-+                        
-+                        self.alpha_word_count += 1
-+                        self.alpha_total_length += len(token)
-+                    
-+                    # Store positions for non-alpha numeric tokens as well if needed
-+                    else:
-+                         lower_token = token.lower()
-+                         self.word_positions[lower_token].append(start_pos)
-+
-+                current_position += len(line)
-+
++            self._full_text = file.read()
++        
++        # Count characters and lines
++        for char in self._full_text:
++            self.character_count += 1
+             if char == '\n':
+-                count = count + 1
+-        return count
++                self.line_count += 1
++        
++        # Extract unique words and count frequencies
++        text_lower = self._full_text.lower()
++        self._extract_words_and_frequencies(self._full_text, text_lower)
++        
++        # Build positions index using str.find() in a loop
++        self._build_positions_with_find(text_lower)
++        
 +        self._processed = True
++
++    def _extract_words_and_frequencies(self, text: str, text_lower: str):
++        """Extract words and count frequencies."""
++        i = 0
++        n = len(text)
++        
++        while i < n:
++            if not text[i].isalnum():
++                i += 1
++                continue
++            
++            start = i
++            while i < n and text[i].isalnum():
++                i += 1
++            
++            token = text[start:i]
++            lower_token = token.lower()
++            
++            self.word_count += 1
++            
++            if token.isalpha():
++                self.word_frequencies[lower_token] += 1
++                self.alpha_word_count += 1
++                self.alpha_total_length += len(token)
++
++    def _build_positions_with_find(self, text_lower: str):
++        """Build word positions using str.find() in a loop as per spec."""
++        # For each unique word, use str.find() in a loop to find all positions
++        for word in self.word_frequencies.keys():
++            pos = 0
++            while True:
++                # Use str.find() to locate the word
++                idx = text_lower.find(word, pos)
++                if idx == -1:
++                    break
++                
++                # Verify word boundaries (not part of larger word)
++                before_ok = (idx == 0 or not text_lower[idx - 1].isalnum())
++                after_ok = (idx + len(word) >= len(text_lower) or 
++                           not text_lower[idx + len(word)].isalnum())
++                
++                if before_ok and after_ok:
++                    self.word_positions[word].append(idx)
++                
++                pos = idx + 1
++
 +
 +    # ------------------ Public API ------------------
  
