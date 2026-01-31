@@ -3,13 +3,14 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 // Simplified telemetry for demo/test without needing a real collector
-import { ConsoleSpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { ConsoleSpanExporter, SimpleSpanProcessor, InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
 
 export const sdk = new NodeSDK({
   resource: new Resource({
     [SemanticResourceAttributes.SERVICE_NAME]: 'graphql-gateway',
   }),
-  traceExporter: new ConsoleSpanExporter(), // Use Console instead of OTLP to avoid connection error in tests
+  // Use InMemory (silent) for tests, Console for local dev/demo
+  traceExporter: process.env.NODE_ENV === 'test' ? new InMemorySpanExporter() : new ConsoleSpanExporter(),
   instrumentations: [],
 });
 
