@@ -86,5 +86,10 @@ def run_evaluation():
     print(f"Evaluation Complete. Report saved to {output_path}")
     print(json.dumps(results, indent=4))
 
+    # 7. Fail Build if any requirement is FAIL
+    if "FAIL" in results["requirements"].values():
+        print("\nFATAL: One or more requirements failed!")
+        sys.exit(1)
+
 if __name__ == "__main__":
     run_evaluation()
