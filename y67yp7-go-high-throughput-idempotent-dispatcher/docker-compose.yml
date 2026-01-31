@@ -3,6 +3,7 @@ version: '3.8'
 services:
   # Command 1: Run the Ground Truth solution (Go tests)
   solution:
+    image: hailu3548/jr2pzv-app
     build: .
     working_dir: /app/repository_after
     command: go test -v -race ./...
@@ -11,6 +12,7 @@ services:
 
   # Command 2: Execute tests and generate evaluation report
   evaluation:
+    image: hailu3548/jr2pzv-app
     build: .
     command: python evaluation/evaluation.py
     volumes:
