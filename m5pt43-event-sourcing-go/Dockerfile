@@ -8,14 +8,6 @@ WORKDIR /app
 # Copy everything from repository_after
 COPY repository_after/ ./
 
-# Auto-create go.mod if it doesn't exist and install dependencies
-RUN if [ ! -f go.mod ]; then \
-      echo "go.mod not found, initializing..."; \
-      go mod init eventstore; \
-    fi && \
-    go mod tidy && \
-    go mod download
-
 COPY evaluation/Evaluation.go ./evaluation/
 
 # Build the application

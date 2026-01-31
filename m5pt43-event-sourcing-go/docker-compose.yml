@@ -32,7 +32,7 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/eventstore?sslmode=disable
       NATS_URL: nats://nats:4222
-    command: sh -c "[ -f go.mod ] || (go mod init eventstore && go mod tidy); go run cmd/tests/main.go"
+    command: sh -c "go run cmd/tests/main.go"
     volumes:
       - ./repository_after:/app
       - ./tests:/tests
@@ -47,7 +47,7 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/eventstore?sslmode=disable
       NATS_URL: nats://nats:4222
-    command: sh -c "[ -f go.mod ] || (go mod init eventstore && go mod tidy); go run cmd/tests/main.go && go run evaluation/Evaluation.go"
+    command: sh -c "go run cmd/tests/main.go && go run evaluation/Evaluation.go"
     volumes:
       - ./repository_after:/app
       - ./tests:/tests
