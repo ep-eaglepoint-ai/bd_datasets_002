@@ -1,18 +1,6 @@
 diff --git a/repository_after/__init__.py b/repository_after/__init__.py
 new file mode 100644
 index 00000000..e69de29b
-diff --git a/repository_before/config/__pycache__/__init__.cpython-312.pyc b/repository_after/config/__pycache__/__init__.cpython-312.pyc
-index 11c83d70..a5f5d910 100644
-Binary files a/repository_before/config/__pycache__/__init__.cpython-312.pyc and b/repository_after/config/__pycache__/__init__.cpython-312.pyc differ
-diff --git a/repository_before/config/__pycache__/settings.cpython-312.pyc b/repository_after/config/__pycache__/settings.cpython-312.pyc
-index 45f63809..e68a63d9 100644
-Binary files a/repository_before/config/__pycache__/settings.cpython-312.pyc and b/repository_after/config/__pycache__/settings.cpython-312.pyc differ
-diff --git a/repository_before/config/__pycache__/test_settings.cpython-312-pytest-7.4.3.pyc b/repository_after/config/__pycache__/test_settings.cpython-312-pytest-7.4.3.pyc
-index fe3cf8e3..8e22901b 100644
-Binary files a/repository_before/config/__pycache__/test_settings.cpython-312-pytest-7.4.3.pyc and b/repository_after/config/__pycache__/test_settings.cpython-312-pytest-7.4.3.pyc differ
-diff --git a/repository_before/config/__pycache__/urls.cpython-312.pyc b/repository_after/config/__pycache__/urls.cpython-312.pyc
-index 2c818082..5c05d1eb 100644
-Binary files a/repository_before/config/__pycache__/urls.cpython-312.pyc and b/repository_after/config/__pycache__/urls.cpython-312.pyc differ
 diff --git a/repository_after/config/test_settings.py b/repository_after/config/test_settings.py
 new file mode 100644
 index 00000000..2847ee6c
@@ -36,103 +24,139 @@ index 00000000..2847ee6c
 +PASSWORD_HASHERS = [
 +    'django.contrib.auth.hashers.MD5PasswordHasher',
 +]
-diff --git a/repository_before/core/__pycache__/__init__.cpython-312.pyc b/repository_after/core/__pycache__/__init__.cpython-312.pyc
-index 9bebbeb0..5bb352be 100644
-Binary files a/repository_before/core/__pycache__/__init__.cpython-312.pyc and b/repository_after/core/__pycache__/__init__.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/apps.cpython-312.pyc b/repository_after/core/__pycache__/apps.cpython-312.pyc
-index 9e8b7559..5e617e1a 100644
-Binary files a/repository_before/core/__pycache__/apps.cpython-312.pyc and b/repository_after/core/__pycache__/apps.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/authentication.cpython-312.pyc b/repository_after/core/__pycache__/authentication.cpython-312.pyc
-index ad620024..5cf03fc3 100644
-Binary files a/repository_before/core/__pycache__/authentication.cpython-312.pyc and b/repository_after/core/__pycache__/authentication.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/middleware.cpython-312.pyc b/repository_after/core/__pycache__/middleware.cpython-312.pyc
-index a54266e4..664cab34 100644
-Binary files a/repository_before/core/__pycache__/middleware.cpython-312.pyc and b/repository_after/core/__pycache__/middleware.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/models.cpython-312.pyc b/repository_after/core/__pycache__/models.cpython-312.pyc
-index 721e79d9..6dc6c9cf 100644
-Binary files a/repository_before/core/__pycache__/models.cpython-312.pyc and b/repository_after/core/__pycache__/models.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/pagination.cpython-312.pyc b/repository_after/core/__pycache__/pagination.cpython-312.pyc
-index 18c65780..65f7887d 100644
-Binary files a/repository_before/core/__pycache__/pagination.cpython-312.pyc and b/repository_after/core/__pycache__/pagination.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/permissions.cpython-312.pyc b/repository_after/core/__pycache__/permissions.cpython-312.pyc
-index 3586b41c..8cbe145a 100644
-Binary files a/repository_before/core/__pycache__/permissions.cpython-312.pyc and b/repository_after/core/__pycache__/permissions.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/serializers.cpython-312.pyc b/repository_after/core/__pycache__/serializers.cpython-312.pyc
-index 492a426c..497d5180 100644
-Binary files a/repository_before/core/__pycache__/serializers.cpython-312.pyc and b/repository_after/core/__pycache__/serializers.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/signals.cpython-312.pyc b/repository_after/core/__pycache__/signals.cpython-312.pyc
-index 7046775e..218c53f2 100644
-Binary files a/repository_before/core/__pycache__/signals.cpython-312.pyc and b/repository_after/core/__pycache__/signals.cpython-312.pyc differ
-diff --git a/repository_before/core/__pycache__/views.cpython-312.pyc b/repository_after/core/__pycache__/views.cpython-312.pyc
-index a86b41d3..6eb5c0ed 100644
-Binary files a/repository_before/core/__pycache__/views.cpython-312.pyc and b/repository_after/core/__pycache__/views.cpython-312.pyc differ
-diff --git a/repository_before/core/authentication.py b/repository_after/core/authentication.py
-index add4b52f..8ce11790 100644
---- a/repository_before/core/authentication.py
-+++ b/repository_after/core/authentication.py
-@@ -1,9 +1,8 @@
- from rest_framework.authentication import BaseAuthentication
- from rest_framework.exceptions import AuthenticationFailed
- from django.utils import timezone
--from django.contrib.auth.hashers import make_password
- 
--from .models import APIKey, set_current_tenant
-+from .models import APIKey, Organization, OrganizationMembership, set_current_tenant, set_current_user
- 
- 
- class APIKeyAuthentication(BaseAuthentication):
-@@ -20,22 +19,37 @@ class APIKeyAuthentication(BaseAuthentication):
-             raise AuthenticationFailed('X-Organization-Slug header required')
-         
-         try:
--            api_key = APIKey.objects.select_related('organization', 'created_by').get(
--                key_hash=make_password(raw_key),
--                organization__slug=org_slug,
--                is_active=True
--            )
--        except APIKey.DoesNotExist:
-+            organization = Organization.all_objects.get(slug=org_slug, is_deleted=False)
-+        except Organization.DoesNotExist:
-+            raise AuthenticationFailed('Invalid organization')
+diff --git a/repository_after/config/wsgi.py b/repository_after/config/wsgi.py
+new file mode 100644
+index 00000000..45140752
+--- /dev/null
++++ b/repository_after/config/wsgi.py
+@@ -0,0 +1,16 @@
++"""
++WSGI config for the multi-tenant SaaS project.
++
++It exposes the WSGI callable as a module-level variable named ``application``.
++
++For more information on this file, see
++https://docs.djangoproject.com/en/4.2/howto/deployment/wsgi/
++"""
++
++import os
++
++from django.core.wsgi import get_wsgi_application
++
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
++
++application = get_wsgi_application()
+diff --git a/repository_after/core/management/__init__.py b/repository_after/core/management/__init__.py
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/repository_after/core/management/commands/__init__.py b/repository_after/core/management/commands/__init__.py
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/repository_after/core/management/commands/cleanup_deleted_records.py b/repository_after/core/management/commands/cleanup_deleted_records.py
+new file mode 100644
+index 00000000..b998004f
+--- /dev/null
++++ b/repository_after/core/management/commands/cleanup_deleted_records.py
+@@ -0,0 +1,97 @@
++"""
++Management command to clean up soft-deleted records older than 30 days.
++
++This enforces the 30-day recovery period policy by permanently deleting
++records that have been soft-deleted for more than 30 days.
++
++Usage:
++    python manage.py cleanup_deleted_records
++    python manage.py cleanup_deleted_records --days=60  # Custom retention period
++    python manage.py cleanup_deleted_records --dry-run  # Preview without deleting
++"""
++
++from django.core.management.base import BaseCommand
++from django.utils import timezone
++from datetime import timedelta
++
++from core.models import Project, Task, Organization
++
++
++class Command(BaseCommand):
++    help = 'Permanently delete soft-deleted records older than the retention period (default: 30 days)'
++
++    def add_arguments(self, parser):
++        parser.add_argument(
++            '--days',
++            type=int,
++            default=30,
++            help='Number of days after which soft-deleted records are permanently deleted (default: 30)'
++        )
++        parser.add_argument(
++            '--dry-run',
++            action='store_true',
++            help='Preview what would be deleted without actually deleting'
++        )
++
++    def handle(self, *args, **options):
++        days = options['days']
++        dry_run = options['dry_run']
++        cutoff_date = timezone.now() - timedelta(days=days)
 +        
-+        # Iterate through all active API keys and use check_password
-+        # because make_password generates different hashes for the same input
-+        api_keys = APIKey.objects.filter(
-+            organization=organization,
-+            is_active=True
-+        ).select_related('organization', 'created_by')
++        self.stdout.write(
++            f"{'[DRY RUN] ' if dry_run else ''}Cleaning up records soft-deleted before {cutoff_date.isoformat()}"
++        )
 +        
-+        matched_api_key = None
-+        for api_key in api_keys:
-+            if api_key.check_key(raw_key):
-+                matched_api_key = api_key
-+                break
++        models_to_clean = [
++            ('Project', Project),
++            ('Task', Task),
++            ('Organization', Organization),
++        ]
 +        
-+        if not matched_api_key:
-             raise AuthenticationFailed('Invalid API key')
-         
--        api_key.last_used_at = timezone.now()
--        api_key.save(update_fields=['last_used_at'])
-+        matched_api_key.last_used_at = timezone.now()
-+        matched_api_key.save(update_fields=['last_used_at'])
-         
--        set_current_tenant(api_key.organization)
--        request.tenant = api_key.organization
-+        set_current_tenant(matched_api_key.organization)
-+        request.tenant = matched_api_key.organization
-+        request.api_key = matched_api_key
-         
--        return (api_key.created_by, api_key)
-+        if matched_api_key.created_by:
-+            set_current_user(matched_api_key.created_by)
++        total_deleted = 0
 +        
-+        return (matched_api_key.created_by, matched_api_key)
- 
-     def authenticate_header(self, request):
-         return 'Api-Key'
--
++        for model_name, model_class in models_to_clean:
++            # Get soft-deleted records older than cutoff
++            old_deleted = model_class.all_objects.filter(
++                is_deleted=True,
++                deleted_at__lt=cutoff_date
++            )
++            
++            count = old_deleted.count()
++            
++            if count > 0:
++                if dry_run:
++                    self.stdout.write(
++                        self.style.WARNING(
++                            f"  Would delete {count} {model_name}(s)"
++                        )
++                    )
++                    # List the records that would be deleted
++                    for obj in old_deleted[:10]:  # Show first 10
++                        self.stdout.write(f"    - {obj}")
++                    if count > 10:
++                        self.stdout.write(f"    ... and {count - 10} more")
++                else:
++                    # Actually delete the records
++                    deleted_count, _ = old_deleted.delete()
++                    self.stdout.write(
++                        self.style.SUCCESS(
++                            f"  Deleted {deleted_count} {model_name}(s)"
++                        )
++                    )
++                    total_deleted += deleted_count
++            else:
++                self.stdout.write(f"  No expired {model_name}s to clean up")
++        
++        if dry_run:
++            self.stdout.write(
++                self.style.NOTICE(
++                    f"\n[DRY RUN] Total records that would be deleted: {sum(m.all_objects.filter(is_deleted=True, deleted_at__lt=cutoff_date).count() for _, m in models_to_clean)}"
++                )
++            )
++        else:
++            self.stdout.write(
++                self.style.SUCCESS(
++                    f"\nTotal records permanently deleted: {total_deleted}"
++                )
++            )
 diff --git a/repository_before/core/middleware.py b/repository_after/core/middleware.py
-index ab58c317..e36734ed 100644
+index ab58c317..f7adc51c 100644
 --- a/repository_before/core/middleware.py
 +++ b/repository_after/core/middleware.py
 @@ -1,13 +1,20 @@
@@ -166,11 +190,15 @@ index ab58c317..e36734ed 100644
          except Organization.DoesNotExist:
              return
          
-@@ -38,26 +45,36 @@ class TenantMiddleware(MiddlewareMixin):
+@@ -38,26 +45,40 @@ class TenantMiddleware(MiddlewareMixin):
                          request.tenant = organization
                          request.membership = membership
                          set_current_tenant(organization)
 +                        set_current_user(user)
++                        
++                        # Track last_login on successful authentication
++                        user.last_login = timezone.now()
++                        user.save(update_fields=['last_login'])
              except (AuthenticationFailed, Exception):
                  pass
          
@@ -221,7 +249,7 @@ index ab58c317..e36734ed 100644
 +        clear_current_user()
 +        return response
 diff --git a/repository_before/core/models.py b/repository_after/core/models.py
-index d291fd98..9a95a92a 100644
+index d291fd98..592ca63b 100644
 --- a/repository_before/core/models.py
 +++ b/repository_after/core/models.py
 @@ -16,6 +16,26 @@ def set_current_tenant(tenant):
@@ -251,7 +279,16 @@ index d291fd98..9a95a92a 100644
  class TenantManager(models.Manager):
      def get_queryset(self):
          queryset = super().get_queryset()
-@@ -247,10 +267,12 @@ class AuditLog(BaseModel):
+@@ -231,6 +251,8 @@ class AuditLog(BaseModel):
+         ('create', 'Create'),
+         ('update', 'Update'),
+         ('delete', 'Delete'),
++        ('soft_delete', 'Soft Delete'),
++        ('restore', 'Restore'),
+     ]
+ 
+     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='audit_logs')
+@@ -247,10 +269,12 @@ class AuditLog(BaseModel):
          ordering = ['-timestamp']
  
      def save(self, *args, **kwargs):
@@ -308,131 +345,6 @@ index f22f5eb7..0eeda926 100644
 +    This is the default pagination class used across all endpoints.
 +    """
 +    pass
-diff --git a/repository_before/core/permissions.py b/repository_after/core/permissions.py
-index f50473ce..d4e172c3 100644
---- a/repository_before/core/permissions.py
-+++ b/repository_after/core/permissions.py
-@@ -2,46 +2,116 @@ from rest_framework import permissions
- 
- 
- class IsTenantMember(permissions.BasePermission):
-+    """
-+    Permission class that checks if request has a valid tenant context.
-+    This is required for all tenant-scoped endpoints.
-+    """
-     def has_permission(self, request, view):
-+        # Allow if we have tenant context (either via JWT or API key)
-         return hasattr(request, 'tenant') and request.tenant is not None
- 
- 
- class IsOwnerOrAdmin(permissions.BasePermission):
-+    """
-+    Permission class for owner or admin roles.
-+    Required for managing users, API keys, and viewing audit logs.
-+    """
-     def has_permission(self, request, view):
--        if not hasattr(request, 'membership'):
-+        # API key auth doesn't have membership, check for api_key
-+        if hasattr(request, 'api_key') and request.api_key:
-+            # API keys have full access to their org's data
-+            return True
-+        if not hasattr(request, 'membership') or not request.membership:
-             return False
-         return request.membership.role in ['owner', 'admin']
- 
- 
-+class IsOwner(permissions.BasePermission):
-+    """
-+    Permission class for owner role only.
-+    Required for organization settings like billing plan changes.
-+    """
-+    def has_permission(self, request, view):
-+        if not hasattr(request, 'membership') or not request.membership:
-+            return False
-+        return request.membership.role == 'owner'
-+
-+
- class CanManageProjects(permissions.BasePermission):
-+    """
-+    Permission class for project management.
-+    - Owner and Admin can create, update, delete projects
-+    - Member and Viewer can only read projects
-+    """
-     def has_permission(self, request, view):
--        if not hasattr(request, 'membership'):
-+        # API key auth has full access
-+        if hasattr(request, 'api_key') and request.api_key:
-+            return True
-+        if not hasattr(request, 'membership') or not request.membership:
-             return False
-         
-+        # Safe methods (GET, HEAD, OPTIONS) allowed for all authenticated members
-         if request.method in permissions.SAFE_METHODS:
-             return True
-         
-+        # Only owner and admin can create/update/delete projects
-         return request.membership.role in ['owner', 'admin']
- 
- 
- class CanManageTasks(permissions.BasePermission):
-+    """
-+    Permission class for task management.
-+    - Owner, Admin, and Member can create, update, delete tasks
-+    - Viewer can only read tasks
-+    """
-     def has_permission(self, request, view):
--        if not hasattr(request, 'membership'):
-+        # API key auth has full access
-+        if hasattr(request, 'api_key') and request.api_key:
-+            return True
-+        if not hasattr(request, 'membership') or not request.membership:
-             return False
-         
-+        # Safe methods (GET, HEAD, OPTIONS) allowed for all authenticated members
-         if request.method in permissions.SAFE_METHODS:
-             return True
-         
-+        # Owner, Admin, and Member can manage tasks
-         return request.membership.role in ['owner', 'admin', 'member']
- 
- 
- class IsViewer(permissions.BasePermission):
-+    """
-+    Permission class that allows viewers read-only access.
-+    Used in combination with other permissions.
-+    """
-     def has_permission(self, request, view):
--        if not hasattr(request, 'membership'):
-+        # API key auth has full access (no viewer restrictions)
-+        if hasattr(request, 'api_key') and request.api_key:
-+            return True
-+        
-+        if not hasattr(request, 'membership') or not request.membership:
-             return False
-         
-+        # If viewer, only allow safe methods
-         if request.membership.role == 'viewer':
-             return request.method in permissions.SAFE_METHODS
-         
-+        # Non-viewers pass this check (actual permission determined by other classes)
-         return True
- 
-+
-+class CanManageOrganization(permissions.BasePermission):
-+    """
-+    Permission class for organization settings.
-+    Only owner can update organization name, plan, etc.
-+    """
-+    def has_permission(self, request, view):
-+        if not hasattr(request, 'membership') or not request.membership:
-+            return False
-+        
-+        # Safe methods allowed for all members who can see the org
-+        if request.method in permissions.SAFE_METHODS:
-+            return True
-+        
-+        # Only owner can modify organization
-+        return request.membership.role == 'owner'
 diff --git a/repository_before/core/serializers.py b/repository_after/core/serializers.py
 index 34767d0d..3c5f402a 100644
 --- a/repository_before/core/serializers.py
@@ -558,16 +470,16 @@ index 34767d0d..3c5f402a 100644
 +    def get_user_email(self, obj):
 +        return obj.user.email if obj.user else None
 diff --git a/repository_before/core/signals.py b/repository_after/core/signals.py
-index 9c6469fb..ee948580 100644
+index 9c6469fb..537bc390 100644
 --- a/repository_before/core/signals.py
 +++ b/repository_after/core/signals.py
-@@ -1,43 +1,117 @@
+@@ -1,43 +1,161 @@
 -from django.db.models.signals import post_save, pre_delete
 +from django.db.models.signals import post_save, pre_save, pre_delete
  from django.dispatch import receiver
  
 -from .models import Project, Task, AuditLog, get_current_tenant
-+from .models import Project, Task, AuditLog, get_current_tenant, get_current_user
++from .models import Project, Task, Organization, User, AuditLog, get_current_tenant, get_current_user
 +
 +# Store for tracking old values before save
 +_old_values = {}
@@ -592,14 +504,42 @@ index 9c6469fb..ee948580 100644
 +    return values
 +
 +
++def get_organization_for_audit(instance, sender):
++    """Get the organization for audit logging based on model type."""
++    tenant = get_current_tenant()
++    if tenant:
++        return tenant
++    
++    # For tenant-scoped models
++    if hasattr(instance, 'organization'):
++        return instance.organization
++    
++    # For Organization model itself
++    if sender == Organization:
++        return instance
++    
++    # For User model, try to get from first membership
++    if sender == User:
++        membership = instance.memberships.first()
++        if membership:
++            return membership.organization
++    
++    return None
++
++
 +@receiver(pre_save, sender=Project)
 +@receiver(pre_save, sender=Task)
++@receiver(pre_save, sender=Organization)
++@receiver(pre_save, sender=User)
 +def store_old_values(sender, instance, **kwargs):
 +    """Store old values before save for change tracking."""
 +    if instance.pk:
 +        try:
 +            # Get the old instance from database
-+            old_instance = sender.all_objects.get(pk=instance.pk)
++            if hasattr(sender, 'all_objects'):
++                old_instance = sender.all_objects.get(pk=instance.pk)
++            else:
++                old_instance = sender.objects.get(pk=instance.pk)
 +            _old_values[f"{sender.__name__}_{instance.pk}"] = get_model_field_values(old_instance)
 +        except sender.DoesNotExist:
 +            pass
@@ -607,14 +547,20 @@ index 9c6469fb..ee948580 100644
  
  @receiver(post_save, sender=Project)
  @receiver(post_save, sender=Task)
++@receiver(post_save, sender=Organization)
++@receiver(post_save, sender=User)
  def log_model_save(sender, instance, created, **kwargs):
+-    tenant = get_current_tenant()
+-    if not tenant:
+-        tenant = instance.organization
+-
+-    action = 'create' if created else 'update'
 +    """Create audit log entry for create/update operations."""
-     tenant = get_current_tenant()
-     if not tenant:
-         tenant = instance.organization
- 
++    organization = get_organization_for_audit(instance, sender)
++    if not organization:
++        return  # Skip if no organization context
++    
 +    user = get_current_user()
-     action = 'create' if created else 'update'
 +    
 +    changes = {}
 +    if not created:
@@ -631,7 +577,20 @@ index 9c6469fb..ee948580 100644
 +                    'old': old_val,
 +                    'new': new_val
 +                }
++        
++        # Detect soft delete vs regular update
++        # If is_deleted changed from False to True, this is a soft_delete
++        if 'is_deleted' in changes:
++            if changes['is_deleted'].get('old') == 'False' and changes['is_deleted'].get('new') == 'True':
++                action = 'soft_delete'
++            elif changes['is_deleted'].get('old') == 'True' and changes['is_deleted'].get('new') == 'False':
++                action = 'restore'
++            else:
++                action = 'update'
++        else:
++            action = 'update'
 +    else:
++        action = 'create'
 +        # For create, record all field values as new
 +        new_values = get_model_field_values(instance)
 +        for field_name, value in new_values.items():
@@ -642,8 +601,9 @@ index 9c6469fb..ee948580 100644
 +                }
  
      AuditLog.objects.create(
-         organization=tenant,
+-        organization=tenant,
 -        user=None,
++        organization=organization,
 +        user=user,
          action=action,
          model_name=sender.__name__,
@@ -656,12 +616,17 @@ index 9c6469fb..ee948580 100644
  
  @receiver(pre_delete, sender=Project)
  @receiver(pre_delete, sender=Task)
++@receiver(pre_delete, sender=Organization)
++@receiver(pre_delete, sender=User)
  def log_model_delete(sender, instance, **kwargs):
-+    """Create audit log entry for delete operations."""
-     tenant = get_current_tenant()
-     if not tenant:
-         tenant = instance.organization
- 
+-    tenant = get_current_tenant()
+-    if not tenant:
+-        tenant = instance.organization
++    """Create audit log entry for hard delete operations."""
++    organization = get_organization_for_audit(instance, sender)
++    if not organization:
++        return  # Skip if no organization context
++    
 +    user = get_current_user()
 +    
 +    # Record all field values being deleted
@@ -673,10 +638,11 @@ index 9c6469fb..ee948580 100644
 +                'old': value,
 +                'new': None
 +            }
-+
+ 
      AuditLog.objects.create(
-         organization=tenant,
+-        organization=tenant,
 -        user=None,
++        organization=organization,
 +        user=user,
          action='delete',
          model_name=sender.__name__,
@@ -687,7 +653,7 @@ index 9c6469fb..ee948580 100644
      )
 -
 diff --git a/repository_before/core/views.py b/repository_after/core/views.py
-index 5075ed4d..71385f60 100644
+index 5075ed4d..1ea18ad0 100644
 --- a/repository_before/core/views.py
 +++ b/repository_after/core/views.py
 @@ -1,7 +1,8 @@
@@ -725,7 +691,7 @@ index 5075ed4d..71385f60 100644
  
      def get_queryset(self):
          if self.request.user.is_authenticated:
-@@ -30,42 +41,102 @@ class OrganizationViewSet(viewsets.ModelViewSet):
+@@ -30,42 +41,148 @@ class OrganizationViewSet(viewsets.ModelViewSet):
  
      @action(detail=True, methods=['get'])
      def members(self, request, pk=None):
@@ -738,6 +704,52 @@ index 5075ed4d..71385f60 100644
          serializer = OrganizationMembershipSerializer(memberships, many=True)
          return Response(serializer.data)
  
++    def perform_destroy(self, instance):
++        """Soft delete instead of hard delete."""
++        instance.soft_delete()
++
++    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
++    def restore(self, request, pk=None):
++        """Restore a soft-deleted organization (Admin/Owner only)."""
++        try:
++            # Use all_objects to find deleted organizations
++            org = Organization.all_objects.get(pk=pk)
++        except Organization.DoesNotExist:
++            return Response({'error': 'Organization not found'}, status=status.HTTP_404_NOT_FOUND)
++        
++        # Verify user has permission to restore this org
++        membership = OrganizationMembership.objects.filter(
++            user=request.user,
++            organization=org,
++            role__in=['owner', 'admin']
++        ).first()
++        
++        if not membership:
++            return Response(
++                {'error': 'You do not have permission to restore this organization'},
++                status=status.HTTP_403_FORBIDDEN
++            )
++        
++        if not org.is_deleted:
++            return Response(
++                {'error': 'Organization is not deleted'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++        org.restore()
++        serializer = self.get_serializer(org)
++        return Response(serializer.data)
++
++    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
++    def deleted(self, request):
++        """List all soft-deleted organizations the user can restore."""
++        deleted_orgs = Organization.all_objects.filter(
++            memberships__user=request.user,
++            memberships__role__in=['owner', 'admin'],
++            is_deleted=True
++        ).distinct()
++        serializer = self.get_serializer(deleted_orgs, many=True)
++        return Response(serializer.data)
++
 +    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
 +    def invite_member(self, request, pk=None):
 +        """Invite a new member to the organization (Admin/Owner only)."""
@@ -835,7 +847,7 @@ index 5075ed4d..71385f60 100644
          if not project.is_deleted:
              return Response(
                  {'error': 'Project is not deleted'},
-@@ -75,41 +146,94 @@ class ProjectViewSet(viewsets.ModelViewSet):
+@@ -75,41 +192,94 @@ class ProjectViewSet(viewsets.ModelViewSet):
          serializer = self.get_serializer(project)
          return Response(serializer.data)
  
@@ -935,7 +947,7 @@ index 5075ed4d..71385f60 100644
          serializer = self.get_serializer(data=request.data)
          serializer.is_valid(raise_exception=True)
  
-@@ -130,11 +254,20 @@ class APIKeyViewSet(viewsets.ModelViewSet):
+@@ -130,11 +300,20 @@ class APIKeyViewSet(viewsets.ModelViewSet):
  
  
  class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
