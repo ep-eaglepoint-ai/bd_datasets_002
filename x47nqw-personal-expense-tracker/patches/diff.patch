@@ -1,0 +1,3497 @@
+--- a\package.json
++++ b\package.json
+@@ -0,0 +1,5 @@
++{
++  "dependencies": {
++    "bcryptjs": "^3.0.3"
++  }
++}
+--- a\personal-expense-tracker\.env
++++ b\personal-expense-tracker\.env
+@@ -0,0 +1,3 @@
++DATABASE_URL="file:./dev.db"
++NEXTAUTH_SECRET="your-secret-key-here-change-in-production"
++NEXTAUTH_URL="http://localhost:3000"
+--- a\personal-expense-tracker\.env.local
++++ b\personal-expense-tracker\.env.local
+@@ -0,0 +1,3 @@
++DATABASE_URL="file:./dev.db"
++NEXTAUTH_SECRET="your-secret-key-here-change-in-production"
++NEXTAUTH_URL="http://localhost:3000"
+--- a\personal-expense-tracker\components.json
++++ b\personal-expense-tracker\components.json
+@@ -0,0 +1,23 @@
++{
++  "$schema": "https://ui.shadcn.com/schema.json",
++  "style": "new-york",
++  "rsc": true,
++  "tsx": true,
++  "tailwind": {
++    "config": "",
++    "css": "app/globals.css",
++    "baseColor": "neutral",
++    "cssVariables": true,
++    "prefix": ""
++  },
++  "iconLibrary": "lucide",
++  "rtl": false,
++  "aliases": {
++    "components": "@/components",
++    "utils": "@/lib/utils",
++    "ui": "@/components/ui",
++    "lib": "@/lib",
++    "hooks": "@/hooks"
++  },
++  "registries": {}
++}
+--- a\personal-expense-tracker\eslint.config.mjs
++++ b\personal-expense-tracker\eslint.config.mjs
+@@ -0,0 +1,16 @@
++import { dirname } from "path";
++import { fileURLToPath } from "url";
++import { FlatCompat } from "@eslint/eslintrc";
++
++const __filename = fileURLToPath(import.meta.url);
++const __dirname = dirname(__filename);
++
++const compat = new FlatCompat({
++  baseDirectory: __dirname,
++});
++
++const eslintConfig = [
++  ...compat.extends("next/core-web-vitals", "next/typescript"),
++];
++
++export default eslintConfig;
+--- a\personal-expense-tracker\next-env.d.ts
++++ b\personal-expense-tracker\next-env.d.ts
+@@ -0,0 +1,5 @@
++/// <reference types="next" />
++/// <reference types="next/image-types/global" />
++
++// NOTE: This file should not be edited
++// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+--- a\personal-expense-tracker\next.config.mjs
++++ b\personal-expense-tracker\next.config.mjs
+@@ -0,0 +1,10 @@
++const nextConfig = {
++  typescript: {
++    ignoreBuildErrors: true,
++  },
++  images: {
++    unoptimized: true,
++  },
++}
++
++export default nextConfig
+--- a\personal-expense-tracker\next.config.ts
++++ b\personal-expense-tracker\next.config.ts
+@@ -0,0 +1,7 @@
++import type { NextConfig } from "next";
++
++const nextConfig: NextConfig = {
++  /* config options here */
++};
++
++export default nextConfig;
+--- a\personal-expense-tracker\package.json
++++ b\personal-expense-tracker\package.json
+@@ -0,0 +1,83 @@
++{
++  "name": "personal-expense-tracker",
++  "version": "0.1.0",
++  "private": true,
++  "scripts": {
++    "dev": "next dev",
++    "build": "next build",
++    "start": "next start",
++    "lint": "eslint .",
++    "db:push": "prisma db push",
++    "db:seed": "node prisma/seed.ts"
++  },
++  "dependencies": {
++    "@auth/prisma-adapter": "2.11.1",
++    "@hookform/resolvers": "^3.10.0",
++    "@prisma/client": "^5.8.0",
++    "@radix-ui/react-accordion": "1.2.2",
++    "@radix-ui/react-alert-dialog": "1.1.4",
++    "@radix-ui/react-aspect-ratio": "1.1.1",
++    "@radix-ui/react-avatar": "1.1.2",
++    "@radix-ui/react-checkbox": "1.1.3",
++    "@radix-ui/react-collapsible": "1.1.2",
++    "@radix-ui/react-context-menu": "2.2.4",
++    "@radix-ui/react-dialog": "1.1.4",
++    "@radix-ui/react-dropdown-menu": "2.1.4",
++    "@radix-ui/react-hover-card": "1.1.4",
++    "@radix-ui/react-label": "2.1.1",
++    "@radix-ui/react-menubar": "1.1.4",
++    "@radix-ui/react-navigation-menu": "1.2.3",
++    "@radix-ui/react-popover": "1.1.4",
++    "@radix-ui/react-progress": "1.1.1",
++    "@radix-ui/react-radio-group": "1.2.2",
++    "@radix-ui/react-scroll-area": "1.2.2",
++    "@radix-ui/react-select": "2.1.4",
++    "@radix-ui/react-separator": "1.1.1",
++    "@radix-ui/react-slider": "1.2.2",
++    "@radix-ui/react-slot": "1.1.1",
++    "@radix-ui/react-switch": "1.1.2",
++    "@radix-ui/react-tabs": "1.1.2",
++    "@radix-ui/react-toast": "1.2.4",
++    "@radix-ui/react-toggle": "1.1.1",
++    "@radix-ui/react-toggle-group": "1.1.1",
++    "@radix-ui/react-tooltip": "1.1.6",
++    "@vercel/analytics": "1.3.1",
++    "autoprefixer": "^10.4.20",
++    "bcryptjs": "^2.4.3",
++    "chart.js": "^4.4.0",
++    "class-variance-authority": "^0.7.1",
++    "clsx": "^2.1.1",
++    "cmdk": "1.0.4",
++    "date-fns": "4.1.0",
++    "embla-carousel-react": "8.5.1",
++    "input-otp": "1.4.1",
++    "lucide-react": "^0.454.0",
++    "next": "latest",
++    "next-auth": "^5.0.0-beta.30",
++    "next-themes": "^0.4.6",
++    "react": "latest",
++    "react-chartjs-2": "^5.2.0",
++    "react-day-picker": "9.8.0",
++    "react-dom": "latest",
++    "react-hook-form": "^7.60.0",
++    "react-resizable-panels": "^2.1.7",
++    "recharts": "3.7.0",
++    "sonner": "^1.7.4",
++    "tailwind-merge": "^3.3.1",
++    "tailwindcss-animate": "^1.0.7",
++    "vaul": "^1.1.2",
++    "zod": "latest"
++  },
++  "devDependencies": {
++    "@tailwindcss/postcss": "^4.1.9",
++    "@types/node": "^22",
++    "@types/react": "^19",
++    "@types/react-dom": "^19",
++    "postcss": "^8.5",
++    "prisma": "^5.8.0",
++    "tailwindcss": "^4.1.9",
++    "tsx": "^4.21.0",
++    "tw-animate-css": "1.3.3",
++    "typescript": "^5"
++  }
++}
+--- a\personal-expense-tracker\postcss.config.mjs
++++ b\personal-expense-tracker\postcss.config.mjs
+@@ -0,0 +1,5 @@
++const config = {
++  plugins: ["@tailwindcss/postcss"],
++};
++
++export default config;
+--- a\personal-expense-tracker\proxy.ts
++++ b\personal-expense-tracker\proxy.ts
+@@ -0,0 +1,29 @@
++import { NextRequest, NextResponse } from "next/server";
++
++export function middleware(request: NextRequest) {
++  const pathname = request.nextUrl.pathname;
++  
++  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
++  const isDashboardPage = pathname.startsWith("/dashboard");
++  const isApiTransaction = pathname.startsWith("/api/transactions");
++
++  // Get session token from cookies
++  const sessionToken = request.cookies.get("next-auth.session-token")?.value ||
++                       request.cookies.get("__Secure-next-auth.session-token")?.value;
++
++  // If user is not authenticated and trying to access protected routes
++  if (!sessionToken && (isDashboardPage || isApiTransaction)) {
++    return NextResponse.redirect(new URL("/login", request.url));
++  }
++
++  // If user is authenticated and trying to access auth pages
++  if (sessionToken && isAuthPage) {
++    return NextResponse.redirect(new URL("/dashboard", request.url));
++  }
++
++  return NextResponse.next();
++}
++
++export const config = {
++  matcher: ["/dashboard/:path*", "/login", "/signup", "/api/transactions/:path*"],
++};
+--- a\personal-expense-tracker\tsconfig.json
++++ b\personal-expense-tracker\tsconfig.json
+@@ -0,0 +1,27 @@
++{
++  "compilerOptions": {
++    "target": "ES2017",
++    "lib": ["dom", "dom.iterable", "esnext"],
++    "allowJs": true,
++    "skipLibCheck": true,
++    "strict": true,
++    "noEmit": true,
++    "esModuleInterop": true,
++    "module": "esnext",
++    "moduleResolution": "bundler",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "jsx": "preserve",
++    "incremental": true,
++    "plugins": [
++      {
++        "name": "next"
++      }
++    ],
++    "paths": {
++      "@/*": ["./*"]
++    }
++  },
++  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
++  "exclude": ["node_modules"]
++}
+--- a\personal-expense-tracker\verify-login.ts
++++ b\personal-expense-tracker\verify-login.ts
+@@ -0,0 +1,30 @@
++
++import { prisma } from "./lib/prisma";
++import bcryptjs from "bcryptjs";
++
++async function main() {
++    const email = "test2@example.com";
++    const password = "password123";
++
++    console.log(`Checking user: ${email}`);
++    const user = await prisma.user.findUnique({
++        where: { email },
++    });
++
++    if (!user) {
++        console.log("User not found via Prisma!");
++        return;
++    }
++    console.log("User found:", user.email);
++
++    console.log("Comparing password...");
++    const isValid = await bcryptjs.compare(password, user.password || "");
++    console.log(`Password valid: ${isValid}`);
++}
++
++main()
++    .then(() => prisma.$disconnect())
++    .catch((e) => {
++        console.error(e);
++        prisma.$disconnect();
++    });
+--- a\personal-expense-tracker\app\globals.css
++++ b\personal-expense-tracker\app\globals.css
+@@ -0,0 +1,125 @@
++@import 'tailwindcss';
++@import 'tw-animate-css';
++
++@custom-variant dark (&:is(.dark *));
++
++:root {
++  --background: oklch(0.99 0.001 65);
++  --foreground: oklch(0.2 0 0);
++  --card: oklch(1 0 0);
++  --card-foreground: oklch(0.2 0 0);
++  --popover: oklch(1 0 0);
++  --popover-foreground: oklch(0.2 0 0);
++  --primary: oklch(0.45 0.15 260);
++  --primary-foreground: oklch(0.99 0 0);
++  --secondary: oklch(0.92 0.03 260);
++  --secondary-foreground: oklch(0.45 0.15 260);
++  --muted: oklch(0.92 0 0);
++  --muted-foreground: oklch(0.53 0.02 260);
++  --accent: oklch(0.56 0.22 261);
++  --accent-foreground: oklch(0.99 0 0);
++  --destructive: oklch(0.58 0.25 28);
++  --destructive-foreground: oklch(0.99 0 0);
++  --border: oklch(0.92 0.01 260);
++  --input: oklch(0.96 0.01 260);
++  --ring: oklch(0.45 0.15 260);
++  --chart-1: oklch(0.56 0.22 261);
++  --chart-2: oklch(0.62 0.18 255);
++  --chart-3: oklch(0.72 0.2 255);
++  --chart-4: oklch(0.5 0.25 260);
++  --chart-5: oklch(0.65 0.2 260);
++  --radius: 0.625rem;
++  --sidebar: oklch(0.99 0.001 65);
++  --sidebar-foreground: oklch(0.2 0 0);
++  --sidebar-primary: oklch(0.45 0.15 260);
++  --sidebar-primary-foreground: oklch(0.99 0 0);
++  --sidebar-accent: oklch(0.92 0.03 260);
++  --sidebar-accent-foreground: oklch(0.45 0.15 260);
++  --sidebar-border: oklch(0.92 0.01 260);
++  --sidebar-ring: oklch(0.45 0.15 260);
++}
++
++.dark {
++  --background: oklch(0.15 0 0);
++  --foreground: oklch(0.95 0.001 65);
++  --card: oklch(0.2 0 0);
++  --card-foreground: oklch(0.95 0.001 65);
++  --popover: oklch(0.2 0 0);
++  --popover-foreground: oklch(0.95 0.001 65);
++  --primary: oklch(0.75 0.15 260);
++  --primary-foreground: oklch(0.2 0 0);
++  --secondary: oklch(0.3 0.02 260);
++  --secondary-foreground: oklch(0.9 0.001 65);
++  --muted: oklch(0.3 0 0);
++  --muted-foreground: oklch(0.6 0.02 260);
++  --accent: oklch(0.75 0.15 260);
++  --accent-foreground: oklch(0.15 0 0);
++  --destructive: oklch(0.62 0.23 28);
++  --destructive-foreground: oklch(0.95 0.001 65);
++  --border: oklch(0.3 0.02 260);
++  --input: oklch(0.25 0.02 260);
++  --ring: oklch(0.75 0.15 260);
++  --chart-1: oklch(0.75 0.15 260);
++  --chart-2: oklch(0.7 0.18 255);
++  --chart-3: oklch(0.65 0.2 255);
++  --chart-4: oklch(0.8 0.25 260);
++  --chart-5: oklch(0.72 0.2 260);
++  --sidebar: oklch(0.18 0 0);
++  --sidebar-foreground: oklch(0.92 0.001 65);
++  --sidebar-primary: oklch(0.75 0.15 260);
++  --sidebar-primary-foreground: oklch(0.15 0 0);
++  --sidebar-accent: oklch(0.3 0.02 260);
++  --sidebar-accent-foreground: oklch(0.95 0.001 65);
++  --sidebar-border: oklch(0.3 0.02 260);
++  --sidebar-ring: oklch(0.75 0.15 260);
++}
++
++@theme inline {
++  --font-sans: 'Geist', 'Geist Fallback';
++  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
++  --color-background: var(--background);
++  --color-foreground: var(--foreground);
++  --color-card: var(--card);
++  --color-card-foreground: var(--card-foreground);
++  --color-popover: var(--popover);
++  --color-popover-foreground: var(--popover-foreground);
++  --color-primary: var(--primary);
++  --color-primary-foreground: var(--primary-foreground);
++  --color-secondary: var(--secondary);
++  --color-secondary-foreground: var(--secondary-foreground);
++  --color-muted: var(--muted);
++  --color-muted-foreground: var(--muted-foreground);
++  --color-accent: var(--accent);
++  --color-accent-foreground: var(--accent-foreground);
++  --color-destructive: var(--destructive);
++  --color-destructive-foreground: var(--destructive-foreground);
++  --color-border: var(--border);
++  --color-input: var(--input);
++  --color-ring: var(--ring);
++  --color-chart-1: var(--chart-1);
++  --color-chart-2: var(--chart-2);
++  --color-chart-3: var(--chart-3);
++  --color-chart-4: var(--chart-4);
++  --color-chart-5: var(--chart-5);
++  --radius-sm: calc(var(--radius) - 4px);
++  --radius-md: calc(var(--radius) - 2px);
++  --radius-lg: var(--radius);
++  --radius-xl: calc(var(--radius) + 4px);
++  --color-sidebar: var(--sidebar);
++  --color-sidebar-foreground: var(--sidebar-foreground);
++  --color-sidebar-primary: var(--sidebar-primary);
++  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
++  --color-sidebar-accent: var(--sidebar-accent);
++  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
++  --color-sidebar-border: var(--sidebar-border);
++  --color-sidebar-ring: var(--sidebar-ring);
++}
++
++@layer base {
++  * {
++    @apply border-border outline-ring/50;
++  }
++  body {
++    @apply bg-background text-foreground;
++  }
++}
+--- a\personal-expense-tracker\app\layout.tsx
++++ b\personal-expense-tracker\app\layout.tsx
+@@ -0,0 +1,32 @@
++import React from "react"
++import type { Metadata } from 'next'
++import { Geist, Geist_Mono } from 'next/font/google'
++import { Analytics } from '@vercel/analytics/next'
++import { AuthProvider } from '@/components/auth-provider'
++import './globals.css'
++
++const _geist = Geist({ subsets: ["latin"] });
++const _geistMono = Geist_Mono({ subsets: ["latin"] });
++
++export const metadata: Metadata = {
++  title: 'Expense Tracker',
++  description: 'Monitor your spending habits with ease',
++  generator: '',
++}
++
++export default function RootLayout({
++  children,
++}: Readonly<{
++  children: React.ReactNode
++}>) {
++  return (
++    <html lang="en">
++      <body className={`font-sans antialiased`}>
++        <AuthProvider>
++          {children}
++        </AuthProvider>
++        <Analytics />
++      </body>
++    </html>
++  )
++}
+--- a\personal-expense-tracker\app\page.tsx
++++ b\personal-expense-tracker\app\page.tsx
+@@ -0,0 +1,61 @@
++import Link from "next/link";
++import { Button } from "@/components/ui/button";
++import { TrendingUp, BarChart3, Shield } from "lucide-react";
++
++export default function Home() {
++  // Home page is public for unauthenticated users
++
++  return (
++    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
++      <div className="flex items-center justify-center min-h-screen px-4">
++        <div className="max-w-2xl w-full space-y-8 text-center">
++          <div className="space-y-4">
++            <h1 className="text-5xl md:text-6xl font-bold text-foreground">
++              Smart Expense <span className="text-primary">Tracking</span>
++            </h1>
++            <p className="text-xl text-muted-foreground">
++              Monitor your spending habits, categorize expenses, and visualize your financial patterns with ease.
++            </p>
++          </div>
++
++          <div className="grid md:grid-cols-3 gap-4 my-12">
++            <div className="bg-card border border-border/50 p-6 rounded-lg">
++              <TrendingUp className="w-8 h-8 text-primary mx-auto mb-3" />
++              <h3 className="font-semibold text-foreground">Track Spending</h3>
++              <p className="text-sm text-muted-foreground mt-1">
++                Log all income and expenses effortlessly
++              </p>
++            </div>
++            <div className="bg-card border border-border/50 p-6 rounded-lg">
++              <BarChart3 className="w-8 h-8 text-primary mx-auto mb-3" />
++              <h3 className="font-semibold text-foreground">Visualize Data</h3>
++              <p className="text-sm text-muted-foreground mt-1">
++                See spending patterns with charts
++              </p>
++            </div>
++            <div className="bg-card border border-border/50 p-6 rounded-lg">
++              <Shield className="w-8 h-8 text-primary mx-auto mb-3" />
++              <h3 className="font-semibold text-foreground">Secure</h3>
++              <p className="text-sm text-muted-foreground mt-1">
++                Your data is private and protected
++              </p>
++            </div>
++          </div>
++
++          <div className="flex flex-col sm:flex-row gap-4 justify-center">
++            <Link href="/signup">
++              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-6 text-lg">
++                Get Started
++              </Button>
++            </Link>
++            <Link href="/login">
++              <Button variant="outline" className="px-8 py-6 text-lg bg-transparent">
++                Sign In
++              </Button>
++            </Link>
++          </div>
++        </div>
++      </div>
++    </div>
++  );
++}
+--- a\personal-expense-tracker\app\api\auth\signup\route.ts
++++ b\personal-expense-tracker\app\api\auth\signup\route.ts
+@@ -0,0 +1,58 @@
++import { NextRequest, NextResponse } from "next/server";
++import { prisma } from "@/lib/prisma";
++import bcryptjs from "bcryptjs";
++
++export async function POST(request: NextRequest) {
++  try {
++    const { email, password, name } = await request.json();
++
++    if (!email || !password) {
++      return NextResponse.json(
++        { error: "Email and password are required" },
++        { status: 400 }
++      );
++    }
++
++    // Check if user already exists
++    const existingUser = await prisma.user.findUnique({
++      where: { email },
++    });
++
++    if (existingUser) {
++      return NextResponse.json(
++        { error: "User already exists" },
++        { status: 400 }
++      );
++    }
++
++    // Hash password
++    const hashedPassword = await bcryptjs.hash(password, 10);
++
++    // Create user
++    const user = await prisma.user.create({
++      data: {
++        email,
++        password: hashedPassword,
++        name: name || email.split("@")[0],
++      },
++    });
++
++    return NextResponse.json(
++      {
++        message: "User created successfully",
++        user: {
++          id: user.id,
++          email: user.email,
++          name: user.name,
++        },
++      },
++      { status: 201 }
++    );
++  } catch (error) {
++    console.error("Signup error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\auth\[...nextauth]\route.ts
++++ b\personal-expense-tracker\app\api\auth\[...nextauth]\route.ts
+@@ -0,0 +1,3 @@
++import { handlers } from "@/lib/auth";
++
++export const { GET, POST } = handlers;
+--- a\personal-expense-tracker\app\api\categories\route.ts
++++ b\personal-expense-tracker\app\api\categories\route.ts
+@@ -0,0 +1,23 @@
++import { NextRequest, NextResponse } from "next/server";
++import { prisma } from "@/lib/prisma";
++
++export async function GET(request: NextRequest) {
++  try {
++    const type = request.nextUrl.searchParams.get("type");
++
++    const where = type ? { type } : {};
++
++    const categories = await prisma.category.findMany({
++      where,
++      orderBy: { name: "asc" },
++    });
++
++    return NextResponse.json(categories);
++  } catch (error) {
++    console.error("GET /api/categories error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\init\route.ts
++++ b\personal-expense-tracker\app\api\init\route.ts
+@@ -0,0 +1,54 @@
++import { NextResponse } from "next/server";
++import { prisma } from "@/lib/prisma";
++
++export async function GET() {
++  try {
++    // Check if categories exist
++    const categoryCount = await prisma.category.count();
++
++    if (categoryCount === 0) {
++      // Create default categories
++      const categories = [
++        { name: "Food", type: "expense", icon: "🍔", color: "#FF6B6B" },
++        { name: "Transport", type: "expense", icon: "🚗", color: "#4ECDC4" },
++        { name: "Entertainment", type: "expense", icon: "🎬", color: "#45B7D1" },
++        { name: "Bills", type: "expense", icon: "📄", color: "#FFA07A" },
++        { name: "Shopping", type: "expense", icon: "🛍️", color: "#FFB6C1" },
++        { name: "Healthcare", type: "expense", icon: "⚕️", color: "#98D8C8" },
++        { name: "Education", type: "expense", icon: "📚", color: "#A8D8EA" },
++        { name: "Salary", type: "income", icon: "💰", color: "#52C41A" },
++        { name: "Freelance", type: "income", icon: "💼", color: "#1890FF" },
++        { name: "Investment", type: "income", icon: "📈", color: "#722ED1" },
++        { name: "Bonus", type: "income", icon: "🎁", color: "#EB2F96" },
++      ];
++
++      for (const category of categories) {
++        await prisma.category.create({
++          data: {
++            name: category.name,
++            type: category.type,
++            icon: category.icon,
++            color: category.color,
++          },
++        });
++      }
++
++      return NextResponse.json({
++        success: true,
++        message: "Database initialized with default categories",
++      });
++    }
++
++    return NextResponse.json({
++      success: true,
++      message: "Database already initialized",
++      categoryCount,
++    });
++  } catch (error) {
++    console.error("Init error:", error);
++    return NextResponse.json(
++      { error: "Failed to initialize database" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\transactions\route.ts
++++ b\personal-expense-tracker\app\api\transactions\route.ts
+@@ -0,0 +1,105 @@
++import { NextRequest, NextResponse } from "next/server";
++import { auth } from "@/lib/auth";
++import { prisma } from "@/lib/prisma";
++
++export async function GET(request: NextRequest) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    const limit = parseInt(
++      request.nextUrl.searchParams.get("limit") || "10"
++    );
++    const offset = parseInt(
++      request.nextUrl.searchParams.get("offset") || "0"
++    );
++    const type = request.nextUrl.searchParams.get("type");
++    const search = request.nextUrl.searchParams.get("search");
++    const startDate = request.nextUrl.searchParams.get("startDate");
++    const endDate = request.nextUrl.searchParams.get("endDate");
++
++    const where: any = { userId: session.user.id };
++
++    if (type && type !== "all") {
++      where.type = type;
++    }
++
++    if (search) {
++      where.OR = [
++        { description: { contains: search } },
++        { category: { name: { contains: search } } },
++      ];
++    }
++
++    if (startDate || endDate) {
++      where.date = {};
++      if (startDate) {
++        where.date.gte = new Date(startDate);
++      }
++      if (endDate) {
++        const end = new Date(endDate);
++        end.setHours(23, 59, 59, 999);
++        where.date.lte = end;
++      }
++    }
++
++    const transactions = await prisma.transaction.findMany({
++      where,
++      include: { category: true },
++      orderBy: { date: "desc" },
++      take: limit,
++      skip: offset,
++    });
++
++    const total = await prisma.transaction.count({ where });
++
++    return NextResponse.json({ transactions, total });
++  } catch (error) {
++    console.error("GET /api/transactions error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
++
++export async function POST(request: NextRequest) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    const body = await request.json();
++    const { amount, description, categoryId, type, date } = body;
++
++    if (!amount || !description || !categoryId || !type || !date) {
++      return NextResponse.json(
++        { error: "Missing required fields" },
++        { status: 400 }
++      );
++    }
++
++    const transaction = await prisma.transaction.create({
++      data: {
++        userId: session.user.id,
++        amount: parseFloat(amount),
++        description,
++        categoryId,
++        type,
++        date: new Date(date),
++      },
++      include: { category: true },
++    });
++
++    return NextResponse.json(transaction, { status: 201 });
++  } catch (error) {
++    console.error("POST /api/transactions error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\transactions\chart-data\route.ts
++++ b\personal-expense-tracker\app\api\transactions\chart-data\route.ts
+@@ -0,0 +1,52 @@
++import { NextRequest, NextResponse } from "next/server";
++import { auth } from "@/lib/auth";
++import { prisma } from "@/lib/prisma";
++
++export async function GET(request: NextRequest) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    const transactions = await prisma.transaction.findMany({
++      where: {
++        userId: session.user.id,
++        type: "expense",
++      },
++      include: { category: true },
++    });
++
++    const categoryMap = new Map<string, number>();
++
++    transactions.forEach((transaction) => {
++      const categoryName = transaction.category.name;
++      const current = categoryMap.get(categoryName) || 0;
++      categoryMap.set(categoryName, current + transaction.amount);
++    });
++
++    const categoryColors = new Map<string, string>();
++    transactions.forEach((transaction) => {
++      categoryColors.set(
++        transaction.category.name,
++        transaction.category.color
++      );
++    });
++
++    const chartData = Array.from(categoryMap.entries()).map(
++      ([category, amount]) => ({
++        category,
++        amount,
++        color: categoryColors.get(category) || "#3b82f6",
++      })
++    );
++
++    return NextResponse.json(chartData);
++  } catch (error) {
++    console.error("GET /api/transactions/chart-data error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\transactions\monthly\route.ts
++++ b\personal-expense-tracker\app\api\transactions\monthly\route.ts
+@@ -0,0 +1,84 @@
++import { NextRequest, NextResponse } from "next/server";
++import { auth } from "@/lib/auth";
++import { prisma } from "@/lib/prisma";
++
++export async function GET(request: NextRequest) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    const startDate = request.nextUrl.searchParams.get("startDate");
++    const endDate = request.nextUrl.searchParams.get("endDate");
++
++    if (!startDate || !endDate) {
++      return NextResponse.json(
++        { error: "startDate and endDate are required" },
++        { status: 400 }
++      );
++    }
++
++    const start = new Date(startDate);
++    start.setHours(0, 0, 0, 0);
++
++    const end = new Date(endDate);
++    end.setHours(23, 59, 59, 999);
++
++    console.log("Monthly query:", { userId: session.user.id, start, end });
++
++    const transactions = await prisma.transaction.findMany({
++      where: {
++        userId: session.user.id,
++        date: {
++          gte: start,
++          lte: end,
++        },
++      },
++      include: { category: true },
++    });
++
++    console.log("Transactions found:", transactions.length);
++
++    const income = transactions
++      .filter((t) => t.type === "income")
++      .reduce((sum, t) => sum + t.amount, 0);
++
++    const expenses = transactions
++      .filter((t) => t.type === "expense")
++      .reduce((sum, t) => sum + t.amount, 0);
++
++    const balance = income - expenses;
++
++    // Get top categories
++    const categoryMap = new Map<string, number>();
++    transactions
++      .filter((t) => t.type === "expense")
++      .forEach((t) => {
++        const current = categoryMap.get(t.category.name) || 0;
++        categoryMap.set(t.category.name, current + t.amount);
++      });
++
++    const topCategories = Array.from(categoryMap.entries())
++      .map(([name, amount]) => ({ name, amount }))
++      .sort((a, b) => b.amount - a.amount)
++      .slice(0, 5)
++      .map((cat) => ({
++        ...cat,
++        percentage: expenses > 0 ? (cat.amount / expenses) * 100 : 0,
++      }));
++
++    return NextResponse.json({
++      income,
++      expenses,
++      balance,
++      topCategories,
++    });
++  } catch (error) {
++    console.error("GET /api/transactions/monthly error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\transactions\stats\route.ts
++++ b\personal-expense-tracker\app\api\transactions\stats\route.ts
+@@ -0,0 +1,38 @@
++import { NextRequest, NextResponse } from "next/server";
++import { auth } from "@/lib/auth";
++import { prisma } from "@/lib/prisma";
++
++export async function GET(request: NextRequest) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    const transactions = await prisma.transaction.findMany({
++      where: { userId: session.user.id },
++    });
++
++    const income = transactions
++      .filter((t) => t.type === "income")
++      .reduce((sum, t) => sum + t.amount, 0);
++
++    const expenses = transactions
++      .filter((t) => t.type === "expense")
++      .reduce((sum, t) => sum + t.amount, 0);
++
++    const balance = income - expenses;
++
++    return NextResponse.json({
++      income,
++      expenses,
++      balance,
++    });
++  } catch (error) {
++    console.error("GET /api/transactions/stats error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\transactions\trends\route.ts
++++ b\personal-expense-tracker\app\api\transactions\trends\route.ts
+@@ -0,0 +1,57 @@
++import { NextRequest, NextResponse } from "next/server";
++import { auth } from "@/lib/auth";
++import { prisma } from "@/lib/prisma";
++
++export async function GET(request: NextRequest) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    // Get last 30 days
++    const thirtyDaysAgo = new Date();
++    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
++
++    const transactions = await prisma.transaction.findMany({
++      where: {
++        userId: session.user.id,
++        date: {
++          gte: thirtyDaysAgo,
++        },
++      },
++    });
++
++    // Group by date
++    const dateMap = new Map<string, { income: number; expenses: number }>();
++
++    transactions.forEach((t) => {
++      const dateStr = t.date.toISOString().split("T")[0];
++      const current = dateMap.get(dateStr) || { income: 0, expenses: 0 };
++
++      if (t.type === "income") {
++        current.income += t.amount;
++      } else {
++        current.expenses += t.amount;
++      }
++
++      dateMap.set(dateStr, current);
++    });
++
++    // Convert to array and sort by date
++    const trendData = Array.from(dateMap.entries())
++      .map(([date, amounts]) => ({
++        date,
++        ...amounts,
++      }))
++      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
++
++    return NextResponse.json(trendData);
++  } catch (error) {
++    console.error("GET /api/transactions/trends error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\api\transactions\[id]\route.ts
++++ b\personal-expense-tracker\app\api\transactions\[id]\route.ts
+@@ -0,0 +1,83 @@
++import { NextRequest, NextResponse } from "next/server";
++import { auth } from "@/lib/auth";
++import { prisma } from "@/lib/prisma";
++
++export async function DELETE(
++  request: NextRequest,
++  { params }: { params: { id: string } }
++) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    const id = params.id;
++
++    // Verify transaction belongs to user
++    const transaction = await prisma.transaction.findUnique({
++      where: { id },
++    });
++
++    if (!transaction || transaction.userId !== session.user.id) {
++      return NextResponse.json({ error: "Not found" }, { status: 404 });
++    }
++
++    await prisma.transaction.delete({
++      where: { id },
++    });
++
++    return NextResponse.json({ success: true });
++  } catch (error) {
++    console.error("DELETE /api/transactions/[id] error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
++
++export async function PUT(
++  request: NextRequest,
++  { params }: { params: { id: string } }
++) {
++  try {
++    const session = await auth();
++    if (!session?.user?.id) {
++      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++    }
++
++    const id = params.id;
++    const body = await request.json();
++    const { amount, description, categoryId, type, date } = body;
++
++    // Verify transaction belongs to user
++    const transaction = await prisma.transaction.findUnique({
++      where: { id },
++    });
++
++    if (!transaction || transaction.userId !== session.user.id) {
++      return NextResponse.json({ error: "Not found" }, { status: 404 });
++    }
++
++    const updated = await prisma.transaction.update({
++      where: { id },
++      data: {
++        amount: amount ? parseFloat(amount) : undefined,
++        description,
++        categoryId,
++        type,
++        date: date ? new Date(date) : undefined,
++      },
++      include: { category: true },
++    });
++
++    return NextResponse.json(updated);
++  } catch (error) {
++    console.error("PUT /api/transactions/[id] error:", error);
++    return NextResponse.json(
++      { error: "Internal server error" },
++      { status: 500 }
++    );
++  }
++}
+--- a\personal-expense-tracker\app\dashboard\page.tsx
++++ b\personal-expense-tracker\app\dashboard\page.tsx
+@@ -0,0 +1,36 @@
++import { auth } from "@/lib/auth";
++import { redirect } from "next/navigation";
++import { DashboardLayout } from "@/components/dashboard-layout";
++import { DashboardHeader } from "@/components/dashboard-header";
++import { StatsSummary } from "@/components/stats-summary";
++import { TransactionForm } from "@/components/transaction-form";
++import { TransactionList } from "@/components/transaction-list";
++import { ChartSection } from "@/components/chart-section";
++import { SpendingTrends } from "@/components/spending-trends";
++
++export default async function DashboardPage() {
++  const session = await auth();
++
++  if (!session) {
++    redirect("/login");
++  }
++
++  return (
++    <DashboardLayout>
++      <DashboardHeader user={session.user} />
++      <div className="space-y-6">
++        <StatsSummary />
++        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
++          <div className="lg:col-span-2 space-y-6">
++            <TransactionForm />
++            <TransactionList />
++          </div>
++          <div className="space-y-6">
++            <ChartSection />
++          </div>
++        </div>
++        <SpendingTrends />
++      </div>
++    </DashboardLayout>
++  );
++}
+--- a\personal-expense-tracker\app\dashboard\analytics\page.tsx
++++ b\personal-expense-tracker\app\dashboard\analytics\page.tsx
+@@ -0,0 +1,29 @@
++import { auth } from "@/lib/auth";
++import { redirect } from "next/navigation";
++import { DashboardLayout } from "@/components/dashboard-layout";
++import { MonthlyAnalytics } from "@/components/monthly-analytics";
++import { SpendingTrends } from "@/components/spending-trends";
++
++export default async function AnalyticsPage() {
++  const session = await auth();
++
++  if (!session) {
++    redirect("/login");
++  }
++
++  return (
++    <DashboardLayout>
++      <div className="mb-8">
++        <h2 className="text-3xl font-bold text-foreground">Analytics</h2>
++        <p className="text-muted-foreground mt-2">
++          Analyze your spending patterns and trends
++        </p>
++      </div>
++
++      <div className="space-y-6">
++        <MonthlyAnalytics />
++        <SpendingTrends />
++      </div>
++    </DashboardLayout>
++  );
++}
+--- a\personal-expense-tracker\app\dashboard\transactions\page.tsx
++++ b\personal-expense-tracker\app\dashboard\transactions\page.tsx
+@@ -0,0 +1,24 @@
++import { auth } from "@/lib/auth";
++import { redirect } from "next/navigation";
++import { DashboardLayout } from "@/components/dashboard-layout";
++import { TransactionList } from "@/components/transaction-list";
++
++export default async function TransactionsPage() {
++  const session = await auth();
++
++  if (!session) {
++    redirect("/login");
++  }
++
++  return (
++    <DashboardLayout>
++      <div className="mb-8">
++        <h2 className="text-3xl font-bold text-foreground">Transactions</h2>
++        <p className="text-muted-foreground mt-2">View and manage all your transactions</p>
++      </div>
++
++      <TransactionList />
++    </DashboardLayout>
++  );
++}
++
+--- a\personal-expense-tracker\app\login\page.tsx
++++ b\personal-expense-tracker\app\login\page.tsx
+@@ -0,0 +1,144 @@
++"use client";
++
++import React from "react"
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import Link from "next/link";
++import { signIn } from "next-auth/react";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { Card } from "@/components/ui/card";
++import { Loader2 } from "lucide-react";
++
++export default function LoginPage() {
++  const router = useRouter();
++  const [loading, setLoading] = useState(false);
++  const [error, setError] = useState("");
++  const [formData, setFormData] = useState({
++    email: "",
++    password: "",
++  });
++
++  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
++    setFormData({
++      ...formData,
++      [e.target.name]: e.target.value,
++    });
++  };
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    setError("");
++    setLoading(true);
++
++    try {
++      console.log("Attempting login with:", formData.email);
++      const result = await signIn("credentials", {
++        email: formData.email,
++        password: formData.password,
++        redirect: false,
++      });
++
++      console.log("SignIn result:", result);
++
++      if (result?.error) {
++        console.error("SignIn error:", result.error);
++        setError(result.error === "CredentialsSignin"
++          ? "Invalid email or password"
++          : result.error);
++        return;
++      }
++
++      if (!result?.ok) {
++        setError("Login failed. Please try again.");
++        return;
++      }
++
++      router.push("/dashboard");
++      router.refresh();
++    } catch (err: any) {
++      console.error("Login exception:", err);
++      setError(err?.message || "An error occurred during login");
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  return (
++    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 flex items-center justify-center p-4">
++      <Card className="w-full max-w-md border border-border/50">
++        <div className="p-8">
++          <h1 className="text-3xl font-bold text-foreground mb-2">
++            Welcome Back
++          </h1>
++          <p className="text-sm text-muted-foreground mb-8">
++            Sign in to your expense tracker account
++          </p>
++
++          {error && (
++            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
++              {error}
++            </div>
++          )}
++
++          <form onSubmit={handleSubmit} className="space-y-4">
++            <div>
++              <label className="block text-sm font-medium text-foreground mb-1">
++                Email
++              </label>
++              <Input
++                type="email"
++                name="email"
++                placeholder="you@example.com"
++                value={formData.email}
++                onChange={handleChange}
++                required
++                disabled={loading}
++                className="w-full"
++              />
++            </div>
++
++            <div>
++              <label className="block text-sm font-medium text-foreground mb-1">
++                Password
++              </label>
++              <Input
++                type="password"
++                name="password"
++                placeholder="••••••••"
++                value={formData.password}
++                onChange={handleChange}
++                required
++                disabled={loading}
++                className="w-full"
++              />
++            </div>
++
++            <Button
++              type="submit"
++              disabled={loading}
++              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
++            >
++              {loading ? (
++                <>
++                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
++                  Signing in...
++                </>
++              ) : (
++                "Sign In"
++              )}
++            </Button>
++          </form>
++
++          <p className="text-center text-sm text-muted-foreground mt-6">
++            Don't have an account?{" "}
++            <Link href="/signup" className="text-primary hover:underline font-medium">
++              Sign up
++            </Link>
++          </p>
++        </div>
++      </Card>
++    </div>
++  );
++}
+--- a\personal-expense-tracker\app\signup\page.tsx
++++ b\personal-expense-tracker\app\signup\page.tsx
+@@ -0,0 +1,174 @@
++"use client";
++
++import React from "react"
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import Link from "next/link";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { Card } from "@/components/ui/card";
++import { Loader2 } from "lucide-react";
++
++export default function SignupPage() {
++  const router = useRouter();
++  const [loading, setLoading] = useState(false);
++  const [error, setError] = useState("");
++  const [formData, setFormData] = useState({
++    name: "",
++    email: "",
++    password: "",
++    confirmPassword: "",
++  });
++
++  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
++    setFormData({
++      ...formData,
++      [e.target.name]: e.target.value,
++    });
++  };
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    setError("");
++    setLoading(true);
++
++    if (formData.password !== formData.confirmPassword) {
++      setError("Passwords do not match");
++      setLoading(false);
++      return;
++    }
++
++    try {
++      const response = await fetch("/api/auth/signup", {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({
++          name: formData.name,
++          email: formData.email,
++          password: formData.password,
++        }),
++      });
++
++      if (!response.ok) {
++        const data = await response.json();
++        setError(data.error || "Signup failed");
++        return;
++      }
++
++      router.push("/login");
++    } catch (err) {
++      setError("An error occurred during signup");
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  return (
++    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 flex items-center justify-center p-4">
++      <Card className="w-full max-w-md border border-border/50">
++        <div className="p-8">
++          <h1 className="text-3xl font-bold text-foreground mb-2">
++            Create Account
++          </h1>
++          <p className="text-sm text-muted-foreground mb-8">
++            Start tracking your expenses today
++          </p>
++
++          {error && (
++            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
++              {error}
++            </div>
++          )}
++
++          <form onSubmit={handleSubmit} className="space-y-4">
++            <div>
++              <label className="block text-sm font-medium text-foreground mb-1">
++                Full Name
++              </label>
++              <Input
++                type="text"
++                name="name"
++                placeholder="John Doe"
++                value={formData.name}
++                onChange={handleChange}
++                disabled={loading}
++                className="w-full"
++              />
++            </div>
++
++            <div>
++              <label className="block text-sm font-medium text-foreground mb-1">
++                Email
++              </label>
++              <Input
++                type="email"
++                name="email"
++                placeholder="you@example.com"
++                value={formData.email}
++                onChange={handleChange}
++                required
++                disabled={loading}
++                className="w-full"
++              />
++            </div>
++
++            <div>
++              <label className="block text-sm font-medium text-foreground mb-1">
++                Password
++              </label>
++              <Input
++                type="password"
++                name="password"
++                placeholder="••••••••"
++                value={formData.password}
++                onChange={handleChange}
++                required
++                disabled={loading}
++                className="w-full"
++              />
++            </div>
++
++            <div>
++              <label className="block text-sm font-medium text-foreground mb-1">
++                Confirm Password
++              </label>
++              <Input
++                type="password"
++                name="confirmPassword"
++                placeholder="••••••••"
++                value={formData.confirmPassword}
++                onChange={handleChange}
++                required
++                disabled={loading}
++                className="w-full"
++              />
++            </div>
++
++            <Button
++              type="submit"
++              disabled={loading}
++              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
++            >
++              {loading ? (
++                <>
++                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
++                  Creating account...
++                </>
++              ) : (
++                "Create Account"
++              )}
++            </Button>
++          </form>
++
++          <p className="text-center text-sm text-muted-foreground mt-6">
++            Already have an account?{" "}
++            <Link href="/login" className="text-primary hover:underline font-medium">
++              Login
++            </Link>
++          </p>
++        </div>
++      </Card>
++    </div>
++  );
++}
+--- a\personal-expense-tracker\components\auth-provider.tsx
++++ b\personal-expense-tracker\components\auth-provider.tsx
+@@ -0,0 +1,7 @@
++'use client';
++
++import { ReactNode } from 'react';
++
++export function AuthProvider({ children }: { children: ReactNode }) {
++  return <>{children}</>;
++}
+--- a\personal-expense-tracker\components\chart-section.tsx
++++ b\personal-expense-tracker\components\chart-section.tsx
+@@ -0,0 +1,233 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { Card } from "@/components/ui/card";
++import { Pie, Bar } from "react-chartjs-2";
++import {
++  Chart as ChartJS,
++  CategoryScale,
++  LinearScale,
++  BarElement,
++  ArcElement,
++  Tooltip as ChartTooltip,
++  Legend,
++} from "chart.js";
++
++ChartJS.register(
++  CategoryScale,
++  LinearScale,
++  BarElement,
++  ArcElement,
++  ChartTooltip,
++  Legend
++);
++
++interface ChartData {
++  category: string;
++  amount: number;
++  color: string;
++}
++
++interface TrendData {
++  date: string;
++  amount: number;
++}
++
++export function ChartSection() {
++  const [chartData, setChartData] = useState<ChartData[]>([]);
++  const [trendData, setTrendData] = useState<TrendData[]>([]);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    fetchChartData();
++
++    // Listen for transaction changes to update charts in realtime
++    window.addEventListener("transactionAdded", fetchChartData);
++    window.addEventListener("transactionDeleted", fetchChartData);
++
++    return () => {
++      window.removeEventListener("transactionAdded", fetchChartData);
++      window.removeEventListener("transactionDeleted", fetchChartData);
++    };
++  }, []);
++
++  const fetchChartData = async () => {
++    try {
++      setLoading(true);
++      const [chartResponse, trendResponse] = await Promise.all([
++        fetch("/api/transactions/chart-data"),
++        fetch("/api/transactions/trends"),
++      ]);
++
++      if (chartResponse.ok) {
++        const data = await chartResponse.json();
++        setChartData(data);
++      }
++
++      if (trendResponse.ok) {
++        const data = await trendResponse.json();
++        setTrendData(data);
++      }
++    } catch (error) {
++      console.error("Failed to fetch chart data:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  const totalAmount = chartData.reduce((sum, item) => sum + item.amount, 0);
++
++  const formatCurrency = (value: number) => {
++    return new Intl.NumberFormat("en-US", {
++      style: "currency",
++      currency: "USD",
++      maximumFractionDigits: 0,
++    }).format(value);
++  };
++
++  const pieChartData = {
++    labels: chartData.map((item) => item.category),
++    datasets: [
++      {
++        data: chartData.map((item) => item.amount),
++        backgroundColor: chartData.map((item) => item.color),
++        borderColor: "rgba(0, 0, 0, 0.1)",
++        borderWidth: 2,
++      },
++    ],
++  };
++
++  const barChartData = {
++    labels: trendData.map((item) => item.date),
++    datasets: [
++      {
++        label: "Daily Spending",
++        data: trendData.map((item) => item.amount),
++        backgroundColor: "rgba(79, 70, 229, 0.8)",
++        borderColor: "rgba(79, 70, 229, 1)",
++        borderWidth: 1,
++        borderRadius: 4,
++      },
++    ],
++  };
++
++  const chartOptions = {
++    responsive: true,
++    maintainAspectRatio: true,
++    plugins: {
++      legend: {
++        display: true,
++        position: "bottom" as const,
++      },
++      tooltip: {
++        callbacks: {
++          label: function (context: any) {
++            return formatCurrency(context.parsed.y || context.parsed);
++          },
++        },
++      },
++    },
++  };
++
++  const barChartOptions = {
++    responsive: true,
++    maintainAspectRatio: true,
++    indexAxis: "x" as const,
++    plugins: {
++      legend: {
++        display: false,
++      },
++      tooltip: {
++        callbacks: {
++          label: function (context: any) {
++            return formatCurrency(context.parsed.y);
++          },
++        },
++      },
++    },
++    scales: {
++      y: {
++        beginAtZero: true,
++        ticks: {
++          callback: function (value: any) {
++            return "$" + value;
++          },
++        },
++      },
++    },
++  };
++
++  return (
++    <div className="space-y-6">
++      <Card className="bg-card border border-border/50 p-6">
++        <h3 className="text-lg font-semibold text-foreground mb-4">
++          Spending by Category
++        </h3>
++
++        {loading ? (
++          <div className="text-center py-8 text-muted-foreground">
++            Loading chart...
++          </div>
++        ) : chartData.length === 0 ? (
++          <div className="text-center py-8 text-muted-foreground">
++            No expense data available
++          </div>
++        ) : (
++          <>
++            <div className="h-64 mb-6">
++              <Pie data={pieChartData} options={chartOptions} />
++            </div>
++
++            <div className="space-y-2">
++              {chartData.map((item) => {
++                const percentage =
++                  totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
++                return (
++                  <div key={item.category} className="flex items-center justify-between">
++                    <div className="flex items-center gap-2 flex-1">
++                      <div
++                        className="w-3 h-3 rounded-full"
++                        style={{ backgroundColor: item.color }}
++                      />
++                      <p className="text-sm text-muted-foreground">
++                        {item.category}
++                      </p>
++                    </div>
++                    <div className="text-right">
++                      <p className="text-sm font-medium text-foreground">
++                        {formatCurrency(item.amount)}
++                      </p>
++                      <p className="text-xs text-muted-foreground">
++                        {percentage.toFixed(1)}%
++                      </p>
++                    </div>
++                  </div>
++                );
++              })}
++            </div>
++          </>
++        )}
++      </Card>
++
++      <Card className="bg-card border border-border/50 p-6">
++        <h3 className="text-lg font-semibold text-foreground mb-4">
++          Daily Spending Trends
++        </h3>
++
++        {loading ? (
++          <div className="text-center py-8 text-muted-foreground">
++            Loading chart...
++          </div>
++        ) : trendData.length === 0 ? (
++          <div className="text-center py-8 text-muted-foreground">
++            No trend data available
++          </div>
++        ) : (
++          <div className="h-64">
++            <Bar data={barChartData} options={barChartOptions} />
++          </div>
++        )}
++      </Card>
++    </div>
++  );
++}
+--- a\personal-expense-tracker\components\dashboard-header.tsx
++++ b\personal-expense-tracker\components\dashboard-header.tsx
+@@ -0,0 +1,25 @@
++"use client";
++
++import { User } from "next-auth";
++
++interface DashboardHeaderProps {
++  user: User | undefined;
++}
++
++export function DashboardHeader({ user }: DashboardHeaderProps) {
++  const currentDate = new Date().toLocaleDateString("en-US", {
++    weekday: "long",
++    year: "numeric",
++    month: "long",
++    day: "numeric",
++  });
++
++  return (
++    <div className="mb-8">
++      <h2 className="text-3xl font-bold text-foreground">
++        Welcome back, {user?.name || "User"}!
++      </h2>
++      <p className="text-muted-foreground mt-2">{currentDate}</p>
++    </div>
++  );
++}
+--- a\personal-expense-tracker\components\dashboard-layout.tsx
++++ b\personal-expense-tracker\components\dashboard-layout.tsx
+@@ -0,0 +1,17 @@
++"use client";
++
++import { ReactNode } from "react";
++import { Sidebar } from "./sidebar";
++
++export function DashboardLayout({ children }: { children: ReactNode }) {
++  return (
++    <div className="flex h-screen bg-background overflow-hidden">
++      <Sidebar />
++      <main className="flex-1 overflow-y-auto overflow-x-hidden">
++        <div className="min-h-screen p-6 md:p-8 max-w-7xl mx-auto w-full">
++          {children}
++        </div>
++      </main>
++    </div>
++  );
++}
+--- a\personal-expense-tracker\components\monthly-analytics.tsx
++++ b\personal-expense-tracker\components\monthly-analytics.tsx
+@@ -0,0 +1,178 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { Card } from "@/components/ui/card";
++import { Button } from "@/components/ui/button";
++import { ChevronLeft, ChevronRight } from "lucide-react";
++
++interface MonthlyData {
++  month: string;
++  income: number;
++  expenses: number;
++  balance: number;
++  topCategories: Array<{
++    name: string;
++    amount: number;
++    percentage: number;
++  }>;
++}
++
++export function MonthlyAnalytics() {
++  const [currentMonth, setCurrentMonth] = useState(new Date());
++  const [monthlyData, setMonthlyData] = useState<MonthlyData | null>(null);
++  const [loading, setLoading] = useState(false);
++
++  useEffect(() => {
++    fetchMonthlyData();
++
++    // Listen for transaction changes to update data in realtime
++    const handleTransactionChange = () => {
++      fetchMonthlyData();
++    };
++
++    window.addEventListener("transactionAdded", handleTransactionChange);
++    window.addEventListener("transactionDeleted", handleTransactionChange);
++
++    return () => {
++      window.removeEventListener("transactionAdded", handleTransactionChange);
++      window.removeEventListener("transactionDeleted", handleTransactionChange);
++    };
++  }, [currentMonth]);
++
++  const fetchMonthlyData = async () => {
++    setLoading(true);
++    try {
++      const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
++      const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
++
++      const response = await fetch(
++        `/api/transactions/monthly?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
++      );
++      if (response.ok) {
++        const data = await response.json();
++        setMonthlyData(data);
++      }
++    } catch (error) {
++      console.error("Failed to fetch monthly data:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  const formatCurrency = (value: number) => {
++    return new Intl.NumberFormat("en-US", {
++      style: "currency",
++      currency: "USD",
++    }).format(value);
++  };
++
++  const previousMonth = () => {
++    setCurrentMonth(
++      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)
++    );
++  };
++
++  const nextMonth = () => {
++    setCurrentMonth(
++      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
++    );
++  };
++
++  const monthYear = currentMonth.toLocaleDateString("en-US", {
++    month: "long",
++    year: "numeric",
++  });
++
++  return (
++    <Card className="bg-card border border-border/50 p-6">
++      <div className="flex items-center justify-between mb-6">
++        <h3 className="text-lg font-semibold text-foreground">Monthly Overview</h3>
++        <div className="flex items-center gap-2">
++          <Button
++            variant="outline"
++            size="sm"
++            onClick={previousMonth}
++          >
++            <ChevronLeft className="w-4 h-4" />
++          </Button>
++          <div className="min-w-32 text-center text-sm font-medium text-foreground">
++            {monthYear}
++          </div>
++          <Button
++            variant="outline"
++            size="sm"
++            onClick={nextMonth}
++          >
++            <ChevronRight className="w-4 h-4" />
++          </Button>
++        </div>
++      </div>
++
++      {loading ? (
++        <div className="text-center py-8 text-muted-foreground">
++          Loading data...
++        </div>
++      ) : monthlyData ? (
++        <div className="space-y-6">
++          <div className="grid grid-cols-3 gap-4">
++            <div className="bg-background/50 p-4 rounded-lg">
++              <p className="text-xs text-muted-foreground mb-1">Income</p>
++              <p className="text-lg font-semibold text-primary">
++                {formatCurrency(monthlyData.income)}
++              </p>
++            </div>
++            <div className="bg-background/50 p-4 rounded-lg">
++              <p className="text-xs text-muted-foreground mb-1">Expenses</p>
++              <p className="text-lg font-semibold text-destructive">
++                {formatCurrency(monthlyData.expenses)}
++              </p>
++            </div>
++            <div className="bg-background/50 p-4 rounded-lg">
++              <p className="text-xs text-muted-foreground mb-1">Balance</p>
++              <p
++                className={`text-lg font-semibold ${monthlyData.balance >= 0 ? "text-primary" : "text-destructive"
++                  }`}
++              >
++                {formatCurrency(monthlyData.balance)}
++              </p>
++            </div>
++          </div>
++
++          <div>
++            <h4 className="text-sm font-semibold text-foreground mb-3">
++              Top Spending Categories
++            </h4>
++            <div className="space-y-2">
++              {monthlyData.topCategories.length > 0 ? (
++                monthlyData.topCategories.map((cat) => (
++                  <div key={cat.name} className="flex items-center justify-between">
++                    <div className="flex-1">
++                      <p className="text-sm text-foreground">{cat.name}</p>
++                      <div className="w-full bg-muted rounded-full h-1.5 mt-1">
++                        <div
++                          className="h-full rounded-full bg-accent"
++                          style={{ width: `${cat.percentage}%` }}
++                        />
++                      </div>
++                    </div>
++                    <p className="text-sm font-medium text-foreground ml-4">
++                      {formatCurrency(cat.amount)}
++                    </p>
++                  </div>
++                ))
++              ) : (
++                <p className="text-sm text-muted-foreground">
++                  No spending data for this month
++                </p>
++              )}
++            </div>
++          </div>
++        </div>
++      ) : (
++        <div className="text-center py-8 text-muted-foreground">
++          No data available
++        </div>
++      )}
++    </Card>
++  );
++}
+--- a\personal-expense-tracker\components\sidebar.tsx
++++ b\personal-expense-tracker\components\sidebar.tsx
+@@ -0,0 +1,80 @@
++"use client";
++
++import { signOut } from "next-auth/react";
++import Link from "next/link";
++import { Button } from "@/components/ui/button";
++import { LogOut, TrendingUp, Calendar, BarChart3 } from "lucide-react";
++import { usePathname } from "next/navigation";
++
++const navItems = [
++  { href: "/dashboard", label: "Dashboard", icon: TrendingUp },
++  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
++  { href: "/dashboard/transactions", label: "Transactions", icon: Calendar },
++];
++
++export function Sidebar() {
++  const pathname = usePathname();
++
++  const handleLogout = async () => {
++    await signOut({ callbackUrl: "/login" });
++  };
++
++  // Helper to check if a nav item is active
++  const isActiveItem = (href: string) => {
++    // Exact match for dashboard root
++    if (href === "/dashboard") {
++      return pathname === "/dashboard";
++    }
++    // For other items, check if pathname starts with the href
++    return pathname === href || pathname.startsWith(href + "/");
++  };
++
++  return (
++    <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-full shadow-sm">
++      <div className="p-6 border-b border-sidebar-border">
++        <div className="flex items-center gap-2 mb-2">
++          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
++            <TrendingUp className="w-5 h-5 text-primary-foreground" />
++          </div>
++          <h1 className="text-xl font-bold text-sidebar-foreground">
++            ExpenseTrack
++          </h1>
++        </div>
++        <p className="text-xs text-muted-foreground">
++          Smart spending management
++        </p>
++      </div>
++
++      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
++        {navItems.map((item) => {
++          const Icon = item.icon;
++          const isActive = isActiveItem(item.href);
++          return (
++            <Link key={item.href} href={item.href}>
++              <div
++                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 ${isActive
++                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
++                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
++                  }`}
++              >
++                <Icon className="w-4 h-4" />
++                <span className="text-sm font-medium">{item.label}</span>
++              </div>
++            </Link>
++          );
++        })}
++      </nav>
++
++      <div className="p-4 border-t border-sidebar-border">
++        <Button
++          onClick={handleLogout}
++          variant="outline"
++          className="w-full justify-start gap-2 text-destructive hover:text-destructive bg-transparent"
++        >
++          <LogOut className="w-4 h-4" />
++          Logout
++        </Button>
++      </div>
++    </aside>
++  );
++}
+--- a\personal-expense-tracker\components\spending-trends.tsx
++++ b\personal-expense-tracker\components\spending-trends.tsx
+@@ -0,0 +1,153 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { Card } from "@/components/ui/card";
++import { Line } from "react-chartjs-2";
++import {
++  Chart as ChartJS,
++  CategoryScale,
++  LinearScale,
++  PointElement,
++  LineElement,
++  Tooltip as ChartTooltip,
++  Legend,
++} from "chart.js";
++
++ChartJS.register(
++  CategoryScale,
++  LinearScale,
++  PointElement,
++  LineElement,
++  ChartTooltip,
++  Legend
++);
++
++interface TrendData {
++  date: string;
++  income: number;
++  expenses: number;
++}
++
++export function SpendingTrends() {
++  const [trendData, setTrendData] = useState<TrendData[]>([]);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    fetchTrendData();
++
++    // Listen for transaction changes to update data in realtime
++    const handleTransactionChange = () => {
++      fetchTrendData();
++    };
++
++    window.addEventListener("transactionAdded", handleTransactionChange);
++    window.addEventListener("transactionDeleted", handleTransactionChange);
++
++    return () => {
++      window.removeEventListener("transactionAdded", handleTransactionChange);
++      window.removeEventListener("transactionDeleted", handleTransactionChange);
++    };
++  }, []);
++
++  const fetchTrendData = async () => {
++    try {
++      const response = await fetch("/api/transactions/trends");
++      if (response.ok) {
++        const data = await response.json();
++        setTrendData(data);
++      }
++    } catch (error) {
++      console.error("Failed to fetch trend data:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  const formatCurrency = (value: number) => {
++    return new Intl.NumberFormat("en-US", {
++      style: "currency",
++      currency: "USD",
++      maximumFractionDigits: 0,
++    }).format(value);
++  };
++
++  const lineChartData = {
++    labels: trendData.map((item) => item.date),
++    datasets: [
++      {
++        label: "Income",
++        data: trendData.map((item) => item.income),
++        borderColor: "rgba(79, 70, 229, 1)",
++        backgroundColor: "rgba(79, 70, 229, 0.1)",
++        borderWidth: 2,
++        fill: true,
++        tension: 0.4,
++        pointRadius: 4,
++        pointHoverRadius: 6,
++        pointBackgroundColor: "rgba(79, 70, 229, 1)",
++      },
++      {
++        label: "Expenses",
++        data: trendData.map((item) => item.expenses),
++        borderColor: "rgba(239, 68, 68, 1)",
++        backgroundColor: "rgba(239, 68, 68, 0.1)",
++        borderWidth: 2,
++        fill: true,
++        tension: 0.4,
++        pointRadius: 4,
++        pointHoverRadius: 6,
++        pointBackgroundColor: "rgba(239, 68, 68, 1)",
++      },
++    ],
++  };
++
++  const lineChartOptions = {
++    responsive: true,
++    maintainAspectRatio: true,
++    plugins: {
++      legend: {
++        display: true,
++        position: "bottom" as const,
++      },
++      tooltip: {
++        callbacks: {
++          label: function (context: any) {
++            return context.dataset.label + ": " + formatCurrency(context.parsed.y);
++          },
++        },
++      },
++    },
++    scales: {
++      y: {
++        beginAtZero: true,
++        ticks: {
++          callback: function (value: any) {
++            return "$" + value;
++          },
++        },
++      },
++    },
++  };
++
++  return (
++    <Card className="bg-card border border-border/50 p-6">
++      <h3 className="text-lg font-semibold text-foreground mb-4">
++        Spending Trends (Last 30 Days)
++      </h3>
++
++      {loading ? (
++        <div className="text-center py-8 text-muted-foreground">
++          Loading chart...
++        </div>
++      ) : trendData.length === 0 ? (
++        <div className="text-center py-8 text-muted-foreground">
++          No data available
++        </div>
++      ) : (
++        <div className="h-80">
++          <Line data={lineChartData} options={lineChartOptions} />
++        </div>
++      )}
++    </Card>
++  );
++}
+--- a\personal-expense-tracker\components\stats-summary.tsx
++++ b\personal-expense-tracker\components\stats-summary.tsx
+@@ -0,0 +1,107 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { Card } from "@/components/ui/card";
++import { TrendingDown, TrendingUp, DollarSign } from "lucide-react";
++
++interface Stats {
++  income: number;
++  expenses: number;
++  balance: number;
++}
++
++export function StatsSummary() {
++  const [stats, setStats] = useState<Stats>({
++    income: 0,
++    expenses: 0,
++    balance: 0,
++  });
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    fetchStats();
++
++    // Listen for transaction changes to update stats in realtime
++    const handleTransactionChange = () => {
++      fetchStats();
++    };
++
++    window.addEventListener("transactionAdded", handleTransactionChange);
++    window.addEventListener("transactionDeleted", handleTransactionChange);
++
++    return () => {
++      window.removeEventListener("transactionAdded", handleTransactionChange);
++      window.removeEventListener("transactionDeleted", handleTransactionChange);
++    };
++  }, []);
++
++  const fetchStats = async () => {
++    try {
++      const response = await fetch("/api/transactions/stats");
++      if (response.ok) {
++        const data = await response.json();
++        setStats(data);
++      }
++    } catch (error) {
++      console.error("Failed to fetch stats:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  const formatCurrency = (value: number) => {
++    return new Intl.NumberFormat("en-US", {
++      style: "currency",
++      currency: "USD",
++    }).format(value);
++  };
++
++  return (
++    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
++      <Card className="bg-card border border-border/50 p-6">
++        <div className="flex items-center justify-between">
++          <div>
++            <p className="text-sm text-muted-foreground mb-1">Total Income</p>
++            <p className="text-2xl font-bold text-primary">
++              {loading ? "..." : formatCurrency(stats.income)}
++            </p>
++          </div>
++          <div className="bg-primary/10 p-3 rounded-lg">
++            <TrendingUp className="w-5 h-5 text-primary" />
++          </div>
++        </div>
++      </Card>
++
++      <Card className="bg-card border border-border/50 p-6">
++        <div className="flex items-center justify-between">
++          <div>
++            <p className="text-sm text-muted-foreground mb-1">Total Expenses</p>
++            <p className="text-2xl font-bold text-destructive">
++              {loading ? "..." : formatCurrency(stats.expenses)}
++            </p>
++          </div>
++          <div className="bg-destructive/10 p-3 rounded-lg">
++            <TrendingDown className="w-5 h-5 text-destructive" />
++          </div>
++        </div>
++      </Card>
++
++      <Card className="bg-card border border-border/50 p-6">
++        <div className="flex items-center justify-between">
++          <div>
++            <p className="text-sm text-muted-foreground mb-1">Balance</p>
++            <p
++              className={`text-2xl font-bold ${stats.balance >= 0 ? "text-primary" : "text-destructive"
++                }`}
++            >
++              {loading ? "..." : formatCurrency(stats.balance)}
++            </p>
++          </div>
++          <div className="bg-accent/10 p-3 rounded-lg">
++            <DollarSign className="w-5 h-5 text-accent" />
++          </div>
++        </div>
++      </Card>
++    </div>
++  );
++}
+--- a\personal-expense-tracker\components\transaction-form.tsx
++++ b\personal-expense-tracker\components\transaction-form.tsx
+@@ -0,0 +1,209 @@
++"use client";
++
++import React from "react"
++
++import { useState, useEffect } from "react";
++import { Card } from "@/components/ui/card";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { Loader2 } from "lucide-react";
++
++interface Category {
++  id: string;
++  name: string;
++  type: string;
++  color: string;
++}
++
++export function TransactionForm() {
++  const [categories, setCategories] = useState<Category[]>([]);
++  const [loading, setLoading] = useState(false);
++  const [transactionType, setTransactionType] = useState<"income" | "expense">(
++    "expense"
++  );
++  const [formData, setFormData] = useState({
++    amount: "",
++    description: "",
++    categoryId: "",
++    date: new Date().toISOString().split("T")[0],
++  });
++
++  useEffect(() => {
++    fetchCategories();
++  }, []);
++
++  const fetchCategories = async () => {
++    try {
++      const response = await fetch(
++        `/api/categories?type=${transactionType}`
++      );
++      if (response.ok) {
++        const data = await response.json();
++        setCategories(data);
++        if (data.length > 0) {
++          setFormData((prev) => ({ ...prev, categoryId: data[0].id }));
++        }
++      }
++    } catch (error) {
++      console.error("Failed to fetch categories:", error);
++    }
++  };
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    setLoading(true);
++
++    try {
++      const response = await fetch("/api/transactions", {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({
++          amount: parseFloat(formData.amount),
++          description: formData.description,
++          categoryId: formData.categoryId,
++          type: transactionType,
++          date: new Date(formData.date),
++        }),
++      });
++
++      if (response.ok) {
++        setFormData({
++          amount: "",
++          description: "",
++          categoryId: "",
++          date: new Date().toISOString().split("T")[0],
++        });
++        window.dispatchEvent(new Event("transactionAdded"));
++      }
++    } catch (error) {
++      console.error("Failed to create transaction:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  const handleTypeChange = (type: "income" | "expense") => {
++    setTransactionType(type);
++    setFormData((prev) => ({ ...prev, categoryId: "" }));
++  };
++
++  return (
++    <Card className="bg-card border border-border/50 p-6 shadow-sm">
++      <h3 className="text-lg font-semibold text-foreground mb-6">
++        Add New Transaction
++      </h3>
++
++      <div className="flex gap-2 mb-6 p-1 bg-muted rounded-lg">
++        <Button
++          type="button"
++          onClick={() => handleTypeChange("expense")}
++          variant={transactionType === "expense" ? "default" : "ghost"}
++          className="flex-1 rounded-md"
++        >
++          Expense
++        </Button>
++        <Button
++          type="button"
++          onClick={() => handleTypeChange("income")}
++          variant={transactionType === "income" ? "default" : "ghost"}
++          className="flex-1 rounded-md"
++        >
++          Income
++        </Button>
++      </div>
++
++      <form onSubmit={handleSubmit} className="space-y-4">
++        <div className="grid grid-cols-2 gap-4">
++          <div>
++            <label className="block text-sm font-medium text-foreground mb-2">
++              Amount
++            </label>
++            <div className="relative">
++              <span className="absolute left-3 top-3 text-muted-foreground">$</span>
++              <Input
++                type="number"
++                step="0.01"
++                placeholder="0.00"
++                value={formData.amount}
++                onChange={(e) =>
++                  setFormData({ ...formData, amount: e.target.value })
++                }
++                required
++                disabled={loading}
++                className="pl-6"
++              />
++            </div>
++          </div>
++
++          <div>
++            <label className="block text-sm font-medium text-foreground mb-2">
++              Date
++            </label>
++            <Input
++              type="date"
++              value={formData.date}
++              onChange={(e) =>
++                setFormData({ ...formData, date: e.target.value })
++              }
++              required
++              disabled={loading}
++            />
++          </div>
++        </div>
++
++        <div>
++          <label className="block text-sm font-medium text-foreground mb-2">
++            Description
++          </label>
++          <Input
++            type="text"
++            placeholder="What did you spend on?"
++            value={formData.description}
++            onChange={(e) =>
++              setFormData({ ...formData, description: e.target.value })
++            }
++            required
++            disabled={loading}
++          />
++        </div>
++
++        <div>
++          <label className="block text-sm font-medium text-foreground mb-2">
++            Category
++          </label>
++          <select
++            value={formData.categoryId}
++            onChange={(e) =>
++              setFormData({ ...formData, categoryId: e.target.value })
++            }
++            required
++            disabled={loading}
++            className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
++          >
++            <option value="">Select a category</option>
++            {categories.map((cat) => (
++              <option key={cat.id} value={cat.id}>
++                {cat.name}
++              </option>
++            ))}
++          </select>
++        </div>
++
++        <Button
++          type="submit"
++          disabled={loading}
++          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
++        >
++          {loading ? (
++            <>
++              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
++              Adding...
++            </>
++          ) : (
++            "Add Transaction"
++          )}
++        </Button>
++      </form>
++    </Card>
++  );
++}
+--- a\personal-expense-tracker\components\transaction-list.tsx
++++ b\personal-expense-tracker\components\transaction-list.tsx
+@@ -0,0 +1,335 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { Card } from "@/components/ui/card";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { Trash2, ChevronLeft, ChevronRight } from "lucide-react";
++
++interface Transaction {
++  id: string;
++  amount: number;
++  description: string;
++  type: string;
++  date: string;
++  category: {
++    name: string;
++    icon: string;
++    color: string;
++  };
++}
++
++type DateRange = "all" | "week" | "month" | "custom";
++
++export function TransactionList() {
++  const [transactions, setTransactions] = useState<Transaction[]>([]);
++  const [loading, setLoading] = useState(true);
++  const [currentPage, setCurrentPage] = useState(1);
++  const [pageSize] = useState(10);
++  const [filterType, setFilterType] = useState<"all" | "income" | "expense">(
++    "all"
++  );
++  const [searchTerm, setSearchTerm] = useState("");
++  const [totalCount, setTotalCount] = useState(0);
++  const [dateRange, setDateRange] = useState<DateRange>("all");
++  const [startDate, setStartDate] = useState("");
++  const [endDate, setEndDate] = useState("");
++
++  useEffect(() => {
++    fetchTransactions();
++    window.addEventListener("transactionAdded", () => {
++      setCurrentPage(1);
++      fetchTransactions();
++    });
++    return () =>
++      window.removeEventListener("transactionAdded", fetchTransactions);
++  }, []);
++
++  useEffect(() => {
++    fetchTransactions();
++  }, [currentPage, filterType, searchTerm, dateRange, startDate, endDate]);
++
++  const getDateRangeParams = () => {
++    const now = new Date();
++    const params: Record<string, string> = {};
++
++    if (dateRange === "week") {
++      const weekStart = new Date(now);
++      weekStart.setDate(now.getDate() - now.getDay());
++      params.startDate = weekStart.toISOString().split("T")[0];
++      params.endDate = now.toISOString().split("T")[0];
++    } else if (dateRange === "month") {
++      params.startDate = new Date(now.getFullYear(), now.getMonth(), 1)
++        .toISOString()
++        .split("T")[0];
++      params.endDate = now.toISOString().split("T")[0];
++    } else if (dateRange === "custom") {
++      if (startDate) params.startDate = startDate;
++      if (endDate) params.endDate = endDate;
++    }
++
++    return params;
++  };
++
++  const fetchTransactions = async () => {
++    try {
++      setLoading(true);
++      const offset = (currentPage - 1) * pageSize;
++      const dateParams = getDateRangeParams();
++      const params = new URLSearchParams({
++        limit: pageSize.toString(),
++        offset: offset.toString(),
++        ...(filterType !== "all" && { type: filterType }),
++        ...(searchTerm && { search: searchTerm }),
++        ...dateParams,
++      });
++      const response = await fetch(`/api/transactions?${params}`);
++      if (response.ok) {
++        const data = await response.json();
++        setTransactions(data.transactions || data);
++        setTotalCount(data.total || data.length);
++      }
++    } catch (error) {
++      console.error("Failed to fetch transactions:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  const handleDelete = async (id: string) => {
++    if (!confirm("Are you sure you want to delete this transaction?")) return;
++
++    try {
++      const response = await fetch(`/api/transactions/${id}`, {
++        method: "DELETE",
++      });
++      if (response.ok) {
++        fetchTransactions();
++        // Dispatch event so other components (analytics, charts) can update
++        window.dispatchEvent(new Event("transactionDeleted"));
++      }
++    } catch (error) {
++      console.error("Failed to delete transaction:", error);
++    }
++  };
++
++  const formatCurrency = (value: number) => {
++    return new Intl.NumberFormat("en-US", {
++      style: "currency",
++      currency: "USD",
++    }).format(value);
++  };
++
++  const formatDate = (date: string) => {
++    return new Date(date).toLocaleDateString("en-US", {
++      month: "short",
++      day: "numeric",
++      year: "numeric",
++    });
++  };
++
++  const totalPages = Math.ceil(totalCount / pageSize);
++
++  const filterTotal = transactions.reduce((sum, t) => {
++    return t.type === "income" ? sum + t.amount : sum - t.amount;
++  }, 0);
++
++  const totalIncome = transactions
++    .filter((t) => t.type === "income")
++    .reduce((sum, t) => sum + t.amount, 0);
++
++  const totalExpenses = transactions
++    .filter((t) => t.type === "expense")
++    .reduce((sum, t) => sum + t.amount, 0);
++
++  return (
++    <Card className="bg-card border border-border/50 p-6">
++      <div className="flex flex-col gap-4 mb-6">
++        <h3 className="text-lg font-semibold text-foreground">
++          Recent Transactions
++        </h3>
++
++        <div className="flex flex-col gap-3">
++          <div className="flex flex-col md:flex-row gap-3">
++            <Input
++              type="text"
++              placeholder="Search transactions..."
++              value={searchTerm}
++              onChange={(e) => {
++                setSearchTerm(e.target.value);
++                setCurrentPage(1);
++              }}
++              className="flex-1"
++            />
++            <select
++              value={filterType}
++              onChange={(e) => {
++                setFilterType(e.target.value as "all" | "income" | "expense");
++                setCurrentPage(1);
++              }}
++              className="px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm"
++            >
++              <option value="all">All Types</option>
++              <option value="income">Income Only</option>
++              <option value="expense">Expenses Only</option>
++            </select>
++          </div>
++
++          <div className="flex flex-col md:flex-row gap-3">
++            <select
++              value={dateRange}
++              onChange={(e) => {
++                setDateRange(e.target.value as DateRange);
++                setCurrentPage(1);
++              }}
++              className="px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm"
++            >
++              <option value="all">All Dates</option>
++              <option value="week">This Week</option>
++              <option value="month">This Month</option>
++              <option value="custom">Custom Range</option>
++            </select>
++
++            {dateRange === "custom" && (
++              <>
++                <Input
++                  type="date"
++                  placeholder="Start Date"
++                  value={startDate}
++                  onChange={(e) => {
++                    setStartDate(e.target.value);
++                    setCurrentPage(1);
++                  }}
++                  className="flex-1"
++                />
++                <Input
++                  type="date"
++                  placeholder="End Date"
++                  value={endDate}
++                  onChange={(e) => {
++                    setEndDate(e.target.value);
++                    setCurrentPage(1);
++                  }}
++                  className="flex-1"
++                />
++              </>
++            )}
++          </div>
++        </div>
++      </div>
++
++      {loading ? (
++        <div className="text-center py-8 text-muted-foreground">
++          Loading transactions...
++        </div>
++      ) : transactions.length === 0 ? (
++        <div className="text-center py-8 text-muted-foreground">
++          No transactions found. Add your first transaction!
++        </div>
++      ) : (
++        <>
++          <div className="space-y-2">
++            {transactions.map((transaction) => (
++              <div
++                key={transaction.id}
++                className="flex items-center justify-between p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
++              >
++                <div className="flex items-center gap-3 flex-1">
++                  <div
++                    className="w-10 h-10 rounded-lg flex items-center justify-center text-lg"
++                    style={{ backgroundColor: transaction.category.color + "20" }}
++                  >
++                    {transaction.category.icon}
++                  </div>
++                  <div className="flex-1">
++                    <p className="font-medium text-foreground">
++                      {transaction.description}
++                    </p>
++                    <p className="text-xs text-muted-foreground">
++                      {transaction.category.name} • {formatDate(transaction.date)}
++                    </p>
++                  </div>
++                </div>
++                <div className="flex items-center gap-3">
++                  <p
++                    className={`font-semibold ${transaction.type === "income"
++                        ? "text-primary"
++                        : "text-destructive"
++                      }`}
++                  >
++                    {transaction.type === "income" ? "+" : "-"}
++                    {formatCurrency(transaction.amount)}
++                  </p>
++                  <Button
++                    variant="ghost"
++                    size="sm"
++                    onClick={() => handleDelete(transaction.id)}
++                    className="text-muted-foreground hover:text-destructive"
++                  >
++                    <Trash2 className="w-4 h-4" />
++                  </Button>
++                </div>
++              </div>
++            ))}
++          </div>
++
++          <div className="mt-6 pt-6 border-t border-border space-y-4">
++            {transactions.length > 0 && (
++              <div className="grid grid-cols-3 gap-4">
++                <div className="bg-primary/5 p-3 rounded-lg">
++                  <p className="text-xs text-muted-foreground mb-1">Income</p>
++                  <p className="text-lg font-semibold text-primary">
++                    {formatCurrency(totalIncome)}
++                  </p>
++                </div>
++                <div className="bg-destructive/5 p-3 rounded-lg">
++                  <p className="text-xs text-muted-foreground mb-1">Expenses</p>
++                  <p className="text-lg font-semibold text-destructive">
++                    {formatCurrency(totalExpenses)}
++                  </p>
++                </div>
++                <div className="bg-card border border-border/50 p-3 rounded-lg">
++                  <p className="text-xs text-muted-foreground mb-1">Total</p>
++                  <p
++                    className={`text-lg font-semibold ${filterTotal >= 0 ? "text-primary" : "text-destructive"
++                      }`}
++                  >
++                    {formatCurrency(filterTotal)}
++                  </p>
++                </div>
++              </div>
++            )}
++
++            {totalPages > 1 && (
++              <div className="flex items-center justify-between">
++                <div className="text-sm text-muted-foreground">
++                  Page {currentPage} of {totalPages}
++                </div>
++                <div className="flex gap-2">
++                  <Button
++                    variant="outline"
++                    size="sm"
++                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
++                    disabled={currentPage === 1}
++                  >
++                    <ChevronLeft className="w-4 h-4" />
++                  </Button>
++                  <Button
++                    variant="outline"
++                    size="sm"
++                    onClick={() =>
++                      setCurrentPage(Math.min(totalPages, currentPage + 1))
++                    }
++                    disabled={currentPage === totalPages}
++                  >
++                    <ChevronRight className="w-4 h-4" />
++                  </Button>
++                </div>
++              </div>
++            )}
++          </div>
++        </>
++      )}
++    </Card>
++  );
++}
+--- a\personal-expense-tracker\components\ui\button.tsx
++++ b\personal-expense-tracker\components\ui\button.tsx
+@@ -0,0 +1,64 @@
++import * as React from "react"
++import { Slot } from "@radix-ui/react-slot"
++import { cva, type VariantProps } from "class-variance-authority"
++
++import { cn } from "@/lib/utils"
++
++const buttonVariants = cva(
++  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
++  {
++    variants: {
++      variant: {
++        default: "bg-primary text-primary-foreground hover:bg-primary/90",
++        destructive:
++          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
++        outline:
++          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
++        secondary:
++          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
++        ghost:
++          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
++        link: "text-primary underline-offset-4 hover:underline",
++      },
++      size: {
++        default: "h-9 px-4 py-2 has-[>svg]:px-3",
++        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
++        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
++        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
++        icon: "size-9",
++        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
++        "icon-sm": "size-8",
++        "icon-lg": "size-10",
++      },
++    },
++    defaultVariants: {
++      variant: "default",
++      size: "default",
++    },
++  }
++)
++
++function Button({
++  className,
++  variant = "default",
++  size = "default",
++  asChild = false,
++  ...props
++}: React.ComponentProps<"button"> &
++  VariantProps<typeof buttonVariants> & {
++    asChild?: boolean
++  }) {
++  const Comp = asChild ? Slot : "button"
++
++  return (
++    <Comp
++      data-slot="button"
++      data-variant={variant}
++      data-size={size}
++      className={cn(buttonVariants({ variant, size, className }))}
++      {...props}
++    />
++  )
++}
++
++export { Button, buttonVariants }
+--- a\personal-expense-tracker\components\ui\card.tsx
++++ b\personal-expense-tracker\components\ui\card.tsx
+@@ -0,0 +1,92 @@
++import * as React from "react"
++
++import { cn } from "@/lib/utils"
++
++function Card({ className, ...props }: React.ComponentProps<"div">) {
++  return (
++    <div
++      data-slot="card"
++      className={cn(
++        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
++        className
++      )}
++      {...props}
++    />
++  )
++}
++
++function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
++  return (
++    <div
++      data-slot="card-header"
++      className={cn(
++        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
++        className
++      )}
++      {...props}
++    />
++  )
++}
++
++function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
++  return (
++    <div
++      data-slot="card-title"
++      className={cn("leading-none font-semibold", className)}
++      {...props}
++    />
++  )
++}
++
++function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
++  return (
++    <div
++      data-slot="card-description"
++      className={cn("text-muted-foreground text-sm", className)}
++      {...props}
++    />
++  )
++}
++
++function CardAction({ className, ...props }: React.ComponentProps<"div">) {
++  return (
++    <div
++      data-slot="card-action"
++      className={cn(
++        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
++        className
++      )}
++      {...props}
++    />
++  )
++}
++
++function CardContent({ className, ...props }: React.ComponentProps<"div">) {
++  return (
++    <div
++      data-slot="card-content"
++      className={cn("px-6", className)}
++      {...props}
++    />
++  )
++}
++
++function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
++  return (
++    <div
++      data-slot="card-footer"
++      className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
++      {...props}
++    />
++  )
++}
++
++export {
++  Card,
++  CardHeader,
++  CardFooter,
++  CardTitle,
++  CardAction,
++  CardDescription,
++  CardContent,
++}
+--- a\personal-expense-tracker\components\ui\input.tsx
++++ b\personal-expense-tracker\components\ui\input.tsx
+@@ -0,0 +1,21 @@
++import * as React from "react"
++
++import { cn } from "@/lib/utils"
++
++function Input({ className, type, ...props }: React.ComponentProps<"input">) {
++  return (
++    <input
++      type={type}
++      data-slot="input"
++      className={cn(
++        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
++        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
++        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
++        className
++      )}
++      {...props}
++    />
++  )
++}
++
++export { Input }
+--- a\personal-expense-tracker\lib\auth.ts
++++ b\personal-expense-tracker\lib\auth.ts
+@@ -0,0 +1,88 @@
++import type { NextAuthConfig } from "next-auth";
++import CredentialsProvider from "next-auth/providers/credentials";
++import NextAuth from "next-auth";
++import bcryptjs from "bcryptjs";
++
++import { prisma } from "./prisma";
++
++const config = {
++  providers: [
++    CredentialsProvider({
++      name: "Credentials",
++      credentials: {
++        email: { label: "Email", type: "email" },
++        password: { label: "Password", type: "password" },
++      },
++      async authorize(credentials) {
++        if (!credentials?.email || !credentials?.password) {
++          return null;
++        }
++
++        try {
++          console.log("Authorizing user:", credentials.email);
++
++          const user = await prisma.user.findUnique({
++            where: { email: credentials.email as string },
++          });
++
++          console.log("User found:", user ? "yes" : "no");
++
++          if (!user || !user.password) {
++            console.log("User not found or no password");
++            return null;
++          }
++
++          const isPasswordValid = await bcryptjs.compare(
++            credentials.password as string,
++            user.password
++          );
++
++          console.log("Password valid:", isPasswordValid);
++
++          if (!isPasswordValid) {
++            console.log("Invalid password");
++            return null;
++          }
++
++          console.log("Authorization successful for:", user.email);
++          return {
++            id: user.id,
++            email: user.email,
++            name: user.name,
++          };
++        } catch (error) {
++          console.error("Auth error:", error);
++          return null;
++        }
++      },
++    }),
++  ],
++  callbacks: {
++    async jwt({ token, user }: any) {
++      if (user) {
++        token.id = user.id;
++      }
++      return token;
++    },
++    async session({ session, token }: any) {
++      if (session?.user) {
++        session.user.id = token.id;
++      }
++      return session;
++    },
++    async redirect({ url, baseUrl }: any) {
++      return url.startsWith(baseUrl) ? url : baseUrl;
++    },
++  },
++  pages: {
++    signIn: "/login",
++  },
++  session: {
++    strategy: "jwt" as const,
++    maxAge: 30 * 24 * 60 * 60,
++  },
++  secret: process.env.NEXTAUTH_SECRET || "expense-tracker-secret-key",
++  trustHost: true,
++} satisfies NextAuthConfig;
++
++export const { handlers, auth, signIn, signOut } = NextAuth(config);
+--- a\personal-expense-tracker\lib\prisma.ts
++++ b\personal-expense-tracker\lib\prisma.ts
+@@ -0,0 +1,23 @@
++import { PrismaClient } from "@prisma/client";
++
++const globalForPrisma = global as unknown as { prisma?: PrismaClient };
++
++function getPrismaClient() {
++  if (globalForPrisma.prisma) {
++    return globalForPrisma.prisma;
++  }
++
++  const prisma = new PrismaClient({
++    log: process.env.NODE_ENV === "development" ? ["error"] : [],
++  });
++
++  if (process.env.NODE_ENV === "development") {
++    globalForPrisma.prisma = prisma;
++  }
++
++  return prisma;
++}
++
++export const prisma = getPrismaClient();
++
++export default prisma;
+--- a\personal-expense-tracker\lib\utils.ts
++++ b\personal-expense-tracker\lib\utils.ts
+@@ -0,0 +1,6 @@
++import { clsx, type ClassValue } from 'clsx'
++import { twMerge } from 'tailwind-merge'
++
++export function cn(...inputs: ClassValue[]) {
++  return twMerge(clsx(inputs))
++}
+--- a\personal-expense-tracker\prisma\schema.prisma
++++ b\personal-expense-tracker\prisma\schema.prisma
+@@ -0,0 +1,96 @@
++generator client {
++  provider = "prisma-client-js"
++}
++
++datasource db {
++  provider = "sqlite"
++  url      = env("DATABASE_URL")
++}
++
++model User {
++  id            String    @id @default(cuid())
++  email         String?   @unique
++  password      String?
++  name          String?
++  emailVerified DateTime?
++  image         String?
++  createdAt     DateTime  @default(now())
++  updatedAt     DateTime  @updatedAt
++
++  accounts      Account[]
++  sessions      Session[]
++  transactions  Transaction[]
++
++  @@map("users")
++}
++
++model Account {
++  id                 String  @id @default(cuid())
++  userId             String  @map("user_id")
++  type               String
++  provider           String
++  providerAccountId  String  @map("provider_account_id")
++  refresh_token      String?
++  access_token       String?
++  expires_at         Int?
++  token_type         String?
++  scope              String?
++  id_token           String?
++  session_state      String?
++
++  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
++
++  @@unique([provider, providerAccountId])
++  @@map("accounts")
++}
++
++model Session {
++  id           String   @id @default(cuid())
++  sessionToken String   @unique @map("session_token")
++  userId       String   @map("user_id")
++  expires      DateTime
++  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
++
++  @@map("sessions")
++}
++
++model VerificationToken {
++  identifier String
++  token      String   @unique
++  expires    DateTime
++
++  @@unique([identifier, token])
++  @@map("verification_tokens")
++}
++
++model Category {
++  id        String     @id @default(cuid())
++  name      String     @unique
++  type      String     // "income" or "expense"
++  color     String     @default("#3b82f6")
++  icon      String?
++  createdAt DateTime   @default(now())
++
++  transactions Transaction[]
++
++  @@map("categories")
++}
++
++model Transaction {
++  id          String   @id @default(cuid())
++  userId      String
++  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
++  categoryId  String
++  category    Category @relation(fields: [categoryId], references: [id])
++  amount      Float
++  description String
++  type        String   // "income" or "expense"
++  date        DateTime
++  createdAt   DateTime @default(now())
++  updatedAt   DateTime @updatedAt
++
++  @@index([userId])
++  @@index([categoryId])
++  @@index([date])
++  @@map("transactions")
++}
+--- a\personal-expense-tracker\prisma\seed.ts
++++ b\personal-expense-tracker\prisma\seed.ts
+@@ -0,0 +1,51 @@
++import { PrismaClient } from "@prisma/client";
++
++const prisma = new PrismaClient();
++
++async function main() {
++  // Clear existing data
++  await prisma.transaction.deleteMany();
++  await prisma.category.deleteMany();
++  await prisma.user.deleteMany();
++
++  // Create categories for expenses
++  const expenseCategories = [
++    { name: "Food & Dining", type: "expense", color: "#f97316", icon: "🍔" },
++    { name: "Transport", type: "expense", color: "#06b6d4", icon: "🚗" },
++    { name: "Entertainment", type: "expense", color: "#a855f7", icon: "🎬" },
++    { name: "Bills & Utilities", type: "expense", color: "#ef4444", icon: "⚡" },
++    { name: "Shopping", type: "expense", color: "#ec4899", icon: "🛍️" },
++    { name: "Healthcare", type: "expense", color: "#10b981", icon: "🏥" },
++    { name: "Education", type: "expense", color: "#3b82f6", icon: "📚" },
++    { name: "Other", type: "expense", color: "#6b7280", icon: "📌" },
++  ];
++
++  // Create categories for income
++  const incomeCategories = [
++    { name: "Salary", type: "income", color: "#22c55e", icon: "💰" },
++    { name: "Freelance", type: "income", color: "#84cc16", icon: "💻" },
++    { name: "Investment", type: "income", color: "#06b6d4", icon: "📈" },
++    { name: "Bonus", type: "income", color: "#f59e0b", icon: "🎁" },
++    { name: "Other Income", type: "income", color: "#10b981", icon: "💵" },
++  ];
++
++  const allCategories = [...expenseCategories, ...incomeCategories];
++
++  for (const category of allCategories) {
++    await prisma.category.create({
++      data: category,
++    });
++  }
++
++  console.log("Database seeded successfully");
++}
++
++main()
++  .then(async () => {
++    await prisma.$disconnect();
++  })
++  .catch(async (e) => {
++    console.error(e);
++    await prisma.$disconnect();
++    process.exit(1);
++  });
+--- a\personal-expense-tracker\scripts\init-db.sql
++++ b\personal-expense-tracker\scripts\init-db.sql
+@@ -0,0 +1,90 @@
++-- Create Users table
++CREATE TABLE IF NOT EXISTS users (
++  id TEXT PRIMARY KEY,
++  email TEXT UNIQUE NOT NULL,
++  password TEXT NOT NULL,
++  name TEXT,
++  emailVerified DATETIME,
++  image TEXT,
++  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
++  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
++);
++
++-- Create Accounts table (for future OAuth support)
++CREATE TABLE IF NOT EXISTS accounts (
++  id TEXT PRIMARY KEY,
++  userId TEXT NOT NULL,
++  type TEXT NOT NULL,
++  provider TEXT NOT NULL,
++  providerAccountId TEXT NOT NULL,
++  refresh_token TEXT,
++  access_token TEXT,
++  expires_at INTEGER,
++  token_type TEXT,
++  scope TEXT,
++  id_token TEXT,
++  session_state TEXT,
++  UNIQUE(provider, providerAccountId),
++  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
++);
++
++-- Create Sessions table
++CREATE TABLE IF NOT EXISTS sessions (
++  id TEXT PRIMARY KEY,
++  sessionToken TEXT UNIQUE NOT NULL,
++  userId TEXT NOT NULL,
++  expires DATETIME NOT NULL,
++  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
++);
++
++-- Create VerificationToken table
++CREATE TABLE IF NOT EXISTS verification_tokens (
++  identifier TEXT NOT NULL,
++  token TEXT UNIQUE NOT NULL,
++  expires DATETIME NOT NULL,
++  UNIQUE(identifier, token)
++);
++
++-- Create Categories table
++CREATE TABLE IF NOT EXISTS categories (
++  id TEXT PRIMARY KEY,
++  name TEXT NOT NULL,
++  type TEXT NOT NULL,
++  icon TEXT NOT NULL,
++  color TEXT NOT NULL,
++  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
++);
++
++-- Create Transactions table
++CREATE TABLE IF NOT EXISTS transactions (
++  id TEXT PRIMARY KEY,
++  userId TEXT NOT NULL,
++  amount REAL NOT NULL,
++  description TEXT NOT NULL,
++  type TEXT NOT NULL,
++  categoryId TEXT NOT NULL,
++  date DATETIME NOT NULL,
++  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
++  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
++  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
++  FOREIGN KEY (categoryId) REFERENCES categories(id)
++);
++
++-- Create indices
++CREATE INDEX IF NOT EXISTS idx_transactions_userId ON transactions(userId);
++CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
++CREATE INDEX IF NOT EXISTS idx_transactions_categoryId ON transactions(categoryId);
++
++-- Insert default categories
++INSERT OR IGNORE INTO categories (id, name, type, icon, color) VALUES
++('1', 'Food', 'expense', '🍔', '#FF6B6B'),
++('2', 'Transport', 'expense', '🚗', '#4ECDC4'),
++('3', 'Entertainment', 'expense', '🎬', '#45B7D1'),
++('4', 'Bills', 'expense', '📄', '#FFA07A'),
++('5', 'Shopping', 'expense', '🛍️', '#FFB6C1'),
++('6', 'Healthcare', 'expense', '⚕️', '#98D8C8'),
++('7', 'Education', 'expense', '📚', '#A8D8EA'),
++('8', 'Salary', 'income', '💰', '#52C41A'),
++('9', 'Freelance', 'income', '💼', '#1890FF'),
++('10', 'Investment', 'income', '📈', '#722ED1'),
++('11', 'Bonus', 'income', '🎁', '#EB2F96');
+--- a\personal-expense-tracker\scripts\setup-db.js
++++ b\personal-expense-tracker\scripts\setup-db.js
+@@ -0,0 +1,41 @@
++const { spawn } = require("child_process");
++
++async function runCommand(command, args) {
++  return new Promise((resolve, reject) => {
++    const proc = spawn(command, args, {
++      stdio: "inherit",
++      shell: true,
++    });
++
++    proc.on("close", (code) => {
++      if (code !== 0) {
++        reject(new Error(`Command failed with code ${code}`));
++      } else {
++        resolve();
++      }
++    });
++
++    proc.on("error", (err) => {
++      reject(err);
++    });
++  });
++}
++
++async function setup() {
++  try {
++    console.log("Setting up database...");
++    
++    console.log("Running Prisma migrations...");
++    await runCommand("npx", ["prisma", "migrate", "dev", "--name", "init"]);
++
++    console.log("Seeding database...");
++    await runCommand("npx", ["prisma", "db", "seed"]);
++
++    console.log("Database setup complete!");
++  } catch (error) {
++    console.error("Setup failed:", error);
++    process.exit(1);
++  }
++}
++
++setup();
