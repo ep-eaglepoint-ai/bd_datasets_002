@@ -187,21 +187,14 @@ function parseJestOutput(output, testName, expectSuccess) {
 }
 
 function generateOutputPath() {
-  const now = new Date();
-  const dateStr = now.toISOString().split("T")[0];
-  const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "-");
-  const outputDir = path.join(__dirname, dateStr, timeStr);
-  fs.mkdirSync(outputDir, { recursive: true });
+  // Write directly to evaluation directory for AWS
+  const outputDir = path.join(__dirname);
   return path.join(outputDir, "report.json");
 }
 
 function writeReportVariants(primaryPath, reportJson) {
   fs.writeFileSync(primaryPath, reportJson);
   console.log(`✅ Report saved to: ${primaryPath}`);
-
-  const stableEvaluationPath = path.join(__dirname, "report.json");
-  fs.writeFileSync(stableEvaluationPath, reportJson);
-  console.log(`✅ Stable report: ${stableEvaluationPath}`);
 
   try {
     if (fs.existsSync("/host")) {
@@ -220,7 +213,6 @@ function writeReportVariants(primaryPath, reportJson) {
 
   return {
     primaryPath,
-    stableEvaluationPath,
   };
 }
 

@@ -3,9 +3,11 @@ services:
     build: .
     working_dir: /app
     command: ["npm", "test"]
-    volumes:
-      - .:/host:rw
+    environment:
+      - CI=true
   evaluation:
     build: .
     working_dir: /app
-    command: ["node", "evaluation/evaluation.js"]
+    command: ["sh", "-c", "sleep 3 && node evaluation/evaluation.js"]
+    environment:
+      - CI=true
