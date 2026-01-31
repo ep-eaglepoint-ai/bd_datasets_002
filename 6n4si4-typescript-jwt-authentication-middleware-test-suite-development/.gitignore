@@ -9,7 +9,7 @@ node_modules/
 dist/
 coverage/
 *.log
-
+evaluation/reports/*
 # Project specific
 vitest-results-*.json
 
