@@ -65,7 +65,7 @@ async def test_modular_architecture():
         ingest_processor.ParserFactory.get_parser(".BAM")
 
 @pytest.mark.asyncio
-async def test_fastq_corruption_recovery_req6(caplog):
+async def test_fastq_corruption_recovery(caplog):
     """
     Requirement 2 & 6: Verify atomic error recovery, logging, and skipped counts.
     Ensures that processing continues despite errors and logs them correctly.
@@ -120,6 +120,72 @@ async def test_fastq_corruption_recovery_req6(caplog):
 
     # Verify Monitoring
     # 1 corrupt record skipped.
+    monitoring_mock.log_event.assert_called_with("INGEST_COMPLETE", {
+        "user": "user_1", "processed": 999, "skipped": 1
+    })
+
+    # Verify Logs
+    assert "Skipping record due to error" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fastq_corruption_recovery_three_line_record_missing_quality(caplog):
+    """
+    Requirement 6 edge-case coverage (per review comment):
+
+    FASTQ records are 4 lines: header, sequence, '+', quality.
+    Inject a corrupted 3-line record (header + sequence + '+') missing only the
+    4th quality line, in the middle of a 1000-record set.
+
+    Expected:
+    - 999 records saved
+    - 1 record skipped
+    - error logged, processing continues
+    """
+    caplog.set_level("ERROR")
+
+    # 1. Generate 999 Valid Records
+    valid_records_part1 = []
+    for i in range(500):
+        valid_records_part1.append(f"@SEQ_{i}\nAAAA\n+\n!!!!")
+
+    # 2. Insert 1 Corrupt Record (3 lines only: header + sequence + '+', missing quality)
+    # L1: @SEQ_BAD
+    # L2: AAAA
+    # L3: +
+    # L4: @SEQ_500 (Start of next valid record, used as the (missing) quality line)
+    corrupt_record = "@SEQ_BAD\nAAAA\n+"
+
+    # 3. Generate Remaining Valid Records
+    valid_records_part2 = []
+    for i in range(500, 999):  # 499 records
+        valid_records_part2.append(f"@SEQ_{i}\nAAAA\n+\n!!!!")
+
+    file_content = (
+        "\n".join(valid_records_part1)
+        + "\n"
+        + corrupt_record
+        + "\n"
+        + "\n".join(valid_records_part2)
+    )
+
+    storage_mock.read_file.return_value = file_content
+
+    # Run
+    await ingest_processor.process_raw_file("test.FASTQ", "seq_1", "user_1")
+
+    # Verify DB writes
+    saved_records = []
+    for call_args in db_mock.save_batch.call_args_list:
+        saved_records.extend(call_args.args[1])
+
+    assert len(saved_records) == 999
+
+    ids = sorted([r['id'] for r in saved_records])
+    expected_ids = sorted([f"SEQ_{i}" for i in range(999)])
+    assert ids == expected_ids
+
+    # Verify Monitoring
     monitoring_mock.log_event.assert_called_with("INGEST_COMPLETE", {
         "user": "user_1", "processed": 999, "skipped": 1
     })
