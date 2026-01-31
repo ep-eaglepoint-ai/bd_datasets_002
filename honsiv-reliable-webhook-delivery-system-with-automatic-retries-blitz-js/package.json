@@ -1,0 +1,23 @@
+{
+  "name": "webhook-system-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "cd repository_after && npx prisma generate && cd .. && vitest run tests --config vitest.config.ts",
+    "test:watch": "vitest tests --config vitest.config.ts",
+    "test:coverage": "cd repository_after && npx prisma generate && cd .. && vitest run --coverage tests --config vitest.config.ts",
+    "test:setup": "cd repository_after && npx prisma generate",
+    "evaluation": "cd evaluation && node evaluation.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "5.4.2",
+    "vitest": "^0.25.3"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.9",
+    "prisma": "5.4.2",
+    "typescript": "^4.8.4",
+    "tsx": "^4.7.0"
+  }
+}
+
