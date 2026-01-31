@@ -1,0 +1,64 @@
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/cmd/main.go b/repository_after/cmd/main.go
+new file mode 100644
+index 0000000..64de4f8
+--- /dev/null
++++ b/repository_after/cmd/main.go
+@@ -0,0 +1,2 @@
++// REMOVED: moved to tests/elevator; this file left as a marker.
++
+diff --git a/repository_after/elevator/car.go b/repository_after/elevator/car.go
+new file mode 100644
+index 0000000..834a453
+--- /dev/null
++++ b/repository_after/elevator/car.go
+@@ -0,0 +1,2 @@
++// REMOVED: moved to tests/elevator; original file archived.
++
+diff --git a/repository_after/elevator/controller.go b/repository_after/elevator/controller.go
+new file mode 100644
+index 0000000..3e366ca
+--- /dev/null
++++ b/repository_after/elevator/controller.go
+@@ -0,0 +1,2 @@
++// REMOVED: moved to tests/elevator; original implementation archived.
++
+diff --git a/repository_after/elevator/errors.go b/repository_after/elevator/errors.go
+new file mode 100644
+index 0000000..834a453
+--- /dev/null
++++ b/repository_after/elevator/errors.go
+@@ -0,0 +1,2 @@
++// REMOVED: moved to tests/elevator; original file archived.
++
+diff --git a/repository_after/elevator/heuristics.go b/repository_after/elevator/heuristics.go
+new file mode 100644
+index 0000000..f622ba7
+--- /dev/null
++++ b/repository_after/elevator/heuristics.go
+@@ -0,0 +1 @@
++// REMOVED: moved to tests/elevator; original file archived.
+diff --git a/repository_after/elevator/movement.go b/repository_after/elevator/movement.go
+new file mode 100644
+index 0000000..f622ba7
+--- /dev/null
++++ b/repository_after/elevator/movement.go
+@@ -0,0 +1 @@
++// REMOVED: moved to tests/elevator; original file archived.
+diff --git a/repository_after/elevator/request.go b/repository_after/elevator/request.go
+new file mode 100644
+index 0000000..f622ba7
+--- /dev/null
++++ b/repository_after/elevator/request.go
+@@ -0,0 +1 @@
++// REMOVED: moved to tests/elevator; original file archived.
+diff --git a/repository_after/go.mod b/repository_after/go.mod
+new file mode 100644
+index 0000000..00edc40
+--- /dev/null
++++ b/repository_after/go.mod
+@@ -0,0 +1,2 @@
++// REMOVED: repository_after module moved into `tests`.
++// Original module contents have been relocated to `tests/elevator`.
