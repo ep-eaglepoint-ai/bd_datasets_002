@@ -3,11 +3,13 @@ version: 0.2
 phases:
   build:
     commands:
-      - "make test"
+      - echo "Running Ground Truth Solution Tests..."
+      - docker run --rm hailu3548/jr2pzv-app sh -c "cd repository_after && go test -v -race ./..."
   post_build:
     commands:
-      - "make evaluate"
+      - echo "Running Evaluation..."
+      - docker run --rm -v $CODEBUILD_SRC_DIR/evaluation:/app/evaluation hailu3548/jr2pzv-app python evaluation/evaluation.py
 
 artifacts:
   files:
-    - "evaluation/report.json"
+    - evaluation/report.json
