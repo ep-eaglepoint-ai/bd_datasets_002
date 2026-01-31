@@ -1,63 +1,75 @@
-diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
 deleted file mode 100644
 index e69de29..0000000
-diff --git a/repository_after/__pycache__/solution.cpython-311.pyc b/repository_after/__pycache__/solution.cpython-311.pyc
-new file mode 100644
-index 0000000..8ca12a4
-Binary files /dev/null and b/repository_after/__pycache__/solution.cpython-311.pyc differ
 diff --git a/repository_after/solution.py b/repository_after/solution.py
 new file mode 100644
-index 0000000..127b414
+index 0000000..7c3fa43
 --- /dev/null
 +++ b/repository_after/solution.py
-@@ -0,0 +1,50 @@
-+
+@@ -0,0 +1,66 @@
 +from typing import List
++from functools import lru_cache
 +
-+def max_non_decreasing_length(nums: List[int]) -> int:
-+    """
-+    Returns the maximum possible length of a non-decreasing array 
-+    achievable through optimal consolidations.
-+    
-+    Uses iterative DP with O(n) space and O(n^2) time complexity.
-+    dp[i] stores the maximum length of a non-decreasing sequence ending at index i.
-+    last[i] stores the minimum ending sum for such a sequence of maximal length.
-+    """
-+    n = len(nums)
-+    if n == 0:
-+        return 0
-+    
-+    # Precompute prefix sums
-+    prefix = [0] * (n + 1)
-+    for i in range(n):
-+        prefix[i+1] = prefix[i] + nums[i]
-+        
-+    # dp[i] = max length of non-decreasing chain ending at index i
-+    dp = [1] * n
-+    # last[i] = minimum value of the last segment (nums[j+1...i]) for chain of length dp[i]
-+    last = [0] * n
-+    
-+    for i in range(n):
-+        # Default: take whole prefix 0...i
-+        dp[i] = 1
-+        last[i] = prefix[i+1]
-+        
-+        # Try to extend a valid chain ending at j < i
-+        for j in range(i):
-+            if prefix[i+1] >= prefix[j+1] + last[j]:
-+                current_sum = prefix[i+1] - prefix[j+1]
-+                new_len = dp[j] + 1
-+                
-+                # We found a valid extension.
-+                # If it gives a longer chain, assume it is better.
-+                # If equal length, prefer smaller end sum to facilitate future extensions.
-+                if new_len > dp[i]:
-+                    dp[i] = new_len
-+                    last[i] = current_sum
-+                elif new_len == dp[i]:
-+                    last[i] = min(last[i], current_sum)
-+                    
-+    return max(dp) if n > 0 else 0
++class NonDecreasingArrayOptimizer:
++    def __init__(self, nums: List[int]):
++        self.nums = nums
++        self.n = len(nums)
++        # Prefix sums for O(1) segment sum calculation
++        self.prefix = [0] * (self.n + 1)
++        for i in range(self.n):
++            self.prefix[i + 1] = self.prefix[i] + nums[i]
 +
-+# For backwards compatibility/testing alias
-+max_non_decreasing_length_optimized = max_non_decreasing_length
++    def findMaximumLength(self) -> int:
++        if self.n == 0:
++            return 0
++
++        # Requirement #5: already non-decreasing → no consolidation needed
++        if all(self.nums[i] <= self.nums[i + 1] for i in range(self.n - 1)):
++            return self.n
++
++        # Requirement #6: strictly decreasing → must consolidate to single segment
++        if all(self.nums[i] > self.nums[i + 1] for i in range(self.n - 1)):
++            return 1
++
++        max_length_found = 0  # Track global max for early termination
++
++        @lru_cache(maxsize=None)
++        def dfs(start: int, prev_sum: int) -> int:
++            nonlocal max_length_found
++            if start >= self.n:
++                return 0
++
++            remaining_length = self.n - start
++            # Early termination: even taking all remaining elements, cannot beat max found
++            if remaining_length + 0 <= max_length_found:
++                return 0
++
++            local_max = 0
++            for end in range(start, self.n):
++                segment_sum = self.prefix[end + 1] - self.prefix[start]
++
++                if prev_sum is None or segment_sum >= prev_sum:
++                    remaining_length_for_rest = dfs(end + 1, segment_sum)
++                    current_length = 1 + remaining_length_for_rest
++                    local_max = max(local_max, current_length)
++
++                    # Update global max
++                    if current_length > max_length_found:
++                        max_length_found = current_length
++
++                    # Early pruning: if max possible from here <= global max, stop
++                    if self.n - start <= max_length_found:
++                        break
++
++            return local_max
++
++        return dfs(0, None)
++
++
++# Required top-level API
++def findMaximumLength(nums: List[int]) -> int:
++    return NonDecreasingArrayOptimizer(nums).findMaximumLength()
++
++
++# Backwards compatibility
++max_non_decreasing_length = findMaximumLength
