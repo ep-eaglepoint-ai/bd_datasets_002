@@ -4,4 +4,4 @@ go 1.21
 
 require gateway v0.0.0
 
-replace gateway => ./repository_before
+replace gateway => ./repository_after

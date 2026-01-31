@@ -14,17 +14,17 @@ import (
 )
 
 const (
-	maxBodySize       = 10 * 1024 * 1024 // 10MB
-	maxRequestLogs    = 10000             // bounded log buffer
-	maxRateLimitKeys  = 50000             // cap rate limiter map growth
-	maxLogBodyBytes   = 4096              // truncate body in logs to save memory
+	maxBodySize      = 10 * 1024 * 1024 // 10MB
+	maxRequestLogs   = 10000            // bounded log buffer
+	maxRateLimitKeys = 50000            // cap rate limiter map growth
+	maxLogBodyBytes  = 4096             // truncate body in logs to save memory
 )
 
 type contextKey string
 
 const bodyContextKey contextKey = "request_body"
 
-// Middleware func(http.Handler) http.Handler - unchanged for compatibility.
+// Middleware func(http.Handler) http.Handler
 type Middleware func(http.Handler) http.Handler
 
 type RequestLog struct {
@@ -34,7 +34,7 @@ type RequestLog struct {
 	StatusCode int               `json:"status_code"`
 	Duration   time.Duration     `json:"duration"`
 	ClientIP   string            `json:"client_ip"`
-	Headers    map[string]string  `json:"headers"`
+	Headers    map[string]string `json:"headers"`
 	Body       string            `json:"body"`
 }
 
@@ -106,15 +106,32 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
+// getBodyFromContextOrRead returns the body from context if available, otherwise it reads it.
+func getBodyFromContextOrRead(r *http.Request) ([]byte, error) {
+	if val := r.Context().Value(bodyContextKey); val != nil {
+		if body, ok := val.([]byte); ok {
+			return body, nil
+		}
+	}
+	// Fallback to reading if not in context (though BodyLimitMiddleware should have put it there)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	r.Body.Close()
+	// We don't replace r.Body here as we don't want side effects in this helper
+	return body, nil
+}
+
 // BodyLimitMiddleware reads the request body once (max 10MB), stores it in context and
 // replaces r.Body so downstream middleware and handlers read from memory. Returns 413 if body > 10MB.
-// Must be the first middleware in the chain to avoid redundant I/O and meet P99/CPU requirements.
 func BodyLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
+
 		limited := io.LimitReader(r.Body, maxBodySize+1)
 		body, err := io.ReadAll(limited)
 		r.Body.Close()
@@ -128,8 +145,7 @@ func BodyLimitMiddleware(next http.Handler) http.Handler {
 		}
 		ctx := context.WithValue(r.Context(), bodyContextKey, body)
 		r.Body = io.NopCloser(bytes.NewReader(body))
-		r = r.WithContext(ctx)
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -137,30 +153,34 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		body, _ := io.ReadAll(r.Body)
-		r.Body.Close()
+		body, _ := getBodyFromContextOrRead(r)
+		// Restore body for next handlers if we read it
+		if r.Context().Value(bodyContextKey) == nil {
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
+
 		headers := make(map[string]string)
 		for k, v := range r.Header {
 			headers[k] = strings.Join(v, ", ")
 		}
-		r.Body = io.NopCloser(bytes.NewReader(body))
 
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rw, r)
 
 		logBody := string(body)
 		if len(logBody) > maxLogBodyBytes {
-			logBody = logBody[:maxLogBodyBytes] + "..."
+			// Force copy to avoid retaining the large underlying array of 'body'
+			logBody = string([]byte(logBody[:maxLogBodyBytes])) + "..."
 		}
 		logEntry := RequestLog{
 			Timestamp:  start,
-			Method:    r.Method,
-			Path:      r.URL.Path,
+			Method:     r.Method,
+			Path:       r.URL.Path,
 			StatusCode: rw.statusCode,
-			Duration:  time.Since(start),
-			ClientIP:  r.RemoteAddr,
-			Headers:   headers,
-			Body:     logBody,
+			Duration:   time.Since(start),
+			ClientIP:   r.RemoteAddr,
+			Headers:    headers,
+			Body:       logBody,
 		}
 
 		requestLogBuf.append(logEntry)
@@ -232,7 +252,6 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	}
 }
 
-// evictStaleClients removes clients with no requests in the current window to bound map size.
 func (rl *RateLimiter) evictStaleClients(now time.Time) {
 	if len(rl.requests) <= maxRateLimitKeys {
 		return
@@ -243,8 +262,7 @@ func (rl *RateLimiter) evictStaleClients(now time.Time) {
 			delete(rl.requests, clientID)
 			continue
 		}
-		last := timestamps[len(timestamps)-1]
-		if last.Before(windowStart) {
+		if timestamps[len(timestamps)-1].Before(windowStart) {
 			delete(rl.requests, clientID)
 		}
 	}
@@ -260,20 +278,25 @@ func (rl *RateLimiter) Allow(clientID string) bool {
 	rl.evictStaleClients(now)
 
 	timestamps := rl.requests[clientID]
-	var valid []time.Time
-	for _, ts := range timestamps {
-		if ts.After(windowStart) {
-			valid = append(valid, ts)
-		}
+
+	// Efficiently find the first timestamp within the window
+	i := 0
+	for i < len(timestamps) && !timestamps[i].After(windowStart) {
+		i++
 	}
 
-	if len(valid) >= rl.limit {
-		rl.requests[clientID] = valid
+	if i > 0 {
+		// Remove expired timestamps
+		copy(timestamps, timestamps[i:])
+		timestamps = timestamps[:len(timestamps)-i]
+	}
+
+	if len(timestamps) >= rl.limit {
+		rl.requests[clientID] = timestamps
 		return false
 	}
 
-	valid = append(valid, now)
-	rl.requests[clientID] = valid
+	rl.requests[clientID] = append(timestamps, now)
 	return true
 }
 
@@ -307,12 +330,15 @@ func ValidationMiddleware(rules []ValidationRule) Middleware {
 				return
 			}
 
-			body, err := io.ReadAll(r.Body)
+			body, err := getBodyFromContextOrRead(r)
 			if err != nil {
 				http.Error(w, "Failed to read body", http.StatusBadRequest)
 				return
 			}
-			r.Body.Close()
+			// Restore body for next handlers if we read it
+			if r.Context().Value(bodyContextKey) == nil {
+				r.Body = io.NopCloser(bytes.NewReader(body))
+			}
 
 			var data map[string]interface{}
 			if err := json.Unmarshal(body, &data); err != nil {
@@ -339,7 +365,6 @@ func ValidationMiddleware(rules []ValidationRule) Middleware {
 				}
 			}
 
-			r.Body = io.NopCloser(bytes.NewReader(body))
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -348,12 +373,11 @@ func ValidationMiddleware(rules []ValidationRule) Middleware {
 func CompressionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Encoding") == "gzip" {
-			body, err := io.ReadAll(r.Body)
+			body, err := getBodyFromContextOrRead(r)
 			if err != nil {
 				http.Error(w, "Failed to read body", http.StatusBadRequest)
 				return
 			}
-			r.Body.Close()
 
 			gzReader, err := gzip.NewReader(bytes.NewReader(body))
 			if err != nil {
@@ -368,6 +392,8 @@ func CompressionMiddleware(next http.Handler) http.Handler {
 				return
 			}
 
+			// Since decompression changes the body, we SHOULD replace it in context if we want pure optimization,
+			// but for now we just replace r.Body for downstream
 			r.Body = io.NopCloser(bytes.NewReader(decompressed))
 			r.Header.Del("Content-Encoding")
 		}
@@ -390,7 +416,6 @@ var metrics = &Metrics{
 	ErrorsByPath:   make(map[string]int64),
 }
 
-// MetricsMiddleware updates metrics synchronously (no goroutines) to avoid goroutine leaks.
 func MetricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

@@ -4,22 +4,42 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"time"
 )
 
-var httpClient = &http.Client{}
+var httpClient = &http.Client{
+	Timeout: 60 * time.Second,
+	Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		MaxIdleConns:          2000,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		MaxIdleConnsPerHost:   1000,
+	},
+}
 
 func ProxyHandler(backendURL string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
+		body, err := getBodyFromContextOrRead(r)
 		if err != nil {
 			http.Error(w, "Failed to read request body", http.StatusBadRequest)
 			return
 		}
-		r.Body.Close()
 
-		req, err := http.NewRequest(r.Method, backendURL+r.URL.Path, bytes.NewReader(body))
+		// Strip /api/ prefix from path before forwarding
+		path := r.URL.Path
+		if len(path) >= 5 && path[:5] == "/api/" {
+			path = path[4:] // Keep the leading slash, so "/api/foo" becomes "/foo"
+		}
+
+		req, err := http.NewRequest(r.Method, backendURL+path, bytes.NewReader(body))
 		if err != nil {
 			http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
 			return
@@ -36,6 +56,7 @@ func ProxyHandler(backendURL string) http.Handler {
 
 		resp, err := httpClient.Do(req)
 		if err != nil {
+			log.Printf("Proxy error: %v", err)
 			http.Error(w, "Backend unavailable", http.StatusBadGateway)
 			return
 		}
@@ -43,8 +64,13 @@ func ProxyHandler(backendURL string) http.Handler {
 
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
+			log.Printf("Backend read error: %v", err)
 			http.Error(w, "Failed to read backend response", http.StatusBadGateway)
 			return
+		}
+
+		if resp.StatusCode >= 400 {
+			log.Printf("Backend returned status: %d", resp.StatusCode)
 		}
 
 		for key, values := range resp.Header {
@@ -75,7 +101,7 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	logs := GetRequestLogs()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
 }
@@ -175,4 +201,3 @@ func SetupGateway(backendURL string) *Router {
 
 	return router
 }
-

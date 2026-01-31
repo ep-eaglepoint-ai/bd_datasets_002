@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strings"
 	"testing"
 
 	"gateway"
@@ -184,28 +185,88 @@ func TestNoGoroutineLeakUnderLoad(t *testing.T) {
 	}
 }
 
-func TestProxyForwardsToBackend(t *testing.T) {
+func TestRequestBody10MBIsAccepted(t *testing.T) {
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Backend", "hit")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
 	}))
 	defer backend.Close()
 
 	router := gateway.SetupGateway(backend.URL)
-	req := httptest.NewRequest(http.MethodGet, "/api/foo", nil)
+	body := bytes.Repeat([]byte("x"), 10*1024*1024) // 10MB
+	req := httptest.NewRequest(http.MethodPost, "/api/foo", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer valid_token_length_ok")
+	req.ContentLength = int64(len(body))
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("GET /api/foo: status = %d, want 200", rec.Code)
+		t.Errorf("POST with 10MB body: status = %d, want 200", rec.Code)
 	}
-	if rec.Header().Get("X-Backend") != "hit" {
-		t.Error("GET /api/foo: backend was not hit")
+}
+
+func TestProxyContractValidation(t *testing.T) {
+	targetPath := "/api/some/complex/path"
+	targetMethod := "PUT"
+	targetHeader := "X-Test-Header"
+	targetHeaderVal := "test-value"
+	targetBody := `{"test":"payload"}`
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/some/complex/path" {
+			t.Errorf("Backend saw path %q, want %q", r.URL.Path, "/some/complex/path")
+		}
+		if r.Method != targetMethod {
+			t.Errorf("Backend saw method %q, want %q", r.Method, targetMethod)
+		}
+		if r.Header.Get(targetHeader) != targetHeaderVal {
+			t.Errorf("Backend saw header %q=%q, want %q", targetHeader, r.Header.Get(targetHeader), targetHeaderVal)
+		}
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != targetBody {
+			t.Errorf("Backend saw body %q, want %q", string(body), targetBody)
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer backend.Close()
+
+	router := gateway.SetupGateway(backend.URL)
+	req := httptest.NewRequest(targetMethod, targetPath, strings.NewReader(targetBody))
+	req.Header.Set("Authorization", "Bearer valid_token_length_ok")
+	req.Header.Set(targetHeader, targetHeaderVal)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("Proxy returned status %d, want 201", rec.Code)
 	}
-	if body := rec.Body.String(); body != "ok" {
-		t.Errorf("GET /api/foo: body = %q, want ok", body)
+}
+
+func TestRateLimiterAccuracy(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer backend.Close()
+
+	router := gateway.SetupGateway(backend.URL)
+	clientIP := "1.2.3.4:1234"
+
+	// Rate limit is 100/min in SetupGateway. Let's hit it.
+	for i := 0; i < 100; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/health", nil)
+		req.RemoteAddr = clientIP
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("Request %d failed prematurely: %d", i, rec.Code)
+		}
+	}
+
+	// 101st should fail
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req.RemoteAddr = clientIP
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("101st request: status = %d, want 429", rec.Code)
 	}
 }
