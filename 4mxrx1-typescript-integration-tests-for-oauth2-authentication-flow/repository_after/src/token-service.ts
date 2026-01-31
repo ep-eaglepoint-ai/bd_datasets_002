@@ -186,6 +186,11 @@ export class TokenService {
     return false;
   }
 
-  // Test helper: expire an authorization code by setting its expiration to the past
-  // Note: This is accessed through AuthService
+  // Test helper: clear all state
+  clearAllState() {
+    this.accessTokens.clear();
+    this.refreshTokens.clear();
+    this.revokedTokens.clear();
+    this.revokedFamilies.clear();
+  }
 }

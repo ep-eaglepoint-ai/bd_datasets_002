@@ -249,4 +249,11 @@ export class AuthService {
   expireRefreshToken(token: string): boolean {
     return this.tokenService.expireRefreshToken(token);
   }
+
+  // Test helper: clear all state
+  clearAllState() {
+    this.authCodes.clear();
+    this.rateLimits.clear();
+    this.tokenService.clearAllState();
+  }
 }

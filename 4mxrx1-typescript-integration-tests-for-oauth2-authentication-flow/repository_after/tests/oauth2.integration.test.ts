@@ -5,12 +5,17 @@ import { PKCEUtils } from '../src/pkce-utils';
 describe('OAuth2 Integration Tests', () => {
   let app: any;
   let authService: any;
+  let suiteStartTime: number;
 
-  beforeEach(() => {
+  beforeAll(() => {
+    suiteStartTime = Date.now();
     const server = createServer();
     app = server.app;
     authService = server.authService;
-    authService.clearRateLimits();
+  });
+
+  beforeEach(() => {
+    authService.clearAllState();
   });
 
   describe('Requirement 1: Authorization code flow test successfully obtains tokens', () => {
@@ -568,41 +573,135 @@ describe('OAuth2 Integration Tests', () => {
   });
 
   describe('Requirement 14: Each test must be independent with no shared state', () => {
-    it('should have independent test state', async () => {
-      // This test verifies that beforeEach creates fresh instances
-      // Each test above uses beforeEach, so they are independent
-      // This is implicitly verified by all tests passing when run individually
-      expect(app).toBeDefined();
-      expect(authService).toBeDefined();
-    });
-  });
-
-  describe('Requirement 15: All tests must complete in under 5 seconds total', () => {
-    it('should complete all tests quickly', async () => {
-      // This test verifies that individual tests are fast
-      // The full test suite execution time is measured by Jest
-      // Each test uses test helpers (expireAuthorizationCode, expireRefreshToken)
-      // instead of real time delays, ensuring tests complete quickly
-      // Note: The full suite may take longer due to HTTP request overhead from supertest,
-      // but individual test logic is optimized and uses no real time delays
-      const startTime = Date.now();
-
-      // Run a quick smoke test
-      const authResponse = await request(app)
+    it('should reset rate limits between tests (simulated isolation)', async () => {
+      // Fill rate limit for the current app instance using parallel requests
+      const fillRequests = [];
+      for (let i = 0; i < 10; i++) {
+        fillRequests.push(
+          request(app)
+            .get('/authorize')
+            .query({
+              client_id: 'test-client',
+              redirect_uri: 'http://localhost:3000/callback',
+              scope: 'read',
+              state: `rate-test-${i}`,
+            })
+            .then(async (res) => {
+              const code = res.body.code;
+              return request(app)
+                .post('/token')
+                .send({
+                  grant_type: 'authorization_code',
+                  code,
+                  client_id: 'test-client',
+                  client_secret: 'test-secret',
+                  redirect_uri: 'http://localhost:3000/callback',
+                });
+            })
+        );
+      }
+      await Promise.all(fillRequests);
+      
+      // 11th should hit rate limit
+      const limitedAuth = await request(app)
         .get('/authorize')
         .query({
           client_id: 'test-client',
           redirect_uri: 'http://localhost:3000/callback',
           scope: 'read',
-          state: 'test-state',
+          state: 'rate-test-11',
         });
+      const limitedCode = limitedAuth.body.code;
+      const limitedToken = await request(app)
+        .post('/token')
+        .send({
+          grant_type: 'authorization_code',
+          code: limitedCode,
+          client_id: 'test-client',
+          client_secret: 'test-secret',
+          redirect_uri: 'http://localhost:3000/callback',
+        });
+      expect(limitedToken.status).toBe(429);
 
-      expect(authResponse.status).toBe(200);
+      // Simulate a fresh test run by creating a new server instance (beforeEach behavior)
+      const freshServer = createServer();
+      const freshApp = freshServer.app;
+      const freshAuth = await request(freshApp)
+        .get('/authorize')
+        .query({
+          client_id: 'test-client',
+          redirect_uri: 'http://localhost:3000/callback',
+          scope: 'read',
+          state: 'fresh-test',
+        });
+      const freshCode = freshAuth.body.code;
+      const freshToken = await request(freshApp)
+        .post('/token')
+        .send({
+          grant_type: 'authorization_code',
+          code: freshCode,
+          client_id: 'test-client',
+          client_secret: 'test-secret',
+          redirect_uri: 'http://localhost:3000/callback',
+        });
+      expect(freshToken.status).toBe(200);
+    });
 
-      const elapsed = Date.now() - startTime;
-      // Individual test should be very fast (under 1 second)
-      // Full suite timing depends on HTTP request overhead but test logic is optimized
-      expect(elapsed).toBeLessThan(1000);
+    it('should succeed regardless of execution order (simulated random order)', async () => {
+      const flows = [
+        async () => {
+          const authResponse = await request(app)
+            .get('/authorize')
+            .query({
+              client_id: 'test-client',
+              redirect_uri: 'http://localhost:3000/callback',
+              scope: 'read',
+              state: 'order-a',
+            });
+          const code = authResponse.body.code;
+          const tokenResponse = await request(app)
+            .post('/token')
+            .send({
+              grant_type: 'authorization_code',
+              code,
+              client_id: 'test-client',
+              client_secret: 'test-secret',
+              redirect_uri: 'http://localhost:3000/callback',
+            });
+          expect(tokenResponse.status).toBe(200);
+        },
+        async () => {
+          const authResponse = await request(app)
+            .get('/authorize')
+            .query({
+              client_id: 'test-client',
+              redirect_uri: 'http://localhost:3000/callback',
+              scope: 'read unknown-scope',
+              state: 'order-b',
+            });
+          expect(authResponse.status).toBe(400);
+          expect(authResponse.body.error).toBe('invalid_scope');
+        },
+      ];
+
+      // Shuffle flows to simulate random execution order
+      for (let i = flows.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [flows[i], flows[j]] = [flows[j], flows[i]];
+      }
+
+      for (const flow of flows) {
+        await flow();
+      }
+    });
+  });
+
+  describe('Requirement 15: All tests must complete in under 5 seconds total', () => {
+    it('should complete the full test suite in under 5 seconds', async () => {
+      // This test checks the total time elapsed since the start of the suite
+      // It satisfies the requirement to verify the full suite duration
+      const totalElapsed = Date.now() - suiteStartTime;
+      expect(totalElapsed).toBeLessThan(5000);
     });
   });
 });

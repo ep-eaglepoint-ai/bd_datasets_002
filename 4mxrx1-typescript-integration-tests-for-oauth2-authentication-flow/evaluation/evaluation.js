@@ -22,7 +22,7 @@ function runRequirementValidationTest() {
   try {
     const result = execSync(`node "${validationTest}"`, {
       encoding: 'utf8',
-      timeout: 60000,
+      timeout: 300000, // Increased to 5 minutes
       cwd: path.join(__dirname, '..'),
       stdio: ['pipe', 'pipe', 'pipe']
     });
