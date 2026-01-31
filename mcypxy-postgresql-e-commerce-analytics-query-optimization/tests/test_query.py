@@ -33,6 +33,8 @@ def db_conn():
         password=os.getenv("DB_PASSWORD", "postgres")
     )
     
+    print(f"\nLoading schema and data from {repo_path}...")
+    
     with conn.cursor() as cur:
         with open(f"{repo_path}/schema.sql") as f:
             cur.execute(f.read())
@@ -40,6 +42,8 @@ def db_conn():
             cur.execute(f.read())
         cur.execute("SELECT pg_stat_reset()")
         conn.commit()
+    
+    print("Dataset loaded. Running tests...\n")
     
     yield conn
     conn.close()
@@ -290,3 +294,113 @@ def test_work_mem_limit(db_conn):
             cur.execute(f"EXPLAIN (ANALYZE, BUFFERS) {query}")
             plan = '\n'.join([row[0] for row in cur.fetchall()])
             assert 'temp written' not in plan.lower(), f"{name} exceeded work_mem and wrote to disk"
+
+
+def test_no_extensions_or_advanced_features(db_conn):
+    """Verify only standard PostgreSQL 15 features are used - no extensions, materialized views, or partitioning."""
+    with db_conn.cursor() as cur:
+        # Check no extensions are installed (beyond defaults)
+        cur.execute("SELECT extname FROM pg_extension WHERE extname NOT IN ('plpgsql')")
+        extensions = cur.fetchall()
+        assert len(extensions) == 0, f"Unexpected extensions found: {extensions}"
+        
+        # Check no materialized views
+        cur.execute("SELECT matviewname FROM pg_matviews")
+        matviews = cur.fetchall()
+        assert len(matviews) == 0, f"Materialized views found: {matviews}"
+        
+        # Check no partitioned tables
+        cur.execute("""
+            SELECT tablename FROM pg_tables 
+            WHERE schemaname = 'public' 
+            AND tablename IN (
+                SELECT tablename FROM pg_partitioned_table pt 
+                JOIN pg_class c ON pt.partrelid = c.oid
+            )
+        """)
+        partitioned = cur.fetchall()
+        assert len(partitioned) == 0, f"Partitioned tables found: {partitioned}"
+
+
+def test_required_indexes_exist(db_conn):
+    """Verify all required indexes exist for optimal query performance."""
+    required_indexes = [
+        'idx_orders_date_status',
+        'idx_order_items_order',
+        'idx_order_items_product',
+        'idx_products_category',
+        'idx_orders_customer',
+        'idx_inventory_product',
+        'idx_customers_first_purchase'
+    ]
+    
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT indexname FROM pg_indexes 
+            WHERE schemaname = 'public' 
+            AND tablename IN ('orders', 'order_items', 'products', 'inventory', 'customers')
+        """)
+        existing_indexes = {row[0] for row in cur.fetchall()}
+    
+    missing_indexes = [idx for idx in required_indexes if idx not in existing_indexes]
+    
+    assert len(missing_indexes) == 0, (
+        f"Missing required indexes: {missing_indexes}. "
+        f"These indexes are necessary for queries to complete in <2s. "
+        f"Found indexes: {sorted(existing_indexes)}"
+    )
+
+
+def test_orders_date_index_exists(db_conn):
+    """Verify idx_orders_date_status index exists for daily revenue queries."""
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT indexname FROM pg_indexes 
+            WHERE schemaname = 'public' AND indexname = 'idx_orders_date_status'
+        """)
+        result = cur.fetchone()
+    
+    assert result is not None, (
+        "Missing idx_orders_date_status index. "
+        "This index is required for Query 1 (Daily Revenue) to avoid sequential scans on 50M orders."
+    )
+
+
+def test_order_items_indexes_exist(db_conn):
+    """Verify order_items indexes exist for product and order lookups."""
+    required = ['idx_order_items_order', 'idx_order_items_product']
+    
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT indexname FROM pg_indexes 
+            WHERE schemaname = 'public' AND tablename = 'order_items'
+        """)
+        existing = {row[0] for row in cur.fetchall()}
+    
+    missing = [idx for idx in required if idx not in existing]
+    
+    assert len(missing) == 0, (
+        f"Missing order_items indexes: {missing}. "
+        f"These indexes are required for Queries 2, 4, and 6 to perform efficient joins."
+    )
+
+
+def test_customer_indexes_exist(db_conn):
+    """Verify customer-related indexes exist for cohort and LTV queries."""
+    required = ['idx_orders_customer', 'idx_customers_first_purchase']
+    
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT indexname FROM pg_indexes 
+            WHERE schemaname = 'public' 
+            AND (tablename = 'orders' AND indexname = 'idx_orders_customer'
+                 OR tablename = 'customers' AND indexname = 'idx_customers_first_purchase')
+        """)
+        existing = {row[0] for row in cur.fetchall()}
+    
+    missing = [idx for idx in required if idx not in existing]
+    
+    assert len(missing) == 0, (
+        f"Missing customer indexes: {missing}. "
+        f"These indexes are required for Queries 3 (Cohort) and 5 (LTV) to avoid full table scans."
+    )
