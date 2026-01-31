@@ -69,33 +69,21 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const undo = () => {
-    // Calculate next state synchronously based on current closure values
     let newStack = [...history.stack];
     let newIndex = history.index;
     let newCode = code;
 
-    // If there's a pending debounce, we treat the current 'code' as a new entry
-    // that needs to be effectively "saved" before we step back.
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
 
-      // Flush pending changes to stack
       if (newStack[newIndex] !== code) {
         newStack = newStack.slice(0, newIndex + 1);
         newStack.push(code);
-        // After pushing pending, the "tip" is at newStack.length - 1.
-        // The "undo" action means we want to go back to previous committed state.
-        // Which is the state at 'newIndex' (before push).
-        // So newIndex doesn't move forward to tip, it stays at committed.
-        // Effectively: Tip = Current Dirty. Commited = Previous.
-        // We want to show Commit.
       }
-      
-      // If we flushed, newCode should be the one at newIndex (committed)
+
       newCode = newStack[newIndex];
     } else {
-      // Standard undo
       if (newIndex > 0) {
         newIndex--;
         newCode = newStack[newIndex];
@@ -111,9 +99,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     let newIndex = history.index;
     let newCode = code;
 
-    // If pending changes exist, we flush them.
-    // This effectively puts us at the "Future" (End of stack).
-    // So distinct Redo is not possible immediately, but state is made consistent.
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
@@ -121,11 +106,9 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       if (newStack[newIndex] !== code) {
         newStack = newStack.slice(0, newIndex + 1);
         newStack.push(code);
-        newIndex = newStack.length - 1; // Move to the new tip
+        newIndex = newStack.length - 1;
       }
-      // newCode is already 'code', so no visual change, just committed to history.
     } else {
-      // Standard redo
       if (newIndex < newStack.length - 1) {
         newIndex++;
         newCode = newStack[newIndex];
@@ -139,7 +122,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const findAndReplace = () => {
     if (!searchTerm) return;
 
-    // Clear any pending debounce
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
@@ -157,15 +139,11 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
 
       const newCode = code.replace(regex, replaceTerm);
       if (newCode !== code) {
-        // Add both current state and new state in a single setHistory call
-        // to avoid React batching issues
         setHistory(prev => {
           const newStack = prev.stack.slice(0, prev.index + 1);
-          // Add current code if different from latest
           if (prev.stack[prev.index] !== code) {
             newStack.push(code);
           }
-          // Add the new replaced code
           newStack.push(newCode);
           return {
             stack: newStack,
@@ -216,10 +194,8 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const uploadCode = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Capture current code before async FileReader runs
       const currentCode = code;
 
-      // Clear any pending debounce
       if (historyTimeout.current) {
         clearTimeout(historyTimeout.current);
         historyTimeout.current = null;
@@ -230,15 +206,11 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
         const content = event.target.result;
         if (typeof content !== 'string') return;
 
-        // Add both current state and uploaded content in a single setHistory call
-        // to avoid React batching issues
         setHistory(prev => {
           const newStack = prev.stack.slice(0, prev.index + 1);
-          // Add current code if different from latest
           if (prev.stack[prev.index] !== currentCode) {
             newStack.push(currentCode);
           }
-          // Add the uploaded content
           newStack.push(content);
           return {
             stack: newStack,
@@ -280,7 +252,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const resetCode = () => {
-    // Clear any pending debounce
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
@@ -309,7 +280,6 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const formatCode = () => {
-    // Clear any pending debounce
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
@@ -343,15 +313,11 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     }).join('\n');
 
     if (formatted !== code) {
-      // Add both current state and formatted state in a single setHistory call
-      // to avoid React batching issues
       setHistory(prev => {
         const newStack = prev.stack.slice(0, prev.index + 1);
-        // Add current code if different from latest
         if (prev.stack[prev.index] !== code) {
           newStack.push(code);
         }
-        // Add the formatted code
         newStack.push(formatted);
         return {
           stack: newStack,
