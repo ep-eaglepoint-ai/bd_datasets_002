@@ -1,0 +1,111 @@
+/**
+ * Requirement 2: Short unique URL, voting page without auth, copy-to-clipboard.
+ * Requirement 3: Display question and options, select one and submit; localStorage duplicate prevention; confirmation.
+ */
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { VotePoll } from '../../repository_after/client/src/pages/VotePoll';
+
+const mockGetPoll = jest.fn();
+const mockVote = jest.fn();
+jest.mock('../../repository_after/client/src/api/polls', () => ({
+  getPoll: (...args: unknown[]) => mockGetPoll(...args),
+  vote: (...args: unknown[]) => mockVote(...args),
+}));
+
+const mockSetPoll = jest.fn();
+const mockVotePageState: {
+  poll: Record<string, unknown> | null;
+  setPoll: (p: unknown) => void;
+  updatePoll: (p: unknown) => void;
+} = {
+  poll: null,
+  setPoll: mockSetPoll,
+  updatePoll: jest.fn(),
+};
+jest.mock('../../repository_after/client/src/store/pollStore', () => ({
+  usePollStore: (selector?: (s: unknown) => unknown) =>
+    typeof selector === 'function' ? selector(mockVotePageState) : mockVotePageState,
+  hasVoted: jest.fn(() => false),
+  setVoted: jest.fn(),
+  getOrCreateVoteToken: jest.fn(() => 'token-test'),
+}));
+
+jest.mock('socket.io-client', () => ({
+  io: () => ({
+    emit: () => {},
+    on: () => {},
+    off: () => {},
+    close: () => {},
+  }),
+}));
+
+const pollData = {
+  pollId: 'poll123',
+  question: 'Best fruit?',
+  options: [{ id: 'opt1', text: 'Apple', votes: 0 }, { id: 'opt2', text: 'Banana', votes: 0 }],
+  totalVotes: 0,
+  showResultsBeforeVote: false,
+  isClosed: false,
+  createdAt: new Date().toISOString(),
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockVotePageState.poll = null;
+  mockSetPoll.mockImplementation((p) => {
+    mockVotePageState.poll = p as typeof mockVotePageState.poll;
+  });
+  mockGetPoll.mockResolvedValue(pollData);
+  const store = jest.requireMock('../../repository_after/client/src/store/pollStore');
+  store.hasVoted.mockReturnValue(false);
+});
+
+describe('VotingPage - Requirement 2', () => {
+  it('displays poll question and options and copy link button', async () => {
+    render(
+      <MemoryRouter initialEntries={['/poll/poll123']}>
+        <Routes>
+          <Route path="/poll/:pollId" element={<VotePoll />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Best fruit?')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Apple')).toBeInTheDocument();
+    expect(screen.getByText('Banana')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
+  });
+});
+
+describe('VotingPage - Requirement 3', () => {
+  it('allows selecting one option and submitting vote and shows confirmation', async () => {
+    const updatedPoll = {
+      ...pollData,
+      options: [{ id: 'opt1', text: 'Apple', votes: 1 }, { id: 'opt2', text: 'Banana', votes: 0 }],
+      totalVotes: 1,
+    };
+    mockVote.mockResolvedValue(updatedPoll);
+    render(
+      <MemoryRouter initialEntries={['/poll/poll123']}>
+        <Routes>
+          <Route path="/poll/:pollId" element={<VotePoll />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Best fruit?')).toBeInTheDocument();
+    });
+    const appleRadio = screen.getByRole('radio', { name: 'Apple' });
+    fireEvent.click(appleRadio);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit vote' }));
+    await waitFor(() => {
+      expect(mockVote).toHaveBeenCalledWith('poll123', 'opt1', 'token-test');
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Your vote has been recorded/)).toBeInTheDocument();
+    });
+  });
+});
