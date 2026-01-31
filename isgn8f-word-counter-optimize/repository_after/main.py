@@ -28,58 +28,69 @@ class WordCounter:
         if self._processed:
             return
 
-        # Single-pass processing for efficiency
-        current_position = 0
-        
+        # Read file content for str.find() based position searching
         with open(self.filepath, 'r', encoding='utf-8', errors='replace') as file:
-            for line in file:
-                # Count lines starting at 1 (matches original behavior)
-                for char in line:
-                    self.character_count += 1
-                    if char == '\n':
-                        self.line_count += 1
-                
-                # Build word positions using str.find() in a loop (per spec)
-                line_lower = line.lower()
-                self._index_words_in_line(line, line_lower, current_position)
-
-                current_position += len(line)
-
+            self._full_text = file.read()
+        
+        # Count characters and lines
+        for char in self._full_text:
+            self.character_count += 1
+            if char == '\n':
+                self.line_count += 1
+        
+        # Extract unique words and count frequencies
+        text_lower = self._full_text.lower()
+        self._extract_words_and_frequencies(self._full_text, text_lower)
+        
+        # Build positions index using str.find() in a loop
+        self._build_positions_with_find(text_lower)
+        
         self._processed = True
 
-    def _index_words_in_line(self, line: str, line_lower: str, base_pos: int):
-        """Extract words and build positions using str.find() approach."""
+    def _extract_words_and_frequencies(self, text: str, text_lower: str):
+        """Extract words and count frequencies."""
         i = 0
-        n = len(line)
+        n = len(text)
         
         while i < n:
-            # Skip non-alphanumeric characters
-            if not line[i].isalnum():
+            if not text[i].isalnum():
                 i += 1
                 continue
             
-            # Found start of a word - find end
             start = i
-            while i < n and line[i].isalnum():
+            while i < n and text[i].isalnum():
                 i += 1
             
-            token = line[start:i]
+            token = text[start:i]
             lower_token = token.lower()
-            absolute_pos = base_pos + start
             
-            # Update global word count (all alphanumeric tokens)
             self.word_count += 1
             
-            # Update stats for alphabetic words only
             if token.isalpha():
                 self.word_frequencies[lower_token] += 1
-                self.word_positions[lower_token].append(absolute_pos)
-                
                 self.alpha_word_count += 1
                 self.alpha_total_length += len(token)
-            else:
-                # Store positions for non-alpha tokens as well
-                self.word_positions[lower_token].append(absolute_pos)
+
+    def _build_positions_with_find(self, text_lower: str):
+        """Build word positions using str.find() in a loop as per spec."""
+        # For each unique word, use str.find() in a loop to find all positions
+        for word in self.word_frequencies.keys():
+            pos = 0
+            while True:
+                # Use str.find() to locate the word
+                idx = text_lower.find(word, pos)
+                if idx == -1:
+                    break
+                
+                # Verify word boundaries (not part of larger word)
+                before_ok = (idx == 0 or not text_lower[idx - 1].isalnum())
+                after_ok = (idx + len(word) >= len(text_lower) or 
+                           not text_lower[idx + len(word)].isalnum())
+                
+                if before_ok and after_ok:
+                    self.word_positions[word].append(idx)
+                
+                pos = idx + 1
 
 
     # ------------------ Public API ------------------

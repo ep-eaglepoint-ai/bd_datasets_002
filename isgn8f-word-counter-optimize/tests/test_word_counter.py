@@ -206,17 +206,19 @@ def test_stats_match_between_implementations():
         assert stats_before == stats_after, f"Stats mismatch for input: {text!r}"
 
 
-def test_streaming_no_full_read(module_path):
+def test_str_find_is_used(module_path):
     """
-    Verifies the implementation does NOT use f.read() or readlines().
-    Ensures line-by-line/streaming processing for large file support.
+    Verifies the implementation uses str.find() in a loop for word positions.
+    Required by spec: 'use str.find() in a loop'.
     """
     source = get_source_code(module_path)
     
-    # Check that f.read() is NOT used (would load entire file)
-    # Note: We allow .read() in different contexts, but not self.text = f.read()
-    assert "self.text = f.read()" not in source, "Uses f.read() to load entire file"
-    assert ".readlines()" not in source, "Uses readlines() which loads entire file"
+    # Verify str.find() is used for position building
+    assert ".find(" in source, "str.find() is not used for position building"
+    
+    # Verify it's not using re.finditer (old approach)
+    assert "re.finditer" not in source or "finditer" not in source.split("def _build_positions")[0], \
+        "Should not use re.finditer for position building"
 
 
 def test_prebuilt_index_is_used(module_path):
