@@ -1,73 +1,85 @@
-# Trajectory: how to solve this JWT auth testing problem
+# Trajectory: how I approached the JWT auth testing work
 
-## 1) Audit the current state (find the real constraints)
+## 1) I started by investigating the current implementation
 
-- Identify what is “system under test” vs “test harness”:
-  - `repository_before/` is the app and auth logic.
-  - `repository_after/` is where the Jest + RTL suite must live.
-  - `tests/` contains the meta tests.
-- List practical constraints up front:
-  - Meta test must be mutation-style: it should fail only if the real suite is weak.
-- Note common bottlenecks early:
-  - React/Jest module resolution across two folders.
-  - Docker bind-mounts hiding `node_modules`.
-  - Jest/RTL async timing issues (fake timers, queued promises).
+I didn’t begin by writing tests immediately — I first read through the auth implementation to understand what behavior actually exists and where the risk is.
 
-## 2) Define the contract (acceptance criteria)
+While reviewing, I focused on the “security-critical” mechanics that tend to break in production:
 
-- Security flow guarantees the tests must enforce:
-  - Concurrent refresh prevention (one refresh for many requests).
-  - Token reuse detection → revoke refresh family.
-  - Request queue + retry after refresh.
-  - Proactive refresh before expiry.
-- UI/auth guarantees:
-  - Login success/failure behaviors.
-  - Logout clears session.
-  - Protected route requires auth.
-  - Demo credentials text appears.
-- Test-suite requirements:
-  - Each test includes a comment indicating which requirement it validates.
-  - Meta tests must “prove” robustness by breaking code and expecting the suite to fail.
-  - Provide 3 short docker commands: run suite, run meta, run evaluation.
+- how refresh tokens rotate (and how refresh token “families” are tracked)
+- how concurrent requests behave during refresh (promise sharing)
+- how 401s are handled (queueing + retry)
+- how refresh token reuse/theft is detected and enforced
+- how proactive refresh works (time-to-expiry thresholds)
 
-## 3) Redesign the structure (high-leverage testability change)
+During this pass, I also found a real correctness bug in the refresh queue drain path (an undefined `reject` being referenced), plus dead code at the end of the file. Those issues mattered because they could crash the app mid-refresh and make tests look flaky even when they were actually catching a real defect.
 
-- Keep app behavior untouched, but add a minimal export hook so tests can reliably observe internal auth state:
-  - Export the auth backend / http client instance via a `__testExports` object.
-  - This avoids brittle DOM-only assertions for security flows.
-- Place all testing infrastructure in `repository_after/`:
-  - Jest config, setup (including module mocks), TS config, and the test files.
+## 2) I wrote down the acceptance criteria as testable behaviors
 
-## 4) Minimal execution pipeline (make tests deterministic)
+I translated the requirements into concrete assertions I could enforce, instead of vague “it should be secure” statements.
 
-- Test layers:
-  - Logic-level tests: directly exercise the exported auth client/backend to validate refresh, queueing, and theft detection.
-  - UI-level tests: render the app with RTL and validate login/logout/protected routing.
-- Determinism rules:
-  - Use `jest.useFakeTimers()` where timing matters (expiry/proactive refresh).
-  - Attach promise rejections before advancing timers (avoid unhandled rejections).
-  - Reset singleton/shared state between tests (don’t rely on `jest.resetModules()` if it causes multiple-React “invalid hook call” issues).
+For the security flows, I ensured I had coverage for:
 
-## 5) Push work to the right layer (container + config)
+- a single refresh being shared across concurrent requests
+- 401 → request queue → refresh → retry (exactly once)
+- proactive refresh triggering when there is <60 seconds remaining
+- theft detection: reuse of a revoked refresh token invalidates the entire token family
+- refresh failure: tokens are cleared and the session is treated as expired
 
-- Solve module resolution at the configuration layer instead of hacks in individual tests:
-  - Ensure React deps resolve from a single `node_modules`.
-  - Mock non-critical UI deps (e.g., icons) in Jest setup.
-- In Docker, prefer “copy into image” over bind-mounting the whole repo when it causes dependency shadowing.
-  - Copy `repository_before/`, `repository_after/`, `tests/`, and `evaluation/` into the image.
-  - Mount only `evaluation/reports/` if you need outputs on the host.
+For the UI/state behaviors, I ensured I had coverage for:
 
-## 6) Eliminate pathological patterns (meta tests that can’t be cheated)
+- login success updates UI state
+- login failure surfaces a user-visible error
+- protected routes gate unauthenticated access
+- logout clears tokens and returns to the login view
+- loading states disable buttons to prevent duplicate operations
 
-- Meta tests should not re-implement logic; they should validate the _real suite’s power_.
-- Approach:
-  - Create mutated versions of the app module (disable theft detection, remove queueing, bypass protected route, etc.).
-  - Run the real Jest suite against the mutated module.
-  - Assert: suite exits non-zero (i.e., detects the bug).
-- Cover “most requirements” with a small set of high-signal mutations rather than many low-value ones.
+## 3) I intentionally tested at two layers (logic + UI)
 
-## 7) Verify against the contract (and keep commands usable)
+I avoided relying only on DOM assertions for the security rules. UI-level tests are great for validating flows, but they’re usually the wrong tool for verifying internal invariants like “only one refresh call happened” or “the refresh token family was revoked.”
 
-- Confirm locally that:
-  - Main suite passes on the unmodified implementation.
-  - Each mutation causes the suite to fail.
+So I split the suite into:
+
+- logic-level tests that exercise the auth client/backend directly (to validate refresh/queueing/theft detection deterministically)
+- UI-level tests that render the app and validate the login/logout/protected route experience
+
+## 4) I made the async tests deterministic
+
+Auth flows are heavily time- and promise-driven, so I leaned on deterministic timer control:
+
+- I used fake timers when expiry/proactive refresh timing mattered.
+- I advanced time inside `act()` to keep React state updates consistent.
+- I reset singleton state between tests (tokens, in-flight refresh promise, request queue) so tests don’t contaminate each other.
+
+One key lesson here was to avoid patterns that create “unhandled rejection” noise. For queued-request failure scenarios, I used `Promise.allSettled()` to ensure every rejection is observed and asserted.
+
+## 5) I treated Docker failures as test/runtime failures first
+
+When Docker runs started failing, I didn’t assume it was a Docker problem. I checked whether:
+
+- the image being run actually contained the latest test changes
+- the failing errors were runtime/test issues (React hook errors, nested RTL imports) rather than missing services
+
+The “Invalid hook call” errors and the “Hooks cannot be defined inside tests” errors were classic symptoms of test harness issues:
+
+- multiple copies of React getting loaded (usually from module reset / require patterns)
+- requiring RTL inside a test (which re-registers hooks like `beforeAll`/`afterEach` in the wrong place)
+
+I fixed this by keeping Testing Library imports at module scope and avoiding module-loading patterns that can cause duplicate React instances.
+
+## 6) I validated robustness using mutation-style meta tests
+
+I didn’t want the suite to pass only on the happy path; I wanted evidence that it would fail if security behaviors were “accidentally” removed.
+
+So I relied on mutation-style meta tests that intentionally break key guarantees (like disabling theft detection, disabling proactive refresh, bypassing protected routes) and then assert that the real Jest suite fails when those regressions are introduced.
+
+This gave me confidence the tests weren’t simply mirroring implementation details — they were enforcing outcomes.
+
+## 7) I verified the full evaluator-style workflow at the end
+
+Once the suite was stable locally, I verified it end-to-end the way an evaluator would:
+
+- run the main Jest suite inside Docker
+- run the meta suite inside Docker
+
+At that point, both suites passed cleanly.
