@@ -1,11 +1,19 @@
 version: 0.2
 
 phases:
+  install:
+    commands:
+      - echo "Installing prerequisites"
+      - docker --version
+      - go version
+      - python3 --version
+
   build:
     commands:
       - echo "Starting build and tests for y67yp7..."
       - docker build -t hailu3548/jr2pzv-app .
       - docker run --rm hailu3548/jr2pzv-app sh -c "cd repository_after && go test -v -race ./..."
+
   post_build:
     commands:
       - echo "Starting evaluation..."
