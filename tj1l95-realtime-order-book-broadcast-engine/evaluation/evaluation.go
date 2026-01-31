@@ -6,18 +6,45 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-type TestEvent struct { Time, Action, Package, Test, Output string; Elapsed float64 }
+type TestEvent struct {
+	Time, Action, Package, Test, Output string
+	Elapsed                             float64
+}
+
+type TestResult struct {
+	Name   string `json:"name"`
+	Passed bool   `json:"passed"`
+}
+
+type RepositoryAfter struct {
+	Passed int          `json:"passed"`
+	Failed int          `json:"failed"`
+	Total  int          `json:"total"`
+	Tests  []TestResult `json:"tests"`
+}
 
 type Report struct {
-	Timestamp string `json:"timestamp"`
-	RepositoryAfter struct {
-		Tests   map[string]string `json:"tests"`
-		Metrics struct { Total, Passed, Failed int `json:"total"` } `json:"metrics"`
-	} `json:"repository_after"`
-	Success bool `json:"success"`
+	Timestamp       string          `json:"timestamp"`
+	RepositoryAfter RepositoryAfter `json:"repository_after"`
+}
+
+func formatTestName(name string) string {
+	// Convert "TestSomethingLikeThis" to "Something Like This"
+	if strings.HasPrefix(name, "Test") {
+		name = name[4:]
+	}
+	var result []rune
+	for i, r := range name {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result = append(result, ' ')
+		}
+		result = append(result, r)
+	}
+	return string(result)
 }
 
 func main() {
@@ -25,15 +52,26 @@ func main() {
 	fmt.Println("Real-Time Order Book Engine - Evaluation")
 	fmt.Println("============================================================")
 
-	results := map[string]string{}
+	tests := []TestResult{}
 	passed, failed := 0, 0
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := scanner.Text()
 		var ev TestEvent
-		if json.Unmarshal([]byte(line), &ev) != nil { continue }
+		if json.Unmarshal([]byte(line), &ev) != nil {
+			continue
+		}
 		if ev.Test != "" && (ev.Action == "pass" || ev.Action == "fail") {
-			if ev.Action == "pass" { results[ev.Test] = "PASSED"; passed++ } else { results[ev.Test] = "FAILED"; failed++ }
+			isPassed := ev.Action == "pass"
+			tests = append(tests, TestResult{
+				Name:   formatTestName(ev.Test),
+				Passed: isPassed,
+			})
+			if isPassed {
+				passed++
+			} else {
+				failed++
+			}
 		}
 	}
 	total := passed + failed
@@ -43,7 +81,10 @@ func main() {
 	fmt.Printf("    Failed: %d\n", failed)
 
 	projectRoot := os.Getenv("PROJECT_ROOT")
-	if projectRoot == "" { cwd, _ := os.Getwd(); projectRoot = cwd }
+	if projectRoot == "" {
+		cwd, _ := os.Getwd()
+		projectRoot = cwd
+	}
 	baseEval := filepath.Join(projectRoot, "evaluation")
 	os.MkdirAll(baseEval, 0755)
 
@@ -51,11 +92,15 @@ func main() {
 	outputDir := filepath.Join(baseEval, now.Format("2006-01-02"), now.Format("15-04-05"))
 	os.MkdirAll(outputDir, 0755)
 
-	report := Report{Timestamp: now.Format(time.RFC3339), Success: failed == 0 && total > 0}
-	report.RepositoryAfter.Tests = results
-	report.RepositoryAfter.Metrics.Total = total
-	report.RepositoryAfter.Metrics.Passed = passed
-	report.RepositoryAfter.Metrics.Failed = failed
+	report := Report{
+		Timestamp: now.Format("2006-01-02T15:04:05.000Z"),
+		RepositoryAfter: RepositoryAfter{
+			Passed: passed,
+			Failed: failed,
+			Total:  total,
+			Tests:  tests,
+		},
+	}
 
 	data, _ := json.MarshalIndent(report, "", "  ")
 	os.WriteFile(filepath.Join(outputDir, "report.json"), data, 0644)
@@ -66,9 +111,17 @@ func main() {
 	fmt.Printf("Total Tests: %d\n", total)
 	fmt.Printf("Passed: %d\n", passed)
 	fmt.Printf("Failed: %d\n", failed)
-	if total > 0 { fmt.Printf("Success Rate: %.1f%%\n", float64(passed)/float64(total)*100) }
-	if report.Success { fmt.Println("Overall: PASS") } else { fmt.Println("Overall: FAIL") }
+	if total > 0 {
+		fmt.Printf("Success Rate: %.1f%%\n", float64(passed)/float64(total)*100)
+	}
+	if failed == 0 && total > 0 {
+		fmt.Println("Overall: PASS")
+	} else {
+		fmt.Println("Overall: FAIL")
+	}
 	fmt.Println("============================================================")
 
-	if !report.Success { os.Exit(1) }
+	if failed > 0 || total == 0 {
+		os.Exit(1)
+	}
 }
