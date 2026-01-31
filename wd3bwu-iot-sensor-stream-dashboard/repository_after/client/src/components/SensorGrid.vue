@@ -1,5 +1,5 @@
 <template>
-  <div class="sensor-grid">
+  <div class="sensor-grid" ref="gridRef">
     <SensorCard
       v-for="sensor in sensors"
       :key="sensor.id"
@@ -18,7 +18,7 @@
  * Uses Intersection Observer to track visible sensors
  */
 
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useSensorStore } from '../stores/sensorStore.js';
 import SensorCard from './SensorCard.vue';
 
@@ -26,7 +26,9 @@ const emit = defineEmits(['visibilityChange']);
 
 const store = useSensorStore();
 const visibleSensors = ref(new Set());
+const gridRef = ref(null);
 let observer = null;
+let initialCheckDone = false;
 
 const sensors = computed(() => store.sensors);
 
@@ -69,7 +71,8 @@ const handleIntersection = (entries) => {
     }
   }
   
-  if (changed) {
+  if (changed || !initialCheckDone) {
+    initialCheckDone = true;
     emitVisibilityChange();
   }
 };
@@ -80,6 +83,19 @@ onMounted(() => {
     threshold: 0
   });
 });
+
+// Watch for sensors to load, then observe all cards
+watch(sensors, (newSensors) => {
+  if (newSensors.length > 0 && observer) {
+    nextTick(() => {
+      // Observe all sensor cards that are already in DOM
+      const cards = gridRef.value?.querySelectorAll('[data-sensor-id]');
+      cards?.forEach(card => {
+        observer.observe(card);
+      });
+    });
+  }
+}, { immediate: true });
 
 onUnmounted(() => {
   if (observer) {

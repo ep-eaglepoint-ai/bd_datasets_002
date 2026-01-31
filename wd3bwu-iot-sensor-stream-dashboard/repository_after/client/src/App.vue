@@ -127,7 +127,8 @@ const fetchSensors = async () => {
     const data = await response.json();
     store.setSensors(data.sensors);
     
-    // Subscribe to all sensors initially (will be refined by viewport)
+    // Subscribe to all sensors initially to ensure data starts flowing immediately.
+    // The viewport visibility callback will refine this to only visible sensors.
     const allIds = data.sensors.map(s => s.id);
     setSubscriptions(allIds);
   } catch (err) {

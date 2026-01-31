@@ -31,8 +31,8 @@ test.describe('Performance - Requirement 1', () => {
     
     console.log(`Measured FPS: ${fps}`);
     
-    // Assert FPS >= 55 (allowing 5fps margin for test environment variance)
-    expect(fps).toBeGreaterThanOrEqual(55);
+    // Assert FPS >= 60 (strict requirement compliance)
+    expect(fps).toBeGreaterThanOrEqual(60);
   });
 
   test('should render 50 sensor cards', async ({ page }) => {
