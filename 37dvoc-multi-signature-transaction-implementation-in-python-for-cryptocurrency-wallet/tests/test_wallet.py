@@ -195,3 +195,77 @@ class TestFullFlow:
         signed_tx = coordinator.get_signed_transaction()
         
         assert len(signed_tx.signatures) == 3
+
+
+class TestNonceValidationAtBroadcast:
+    """Tests for nonce validation during broadcast."""
+    
+    def test_broadcast_rejects_unregistered_nonce(self, multi_sig_wallet_class, repo_module, key_pair_class):
+        """Test that broadcast rejects transactions with unregistered nonces."""
+        sign_payload = getattr(repo_module, 'sign_payload', None)
+        Transaction = getattr(repo_module, 'Transaction', None)
+        TransactionPayload = getattr(repo_module, 'TransactionPayload', None)
+        SignedTransaction = getattr(repo_module, 'SignedTransaction', None)
+        NonceError = getattr(repo_module, 'NonceError', None)
+        if any(c is None for c in [sign_payload, Transaction, TransactionPayload, SignedTransaction, NonceError]):
+            pytest.skip("Required items not implemented")
+        
+        keys = [key_pair_class() for _ in range(3)]
+        public_keys = [k.public_key for k in keys]
+        wallet = multi_sig_wallet_class(public_keys)
+        
+        # Manually create a payload with unregistered nonce (bypassing wallet)
+        tx = Transaction(recipient="b" * 40, amount=50000, nonce=9999, fee=2000)
+        payload = TransactionPayload(
+            sender_addresses=wallet.addresses,
+            transaction=tx,
+            threshold=2
+        )
+        
+        # Sign valid signatures
+        sig1 = sign_payload(keys[0], payload, 0)
+        sig2 = sign_payload(keys[1], payload, 1)
+        
+        signed_tx = SignedTransaction(payload=payload, signatures=[sig1, sig2])
+        
+        # Broadcast should reject - nonce wasn't registered through wallet
+        with pytest.raises(NonceError):
+            wallet.broadcast(signed_tx)
+    
+    def test_broadcast_accepts_registered_nonce(self, multi_sig_wallet_class, repo_module, key_pair_class):
+        """Test that broadcast accepts transactions with registered nonces."""
+        sign_payload = getattr(repo_module, 'sign_payload', None)
+        if sign_payload is None:
+            pytest.skip("sign_payload not implemented")
+        
+        keys = [key_pair_class() for _ in range(3)]
+        public_keys = [k.public_key for k in keys]
+        wallet = multi_sig_wallet_class(public_keys)
+        
+        # Create payload through wallet (registers nonce)
+        payload = wallet.create_transaction_payload(recipient="b" * 40, amount=50000)
+        
+        sig1 = sign_payload(keys[0], payload, 0)
+        sig2 = sign_payload(keys[1], payload, 1)
+        
+        coordinator = wallet.create_coordinator(payload)
+        coordinator.add_signature(sig1)
+        coordinator.add_signature(sig2)
+        
+        signed_tx = coordinator.get_signed_transaction()
+        
+        # Broadcast should succeed - nonce was registered
+        result = wallet.broadcast(signed_tx)
+        assert result['success'] is True
+    
+    def test_nonce_registry_accessible(self, multi_sig_wallet_class, key_pair_class):
+        """Test that wallet exposes nonce registry."""
+        keys = [key_pair_class() for _ in range(3)]
+        public_keys = [k.public_key for k in keys]
+        wallet = multi_sig_wallet_class(public_keys)
+        
+        # Create payload registers nonce
+        payload = wallet.create_transaction_payload(recipient="b" * 40, amount=50000)
+        
+        assert wallet.nonce_registry.is_used(payload.transaction.nonce) is True
+

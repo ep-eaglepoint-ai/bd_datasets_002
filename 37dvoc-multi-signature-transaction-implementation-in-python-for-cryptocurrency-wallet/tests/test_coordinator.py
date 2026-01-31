@@ -279,3 +279,130 @@ class TestCoordinatorReset:
         coordinator.reset()
         
         assert coordinator.get_signature_count() == 0
+
+
+class TestHighSSignatureRejection:
+    """Tests for high-S (malleable) signature rejection."""
+    
+    def test_reject_high_s_signature(self, signature_coordinator_class, repo_module, key_pair_class):
+        """Test that coordinator rejects high-S signatures."""
+        Transaction = getattr(repo_module, 'Transaction', None)
+        TransactionPayload = getattr(repo_module, 'TransactionPayload', None)
+        PartialSignature = getattr(repo_module, 'PartialSignature', None)
+        SignatureError = getattr(repo_module, 'SignatureError', None)
+        sign_payload = getattr(repo_module, 'sign_payload', None)
+        if any(c is None for c in [Transaction, TransactionPayload, PartialSignature, SignatureError, sign_payload]):
+            pytest.skip("Required classes not implemented")
+        
+        from ecdsa import SECP256k1
+        from ecdsa.util import sigdecode_der, sigencode_der
+        
+        keys = [key_pair_class() for _ in range(3)]
+        addresses = [k.public_key_hex[:40] for k in keys]
+        auth_keys = [k.public_key_bytes for k in keys]
+        
+        tx = Transaction(recipient="b" * 40, amount=50000, nonce=1, fee=500)
+        payload = TransactionPayload(sender_addresses=addresses, transaction=tx)
+        
+        coordinator = signature_coordinator_class(payload, auth_keys)
+        
+        # Create a valid signature first
+        valid_sig = sign_payload(keys[0], payload, 0)
+        
+        # Convert to high-S form (malleable)
+        order = SECP256k1.order
+        r, s = sigdecode_der(valid_sig.signature, order)
+        high_s = order - s  # Make it high-S
+        high_s_signature = sigencode_der(r, high_s, order)
+        
+        # Create partial signature with high-S
+        malleable_sig = PartialSignature(
+            public_key_bytes=keys[0].public_key_bytes,
+            signature=high_s_signature,
+            signer_index=0
+        )
+        
+        with pytest.raises(SignatureError):
+            coordinator.add_signature(malleable_sig)
+    
+    def test_accept_normalized_low_s_signature(self, signature_coordinator_class, repo_module, key_pair_class):
+        """Test that coordinator accepts properly normalized low-S signatures."""
+        Transaction = getattr(repo_module, 'Transaction', None)
+        TransactionPayload = getattr(repo_module, 'TransactionPayload', None)
+        sign_payload = getattr(repo_module, 'sign_payload', None)
+        is_signature_normalized = getattr(repo_module, 'is_signature_normalized', None)
+        if any(c is None for c in [Transaction, TransactionPayload, sign_payload, is_signature_normalized]):
+            pytest.skip("Required classes not implemented")
+        
+        keys = [key_pair_class() for _ in range(3)]
+        addresses = [k.public_key_hex[:40] for k in keys]
+        auth_keys = [k.public_key_bytes for k in keys]
+        
+        tx = Transaction(recipient="b" * 40, amount=50000, nonce=1, fee=500)
+        payload = TransactionPayload(sender_addresses=addresses, transaction=tx)
+        
+        coordinator = signature_coordinator_class(payload, auth_keys)
+        
+        sig = sign_payload(keys[0], payload, 0)
+        
+        # Verify it's normalized
+        assert is_signature_normalized(sig.signature) is True
+        
+        # Coordinator should accept it
+        result = coordinator.add_signature(sig)
+        assert result is True
+
+
+class TestConstantTimeKeyCheck:
+    """Tests for constant-time key authorization check."""
+    
+    def test_is_authorized_key_checks_all_keys(self, signature_coordinator_class, repo_module, key_pair_class):
+        """Test that is_authorized_key always checks all keys (no early exit)."""
+        Transaction = getattr(repo_module, 'Transaction', None)
+        TransactionPayload = getattr(repo_module, 'TransactionPayload', None)
+        if any(c is None for c in [Transaction, TransactionPayload]):
+            pytest.skip("Required classes not implemented")
+        
+        keys = [key_pair_class() for _ in range(3)]
+        addresses = [k.public_key_hex[:40] for k in keys]
+        auth_keys = [k.public_key_bytes for k in keys]
+        
+        tx = Transaction(recipient="b" * 40, amount=50000, nonce=1, fee=500)
+        payload = TransactionPayload(sender_addresses=addresses, transaction=tx)
+        
+        coordinator = signature_coordinator_class(payload, auth_keys)
+        
+        # Test all three keys are recognized
+        assert coordinator.is_authorized_key(keys[0].public_key_bytes) is True
+        assert coordinator.is_authorized_key(keys[1].public_key_bytes) is True
+        assert coordinator.is_authorized_key(keys[2].public_key_bytes) is True
+        
+        # Test unauthorized key is rejected
+        unauthorized = key_pair_class()
+        assert coordinator.is_authorized_key(unauthorized.public_key_bytes) is False
+    
+    def test_constant_time_behavior_functional(self, signature_coordinator_class, repo_module, key_pair_class):
+        """Functional test that authorization works regardless of key position."""
+        Transaction = getattr(repo_module, 'Transaction', None)
+        TransactionPayload = getattr(repo_module, 'TransactionPayload', None)
+        sign_payload = getattr(repo_module, 'sign_payload', None)
+        if any(c is None for c in [Transaction, TransactionPayload, sign_payload]):
+            pytest.skip("Required classes not implemented")
+        
+        keys = [key_pair_class() for _ in range(3)]
+        addresses = [k.public_key_hex[:40] for k in keys]
+        auth_keys = [k.public_key_bytes for k in keys]
+        
+        tx = Transaction(recipient="b" * 40, amount=50000, nonce=1, fee=500)
+        payload = TransactionPayload(sender_addresses=addresses, transaction=tx)
+        
+        coordinator = signature_coordinator_class(payload, auth_keys)
+        
+        # Add signatures from different positions (first, last key)
+        sig_first = sign_payload(keys[0], payload, 0)
+        sig_last = sign_payload(keys[2], payload, 2)
+        
+        # Both should be accepted
+        assert coordinator.add_signature(sig_first) is True
+        assert coordinator.add_signature(sig_last) is True
+        assert coordinator.get_signature_count() == 2

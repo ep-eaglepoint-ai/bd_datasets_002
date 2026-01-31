@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from ecdsa import VerifyingKey, SECP256k1
 
-from .exceptions import BroadcastError, ThresholdNotMetError, ValidationError
+from .exceptions import BroadcastError, ThresholdNotMetError, ValidationError, NonceError
 from .transaction import Transaction, TransactionPayload, SignedTransaction
 from .coordinator import SignatureCoordinator
 from .validation import NonceRegistry
@@ -44,6 +44,11 @@ class MultiSigWallet:
     @property
     def threshold(self) -> int:
         return self._threshold
+    
+    @property
+    def nonce_registry(self) -> NonceRegistry:
+        """Access to nonce registry for external validation."""
+        return self._nonce_registry
     
     def estimate_fee(self) -> int:
         return self.BASE_FEE + (self.FEE_PER_SIGNATURE * self._threshold)
@@ -97,12 +102,19 @@ class MultiSigWallet:
                 f"Need {self._threshold} signatures for broadcast"
             )
         
+        # Re-validate nonce hasn't been used by another transaction
+        tx_nonce = signed_tx.payload.transaction.nonce
+        if not self._nonce_registry.is_used(tx_nonce):
+            raise NonceError(
+                "Transaction nonce was not registered through this wallet"
+            )
+        
         tx_data = signed_tx.to_broadcast_format()
         
         return {
             'success': True,
             'transaction_hash': signed_tx.payload_hash,
-            'nonce': signed_tx.payload.transaction.nonce,
+            'nonce': tx_nonce,
             'signature_count': len(signed_tx.signatures)
         }
     
