@@ -9,7 +9,6 @@ This file remains for backward compatibility.
 """
 
 import sys
-import sys
 import os
 
 # Ensure the current directory is in sys.path to find async_queue package

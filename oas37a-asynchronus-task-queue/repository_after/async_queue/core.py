@@ -88,6 +88,10 @@ class AsyncTaskQueue:
             # FIX R8: Check for duplicate task ID
             if task_id in self._tasks:
                 raise ValueError(f"Task with ID {task_id} already exists")
+            
+            # FIX R7/R8: Enforce max_queue_size
+            if len(self._task_heap) >= self.max_queue_size:
+                raise RuntimeError(f"Queue is full (max_queue_size={self.max_queue_size})")
                 
             task = Task(
                 id=task_id,
@@ -147,6 +151,15 @@ class AsyncTaskQueue:
                 if task_id in self._running_asyncio_tasks:
                     self._running_asyncio_tasks[task_id].cancel()
                     task.status = TaskStatus.CANCELLED
+                    # FIX R5: Decrement pending count for running task
+                    self._pending_count -= 1
+                    # FIX R5: Add TaskResult so get_result() doesn't block
+                    self._results[task_id] = TaskResult(
+                        task_id=task_id,
+                        success=False,
+                        error="Task cancelled while running",
+                        retry_count=task.retry_count,
+                    )
                     return True
             
             return False
@@ -304,11 +317,11 @@ class AsyncTaskQueue:
         current_time = time.time()
         cleaned_count = 0
         async with self._lock:
-            task_ids_to_remove = []
+            task_ids_to_remove = set()
             for task_id, task in self._tasks.items():
                 if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
                     if current_time - task.created_at > max_age_seconds:
-                        task_ids_to_remove.append(task_id)
+                        task_ids_to_remove.add(task_id)
             
             for task_id in task_ids_to_remove:
                 del self._tasks[task_id]
@@ -316,6 +329,15 @@ class AsyncTaskQueue:
                 if task_id in self._results:
                     del self._results[task_id]
                 cleaned_count += 1
+            
+            # FIX R7: Rebuild heap without cleaned/stale tasks
+            if task_ids_to_remove:
+                new_heap = []
+                for task in self._task_heap:
+                    if task.id not in task_ids_to_remove:
+                        new_heap.append(task)
+                heapq.heapify(new_heap)
+                self._task_heap = new_heap
             
             # FIX R7: Clean up expired entries from result cache
             self._result_cache.cleanup()

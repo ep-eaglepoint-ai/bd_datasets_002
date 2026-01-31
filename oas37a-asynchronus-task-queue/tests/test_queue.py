@@ -601,7 +601,7 @@ class TestMemoryLeaks:
     @pytest.mark.timeout(120)
     async def test_cleanup_after_10k_tasks(self, AsyncTaskQueue):
         """Verify cleanup_completed_tasks properly frees memory after 10K tasks."""
-        queue = AsyncTaskQueue(num_workers=8)
+        queue = AsyncTaskQueue(num_workers=8, max_queue_size=15000)
         await with_timeout(queue.start())
         
         async def quick_task(n):
