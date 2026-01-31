@@ -6,6 +6,8 @@ It evaluates whether the implementation meets all specified requirements.
 """
 import unittest
 import sys
+import json
+import argparse
 from pathlib import Path
 
 # Add tests directory to path
@@ -25,7 +27,7 @@ from test_requirements import (
 )
 
 
-def run_evaluation():
+def run_evaluation(json_output=None):
     """Run all evaluation tests and return results."""
     
     # Create test suite
@@ -53,20 +55,27 @@ def run_evaluation():
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     
-    # Print summary
-    print("\n" + "=" * 70)
-    print("EVALUATION SUMMARY")
-    print("=" * 70)
-    
+    # Calculate results
     total = result.testsRun
     failures = len(result.failures)
     errors = len(result.errors)
     passed = total - failures - errors
     
-    print(f"\nTotal Tests: {total}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {failures}")
-    print(f"Errors: {errors}")
+    # Create results data
+    results_data = {
+        "summary": {
+            "total_tests": total,
+            "passed": passed,
+            "failed": failures,
+            "errors": errors,
+            "success": failures == 0 and errors == 0
+        },
+        "requirements": {},
+        "details": {
+            "failures": [{"test": str(f[0]), "error": f[1]} for f in result.failures],
+            "errors": [{"test": str(e[0]), "error": e[1]} for e in result.errors]
+        }
+    }
     
     # Requirement summary
     requirements = {
@@ -79,31 +88,55 @@ def run_evaluation():
         "7. Vue 3 Frontend": TestRequirement7_VueFrontend,
     }
     
-    print("\n" + "-" * 70)
-    print("REQUIREMENTS STATUS")
-    print("-" * 70)
-    
     for req_name, test_class in requirements.items():
         # Check if any tests from this class failed
         class_failures = [f for f in result.failures if test_class.__name__ in str(f[0])]
         class_errors = [e for e in result.errors if test_class.__name__ in str(e[0])]
         
-        if class_failures or class_errors:
-            status = "[FAIL]"
-        else:
-            status = "[PASS]"
-        
+        passed_req = not (class_failures or class_errors)
+        results_data["requirements"][req_name] = {
+            "passed": passed_req,
+            "status": "PASS" if passed_req else "FAIL"
+        }
+    
+    # Print summary
+    print("\n" + "=" * 70)
+    print("EVALUATION SUMMARY")
+    print("=" * 70)
+    
+    print(f"\nTotal Tests: {total}")
+    print(f"Passed: {passed}")
+    print(f"Failed: {failures}")
+    print(f"Errors: {errors}")
+    
+    print("\n" + "-" * 70)
+    print("REQUIREMENTS STATUS")
+    print("-" * 70)
+    
+    for req_name, req_data in results_data["requirements"].items():
+        status = f"[{req_data['status']}]"
         print(f"{status} - {req_name}")
     
     print("\n" + "=" * 70)
     
     if failures == 0 and errors == 0:
         print("[SUCCESS] ALL REQUIREMENTS MET!")
-        return 0
     else:
         print(f"[WARNING] {failures + errors} issues found")
-        return 1
+    
+    # Save JSON output if requested
+    if json_output:
+        output_path = Path(json_output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, 'w') as f:
+            json.dump(results_data, f, indent=2)
+        print(f"\nResults saved to: {json_output}")
+    
+    return 0 if (failures == 0 and errors == 0) else 1
 
 
 if __name__ == "__main__":
-    sys.exit(run_evaluation())
+    parser = argparse.ArgumentParser(description="Run evaluation tests")
+    parser.add_argument("--json-output", help="Path to save JSON results")
+    args = parser.parse_args()
+    sys.exit(run_evaluation(args.json_output))

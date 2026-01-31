@@ -1,135 +1,41 @@
-# Document Versioning App
+Document Versioning App with History and Rollback
 
-A full-stack web application for document versioning with history and rollback functionality.
+Run tests before. Expected some failures.
 
-**Tech Stack:** Django REST Framework (Backend) + Vue 3 (Frontend)
+Command
+docker run --rm -w /app hailu3548/jr2pzv-app:robust-report pytest -q
 
-## Features
+Expected behavior
 
-- ✅ User authentication (Register, Login, JWT-based access)
-- ✅ Create, edit, delete, and view text documents
-- ✅ Automatic version creation on every document update
-- ✅ View version history for each document
-- ✅ Roll back a document to any previous version (atomic transaction)
-- ✅ Access control - users can only manage their own documents
-- ✅ Modern, responsive UI with Vue 3
+Functional tests pass
 
-## Quick Start
+Structural tests fail. This is expected before improvements
 
-### Prerequisites
+Run tests after. Expected all pass.
 
-- Python 3.11+
-- Node.js 18+
-- pip and npm
+Command
+docker run --rm -w /app hailu3548/jr2pzv-app:robust-report pytest -q
 
-### Backend Setup
+Expected behavior
 
-```bash
-cd backend
+Functional tests pass
 
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
+Structural tests pass. Improvements are present
 
-# Install dependencies
-pip install -r requirements.txt
+Run evaluation. Compares both implementations.
 
-# Copy environment file
-copy .env.example .env  # Windows
-# cp .env.example .env  # Linux/Mac
+Command
+docker run --rm hailu3548/jr2pzv-app:robust-report
 
-# Run migrations
-python manage.py migrate
+This will
 
-# Seed demo data (optional)
-python manage.py seed_demo
+Run tests for before and after implementations
 
-# Start server
-python manage.py runserver 8000
-```
+Run structure and equivalence checks
 
-### Frontend Setup
+Produce an evaluation report in the container output
 
-```bash
-cd frontend
+Generate patch between versions.
 
-# Install dependencies
-npm install
-
-# Copy environment file
-copy .env.example .env  # Windows
-# cp .env.example .env  # Linux/Mac
-
-# Start dev server
-npm run dev
-```
-
-### Access the App
-
-- **Frontend:** http://localhost:5173
-- **Backend API:** http://localhost:8000/api
-- **Demo Login:** username=`demo`, password=`demo123`
-
-## Docker Setup
-
-```bash
-docker compose up --build
-```
-
-## API Endpoints
-
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register/` | User registration |
-| POST | `/api/auth/login/` | Login (get JWT tokens) |
-| POST | `/api/auth/refresh/` | Refresh access token |
-| POST | `/api/auth/logout/` | Logout (blacklist token) |
-| GET | `/api/auth/me/` | Get current user |
-
-### Documents
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/documents/` | List documents |
-| POST | `/api/documents/` | Create document |
-| GET | `/api/documents/{id}/` | Get document |
-| PATCH | `/api/documents/{id}/` | Update document |
-| DELETE | `/api/documents/{id}/` | Delete document |
-
-### Versions
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/documents/{id}/versions/` | List versions |
-| GET | `/api/documents/{id}/versions/{vid}/` | Get version |
-| POST | `/api/documents/{id}/versions/{vid}/rollback/` | Rollback |
-
-## Running Tests
-
-```bash
-cd backend
-python manage.py test documents.tests -v 2
-```
-
-## Project Structure
-
-```
-├── backend/
-│   ├── config/          # Django settings
-│   ├── accounts/        # User authentication
-│   ├── documents/       # Document & version models
-│   └── manage.py
-├── frontend/
-│   ├── src/
-│   │   ├── api/         # Axios configuration
-│   │   ├── components/  # Vue components
-│   │   ├── router/      # Vue Router
-│   │   ├── stores/      # Auth state
-│   │   └── views/       # Page components
-│   └── package.json
-└── docker-compose.yml
-```
-
-## License
-
-MIT
+Command
+git diff --no-index repository_before repository_after > patches/task_001.patch
