@@ -1,6 +1,18 @@
 services:
   app:
     build: .
-    command: pytest -q tests
+    command: go run repository_after/main.go
+    ports:
+      - "8080:8080"
     volumes:
       - .:/app
+    working_dir: /app
+
+  test:
+    build: .
+    command: go test -v -race -count=1 ./tests/...
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles:
+      - test
