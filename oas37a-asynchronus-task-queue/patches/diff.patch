@@ -1,6 +1,7 @@
-diff --git a/repository_before/__pycache__/queue.cpython-311.pyc b/repository_after/__pycache__/queue.cpython-311.pyc
-index e254eefd..46eb4d3c 100644
-Binary files a/repository_before/__pycache__/queue.cpython-311.pyc and b/repository_after/__pycache__/queue.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/queue.cpython-311.pyc b/repository_after/__pycache__/queue.cpython-311.pyc
+new file mode 100644
+index 00000000..5be43f17
+Binary files /dev/null and b/repository_after/__pycache__/queue.cpython-311.pyc differ
 diff --git a/repository_after/async_queue/__init__.py b/repository_after/async_queue/__init__.py
 new file mode 100644
 index 00000000..89c547a7
@@ -27,36 +28,37 @@ index 00000000..89c547a7
 +]
 diff --git a/repository_after/async_queue/__pycache__/__init__.cpython-311.pyc b/repository_after/async_queue/__pycache__/__init__.cpython-311.pyc
 new file mode 100644
-index 00000000..159434ca
+index 00000000..14ab9f58
 Binary files /dev/null and b/repository_after/async_queue/__pycache__/__init__.cpython-311.pyc differ
 diff --git a/repository_after/async_queue/__pycache__/containers.cpython-311.pyc b/repository_after/async_queue/__pycache__/containers.cpython-311.pyc
 new file mode 100644
-index 00000000..64acc546
+index 00000000..ecab097d
 Binary files /dev/null and b/repository_after/async_queue/__pycache__/containers.cpython-311.pyc differ
 diff --git a/repository_after/async_queue/__pycache__/core.cpython-311.pyc b/repository_after/async_queue/__pycache__/core.cpython-311.pyc
 new file mode 100644
-index 00000000..6a2d5ad2
+index 00000000..182a1d72
 Binary files /dev/null and b/repository_after/async_queue/__pycache__/core.cpython-311.pyc differ
 diff --git a/repository_after/async_queue/__pycache__/models.cpython-311.pyc b/repository_after/async_queue/__pycache__/models.cpython-311.pyc
 new file mode 100644
-index 00000000..6ac5fce1
+index 00000000..7e0f6416
 Binary files /dev/null and b/repository_after/async_queue/__pycache__/models.cpython-311.pyc differ
 diff --git a/repository_after/async_queue/__pycache__/policies.cpython-311.pyc b/repository_after/async_queue/__pycache__/policies.cpython-311.pyc
 new file mode 100644
-index 00000000..4a258473
+index 00000000..09376ac6
 Binary files /dev/null and b/repository_after/async_queue/__pycache__/policies.cpython-311.pyc differ
 diff --git a/repository_after/async_queue/containers.py b/repository_after/async_queue/containers.py
 new file mode 100644
-index 00000000..0ec63bd8
+index 00000000..e9b580fa
 --- /dev/null
 +++ b/repository_after/async_queue/containers.py
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,93 @@
 +"""
 +Data structures/containers for the async task queue.
 +"""
 +
 +from typing import List, Optional, Any, Tuple
 +import heapq
++import time  # FIX: Moved import to top per PEP 8
 +from collections import OrderedDict
 +from .models import Task
 +
@@ -134,15 +136,6 @@ index 00000000..0ec63bd8
 +        return len(self._cache)
 +    
 +    def __contains__(self, key):
-+        # Note: This checks existence, doesn't check expiry
-+        # This is used for internal checks where we handle expiry logic explicitly
-+        # But wait, get_result checks `if task_id in self._results`.
-+        # Be careful. ResultCache isn't used for _results dict in core logic?
-+        # Actually in core.py _results is a dict, NOT ResultCache instance?
-+        # Let's check original queue.py.
-+        # Original: self._results: Dict[str, TaskResult] = {}
-+        # ResultCache class was defined but NOT USED in AsyncTaskQueue in original code?
-+        # Let's verify.
 +        return key in self._cache
 +    
 +    # Add items support for dict-like interface if needed
@@ -152,14 +145,12 @@ index 00000000..0ec63bd8
 +    # Add delete support
 +    def __delitem__(self, key):
 +        del self._cache[key]
-+
-+import time  # Needed for time.time()
 diff --git a/repository_after/async_queue/core.py b/repository_after/async_queue/core.py
 new file mode 100644
-index 00000000..57d6e22f
+index 00000000..41412aba
 --- /dev/null
 +++ b/repository_after/async_queue/core.py
-@@ -0,0 +1,314 @@
+@@ -0,0 +1,323 @@
 +"""
 +Core implementation of the async task queue.
 +"""
@@ -171,6 +162,7 @@ index 00000000..57d6e22f
 +from typing import Dict, List, Any, Optional, Awaitable, Callable
 +from .models import Task, TaskStatus, TaskResult
 +from .policies import RetryPolicy
++from .containers import ResultCache
 +
 +
 +class AsyncTaskQueue:
@@ -193,13 +185,13 @@ index 00000000..57d6e22f
 +        self._pending_count = 0
 +        
 +        self._running = False
-+        self._stopped = False  # FIX R8: Track if queue has been stopped
++        self._stopped = False  
 +        self._shutdown_event = asyncio.Event()
 +        self._lock = asyncio.Lock()
-+        self._task_available = asyncio.Event()  # Signal when tasks are available
++        self._task_available = asyncio.Event()  
 +        
-+        self._result_cache: Dict[str, Any] = {}
-+        self._sequence_counter = 0  # FIX R3: For FIFO ordering
++        self._result_cache = ResultCache(max_size=1000, ttl_seconds=300)  
++        self._sequence_counter = 0  
 +    
 +    async def start(self):
 +        if self._running:
@@ -208,7 +200,6 @@ index 00000000..57d6e22f
 +        self._running = True
 +        self._shutdown_event.clear()
 +        
-+        # FIX R2: Changed from range(self.num_workers - 1) to range(self.num_workers)
 +        for i in range(self.num_workers):
 +            worker = asyncio.create_task(self._worker_loop(i))
 +            self._workers.append(worker)
@@ -453,15 +444,18 @@ index 00000000..57d6e22f
 +            "queue_size": len(self._task_heap),
 +        }
 +    
-+    def get_task_status(self, task_id: str) -> Optional[TaskStatus]:
-+        if task_id in self._tasks:
-+            return self._tasks[task_id].status
-+        return None
++    # FIX R1: Made async with lock to prevent race condition
++    async def get_task_status(self, task_id: str) -> Optional[TaskStatus]:
++        async with self._lock:
++            if task_id in self._tasks:
++                return self._tasks[task_id].status
++            return None
 +    
 +    # FIX R7: Add method to clean up completed tasks
-+    async def cleanup_completed_tasks(self, max_age_seconds: float = 300):
-+        """Remove completed/failed tasks older than max_age_seconds"""
++    async def cleanup_completed_tasks(self, max_age_seconds: float = 300) -> int:
++        """Remove completed/failed tasks older than max_age_seconds. Returns count of cleaned tasks."""
 +        current_time = time.time()
++        cleaned_count = 0
 +        async with self._lock:
 +            task_ids_to_remove = []
 +            for task_id, task in self._tasks.items():
@@ -471,9 +465,15 @@ index 00000000..57d6e22f
 +            
 +            for task_id in task_ids_to_remove:
 +                del self._tasks[task_id]
-+                # Keep results for a bit longer
-+                if task_id in self._result_cache and len(self._result_cache) > 1000:
-+                    del self._result_cache[task_id]
++                # FIX R7: Also clean up from _results dict
++                if task_id in self._results:
++                    del self._results[task_id]
++                cleaned_count += 1
++            
++            # FIX R7: Clean up expired entries from result cache
++            self._result_cache.cleanup()
++        
++        return cleaned_count
 diff --git a/repository_after/async_queue/models.py b/repository_after/async_queue/models.py
 new file mode 100644
 index 00000000..c1c51c88
