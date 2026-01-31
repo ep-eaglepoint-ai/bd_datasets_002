@@ -3,19 +3,17 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...
+      - echo "Starting build..."
       - docker build -t hailu3548/jr2pzv-app .
   build:
     commands:
-      - echo Running Ground Truth Solution Tests...
+      - echo "Running Ground Truth Solution Tests..."
       - docker run --rm hailu3548/jr2pzv-app sh -c "cd repository_after && go test -v -race ./..."
   post_build:
     commands:
-      - echo Running Evaluation...
-      # Mount the evaluation directory to capture the report.json artifact
+      - echo "Running Evaluation..."
       - docker run --rm -v $(pwd)/evaluation:/app/evaluation hailu3548/jr2pzv-app python evaluation/evaluation.py
-      - echo Build completed on `date`
+      - echo "Build completed."
 
 artifacts:
   files:
