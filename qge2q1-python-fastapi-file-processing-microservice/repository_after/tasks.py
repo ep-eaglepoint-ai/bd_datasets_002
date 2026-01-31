@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import math
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -12,13 +14,13 @@ import pandas as pd
 from celery.exceptions import SoftTimeLimitExceeded
 from openpyxl import load_workbook
 from redis.asyncio import Redis
-from sqlalchemy import delete, select, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .celery_app import celery_app
 from .config import settings
 from .db import create_engine, create_sessionmaker
-from .models import Job, JobStatus, ProcessingError
+from .models import Job, JobStatus, LoadedRow, ProcessingError
 from .storage import job_storage_path
 from .webhook import deliver_webhook
 
@@ -40,6 +42,62 @@ def _is_null(value: Any) -> bool:
     return False
 
 
+_INT_RE = re.compile(r"^[+-]?\d+$")
+_FLOAT_RE = re.compile(r"^[+-]?(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?$|^[+-]?\d+(?:[eE][+-]?\d+)$")
+
+
+def _transform_value(value: Any) -> Any:
+    if _is_null(value):
+        return None
+
+    if isinstance(value, (int, bool)):
+        return int(value) if isinstance(value, bool) else value
+
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        if value.is_integer():
+            # avoid storing 1.0 as float
+            as_int = int(value)
+            return as_int
+        return value
+
+    if isinstance(value, datetime):
+        # JSON-friendly
+        return value.astimezone(timezone.utc).isoformat()
+
+    if isinstance(value, str):
+        s = value.strip()
+        if s == "":
+            return None
+
+        # Basic numeric parsing for "data type" validation.
+        if _INT_RE.match(s):
+            try:
+                return int(s)
+            except Exception:
+                return s
+
+        if _FLOAT_RE.match(s):
+            try:
+                f = float(s)
+                return f if math.isfinite(f) else None
+            except Exception:
+                return s
+
+        return s
+
+    # Fallback: stringify unknown types
+    try:
+        return str(value)
+    except Exception:
+        return None
+
+
+def _transform_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {str(k): _transform_value(v) for k, v in row.items()}
+
+
 def _validate_row(row: dict[str, Any]) -> list[tuple[str | None, str, str, str | None]]:
     errors: list[tuple[str | None, str, str, str | None]] = []
     for col, val in row.items():
@@ -48,6 +106,18 @@ def _validate_row(row: dict[str, Any]) -> list[tuple[str | None, str, str, str |
         else:
             if isinstance(val, str) and len(val) > 2000:
                 errors.append((col, "CONSTRAINT", "Value too long", val[:2000]))
+            # Basic data type / constraint validation
+            if isinstance(val, int):
+                if val < -(2**63) or val > (2**63 - 1):
+                    errors.append((col, "CONSTRAINT", "Integer out of range", str(val)))
+            elif isinstance(val, float):
+                if not math.isfinite(val):
+                    errors.append((col, "TYPE", "Non-finite float", str(val)))
+            elif isinstance(val, (str, bool)):
+                # allowed
+                pass
+            else:
+                errors.append((col, "TYPE", "Unsupported value type", str(type(val))))
     return errors
 
 
@@ -101,18 +171,42 @@ async def _log_errors(
     row_number: int,
     errors: list[tuple[str | None, str, str, str | None]],
 ) -> None:
+    payload = []
     for (column_name, error_type, error_message, raw_value) in errors:
-        session.add(
-            ProcessingError(
-                job_id=job_id,
-                row_number=row_number,
-                column_name=column_name,
-                error_type=error_type,
-                error_message=error_message,
-                raw_value=raw_value,
-            )
+        payload.append(
+            {
+                "id": uuid.uuid4(),
+                "job_id": job_id,
+                "row_number": int(row_number),
+                "column_name": column_name,
+                "error_type": error_type,
+                "error_message": error_message,
+                "raw_value": raw_value,
+            }
         )
-    await session.commit()
+    if payload:
+        await session.execute(insert(ProcessingError), payload)
+
+
+async def _insert_loaded_rows(
+    session: AsyncSession,
+    *,
+    job_id: uuid.UUID,
+    rows: list[tuple[int, dict[str, Any]]],
+) -> None:
+    if not rows:
+        return
+    payload = []
+    for (row_number, data) in rows:
+        payload.append(
+            {
+                "id": uuid.uuid4(),
+                "job_id": job_id,
+                "row_number": int(row_number),
+                "data": data,
+            }
+        )
+    await session.execute(insert(LoadedRow), payload)
 
 
 async def _process_csv(path: Path, job_id: uuid.UUID, session: AsyncSession) -> tuple[int, int]:
@@ -132,6 +226,9 @@ async def _process_csv(path: Path, job_id: uuid.UUID, session: AsyncSession) -> 
 
     last_persist = time.monotonic()
 
+    pending_loaded: list[tuple[int, dict[str, Any]]] = []
+    pending_error_inserts = 0
+
     for chunk in pd.read_csv(path, chunksize=10_000):
         # cancellation check before chunk
         job = await _get_job(session, job_id)
@@ -140,12 +237,39 @@ async def _process_csv(path: Path, job_id: uuid.UUID, session: AsyncSession) -> 
 
         for _, row in chunk.iterrows():
             rows_seen += 1
-            as_dict = {str(k): row[k] for k in row.index}
-            errs = _validate_row(as_dict)
+            raw = {str(k): row[k] for k in row.index}
+            transformed = _transform_row(raw)
+            errs = _validate_row(transformed)
             if errs:
                 rows_failed += 1
                 await _log_errors(session, job_id, rows_seen, errs)
+                pending_error_inserts += len(errs)
+            else:
+                pending_loaded.append((rows_seen, transformed))
 
+            now = time.monotonic()
+            if _should_persist(last_persist, now, settings.progress_update_interval_seconds):
+                last_persist = now
+
+                # Persist loaded rows + errors and job progress at least every 5 seconds.
+                await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
+                pending_loaded.clear()
+
+                progress = 100 if total_rows == 0 else int((rows_seen / max(total_rows, 1)) * 100)
+                await _update_job_progress(
+                    session,
+                    job_id,
+                    progress=progress,
+                    rows_processed=rows_seen,
+                    rows_failed=rows_failed,
+                )
+
+        # End of chunk: persist any pending loaded rows so we don't build up memory.
+        if pending_loaded:
+            await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
+            pending_loaded.clear()
+
+        # Ensure progress isn't stale for long-running chunks.
         now = time.monotonic()
         if _should_persist(last_persist, now, settings.progress_update_interval_seconds):
             last_persist = now
@@ -159,6 +283,9 @@ async def _process_csv(path: Path, job_id: uuid.UUID, session: AsyncSession) -> 
             )
 
     # final persist
+    if pending_loaded:
+        await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
+        pending_loaded.clear()
     progress = 100 if total_rows == 0 else int((rows_seen / max(total_rows, 1)) * 100)
     await _update_job_progress(session, job_id, progress=progress, rows_processed=rows_seen, rows_failed=rows_failed)
     return rows_seen, rows_failed
@@ -184,24 +311,34 @@ async def _process_excel(path: Path, job_id: uuid.UUID, session: AsyncSession) -
         header = []
 
     batch: list[dict[str, Any]] = []
+    batch_row_numbers: list[int] = []
 
     for row_vals in rows_iter:
         rows_seen += 1
 
+        # Check cancellation before building the next chunk.
         job = await _get_job(session, job_id)
         if not job or job.status == JobStatus.CANCELLED:
             break
 
         row_dict = {header[i] if i < len(header) else f"col_{i}": row_vals[i] for i in range(len(row_vals))}
-        batch.append(row_dict)
+        batch.append(_transform_row(row_dict))
+        batch_row_numbers.append(rows_seen)
 
         if len(batch) >= 10_000:
+            pending_loaded: list[tuple[int, dict[str, Any]]] = []
             for i, item in enumerate(batch):
+                rn = batch_row_numbers[i]
                 errs = _validate_row(item)
                 if errs:
                     rows_failed += 1
-                    await _log_errors(session, job_id, rows_seen - len(batch) + i + 1, errs)
+                    await _log_errors(session, job_id, rn, errs)
+                else:
+                    pending_loaded.append((rn, item))
+
+            await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
             batch.clear()
+            batch_row_numbers.clear()
 
         now = time.monotonic()
         if _should_persist(last_persist, now, settings.progress_update_interval_seconds):
@@ -210,11 +347,16 @@ async def _process_excel(path: Path, job_id: uuid.UUID, session: AsyncSession) -
             await _update_job_progress(session, job_id, progress=progress, rows_processed=rows_seen, rows_failed=rows_failed)
 
     if batch:
+        pending_loaded: list[tuple[int, dict[str, Any]]] = []
         for i, item in enumerate(batch):
+            rn = batch_row_numbers[i]
             errs = _validate_row(item)
             if errs:
                 rows_failed += 1
-                await _log_errors(session, job_id, rows_seen - len(batch) + i + 1, errs)
+                await _log_errors(session, job_id, rn, errs)
+            else:
+                pending_loaded.append((rn, item))
+        await _insert_loaded_rows(session, job_id=job_id, rows=pending_loaded)
 
     progress = 100 if total_rows == 0 else int((rows_seen / max(total_rows, 1)) * 100)
     await _update_job_progress(session, job_id, progress=progress, rows_processed=rows_seen, rows_failed=rows_failed)

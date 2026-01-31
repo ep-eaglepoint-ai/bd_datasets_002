@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .db import create_engine, create_sessionmaker, get_session
-from .models import Base, Job, JobStatus, ProcessingError
+from .models import Base, Job, JobStatus, LoadedRow, ProcessingError
 from .schemas import (
     HealthResponse,
     JobsListResponse,
@@ -230,6 +230,7 @@ async def retry_job(job_id: uuid.UUID, session: AsyncSession = Depends(get_sessi
 
     # Clear errors
     await session.execute(delete(ProcessingError).where(ProcessingError.job_id == job_id))
+    await session.execute(delete(LoadedRow).where(LoadedRow.job_id == job_id))
 
     job.status = JobStatus.QUEUED
     job.progress = 0

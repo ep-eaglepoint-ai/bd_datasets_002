@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String,
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import Enum as SAEnum
 from sqlalchemy import Uuid
+from sqlalchemy.types import JSON
 
 
 class Base(DeclarativeBase):
@@ -48,6 +49,13 @@ class Job(Base):
         passive_deletes=True,
     )
 
+    loaded_rows: Mapped[list[LoadedRow]] = relationship(
+        "LoadedRow",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
 
 Index("ix_jobs_created_at", Job.created_at)
 
@@ -72,3 +80,20 @@ class ProcessingError(Base):
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     job: Mapped[Job] = relationship("Job", back_populates="errors")
+
+
+class LoadedRow(Base):
+    __tablename__ = "loaded_rows"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    row_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    job: Mapped[Job] = relationship("Job", back_populates="loaded_rows")

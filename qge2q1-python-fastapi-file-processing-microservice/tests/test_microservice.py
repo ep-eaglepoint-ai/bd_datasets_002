@@ -457,3 +457,43 @@ async def test_processing_uses_openpyxl_read_only(monkeypatch, tmp_path):
     await tasks._process_excel(p, uuid.uuid4(), Sess())
     assert called["read_only"] is True
     assert called["data_only"] is True
+
+
+def test_processing_loads_valid_rows_into_db(client, app):
+    # 2 valid + 2 invalid rows -> LoadedRow should contain 2 rows.
+    csv_content = "a,b\n1,2\n,3\n4,\n5,6\n"
+    up = client.post(
+        "/api/files/upload",
+        files={"file": ("data.csv", csv_content.encode("utf-8"), "text/csv")},
+    )
+    assert up.status_code == 200
+    job_id = up.json()["job_id"]
+
+    import time
+
+    deadline = time.time() + 2.0
+    job_json = client.get(f"/api/jobs/{job_id}").json()
+    while time.time() < deadline and job_json["status"] in ("QUEUED", "PROCESSING"):
+        time.sleep(0.05)
+        job_json = client.get(f"/api/jobs/{job_id}").json()
+
+    assert job_json["status"] in ("COMPLETED", "FAILED")
+    assert job_json["rows_processed"] >= 1
+    assert job_json["rows_failed"] >= 1
+
+    from sqlalchemy import func, select
+
+    from repository_after.models import LoadedRow
+
+    import anyio
+
+    async def _count_loaded() -> int:
+        async with app.state.sessionmaker() as session:
+            return (
+                await session.execute(
+                    select(func.count()).select_from(LoadedRow).where(LoadedRow.job_id == uuid.UUID(job_id))
+                )
+            ).scalar_one()
+
+    loaded = anyio.run(_count_loaded)
+    assert loaded == (job_json["rows_processed"] - job_json["rows_failed"])
