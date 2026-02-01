@@ -24,7 +24,8 @@ public class Session {
 
     @AssertTrue(message = "endTime must be greater than or equal to startTime")
     public boolean isEndAfterOrEqualStart() {
-        if (startTime == null || endTime == null) return true;
+        // Deterministic: if either value is missing, validation fails
+        if (startTime == null || endTime == null) return false;
         return endTime >= startTime;
     }
 }

@@ -9,7 +9,7 @@ services:
   test-after:
     build:
       context: .
-      dockerfile: Dockerfile.test-after
+      dockerfile: Dockerfile
     image: session-analytics-test-after:latest
     working_dir: /app
     # no volume mount here so the image-embedded build and dependencies are used

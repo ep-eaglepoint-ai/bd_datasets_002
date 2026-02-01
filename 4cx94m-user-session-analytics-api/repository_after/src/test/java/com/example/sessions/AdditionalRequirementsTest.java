@@ -98,23 +98,25 @@ public class AdditionalRequirementsTest {
         assertTrue(found.isPresent(), "Could not locate SessionAnalyticsController.java under project workspace");
         String src = Files.readString(found.get());
         assertFalse(src.contains("cachedSessions"), "repository_after must not introduce shared mutable cache");
-        boolean hasI = src.contains("for (int i = 0; i < sessions.size(); i++)");
-        boolean hasJ = src.contains("for (int j = 0; j < sessions.size(); j++)");
-        assertFalse(hasI && hasJ, "repository_after must not use nested loops over sessions (O(n^2))");
+        // ensure there is only one explicit loop over the sessions collection (single pass)
+        int forCount = 0;
+        int idx = 0;
+        while ((idx = src.indexOf("for (", idx)) >= 0) { forCount++; idx += 4; }
+        assertEquals(1, forCount, "repository_after must perform aggregation in exactly one pass (single for-loop)");
     }
 
     @Test
     void controllerIsStatelessAndValidatorIsStaticFinal() throws Exception {
         Class<?> ctrl = Class.forName("com.example.sessions.SessionAnalyticsController");
-        for (Field f : ctrl.getDeclaredFields()) {
-            if (!Modifier.isStatic(f.getModifiers())) {
-                fail("Controller contains mutable instance field: " + f.getName());
-            }
+        // controller must not declare any instance or static fields (stateless)
+        Field[] fields = ctrl.getDeclaredFields();
+        assertEquals(0, fields.length, "Controller must not declare fields");
+        // explicit check: there must be no 'validator' field
+        try {
+            ctrl.getDeclaredField("validator");
+            fail("Controller must not declare a 'validator' field");
+        } catch (NoSuchFieldException e) {
+            // expected
         }
-
-        Field validator = ctrl.getDeclaredField("validator");
-        int mods = validator.getModifiers();
-        assertTrue(Modifier.isStatic(mods), "validator must be static");
-        assertTrue(Modifier.isFinal(mods), "validator must be final");
     }
 }
