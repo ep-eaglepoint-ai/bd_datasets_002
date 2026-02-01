@@ -102,7 +102,7 @@ def run_tests(target_path, label):
     ]
     
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path.cwd())
+    env["PYTHONPATH"] = f"{str(Path.cwd())}:{str(Path.cwd() / 'repository_after')}"
     
     try:
         result = subprocess.run(

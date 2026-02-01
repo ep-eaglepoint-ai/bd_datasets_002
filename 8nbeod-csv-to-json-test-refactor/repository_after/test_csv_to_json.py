@@ -189,10 +189,9 @@ class TestCSVToJSON(unittest.TestCase):
                 files={'file': file})
             self.assertEqual(response.status_code, 200)
 
-            with open('datasets/data.json', 'wb') as f:
-                f.write(response.content)
-
-            self.assertEqual(response.content, b'{"key": "value"}')
+            memory_file = io.BytesIO()
+            memory_file.write(response.content)
+            self.assertEqual(memory_file.getvalue(), b'{"key": "value"}')
 
     @patch('os.getenv')
     @patch('requests.get')
