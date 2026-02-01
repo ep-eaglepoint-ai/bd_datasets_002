@@ -27,6 +27,7 @@ public class ParallelProcessor<T, M, R> {
     private CancellationToken cancellationToken;
     private Duration timeout;
     private int threshold = -1; // -1 indicates default
+    private int maxPendingTasks = -1;
 
     // Execution Modes
     public static <T, M, R> ParallelProcessor<T, M, R> withForkJoin() {
@@ -83,6 +84,11 @@ public class ParallelProcessor<T, M, R> {
 
     public ParallelProcessor<T, M, R> withThreshold(int threshold) {
         this.threshold = threshold;
+        return this;
+    }
+
+    public ParallelProcessor<T, M, R> withMaxPendingTasks(int maxTasks) {
+        this.maxPendingTasks = maxTasks;
         return this;
     }
 
@@ -163,7 +169,7 @@ public class ParallelProcessor<T, M, R> {
         }
 
         Queue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
-        AtomicLong processedCount = new AtomicLong(0);
+        AtomicLong processedCount = (progressListener != null) ? new AtomicLong(0) : null;
         long totalCount = dataSource != null ? dataSource.estimatedSize() : 0;
         long startTime = System.currentTimeMillis();
 
@@ -210,8 +216,10 @@ public class ParallelProcessor<T, M, R> {
                                 }
                                 try {
                                     localAcc = reducer.reduce(localAcc, mapper.map(part.get(i)));
-                                    long current = processedCount.incrementAndGet();
-                                    triggerProgressIfPercentage(current, totalCount, startTime, progressListener);
+                                    if (processedCount != null) {
+                                        long current = processedCount.incrementAndGet();
+                                        triggerProgressIfPercentage(current, totalCount, startTime, progressListener);
+                                    }
                                 } catch (Exception e) {
                                     handleException(e, part.get(i), partGlobalStart + i, exceptions);
                                 }
@@ -229,16 +237,27 @@ public class ParallelProcessor<T, M, R> {
                         }
                     }
                 } else {
-                    ParallelTask task = new ParallelTask(listData, 0, listData.size(), effectiveThreshold, processedCount, exceptions);
+                    TaskContext context = new TaskContext(processedCount, exceptions, cancellationToken, failFast, progressListener, totalCount, startTime);
+                    ParallelTask<T, M, R> task = new ParallelTask<>(
+                        listData, 0, listData.size(), mapper, reducer, effectiveThreshold, context
+                    );
                     ForkJoinPool pool = forkJoinPool != null ? forkJoinPool : ForkJoinPool.commonPool();
                     result = pool.invoke(task);
                 }
             } else {
-                result = executeBuffered(exceptions, processedCount, effectiveThreshold, totalCount, startTime);
+                BufferedPartitioner<T, M, R> partitioner = new BufferedPartitioner<>(
+                    dataSource, mapper, reducer, forkJoinPool, parallelism, effectiveThreshold,
+                    cancellationToken, progressListener, failFast, maxPendingTasks
+                );
+                result = partitioner.execute(processedCount, exceptions, totalCount, startTime);
             }
             
             if (!exceptions.isEmpty()) {
-                throw new ParallelProcessingException("Parallel processing failed: " + exceptions.size() + " errors", exceptions.size(), new ArrayList<>(exceptions));
+                throw new ParallelProcessingException(
+                    "Parallel processing failed: " + exceptions.size() + " of " + totalCount + " elements failed", 
+                    exceptions.size(), 
+                    new ArrayList<>(exceptions)
+                );
             }
             
             return result;
@@ -264,91 +283,58 @@ public class ParallelProcessor<T, M, R> {
         }
     }
 
-    private R executeBuffered(Queue<Throwable> exceptions, AtomicLong processedCount, int threshold, long totalCount, long startTime) {
-        ForkJoinPool pool = forkJoinPool != null ? forkJoinPool : ForkJoinPool.commonPool();
-        int bufferSize = Math.max(threshold, 10000);
-        Iterator<T> it = dataSource.iterator();
-        
-        List<Future<R>> futures = new ArrayList<>();
-        Semaphore backPressure = new Semaphore(2 * parallelism);
-        
-        while (it.hasNext()) {
-            if (cancellationToken != null && cancellationToken.isCancelled()) break;
-            
-            try {
-                backPressure.acquire();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-            
-            List<T> buffer = new ArrayList<>(bufferSize);
-            for (int i = 0; i < bufferSize && it.hasNext(); i++) {
-                buffer.add(it.next());
-            }
-            
-            final List<T> taskChunk = buffer;
-            futures.add(pool.submit(() -> {
-                try {
-                    R acc = reducer.identity();
-                    for (int i=0; i<taskChunk.size(); i++) {
-                         if (cancellationToken != null && cancellationToken.isCancelled()) break;
-                         try {
-                             acc = reducer.reduce(acc, mapper.map(taskChunk.get(i)));
-                             long current = processedCount.incrementAndGet();
-                             triggerProgressIfPercentage(current, totalCount, startTime, progressListener);
-                         } catch (Exception e) {
-                             handleException(e, taskChunk.get(i), i, exceptions);
-                         }
-                    }
-                    return acc;
-                } finally {
-                    backPressure.release();
-                }
-            }));
+    static class TaskContext {
+        final AtomicLong processedCount;
+        final Queue<Throwable> exceptions;
+        final CancellationToken cancellationToken;
+        final boolean failFast;
+        final ProgressListener progressListener;
+        final long totalCount;
+        final long startTime;
+
+        TaskContext(AtomicLong processedCount, Queue<Throwable> exceptions, CancellationToken cancellationToken,
+                    boolean failFast, ProgressListener progressListener, long totalCount, long startTime) {
+            this.processedCount = processedCount;
+            this.exceptions = exceptions;
+            this.cancellationToken = cancellationToken;
+            this.failFast = failFast;
+            this.progressListener = progressListener;
+            this.totalCount = totalCount;
+            this.startTime = startTime;
         }
-        
-        R total = reducer.identity();
-        for (Future<R> f : futures) {
-            try {
-                total = reducer.combine(total, f.get());
-            } catch (Exception e) {
-                exceptions.add(e);
-            }
-        }
-        return total;
     }
 
-    class ParallelTask extends RecursiveTask<R> {
+    static class ParallelTask<T, M, R> extends RecursiveTask<R> {
         private final List<T> data;
         private final int start;
         private final int end;
+        private final Mapper<T, M> mapper;
+        private final Reducer<M, R> reducer;
         private final int threshold;
-        private final AtomicLong processedCount;
-        private final Queue<Throwable> exceptions;
+        private final TaskContext context;
         
-        public ParallelTask(List<T> data, int start, int end, int threshold, AtomicLong processedCount, Queue<Throwable> exceptions) {
+        public ParallelTask(List<T> data, int start, int end, Mapper<T, M> mapper, Reducer<M, R> reducer, 
+                            int threshold, TaskContext context) {
             this.data = data;
             this.start = start;
             this.end = end;
+            this.mapper = mapper;
+            this.reducer = reducer;
             this.threshold = threshold;
-            this.processedCount = processedCount;
-            this.exceptions = exceptions;
+            this.context = context;
         }
         
         @Override
         protected R compute() {
-             if (cancellationToken != null && cancellationToken.isCancelled()) {
+             if (context.cancellationToken != null && context.cancellationToken.isCancelled()) {
                  completeExceptionally(new CancellationException());
                  return null;
              }
              
              if (end - start <= threshold) {
                  R acc = reducer.identity();
-                 long totalCountForMonitoring = data.size();
-                 long startTimeForMonitoring = System.currentTimeMillis();
                  for (int i = start; i < end; i++) {
-                     if (i % 100 == 0 && cancellationToken != null && cancellationToken.isCancelled()) {
+                     if (i % 100 == 0 && context.cancellationToken != null && context.cancellationToken.isCancelled()) {
                          completeExceptionally(new CancellationException());
                          return null;
                      }
@@ -357,17 +343,19 @@ public class ParallelProcessor<T, M, R> {
                      try {
                          M mapped = mapper.map(element);
                          acc = reducer.reduce(acc, mapped);
-                         long current = processedCount.incrementAndGet();
-                         triggerProgressIfPercentage(current, totalCountForMonitoring, startTimeForMonitoring, progressListener);
+                         if (context.processedCount != null) {
+                             long current = context.processedCount.incrementAndGet();
+                             triggerProgressIfPercentage(current, context.totalCount, context.startTime, context.progressListener);
+                         }
                      } catch (Exception e) {
-                         handleException(e, element, i, exceptions);
+                         handleException(e, element, i, context.exceptions);
                      }
                  }
                  return acc;
              } else {
                  int mid = (start + end) / 2;
-                 ParallelTask left = new ParallelTask(data, start, mid, threshold, processedCount, exceptions);
-                 ParallelTask right = new ParallelTask(data, mid, end, threshold, processedCount, exceptions);
+                 ParallelTask<T, M, R> left = new ParallelTask<>(data, start, mid, mapper, reducer, threshold, context);
+                 ParallelTask<T, M, R> right = new ParallelTask<>(data, mid, end, mapper, reducer, threshold, context);
                  
                  left.fork();
                  R rightResult = right.compute();
@@ -375,6 +363,23 @@ public class ParallelProcessor<T, M, R> {
                  
                  return reducer.combine(leftResult, rightResult); 
              }
+        }
+
+        private void triggerProgressIfPercentage(long processed, long totalCount, long startTime, ProgressListener listener) {
+            if (listener == null || totalCount <= 0 || totalCount == Long.MAX_VALUE) return;
+            if (processed % Math.max(1, totalCount / 100) == 0) {
+                double percent = (double) processed / totalCount * 100;
+                listener.onProgress(percent, processed, totalCount);
+            }
+        }
+
+        private void handleException(Throwable e, T element, int index, Queue<Throwable> exceptions) {
+            if (e instanceof CancellationException) return;
+            exceptions.add(new ProcessingFailure(element, index, e));
+            if (context.failFast) {
+                if (context.cancellationToken != null) context.cancellationToken.cancel();
+                else throw new RuntimeException(e);
+            }
         }
     }
 }

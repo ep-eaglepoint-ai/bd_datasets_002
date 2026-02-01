@@ -472,7 +472,7 @@ public class ParallelFrameworkTest {
         long start = System.currentTimeMillis();
         data.stream().map(d -> {
             double res = d;
-            for(int i=0; i<10; i++) res = Math.sqrt(res + i);
+            for(int i=0; i<1000; i++) res = Math.sqrt(res + i);
             return res;
         }).reduce(0.0, Double::sum);
         long seqTime = System.currentTimeMillis() - start;
@@ -480,7 +480,7 @@ public class ParallelFrameworkTest {
         start = System.currentTimeMillis();
         ParallelOperations.parallelMap(data, d -> {
             double res = d;
-            for(int i=0; i<10; i++) res = Math.sqrt(res + i);
+            for(int i=0; i<1000; i++) res = Math.sqrt(res + i);
             return res;
         });
         long parTime = System.currentTimeMillis() - start;

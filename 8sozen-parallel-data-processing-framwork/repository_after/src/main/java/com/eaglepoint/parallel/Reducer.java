@@ -24,6 +24,7 @@ package com.eaglepoint.parallel;
  * @param <M> the type of the intermediate result
  * @param <R> the type of the final result
  */
+@FunctionalInterface
 public interface Reducer<M, R> {
     /**
      * Returns the identity value for the reduction.
@@ -31,7 +32,9 @@ public interface Reducer<M, R> {
      *
      * @return the identity value
      */
-    R identity();
+    default R identity() {
+        throw new UnsupportedOperationException("Identity must be implemented for parallel operations");
+    }
 
     /**
      * Combines an intermediate result into the accumulator.
@@ -50,5 +53,7 @@ public interface Reducer<M, R> {
      * @param right the right partial result
      * @return the merged result
      */
-    R combine(R left, R right);
+    default R combine(R left, R right) {
+        throw new UnsupportedOperationException("Combine must be implemented for parallel operations");
+    }
 }
