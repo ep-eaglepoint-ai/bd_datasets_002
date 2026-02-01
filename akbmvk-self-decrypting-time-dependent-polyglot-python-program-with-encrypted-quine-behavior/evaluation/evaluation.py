@@ -162,11 +162,28 @@ def run_evaluation():
     after_pythonpath = str(repo_after)
     
     print(f"\nRunning tests on repository_before (baseline)...")
-    before_tests = run_pytest_tests(
-        before_pythonpath,
-        tests_dir,
-        "before (repository_before)"
-    )
+
+    # If repository_before has no Python files, mark as failed baseline
+    # Determine if repo_before is "empty"
+    init_file = repo_before / "__init__.py"
+    if not init_file.exists() or init_file.read_text().strip() == "":
+        before_tests = {
+            "passed": False,
+            "return_code": -1,
+            "output": "No implementation in repository_before",
+            "summary": {
+                "total": 0,
+                "passed": 0,
+                "failed": 0,
+            },
+        }
+    else:
+        before_tests = run_pytest_tests(
+            pythonpath=str(repo_before),
+            tests_dir=tests_dir,
+            label="before"
+        )
+
     
     print(f"\nRunning tests on repository_after (solution)...")
     after_tests = run_pytest_tests(
