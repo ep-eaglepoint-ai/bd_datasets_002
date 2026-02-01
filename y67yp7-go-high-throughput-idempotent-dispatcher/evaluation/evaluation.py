@@ -218,12 +218,25 @@ def upload_to_s3(file_path: Path):
     """
     Upload the report to S3 if environment variables are available.
     """
+    print("\n[S3_UPLOAD_DIAGNOSTICS]")
     bucket = os.environ.get("REPORT_BUCKET")
     prefix = os.environ.get("REPORT_PREFIX", "").strip("/")
-    job_id = os.environ.get("JOB_ID") or os.environ.get("CODEBUILD_BUILD_ID")
+    
+    # Try all common job ID environment variables
+    job_id = (
+        os.environ.get("JOB_ID") or 
+        os.environ.get("CODEBUILD_BUILD_ID") or 
+        os.environ.get("EXTERNAL_ID")
+    )
+    
+    # Print environment state (masking secrets if any were present, but these shouldn't be)
+    print(f"  REPORT_BUCKET: {bucket}")
+    print(f"  REPORT_PREFIX: {prefix}")
+    print(f"  JOB_ID: {os.environ.get('JOB_ID')}")
+    print(f"  CODEBUILD_BUILD_ID: {os.environ.get('CODEBUILD_BUILD_ID')}")
     
     if not (bucket and job_id):
-        print("  ! Skipping S3 upload: REPORT_BUCKET or JOB_ID not set")
+        print("  ! Skipping S3 upload: Missing REPORT_BUCKET or a valid JOB_ID")
         return
     
     s3_key = f"{prefix}/{job_id}/report.json" if prefix else f"{job_id}/report.json"
@@ -235,6 +248,11 @@ def upload_to_s3(file_path: Path):
         print("  ✓ Upload successful")
     except Exception as e:
         print(f"  ✗ Upload failed: {e}")
+        # Print all env vars for debugging (excluding suspected secrets)
+        print("\n[ENVIRONMENT_SCAN]")
+        for k, v in os.environ.items():
+            if not any(secret in k.upper() for secret in ["KEY", "TOKEN", "SECRET", "PASS"]):
+                print(f"  {k}: {v}")
 
 
 def main():
@@ -326,6 +344,11 @@ def main():
     
     # Upload to S3 if in CI environment
     upload_to_s3(metrics_file)
+    
+    # Final Output for system capture (Stdout Reporting)
+    print("\n[REPORT_JSON_START]")
+    print(json.dumps(metrics, indent=2))
+    print("[REPORT_JSON_END]")
     
     print("\n" + "=" * 60)
     print(f"OVERALL STATUS: {metrics['overall_status'].upper()}")
