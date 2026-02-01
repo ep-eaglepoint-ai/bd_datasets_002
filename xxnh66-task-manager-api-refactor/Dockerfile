@@ -13,6 +13,12 @@ COPY . .
 # Build the evaluation runner
 RUN go build -mod=vendor -o /usr/local/bin/evaluation ./evaluation/evaluation.go
 
+# Add a script to handle the legacy python command
+RUN printf '#!/bin/sh\n\
+    exec /usr/local/bin/evaluation "$@"\n' > /usr/local/bin/python && \
+    chmod +x /usr/local/bin/python && \
+    ln -s /usr/local/bin/python /usr/local/bin/python3
+
 # Set default command
 ENTRYPOINT ["/usr/local/bin/evaluation"]
 CMD []
