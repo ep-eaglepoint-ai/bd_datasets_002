@@ -1,0 +1,149 @@
+from typing import Optional, Any
+
+
+class Node:
+    """Doubly linked list node for LRU cache."""
+    
+    def __init__(self, key: Any = 0, value: Any = 0):
+        self.key = key
+        self.value = value
+        self.prev: Optional[Node] = None
+        self.next: Optional[Node] = None
+
+
+class LRUCache:
+    """
+    LRU (Least Recently Used) Cache implementation using a hash map and doubly linked list.
+    
+    Time Complexity: O(1) for both get() and put() operations
+    Space Complexity: O(capacity)
+    
+    Args:
+        capacity: Maximum number of items the cache can hold (must be positive)
+    
+    Raises:
+        ValueError: If capacity is less than 1
+    """
+    
+    def __init__(self, capacity: int):
+        if capacity < 1:
+            raise ValueError("Capacity must be at least 1")
+        
+        self.capacity = capacity
+        self.cache: dict[Any, Node] = {}
+        
+        # Sentinel nodes to simplify edge cases
+        self.head = Node()
+        self.tail = Node()
+        self.head.next = self.tail
+        self.tail.prev = self.head
+    
+    def _add_to_head(self, node: Node) -> None:
+        """Add node right after the head (most recently used position)."""
+        node.prev = self.head
+        node.next = self.head.next
+        self.head.next.prev = node
+        self.head.next = node
+    
+    def _remove_node(self, node: Node) -> None:
+        """Remove node from its current position in the linked list."""
+        prev_node = node.prev
+        next_node = node.next
+        prev_node.next = next_node
+        next_node.prev = prev_node
+    
+    def _move_to_head(self, node: Node) -> None:
+        """Move node to the head (mark as most recently used)."""
+        self._remove_node(node)
+        self._add_to_head(node)
+    
+    def _pop_tail(self) -> Node:
+        """Remove and return the least recently used node."""
+        lru_node = self.tail.prev
+        self._remove_node(lru_node)
+        return lru_node
+    
+    @property
+    def size(self) -> int:
+        """Return the current number of items in the cache."""
+        return len(self.cache)
+    
+    def get(self, key: Any) -> Any:
+        """
+        Get the value associated with the key.
+        
+        Args:
+            key: The key to look up
+            
+        Returns:
+            The value if key exists, -1 otherwise
+        """
+        if key not in self.cache:
+            return -1
+        
+        node = self.cache[key]
+        self._move_to_head(node)
+        return node.value
+    
+    def put(self, key: Any, value: Any) -> None:
+        """
+        Put a key-value pair into the cache.
+        
+        If the key exists, update its value and mark as recently used.
+        If the cache is at capacity, evict the least recently used item.
+        
+        Args:
+            key: The key to insert/update
+            value: The value to associate with the key
+        """
+        if key in self.cache:
+            # Update existing key
+            node = self.cache[key]
+            node.value = value
+            self._move_to_head(node)
+        else:
+            # Add new key
+            new_node = Node(key, value)
+            self.cache[key] = new_node
+            self._add_to_head(new_node)
+            
+            # Evict LRU item if over capacity
+            if len(self.cache) > self.capacity:
+                lru_node = self._pop_tail()
+                del self.cache[lru_node.key]
+    
+    def __len__(self) -> int:
+        """Return the current number of items in the cache."""
+        return len(self.cache)
+    
+    def __repr__(self) -> str:
+        """Return a string representation of the cache."""
+        items = []
+        current = self.head.next
+        while current != self.tail:
+            items.append(f"{current.key}: {current.value}")
+            current = current.next
+        return f"LRUCache(capacity={self.capacity}, items=[{', '.join(items)}])"
+
+
+def main():
+    """Example usage of LRUCache."""
+    cache = LRUCache(2)
+    
+    cache.put(1, 1)
+    cache.put(2, 2)
+    print(f"get(1): {cache.get(1)}")
+    
+    cache.put(3, 3)  
+    print(f"get(2): {cache.get(2)}")  
+    
+    cache.put(4, 4)  
+    print(f"get(1): {cache.get(1)}")  
+    print(f"get(3): {cache.get(3)}")  
+    print(f"get(4): {cache.get(4)}")  
+    
+    print(f"\nCache state: {cache}")
+
+
+if __name__ == "__main__":
+    main()
