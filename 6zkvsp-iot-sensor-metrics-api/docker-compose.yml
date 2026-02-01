@@ -1,0 +1,51 @@
+# 1. This volume caches Maven downloads so builds are fast
+volumes:
+  maven_data:
+
+services:
+
+  test-before:
+    build: .
+    volumes:
+      # Mount Maven Cache
+      - maven_data:/root/.m2
+      
+      - ./repository_before/SensorMetricsController.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsController.java
+      
+      # Mount the Main App (Required for Spring to start)
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsTestApplication.java
+      
+      # Mount the Test
+      - ./tests/SensorMetricsControllerTest.java:/app/src/test/java/com/eaglepoint/iot/SensorMetricsControllerTest.java
+    command: mvn test -Dmaven.test.failure.ignore=true -Dsurefire.reportFormat=plain -Dsurefire.printSummary=true -DtrimStackTrace=false -Dsurefire.useFile=false
+
+  test-after:
+    build: .
+    volumes:
+      # Mount Maven Cache
+      - maven_data:/root/.m2
+      
+      # Mount the Controller (The Code being tested)
+      - ./repository_after/SensorMetricsController.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsController.java
+      - ./repository_after/SensorMetricsRequest.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsRequest.java
+      - ./repository_after/SensorMetricsResponse.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsResponse.java
+      
+      # Mount the Main App (Required for Spring to start)
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsTestApplication.java
+      
+      # Mount the Test
+      - ./tests/SensorMetricsControllerTest.java:/app/src/test/java/com/eaglepoint/iot/SensorMetricsControllerTest.java
+    command: mvn test -Dsurefire.reportFormat=plain -Dsurefire.printSummary=true -DtrimStackTrace=false -Dsurefire.useFile=false
+
+  evaluation:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+
+      # Ensure the Main App is available for the evaluation script logic
+      - ./tests/SensorMetricsTestApplication.java:/app/src/main/java/com/eaglepoint/iot/SensorMetricsTestApplication.java
+    # Run directly from source (Java 11+), since only Evaluation.java is mounted (not Evaluation.class)
+    command: sh -lc "java evaluation/Evaluation.java"
