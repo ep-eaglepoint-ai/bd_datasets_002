@@ -18,6 +18,8 @@ def test_input_type_enforcement():
         cryptographic_transform(123)
     with pytest.raises(TypeError):
         cryptographic_transform(None)
+    with pytest.raises(TypeError):
+        cryptographic_transform(bytearray(b"test"))
 
 def test_output_format():
     """Verify output is a lowercase hex string of 64 characters with no prefix."""
