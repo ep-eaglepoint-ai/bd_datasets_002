@@ -12,4 +12,4 @@ require (
 
 require github.com/example/payment-gateway v0.0.0-00010101000000-000000000000
 
-replace github.com/example/payment-gateway => ./repository_before
+replace github.com/example/payment-gateway => ./repository_after

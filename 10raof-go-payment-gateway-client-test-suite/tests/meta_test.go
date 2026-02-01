@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func getTargetRepo() (string, error) {
@@ -39,7 +38,9 @@ func getTargetRepo() (string, error) {
 
 func TestRepositoryStructure(t *testing.T) {
 	repoPath, err := getTargetRepo()
-	require.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	t.Logf("Evaluating Structure of: %s", filepath.Base(repoPath))
 
@@ -50,7 +51,9 @@ func TestRepositoryStructure(t *testing.T) {
 		if os.IsNotExist(err) {
 			t.Fatalf("tests directory not found at %s", testsDir)
 		}
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		assert.True(t, info.IsDir(), "tests path should be a directory")
 	})
 
@@ -61,7 +64,9 @@ func TestRepositoryStructure(t *testing.T) {
 		}
 
 		entries, err := os.ReadDir(testsDir)
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 
 		found := false
 		for _, e := range entries {
@@ -76,7 +81,9 @@ func TestRepositoryStructure(t *testing.T) {
 
 func TestUnitTestsPass(t *testing.T) {
 	repoPath, err := getTargetRepo()
-	require.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	t.Run("RunGoTest", func(t *testing.T) {
 		cmd := exec.Command("go", "test", "-json", "./tests/...")
@@ -101,7 +108,7 @@ func TestUnitTestsPass(t *testing.T) {
 			if event.Test != "" && (event.Action == "pass" || event.Action == "fail" || event.Action == "skip") {
 				t.Run(event.Test, func(t *testing.T) {
 					switch event.Action {
-case "fail":
+					case "fail":
 						t.Fail()
 					case "skip":
 						t.Skip()

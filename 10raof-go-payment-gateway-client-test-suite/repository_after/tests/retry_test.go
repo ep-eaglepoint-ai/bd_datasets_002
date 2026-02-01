@@ -7,16 +7,11 @@ import (
 	"net/http"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/example/payment-gateway/payment"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-
-
-
-
 
 func TestCharge_RetryLogic_AttemptsConfiguredRetries(t *testing.T) {
 	const maxRetries = 3
@@ -36,7 +31,7 @@ func TestCharge_RetryLogic_AttemptsConfiguredRetries(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL), payment.WithRetries(maxRetries))
 	resp, err := client.Charge(context.Background(), payment.ChargeRequest{Amount: 1000, Currency: "USD"})
 
-	require.NoError(t, err, "Final result must be successful")
+	assert.NoError(t, err, "Final result must be successful")
 	assert.Equal(t, "ch_success", resp.ID)
 	assert.Equal(t, int32(maxRetries+1), atomic.LoadInt32(&requestCount),
 		"Total request count must equal %d (initial + %d retries)", maxRetries+1, maxRetries)
@@ -60,7 +55,7 @@ func TestRefund_RetryLogic_AttemptsConfiguredRetries(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL), payment.WithRetries(maxRetries))
 	resp, err := client.Refund(context.Background(), "ch_123", 500)
 
-	require.NoError(t, err, "Final result must be successful")
+	assert.NoError(t, err, "Final result must be successful")
 	assert.Equal(t, "rf_success", resp.ID)
 	assert.Equal(t, int32(maxRetries+1), atomic.LoadInt32(&requestCount))
 }
@@ -95,6 +90,40 @@ func TestRefund_NonRetryableError_NoRetries(t *testing.T) {
 	assert.Equal(t, int32(1), atomic.LoadInt32(&requestCount), "Server request count must be 1")
 }
 
+func TestCharge_RetryLoop_ContextCancel(t *testing.T) {
+	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
 
+	client := NewTestClient("key", payment.WithBaseURL(server.URL), payment.WithRetries(10))
 
+	ctx, cancel := context.WithCancel(context.Background())
 
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := client.Charge(ctx, payment.ChargeRequest{Amount: 1000, Currency: "USD"})
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRefund_RetryLoop_ContextCancel(t *testing.T) {
+	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+
+	client := NewTestClient("key", payment.WithBaseURL(server.URL), payment.WithRetries(10))
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := client.Refund(ctx, "ch_123", 500)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), context.Canceled.Error())
+}

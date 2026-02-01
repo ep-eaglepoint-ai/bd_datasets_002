@@ -9,7 +9,6 @@ import (
 
 	"github.com/example/payment-gateway/payment"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestChargeAndRefundFlow(t *testing.T) {
@@ -52,11 +51,11 @@ func TestChargeAndRefundFlow(t *testing.T) {
 		Currency:    "USD",
 		Description: "Integration test",
 	})
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, chargeID, chargeResp.ID)
 
 	refundResp, err := client.Refund(context.Background(), chargeResp.ID, 2500)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, chargeResp.ID, refundResp.ChargeID)
 }
 
@@ -72,7 +71,3 @@ func TestWebhookVerificationFlow(t *testing.T) {
 	tamperedPayload := []byte(`{"event":"charge.succeeded","data":{"id":"ch_999"}}`)
 	assert.False(t, client.VerifyWebhook(tamperedPayload, signature))
 }
-
-
-
-

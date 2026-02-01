@@ -56,8 +56,9 @@ type Client struct {
 	maxRetries    int
 	webhookSecret string
 
-	idempotencyMu   sync.Mutex
-	processedKeys   map[string]*ChargeResponse
+	mu            sync.Mutex
+	processedKeys map[string]*ChargeResponse
+	inflight      map[string]chan struct{}
 }
 
 type Option func(*Client)
@@ -94,6 +95,7 @@ func NewClient(apiKey string, opts ...Option) *Client {
 		timeout:       30 * time.Second,
 		maxRetries:    3,
 		processedKeys: make(map[string]*ChargeResponse),
+		inflight:      make(map[string]chan struct{}),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -116,12 +118,30 @@ func (c *Client) Charge(ctx context.Context, req ChargeRequest) (*ChargeResponse
 	}
 
 	if req.IdempotencyKey != "" {
-		c.idempotencyMu.Lock()
+		c.mu.Lock()
 		if existing, ok := c.processedKeys[req.IdempotencyKey]; ok {
-			c.idempotencyMu.Unlock()
+			c.mu.Unlock()
 			return existing, nil
 		}
-		c.idempotencyMu.Unlock()
+		if waitCh, ok := c.inflight[req.IdempotencyKey]; ok {
+			c.mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-waitCh:
+				return c.Charge(ctx, req)
+			}
+		}
+		ch := make(chan struct{})
+		c.inflight[req.IdempotencyKey] = ch
+		c.mu.Unlock()
+
+		defer func() {
+			c.mu.Lock()
+			delete(c.inflight, req.IdempotencyKey)
+			close(ch)
+			c.mu.Unlock()
+		}()
 	}
 
 	body, err := json.Marshal(req)
@@ -156,9 +176,9 @@ func (c *Client) Charge(ctx context.Context, req ChargeRequest) (*ChargeResponse
 	}
 
 	if req.IdempotencyKey != "" {
-		c.idempotencyMu.Lock()
+		c.mu.Lock()
 		c.processedKeys[req.IdempotencyKey] = resp
-		c.idempotencyMu.Unlock()
+		c.mu.Unlock()
 	}
 
 	return resp, nil
@@ -179,6 +199,9 @@ func (c *Client) doChargeRequest(ctx context.Context, body []byte, idempotencyKe
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
+			return nil, ErrTimeout
+		}
+		if IsTimeoutError(err) {
 			return nil, ErrTimeout
 		}
 		return nil, fmt.Errorf("request failed: %w", err)
@@ -272,6 +295,9 @@ func (c *Client) doRefundRequest(ctx context.Context, body []byte) (*RefundRespo
 		if ctx.Err() != nil {
 			return nil, ErrTimeout
 		}
+		if IsTimeoutError(err) {
+			return nil, ErrTimeout
+		}
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -321,3 +347,10 @@ func (c *Client) GetMaxRetries() int {
 	return c.maxRetries
 }
 
+func IsTimeoutError(err error) bool {
+	var e interface{ Timeout() bool }
+	if errors.As(err, &e) {
+		return e.Timeout()
+	}
+	return false
+}

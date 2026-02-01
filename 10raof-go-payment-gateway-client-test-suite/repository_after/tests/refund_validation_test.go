@@ -10,14 +10,7 @@ import (
 
 	"github.com/example/payment-gateway/payment"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-
-
-
-
-
 
 func TestRefund_EmptyAPIKey_ReturnsErrInvalidAPIKey(t *testing.T) {
 
@@ -35,7 +28,6 @@ func TestRefund_EmptyAPIKey_ReturnsErrInvalidAPIKey(t *testing.T) {
 }
 
 func TestRefund_EmptyChargeID_ReturnsErrChargeNotFound(t *testing.T) {
-
 
 	var requestMade bool
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -106,8 +98,6 @@ func TestRefund_AmountValidation_TableDriven(t *testing.T) {
 
 func TestRefund_HTTP404_ReturnsErrChargeNotFound_NoRetries(t *testing.T) {
 
-
-
 	var requestCount int32
 
 	server := createTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -123,8 +113,6 @@ func TestRefund_HTTP404_ReturnsErrChargeNotFound_NoRetries(t *testing.T) {
 }
 
 func TestRefund_ErrorPropagation_ServerErrors(t *testing.T) {
-
-
 
 	tests := []struct {
 		name       string
@@ -145,12 +133,8 @@ func TestRefund_ErrorPropagation_ServerErrors(t *testing.T) {
 			client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL), payment.WithRetries(0))
 			_, err := client.Refund(context.Background(), "ch_123", 500)
 
-			require.Error(t, err, "Refund MUST return non-nil error for status %d", tt.statusCode)
+			assert.Error(t, err, "Refund MUST return non-nil error for status %d", tt.statusCode)
 			assert.Contains(t, err.Error(), "refund failed", "Error should contain failure details")
 		})
 	}
 }
-
-
-
-

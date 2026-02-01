@@ -9,12 +9,7 @@ import (
 
 	"github.com/example/payment-gateway/payment"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-
-
-
 
 func TestRefund_Success(t *testing.T) {
 	expectedResponse := payment.RefundResponse{
@@ -38,7 +33,7 @@ func TestRefund_Success(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL))
 	resp, err := client.Refund(context.Background(), "ch_456", 500)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedResponse.ID, resp.ID)
 	assert.Equal(t, expectedResponse.ChargeID, resp.ChargeID)
 	assert.Equal(t, expectedResponse.Amount, resp.Amount)
@@ -54,7 +49,7 @@ func TestRefund_HTTPStatusCreated(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL))
 	resp, err := client.Refund(context.Background(), "ch_123", 500)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "rf_created", resp.ID)
 }
 
@@ -68,7 +63,7 @@ func TestRefund_InvalidJSONResponse(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL), payment.WithRetries(0))
 	_, err := client.Refund(context.Background(), "ch_123", 500)
 
-	require.Error(t, err)
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to unmarshal response")
 }
 
@@ -85,7 +80,7 @@ func TestRefund_ContextCancellation(t *testing.T) {
 
 	_, err := client.Refund(ctx, "ch_123", 500)
 
-	require.Error(t, err)
+	assert.Error(t, err)
 }
 
 func TestRefund_RequestBodyCorrect(t *testing.T) {
@@ -101,11 +96,7 @@ func TestRefund_RequestBodyCorrect(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL))
 	_, err := client.Refund(context.Background(), "ch_456", 750)
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "ch_456", receivedBody["charge_id"])
 	assert.Equal(t, float64(750), receivedBody["amount"])
 }
-
-
-
-

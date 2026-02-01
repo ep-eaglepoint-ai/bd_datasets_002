@@ -10,12 +10,7 @@ import (
 
 	"github.com/example/payment-gateway/payment"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-
-
-
 
 func TestCharge_Success_HTTPStatusCreated(t *testing.T) {
 	expectedResponse := payment.ChargeResponse{
@@ -44,7 +39,7 @@ func TestCharge_Success_HTTPStatusCreated(t *testing.T) {
 		Description: "Test charge",
 	})
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedResponse.ID, resp.ID)
 	assert.Equal(t, expectedResponse.Amount, resp.Amount)
 }
@@ -59,7 +54,7 @@ func TestCharge_Success_HTTPStatusOK(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL))
 	resp, err := client.Charge(context.Background(), payment.ChargeRequest{Amount: 1000, Currency: "USD"})
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "ch_ok", resp.ID)
 }
 
@@ -80,7 +75,7 @@ func TestCharge_WithIdempotencyKey_SetsHeader(t *testing.T) {
 		IdempotencyKey: "unique-key-123",
 	})
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "unique-key-123", idempotencyKeyReceived)
 }
 
@@ -94,7 +89,7 @@ func TestCharge_InvalidJSONResponse(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL), payment.WithRetries(0))
 	_, err := client.Charge(context.Background(), payment.ChargeRequest{Amount: 1000, Currency: "USD"})
 
-	require.Error(t, err)
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to unmarshal response")
 }
 
@@ -107,7 +102,7 @@ func TestCharge_ServerError_ReturnsError(t *testing.T) {
 	client := NewTestClient("test-api-key", payment.WithBaseURL(server.URL), payment.WithRetries(0))
 	_, err := client.Charge(context.Background(), payment.ChargeRequest{Amount: 1000, Currency: "USD"})
 
-	require.Error(t, err)
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected status code: 500")
 }
 
@@ -126,7 +121,7 @@ func TestCharge_ContextCancellationDuringBackoff(t *testing.T) {
 
 	_, err := client.Charge(ctx, payment.ChargeRequest{Amount: 1000, Currency: "USD"})
 
-	require.Error(t, err)
+	assert.Error(t, err)
 
 	assert.Less(t, atomic.LoadInt32(&attemptCount), int32(10))
 }
@@ -149,13 +144,9 @@ func TestCharge_RequestBodyCorrect(t *testing.T) {
 		IdempotencyKey: "key-123",
 	})
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, int64(2500), receivedBody.Amount)
 	assert.Equal(t, "EUR", receivedBody.Currency)
 	assert.Equal(t, "Test payment", receivedBody.Description)
 	assert.Equal(t, "key-123", receivedBody.IdempotencyKey)
 }
-
-
-
-
