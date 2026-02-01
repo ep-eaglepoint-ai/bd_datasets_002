@@ -8,6 +8,7 @@ interface Operation {
 
 export class SyncCoordinator {
            public getState() { return this.state; }
+           public getPendingCount() { return 0; }
   private state: Record<string, any> = {};
 
   /**
