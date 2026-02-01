@@ -81,7 +81,7 @@ func (uc *LeadUseCase) UpdateLead(id int, name, email string, score int, status 
 
 	// Check if status transition is allowed
 	if existingLead.Status != status {
-		if err := updatedLead.CanTransitionTo(status); err != nil {
+		if err := existingLead.CanTransitionTo(status, score); err != nil {
 			return nil, err
 		}
 	}

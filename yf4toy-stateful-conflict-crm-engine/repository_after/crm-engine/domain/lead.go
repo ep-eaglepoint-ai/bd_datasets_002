@@ -37,6 +37,8 @@ var (
 	ErrInvalidStatus     = errors.New("invalid status value")
 	ErrVersionMismatch   = errors.New("version mismatch: concurrent modification detected")
 	ErrInsufficientScore = errors.New("lead score must be at least 80 to convert")
+	ErrInvalidTransition = errors.New("invalid status transition")
+	ErrLeadNotFound      = errors.New("lead not found")
 )
 
 // Validate checks if the lead data is valid
@@ -57,11 +59,25 @@ func (l *Lead) Validate() error {
 }
 
 // CanTransitionTo checks if a lead can transition to a new status
-func (l *Lead) CanTransitionTo(newStatus LeadStatus) error {
-	// Check conversion requirement
-	if newStatus == StatusConverted && l.LeadScore < MinScoreForConversion {
-		return ErrInsufficientScore
+func (l *Lead) CanTransitionTo(newStatus LeadStatus, newScore int) error {
+	// 1. Cannot transition to self (handled by caller, but safe to ignore or return nil)
+	if l.Status == newStatus {
+		return nil
 	}
+
+	// 2. CONVERTED is terminal state
+	if l.Status == StatusConverted {
+		return ErrInvalidTransition
+	}
+
+	// 3. Check conversion requirement - use the NEW score
+	if newStatus == StatusConverted {
+		if newScore < MinScoreForConversion {
+			return ErrInsufficientScore
+		}
+	}
+
+	// 4. Validate specific transitions (CONVERTED is terminal, others allowed)
 	return nil
 }
 

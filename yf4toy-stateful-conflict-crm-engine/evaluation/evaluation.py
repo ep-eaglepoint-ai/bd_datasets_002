@@ -54,14 +54,15 @@ def run_tests_before():
 
 
 def run_tests_after():
-    """Runs tests for the after-repository implementation."""
+    """Runs comprehensive tests for the after-repository implementation."""
     print(f"\n📂 Evaluating repository_after (implementation)...")
+    print(f"   Running comprehensive test suite...")
     
     try:
         # Run Go tests
         proc = subprocess.run(
             ["go", "test", "-v", "./..."],
-            cwd="/app/tests",
+            cwd="/app/tests/comprehensive",
             capture_output=True,
             text=True,
             timeout=120,
@@ -79,6 +80,7 @@ def run_tests_after():
         print(f"   Status: {'✅ PASS' if passed else '❌ FAIL'}")
         if tests_run > 0:
             print(f"   Tests: {tests_run} total, {tests_passed} passed, {tests_failed} failed")
+        print(f"   Test suites: Optimistic Locking, State Machine, HTTP Validation, Search & Filter")
             
         return {
             "passed": passed,

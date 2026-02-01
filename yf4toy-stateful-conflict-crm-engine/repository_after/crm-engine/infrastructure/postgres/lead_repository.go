@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/ep-eaglepoint-ai/crm-engine/domain"
@@ -77,7 +76,7 @@ func (r *LeadRepositoryPostgres) FindByID(id int) (*domain.Lead, error) {
 		&lead.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("lead not found")
+		return nil, domain.ErrLeadNotFound
 	}
 	return lead, err
 }
@@ -208,7 +207,7 @@ func (r *LeadRepositoryPostgres) Delete(id int) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("lead not found")
+		return domain.ErrLeadNotFound
 	}
 
 	return nil

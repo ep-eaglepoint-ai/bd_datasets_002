@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -121,6 +122,10 @@ func (h *LeadHandler) UpdateLead(w http.ResponseWriter, r *http.Request) {
 	lead, err := h.useCase.UpdateLead(id, req.Name, req.Email, req.LeadScore, req.Status, req.Version)
 	if err != nil {
 		// Handle specific error types
+		if err == domain.ErrLeadNotFound {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
 		if err == domain.ErrVersionMismatch {
 			// Return 409 Conflict with fresh data
 			freshLead, fetchErr := h.useCase.GetLead(id)
@@ -136,7 +141,7 @@ func (h *LeadHandler) UpdateLead(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		if err == domain.ErrInsufficientScore {
+		if err == domain.ErrInsufficientScore || err == domain.ErrInvalidTransition {
 			// Return 422 Unprocessable Entity
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnprocessableEntity)
@@ -163,7 +168,11 @@ func (h *LeadHandler) DeleteLead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.useCase.DeleteLead(id); err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		if err == domain.ErrLeadNotFound {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
