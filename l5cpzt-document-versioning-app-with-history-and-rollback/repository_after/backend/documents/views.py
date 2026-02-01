@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 
 from .models import Document, DocumentVersion
@@ -38,8 +39,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
     ordering = ['-updated_at']
 
     def get_queryset(self):
-        """Return only documents owned by the current user."""
-        return Document.objects.filter(owner=self.request.user)
+        """Return only documents owned by the current user with version count."""
+        return Document.objects.filter(owner=self.request.user).annotate(
+            version_count=Count('versions')
+        )
 
     def get_serializer_class(self):
         if self.action == 'list':

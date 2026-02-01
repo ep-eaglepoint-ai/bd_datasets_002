@@ -16,6 +16,8 @@ class Document(models.Model):
     current_content = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Optimistic locking field
+    optimistic_version = models.PositiveIntegerField(default=1)
 
     class Meta:
         ordering = ['-updated_at']
@@ -27,18 +29,25 @@ class Document(models.Model):
         """
         Create a new version snapshot of the current document content.
         Version number auto-increments per document.
+        Uses select_for_update to prevent race conditions.
         """
-        # Get the next version number for this document
-        max_version = self.versions.aggregate(Max('version_number'))['version_number__max']
-        next_version = (max_version or 0) + 1
+        from django.db import transaction
 
-        return DocumentVersion.objects.create(
-            document=self,
-            version_number=next_version,
-            content_snapshot=self.current_content,
-            created_by=user,
-            change_note=change_note
-        )
+        with transaction.atomic():
+            # Lock the document for version generation
+            locked_doc = Document.objects.select_for_update().get(pk=self.pk)
+            
+            # Get the next version number
+            max_version = locked_doc.versions.aggregate(Max('version_number'))['version_number__max']
+            next_version = (max_version or 0) + 1
+
+            return DocumentVersion.objects.create(
+                document=locked_doc,
+                version_number=next_version,
+                content_snapshot=locked_doc.current_content,
+                created_by=user,
+                change_note=change_note
+            )
 
 
 class DocumentVersion(models.Model):

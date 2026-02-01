@@ -1,41 +1,18 @@
-Document Versioning App with History and Rollback
+# Document Versioning App
 
-Run tests before. Expected some failures.
+## Docker Commands
 
-Command
-docker run --rm -w /app hailu3548/jr2pzv-app:robust-report pytest -q
+### 1. Build and Start the Application
+```bash
+docker-compose up --build
+```
 
-Expected behavior
+### 2. Stop the Application
+```bash
+docker-compose down
+```
 
-Functional tests pass
-
-Structural tests fail. This is expected before improvements
-
-Run tests after. Expected all pass.
-
-Command
-docker run --rm -w /app hailu3548/jr2pzv-app:robust-report pytest -q
-
-Expected behavior
-
-Functional tests pass
-
-Structural tests pass. Improvements are present
-
-Run evaluation. Compares both implementations.
-
-Command
-docker run --rm hailu3548/jr2pzv-app:robust-report
-
-This will
-
-Run tests for before and after implementations
-
-Run structure and equivalence checks
-
-Produce an evaluation report in the container output
-
-Generate patch between versions.
-
-Command
-git diff --no-index repository_before repository_after > patches/task_001.patch
+### 3. Run Evaluation Tests
+```bash
+docker-compose run --rm evaluator
+```
