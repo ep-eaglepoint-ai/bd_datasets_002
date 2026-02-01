@@ -1,0 +1,12 @@
+{
+            "instance_id": "XGPS0J",
+            "problem_statement": "Build an offline‑first survey builder and analytics web app using Next.js and TailwindCSS that supports flexible survey design, multiple question types, and local response storage in IndexedDB without external APIs. Implement Zod for validation, Zustand for state, and Chart.js for interactive dashboards to analyze response distributions and completion rates with real‑time validation. The system must handle survey evolution, partial submissions, and large datasets reliably while remaining fully functional offline.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xgps0j-form-generator",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

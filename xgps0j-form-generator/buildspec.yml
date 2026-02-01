@@ -1,0 +1,47 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - echo "=== INSTALL PHASE ==="
+      - |
+        if ! docker info >/dev/null 2>&1; then
+          echo "Docker daemon not available – ensure CodeBuild project has privilegedMode=true"
+          touch /tmp/BUILD_FAILED_INSTALL
+          exit 1
+        fi
+      - echo "Docker daemon is available"
+
+  pre_build:
+    commands:
+      - echo "=== PRE_BUILD PHASE ==="
+      - echo "Skipping Docker Hub login - using local builds only"
+      - docker system prune -f || true  # Clean up to avoid space issues
+      - echo "Docker system cleaned up"
+
+  build:
+    commands:
+      - echo "=== BUILD PHASE ==="
+      - echo "Building and running test suite..."
+      - docker-compose up test --build --abort-on-container-exit
+      - echo "Test suite completed"
+
+  post_build:
+    commands:
+      - echo "=== POST_BUILD PHASE ==="
+      - echo "Collecting test results and logs..."
+      - docker-compose logs test || true
+      - echo "Running evaluation suite..."
+      - docker-compose up evaluation --build --abort-on-container-exit || true
+      - docker-compose logs evaluation || true
+      - echo "Cleaning up containers..."
+      - docker-compose down || true
+      - echo "Build completed"
+
+artifacts:
+  files:
+    - 'evaluation/reports/**/*'
+    - 'repository_after/coverage/**/*'
+  name: survey-builder-test-results
