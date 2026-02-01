@@ -67,7 +67,7 @@ def run_tests(target_repo: str):
 
     try:
         # Run go test from the directory
-        env = {**subprocess.os.environ, "GO111MODULE": "on", "CGO_ENABLED": "0"}
+        env = {**subprocess.os.environ, "GO111MODULE": "on", "CGO_ENABLED": "0", "GOWORK": "off"}
         proc = subprocess.run(
             ["go", "test", "-v", "."],
             cwd=test_dir,
@@ -146,7 +146,7 @@ def run_meta_tests():
     tests_dir = ROOT / "tests"
     
     try:
-        env = {**subprocess.os.environ, "GO111MODULE": "on", "CGO_ENABLED": "0"}
+        env = {**subprocess.os.environ, "GO111MODULE": "on", "CGO_ENABLED": "0", "GOWORK": "off"}
         proc = subprocess.run(
             ["go", "test", "-v", "-run", "^TestMutation"], # Explicitly run the mutation test
             cwd=tests_dir,

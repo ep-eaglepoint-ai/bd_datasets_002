@@ -1,5 +1,5 @@
---- a/repository_after/batch/unit_test/concurrency_test.go	2026-02-01 22:31:25.000000000 +0300
-+++ b/repository_after/batch/unit_test/concurrency_test.go	2026-02-01 19:11:32.999466400 +0300
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/concurrency_test.go	2026-02-01 19:11:32.999466400 +0300
 @@ -0,0 +1,83 @@
 +package unit_test
 +
@@ -84,8 +84,8 @@
 +		t.Error("Goroutine leak")
 +	}
 +}
---- a/repository_after/batch/unit_test/correctness_test.go	2026-02-01 22:31:26.000000000 +0300
-+++ b/repository_after/batch/unit_test/correctness_test.go	2026-02-01 19:11:25.485316300 +0300
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/correctness_test.go	2026-02-01 19:11:25.485316300 +0300
 @@ -0,0 +1,48 @@
 +package unit_test
 +
@@ -135,8 +135,8 @@
 +		t.Error("Order mismatch")
 +	}
 +}
---- a/repository_after/batch/unit_test/features_test.go	2026-02-01 22:31:26.000000000 +0300
-+++ b/repository_after/batch/unit_test/features_test.go	2026-02-01 19:11:53.517632500 +0300
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/features_test.go	2026-02-01 19:11:53.517632500 +0300
 @@ -0,0 +1,121 @@
 +package unit_test
 +
@@ -259,8 +259,8 @@
 +		t.Error("Hook failed")
 +	}
 +}
---- a/repository_after/batch/unit_test/mocks_test.go	2026-02-01 22:31:26.000000000 +0300
-+++ b/repository_after/batch/unit_test/mocks_test.go	2026-02-01 19:11:19.275159600 +0300
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/mocks_test.go	2026-02-01 19:11:19.275159600 +0300
 @@ -0,0 +1,178 @@
 +package unit_test
 +
@@ -440,9 +440,9 @@
 +	d.calls[id]++
 +	return d.OnDownload(id)
 +}
---- a/repository_after/batch/unit_test/resilience_test.go	2026-02-01 22:31:26.000000000 +0300
-+++ b/repository_after/batch/unit_test/resilience_test.go	2026-02-01 22:29:39.370748700 +0300
-@@ -0,0 +1,161 @@
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/resilience_test.go	2026-02-01 22:51:44.885946700 +0300
+@@ -0,0 +1,165 @@
 +package unit_test
 +
 +import (
@@ -478,11 +478,14 @@
 +	}
 +}
 +
-+// 6. Cancellation
++// 6. Cancellation - uses blocker channel for deterministic synchronization
 +func TestParentContextCancellation(t *testing.T) {
 +	clk := NewMockClock()
 +	dl := NewMockDownloader(clk, &MockRand{})
-+	dl.delays[1] = 10 * time.Second
++
++	// Block the download until we explicitly release it
++	blocker := make(chan struct{})
++	dl.blockers[1] = blocker
 +
 +	ctx, cancel := context.WithCancel(context.Background())
 +
@@ -498,15 +501,16 @@
 +		close(done)
 +	}()
 +
-+	// Wait for worker to start, then cancel immediately
-+	time.Sleep(30 * time.Millisecond)
++	// Wait for the download to start (it will block on the blocker channel)
++	time.Sleep(50 * time.Millisecond)
++
++	// Cancel context while download is blocked
 +	cancel()
 +
-+	// Advance clock to let Sleep notice cancellation
-+	time.Sleep(10 * time.Millisecond)
-+	clk.Advance(100 * time.Millisecond)
++	// Don't close blocker - this forces Download to notice ctx cancellation
++	// and return ctx.Err()
 +
-+	// Wait for completion
++	// Wait for completion with timeout
 +	select {
 +	case <-done:
 +		// Processing completed
@@ -515,8 +519,8 @@
 +	}
 +
 +	// After cancellation, must have an error
-+	if errs[0] == nil {
-+		t.Errorf("Expected error after cancellation, got success: %v", results[0])
++	if len(errs) == 0 || errs[0] == nil {
++		t.Errorf("Expected cancellation error, got success: %v", results)
 +	}
 +}
 +

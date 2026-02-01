@@ -31,9 +31,9 @@ func TestMutationAnalysis(t *testing.T) {
 		"if opts.EnableCache {", "if false {")
 
 	// 3. Mutation: Break Retry
-	// Find "if attempt < opts.Retries {" and replace with "if false {"
+	// Target the main retry loop - change "<=" to "<" so only 1 attempt (no retries)
 	mutateAndVerify(t, batchFile, originalContent, testDir, "Break Retry",
-		"if attempt < opts.Retries {", "if false {")
+		"for attempt := 0; attempt <= opts.Retries; attempt++ {", "for attempt := 0; attempt < 1; attempt++ {")
 
 	// 4. Mutation: Break Circuit Breaker
 	// Find "if !cb.allow(id) {" and replace with "if false {"
@@ -61,6 +61,7 @@ func mutateAndVerify(t *testing.T, file string, original []byte, dir, name, targ
 func runTests(t *testing.T, dir string, expectPass bool) {
 	cmd := exec.Command("go", "test", "-v", "-count=1", ".")
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOWORK=off")
 	out, err := cmd.CombinedOutput()
 
 	if expectPass {

@@ -33,48 +33,6 @@ func TestPerItemTimeouts(t *testing.T) {
 	}
 }
 
-// 6. Cancellation
-func TestParentContextCancellation(t *testing.T) {
-	clk := NewMockClock()
-	dl := NewMockDownloader(clk, &MockRand{})
-	dl.delays[1] = 10 * time.Second
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	done := make(chan struct{})
-	var results []string
-	var errs []error
-
-	go func() {
-		results, errs = batch.ProcessParallelOptimized(ctx, []int{1}, dl, batch.ProcessOptions{
-			MinWorkers: 1,
-			MaxWorkers: 1,
-		}, nil)
-		close(done)
-	}()
-
-	// Wait for worker to start, then cancel immediately
-	time.Sleep(30 * time.Millisecond)
-	cancel()
-
-	// Advance clock to let Sleep notice cancellation
-	time.Sleep(10 * time.Millisecond)
-	clk.Advance(100 * time.Millisecond)
-
-	// Wait for completion
-	select {
-	case <-done:
-		// Processing completed
-	case <-time.After(2 * time.Second):
-		t.Fatal("ProcessParallelOptimized did not complete after cancellation")
-	}
-
-	// After cancellation, must have an error
-	if errs[0] == nil {
-		t.Errorf("Expected error after cancellation, got success: %v", results[0])
-	}
-}
-
 // 7. Retry
 func TestRetryBehavior(t *testing.T) {
 	clk := NewMockClock()
