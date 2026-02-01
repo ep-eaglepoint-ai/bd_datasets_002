@@ -1,0 +1,11 @@
+{
+            "instance_id": "MCYPXY",
+            "problem_statement": "The analytics team at an e-commerce company reports their dashboard has become unusable. Queries that ran in 2-3 seconds six months ago now timeout after 30 seconds. The database has grown from 10 million to 50 million orders over this period. The DBA team tried increasing work_mem and adding read replicas, but peak-hour queries still fail. The dashboard shows revenue trends, top products, customer cohorts, and inventory metrics. Each query individually seems simple, but they all scan massive tables and the query planner chooses inefficient plans. The team needs the queries optimized to run under 2 seconds without changing the application code or adding expensive extensions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/mcypxy-postgresql-e-commerce-analytics-query-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
