@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import time
+import boto3
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any
@@ -213,6 +214,29 @@ def check_code_structure(repo_dir: Path) -> Dict[str, Any]:
     return result
 
 
+def upload_to_s3(file_path: Path):
+    """
+    Upload the report to S3 if environment variables are available.
+    """
+    bucket = os.environ.get("REPORT_BUCKET")
+    prefix = os.environ.get("REPORT_PREFIX", "").strip("/")
+    job_id = os.environ.get("JOB_ID") or os.environ.get("CODEBUILD_BUILD_ID")
+    
+    if not (bucket and job_id):
+        print("  ! Skipping S3 upload: REPORT_BUCKET or JOB_ID not set")
+        return
+    
+    s3_key = f"{prefix}/{job_id}/report.json" if prefix else f"{job_id}/report.json"
+    
+    try:
+        print(f"  ↑ Uploading report to s3://{bucket}/{s3_key}")
+        s3 = boto3.client("s3")
+        s3.upload_file(str(file_path), bucket, s3_key)
+        print("  ✓ Upload successful")
+    except Exception as e:
+        print(f"  ✗ Upload failed: {e}")
+
+
 def main():
     """Main evaluation entry point."""
     print("=" * 60)
@@ -299,6 +323,9 @@ def main():
     with open(metrics_file, "w") as f:
         json.dump(metrics, f, indent=2)
     print(f"  Metrics saved to: {metrics_file}")
+    
+    # Upload to S3 if in CI environment
+    upload_to_s3(metrics_file)
     
     print("\n" + "=" * 60)
     print(f"OVERALL STATUS: {metrics['overall_status'].upper()}")
