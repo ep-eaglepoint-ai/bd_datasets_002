@@ -23,5 +23,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     include: ['../tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', './**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    // Exclude Playwright E2E tests placed in both repository-level and package-level
+    // tests/e2e folders and avoid running tests from installed node_modules packages
+    exclude: ['./tests/e2e/**', '../tests/e2e/**', 'node_modules/**']
   },
 })

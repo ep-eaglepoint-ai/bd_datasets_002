@@ -15,38 +15,51 @@ function getEnvironmentInfo() {
 }
 
 function parseVitestConsoleOutput(output) {
-    const tests = [];
+    // Try to parse JSON reporter output first (vitest --reporter=json)
+    let cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '');
+    let tests = [];
+    let summary = { total: 0, passed: 0, failed: 0, xfailed: 0, errors: 0, skipped: 0 };
 
-    // Remove ANSI escape codes for clean parsing
-    const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '');
+    try {
+        // Find first JSON object in output
+        const firstBrace = cleanOutput.indexOf('{');
+        if (firstBrace !== -1) {
+            const jsonText = cleanOutput.slice(firstBrace);
+            const parsed = JSON.parse(jsonText);
 
-    // Try to find summary line: "Tests  7 passed (7)" or similar
-    const summaryMatch = cleanOutput.match(/Tests\s+(\d+)\s+passed/);
+            // Vitest JSON reporter exposes `stats` and `tests` (depends on version)
+            if (parsed && parsed.stats) {
+                summary.total = parsed.stats.total ?? 0;
+                summary.passed = parsed.stats.passed ?? 0;
+                summary.failed = parsed.stats.failed ?? 0;
+                summary.skipped = parsed.stats.skipped ?? 0;
+            }
 
-    let passedCount = 0;
-
-    if (summaryMatch) {
-        passedCount = parseInt(summaryMatch[1], 10);
+            if (parsed && Array.isArray(parsed.tests)) {
+                tests = parsed.tests.map((t, i) => ({
+                    name: t.name ?? `Test ${i + 1}`,
+                    status: t.status ?? 'unknown',
+                    duration: t.duration ?? 0,
+                    failureMessages: t.error ? [t.error.message || String(t.error)] : [],
+                }));
+            }
+        }
+    } catch (e) {
+        // fall back to text parsing below
     }
 
-    // Create placeholder tests
-    for (let i = 0; i < passedCount; i++) {
-        tests.push({
-            name: `Test ${i + 1}`,
-            status: 'passed',
-            duration: 0,
-            failureMessages: [],
-        });
+    // Fallback: look for a "Tests <n> passed" summary in plain text
+    if (summary.total === 0) {
+        const match = cleanOutput.match(/Tests\s+(\d+)\s+passed/);
+        if (match) {
+            summary.passed = parseInt(match[1], 10);
+            summary.total = summary.passed;
+            tests = [];
+            for (let i = 0; i < summary.passed; i++) {
+                tests.push({ name: `Test ${i + 1}`, status: 'passed', duration: 0, failureMessages: [] });
+            }
+        }
     }
-
-    const summary = {
-        total: tests.length,
-        passed: tests.filter(t => t.status === 'passed').length,
-        failed: tests.filter(t => t.status === 'failed').length,
-        xfailed: 0,
-        errors: 0,
-        skipped: tests.filter(t => t.status === 'skipped').length,
-    };
 
     return { tests, summary };
 }
@@ -55,14 +68,25 @@ function runTests() {
     // Run vitest from repository_after directory (uses its vitest.config.ts)
     const repoAfterPath = path.resolve(__dirname, '..', 'repository_after');
 
-    const result = spawnSync('npm', ['run', 'test', '--', '--run'], {
+    // Run vitest and capture its output into a report file to avoid mixing other logs
+    const reportFile = path.join(repoAfterPath, 'vitest_report.json');
+    // Shell command writes both stdout and stderr to the file
+    const shellCmd = `npx vitest --reporter=json --run > "${reportFile}" 2>&1`;
+
+    const result = spawnSync('bash', ['-lc', shellCmd], {
         cwd: repoAfterPath,
         encoding: 'utf-8',
         shell: true,
-        timeout: 120000,
+        timeout: 300000,
+        env: process.env,
     });
 
-    const output = (result.stdout || '') + (result.stderr || '');
+    let output = '';
+    try {
+        output = fs.readFileSync(reportFile, 'utf-8');
+    } catch (e) {
+        output = (result.stdout || '') + (result.stderr || '') + '\n' + (e.message || '');
+    }
 
     return {
         success: result.status === 0,

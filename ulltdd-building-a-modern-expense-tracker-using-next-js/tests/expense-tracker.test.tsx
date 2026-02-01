@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, describe, beforeEach, vi } from 'vitest'
 import Home from '../repository_after/app/page'
@@ -9,6 +9,21 @@ Object.defineProperty(global, 'crypto', {
         randomUUID: () => Math.random().toString(36).substring(7)
     }
 });
+
+// Mock localStorage for the test environment
+const localStorageMock = (() => {
+    let store: Record<string, string> = {}
+    return {
+        getItem: (key: string) => (key in store ? store[key] : null),
+        setItem: (key: string, value: string) => { store[key] = String(value) },
+        removeItem: (key: string) => { delete store[key] },
+        clear: () => { store = {} }
+    }
+})()
+
+Object.defineProperty(global, 'localStorage', {
+    value: localStorageMock,
+})
 
 // Helper to fill form
 async function addExpense(user: any, title: string, amount: string, category: string, date: string) {
@@ -28,6 +43,8 @@ async function addExpense(user: any, title: string, amount: string, category: st
 
 describe('Expense Tracker App', () => {
     beforeEach(() => {
+        // Ensure tests start with a fresh storage and render
+        localStorage.clear()
         render(<Home />)
     })
 
@@ -155,5 +172,46 @@ describe('Expense Tracker App', () => {
 
         // Check for any error message
         expect(screen.getByText(/All fields are required|Amount must be a positive number/i)).toBeInTheDocument()
+    })
+
+    test('Requirement 8: Responsive layout classes exist', async () => {
+        // This test asserts that responsive Tailwind classes are present
+        // indicating the layout supports different breakpoints.
+        const grid = document.querySelector('main .grid')
+        expect(grid).toBeTruthy()
+        // Check the main markup includes responsive Tailwind class strings.
+        const mainHtml = document.querySelector('main')?.innerHTML || ''
+        expect(mainHtml.includes('lg:grid-cols-3') || mainHtml.includes('lg:grid-cols-2')).toBe(true)
+
+        // Form column should include lg:col-span-1 (or a similar responsive span)
+        expect(mainHtml.includes('lg:col-span-1') || mainHtml.includes('lg:col-span-2')).toBe(true)
+    })
+
+    test('Persistence: localStorage read/write and hydration on mount', async () => {
+        const user = userEvent.setup()
+
+        // cleanup the default render from beforeEach so we can control mounts
+        cleanup()
+
+        // Ensure storage is clean
+        localStorage.removeItem('expenses_v1')
+
+        // First mount and add an expense
+        const { unmount } = render(<Home />)
+        await addExpense(user, 'Persisted', '15', 'Other', '2023-10-10')
+
+        // Verify localStorage was written
+        const raw = localStorage.getItem('expenses_v1')
+        expect(raw).toBeTruthy()
+        const parsed = JSON.parse(raw as string)
+        expect(Array.isArray(parsed)).toBe(true)
+        expect(parsed.some((e: any) => e.title === 'Persisted')).toBe(true)
+
+        // Unmount (simulate page unload) and remount (simulate reload)
+        unmount()
+        const { getByText } = render(<Home />)
+
+        // The item should be hydrated from localStorage
+        expect(getByText('Persisted')).toBeInTheDocument()
     })
 })
