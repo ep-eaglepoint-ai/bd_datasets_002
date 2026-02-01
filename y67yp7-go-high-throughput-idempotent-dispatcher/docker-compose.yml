@@ -18,6 +18,6 @@ services:
   # Command 2: Execute tests and generate evaluation report
   evaluation:
     image: hailu3548/jr2pzv-app
-    command: python evaluation/evaluation.py
+    command: go run evaluation/evaluation.go
     volumes:
       - .:/app
