@@ -163,6 +163,11 @@ export async function topupTransactionDal(props: any, dbClient: IDatabaseClient 
 
         if (cursorData) {
             where.id = { lt: cursorData.id };
+
+           const partition = partitionCache.getPartitionRange(cursorData.id);
+            if (partition) {
+                where.id = { ...where.id, gte: partition.min };
+            }
         }
 
         const transactions = await dbClient.topUpTransaction.findMany({
@@ -177,7 +182,7 @@ export async function topupTransactionDal(props: any, dbClient: IDatabaseClient 
             if (a.id !== b.id) {
                 return b.id - a.id;
             }
-            const hashA = sphincs.generateTieBreakHash(a.id, new Date(a.createdAt));
+           const hashA = sphincs.generateTieBreakHash(a.id, new Date(a.createdAt));
             const hashB = sphincs.generateTieBreakHash(b.id, new Date(b.createdAt));
             return hashB.localeCompare(hashA);
         });

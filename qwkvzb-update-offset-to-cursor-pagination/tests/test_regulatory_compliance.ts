@@ -38,12 +38,9 @@ async function testRegulatoryCompliance() {
     console.log('TEST: Regulatory Compliance (Banking Platform)\n');
 
     const db = new FastMockDB();
-    const SLA_THRESHOLD_MS = 50; // <10ms requirement (adjusted for Docker/CI variability)
+    const SLA_THRESHOLD_MS = 10; // <10ms requirement (strict enforcement)
 
-    // ========================================================================
-    // Test 1: SLA <10ms guarantee (STRICT enforcement)
-    // ========================================================================
-    console.log('  Test 1: SLA <10ms guarantee (strict enforcement)');
+   console.log('  Test 1: SLA <10ms guarantee (strict enforcement)');
     const timings: number[] = [];
 
     // Warmup (not counted)
