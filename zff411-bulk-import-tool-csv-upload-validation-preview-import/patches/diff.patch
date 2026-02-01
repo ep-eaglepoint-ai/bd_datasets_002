@@ -1,0 +1,1851 @@
+--- a/next-env.d.ts
++++ b/next-env.d.ts
+@@ -0,0 +1,5 @@
++/// <reference types="next" />
++/// <reference types="next/image-types/global" />
++
++// NOTE: This file should not be edited
++// see https://nextjs.org/docs/basic-features/typescript for more information.
+--- a/next.config.js
++++ b/next.config.js
+@@ -0,0 +1,6 @@
++/** @type {import('next').NextConfig} */
++const nextConfig = {
++  reactStrictMode: true,
++};
++
++module.exports = nextConfig;
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -0,0 +1,527 @@
++{
++  "name": "bulk-import-tool",
++  "version": "1.0.0",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "bulk-import-tool",
++      "version": "1.0.0",
++      "dependencies": {
++        "next": "14.2.3",
++        "papaparse": "^5.4.1",
++        "react": "^18.3.1",
++        "react-dom": "^18.3.1",
++        "zod": "^3.23.8"
++      },
++      "devDependencies": {
++        "@types/node": "^20.14.2",
++        "@types/papaparse": "^5.3.14",
++        "@types/react": "^18.3.3",
++        "@types/react-dom": "^18.3.0",
++        "typescript": "^5.4.5"
++      }
++    },
++    "node_modules/@next/env": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/env/-/env-14.2.3.tgz",
++      "integrity": "sha512-W7fd7IbkfmeeY2gXrzJYDx8D2lWKbVoTIj1o1ScPHNzvp30s1AuoEFSdr39bC5sjxJaxTtq3OTCZboNp0lNWHA==",
++      "license": "MIT"
++    },
++    "node_modules/@next/swc-darwin-arm64": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-14.2.3.tgz",
++      "integrity": "sha512-3pEYo/RaGqPP0YzwnlmPN2puaF2WMLM3apt5jLW2fFdXD9+pqcoTzRk+iZsf8ta7+quAe4Q6Ms0nR0SFGFdS1A==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-darwin-x64": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-14.2.3.tgz",
++      "integrity": "sha512-6adp7waE6P1TYFSXpY366xwsOnEXM+y1kgRpjSRVI2CBDOcbRjsJ67Z6EgKIqWIue52d2q/Mx8g9MszARj8IEA==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-linux-arm64-gnu": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-14.2.3.tgz",
++      "integrity": "sha512-cuzCE/1G0ZSnTAHJPUT1rPgQx1w5tzSX7POXSLaS7w2nIUJUD+e25QoXD/hMfxbsT9rslEXugWypJMILBj/QsA==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-linux-arm64-musl": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-14.2.3.tgz",
++      "integrity": "sha512-0D4/oMM2Y9Ta3nGuCcQN8jjJjmDPYpHX9OJzqk42NZGJocU2MqhBq5tWkJrUQOQY9N+In9xOdymzapM09GeiZw==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-linux-x64-gnu": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-14.2.3.tgz",
++      "integrity": "sha512-ENPiNnBNDInBLyUU5ii8PMQh+4XLr4pG51tOp6aJ9xqFQ2iRI6IH0Ds2yJkAzNV1CfyagcyzPfROMViS2wOZ9w==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-linux-x64-musl": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-14.2.3.tgz",
++      "integrity": "sha512-BTAbq0LnCbF5MtoM7I/9UeUu/8ZBY0i8SFjUMCbPDOLv+un67e2JgyN4pmgfXBwy/I+RHu8q+k+MCkDN6P9ViQ==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-win32-arm64-msvc": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-14.2.3.tgz",
++      "integrity": "sha512-AEHIw/dhAMLNFJFJIJIyOFDzrzI5bAjI9J26gbO5xhAKHYTZ9Or04BesFPXiAYXDNdrwTP2dQceYA4dL1geu8A==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-win32-ia32-msvc": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-win32-ia32-msvc/-/swc-win32-ia32-msvc-14.2.3.tgz",
++      "integrity": "sha512-vga40n1q6aYb0CLrM+eEmisfKCR45ixQYXuBXxOOmmoV8sYST9k7E3US32FsY+CkkF7NtzdcebiFT4CHuMSyZw==",
++      "cpu": [
++        "ia32"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@next/swc-win32-x64-msvc": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-14.2.3.tgz",
++      "integrity": "sha512-Q1/zm43RWynxrO7lW4ehciQVj+5ePBhOK+/K2P7pLFX3JaJ/IZVC69SHidrmZSOkqz7ECIOhhy7XhAFG4JYyHA==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">= 10"
++      }
++    },
++    "node_modules/@swc/counter": {
++      "version": "0.1.3",
++      "resolved": "https://registry.npmjs.org/@swc/counter/-/counter-0.1.3.tgz",
++      "integrity": "sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@swc/helpers": {
++      "version": "0.5.5",
++      "resolved": "https://registry.npmjs.org/@swc/helpers/-/helpers-0.5.5.tgz",
++      "integrity": "sha512-KGYxvIOXcceOAbEk4bi/dVLEK9z8sZ0uBB3Il5b1rhfClSpcX0yfRO0KmTkqR2cnQDymwLB+25ZyMzICg/cm/A==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@swc/counter": "^0.1.3",
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@types/node": {
++      "version": "20.19.30",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-20.19.30.tgz",
++      "integrity": "sha512-WJtwWJu7UdlvzEAUm484QNg5eAoq5QR08KDNx7g45Usrs2NtOPiX8ugDqmKdXkyL03rBqU5dYNYVQetEpBHq2g==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "undici-types": "~6.21.0"
++      }
++    },
++    "node_modules/@types/papaparse": {
++      "version": "5.5.2",
++      "resolved": "https://registry.npmjs.org/@types/papaparse/-/papaparse-5.5.2.tgz",
++      "integrity": "sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/node": "*"
++      }
++    },
++    "node_modules/@types/prop-types": {
++      "version": "15.7.15",
++      "resolved": "https://registry.npmjs.org/@types/prop-types/-/prop-types-15.7.15.tgz",
++      "integrity": "sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/@types/react": {
++      "version": "18.3.27",
++      "resolved": "https://registry.npmjs.org/@types/react/-/react-18.3.27.tgz",
++      "integrity": "sha512-cisd7gxkzjBKU2GgdYrTdtQx1SORymWyaAFhaxQPK9bYO9ot3Y5OikQRvY0VYQtvwjeQnizCINJAenh/V7MK2w==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/prop-types": "*",
++        "csstype": "^3.2.2"
++      }
++    },
++    "node_modules/@types/react-dom": {
++      "version": "18.3.7",
++      "resolved": "https://registry.npmjs.org/@types/react-dom/-/react-dom-18.3.7.tgz",
++      "integrity": "sha512-MEe3UeoENYVFXzoXEWsvcpg6ZvlrFNlOQ7EOsvhI3CfAXwzPfO8Qwuxd40nepsYKqyyVQnTdEfv68q91yLcKrQ==",
++      "dev": true,
++      "license": "MIT",
++      "peerDependencies": {
++        "@types/react": "^18.0.0"
++      }
++    },
++    "node_modules/busboy": {
++      "version": "1.6.0",
++      "resolved": "https://registry.npmjs.org/busboy/-/busboy-1.6.0.tgz",
++      "integrity": "sha512-8SFQbg/0hQ9xy3UNTB0YEnsNBbWfhf7RtnzpL7TkBiTBRfrQ9Fxcnz7VJsleJpyp6rVLvXiuORqjlHi5q+PYuA==",
++      "dependencies": {
++        "streamsearch": "^1.1.0"
++      },
++      "engines": {
++        "node": ">=10.16.0"
++      }
++    },
++    "node_modules/caniuse-lite": {
++      "version": "1.0.30001766",
++      "resolved": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001766.tgz",
++      "integrity": "sha512-4C0lfJ0/YPjJQHagaE9x2Elb69CIqEPZeG0anQt9SIvIoOH4a4uaRl73IavyO+0qZh6MDLH//DrXThEYKHkmYA==",
++      "funding": [
++        {
++          "type": "opencollective",
++          "url": "https://opencollective.com/browserslist"
++        },
++        {
++          "type": "tidelift",
++          "url": "https://tidelift.com/funding/github/npm/caniuse-lite"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/ai"
++        }
++      ],
++      "license": "CC-BY-4.0"
++    },
++    "node_modules/client-only": {
++      "version": "0.0.1",
++      "resolved": "https://registry.npmjs.org/client-only/-/client-only-0.0.1.tgz",
++      "integrity": "sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==",
++      "license": "MIT"
++    },
++    "node_modules/csstype": {
++      "version": "3.2.3",
++      "resolved": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz",
++      "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/graceful-fs": {
++      "version": "4.2.11",
++      "resolved": "https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz",
++      "integrity": "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==",
++      "license": "ISC"
++    },
++    "node_modules/js-tokens": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
++      "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==",
++      "license": "MIT"
++    },
++    "node_modules/loose-envify": {
++      "version": "1.4.0",
++      "resolved": "https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz",
++      "integrity": "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==",
++      "license": "MIT",
++      "dependencies": {
++        "js-tokens": "^3.0.0 || ^4.0.0"
++      },
++      "bin": {
++        "loose-envify": "cli.js"
++      }
++    },
++    "node_modules/nanoid": {
++      "version": "3.3.11",
++      "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz",
++      "integrity": "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/ai"
++        }
++      ],
++      "license": "MIT",
++      "bin": {
++        "nanoid": "bin/nanoid.cjs"
++      },
++      "engines": {
++        "node": "^10 || ^12 || ^13.7 || ^14 || >=15.0.1"
++      }
++    },
++    "node_modules/next": {
++      "version": "14.2.3",
++      "resolved": "https://registry.npmjs.org/next/-/next-14.2.3.tgz",
++      "integrity": "sha512-dowFkFTR8v79NPJO4QsBUtxv0g9BrS/phluVpMAt2ku7H+cbcBJlopXjkWlwxrk/xGqMemr7JkGPGemPrLLX7A==",
++      "deprecated": "This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/security-update-2025-12-11 for more details.",
++      "license": "MIT",
++      "dependencies": {
++        "@next/env": "14.2.3",
++        "@swc/helpers": "0.5.5",
++        "busboy": "1.6.0",
++        "caniuse-lite": "^1.0.30001579",
++        "graceful-fs": "^4.2.11",
++        "postcss": "8.4.31",
++        "styled-jsx": "5.1.1"
++      },
++      "bin": {
++        "next": "dist/bin/next"
++      },
++      "engines": {
++        "node": ">=18.17.0"
++      },
++      "optionalDependencies": {
++        "@next/swc-darwin-arm64": "14.2.3",
++        "@next/swc-darwin-x64": "14.2.3",
++        "@next/swc-linux-arm64-gnu": "14.2.3",
++        "@next/swc-linux-arm64-musl": "14.2.3",
++        "@next/swc-linux-x64-gnu": "14.2.3",
++        "@next/swc-linux-x64-musl": "14.2.3",
++        "@next/swc-win32-arm64-msvc": "14.2.3",
++        "@next/swc-win32-ia32-msvc": "14.2.3",
++        "@next/swc-win32-x64-msvc": "14.2.3"
++      },
++      "peerDependencies": {
++        "@opentelemetry/api": "^1.1.0",
++        "@playwright/test": "^1.41.2",
++        "react": "^18.2.0",
++        "react-dom": "^18.2.0",
++        "sass": "^1.3.0"
++      },
++      "peerDependenciesMeta": {
++        "@opentelemetry/api": {
++          "optional": true
++        },
++        "@playwright/test": {
++          "optional": true
++        },
++        "sass": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/papaparse": {
++      "version": "5.5.3",
++      "resolved": "https://registry.npmjs.org/papaparse/-/papaparse-5.5.3.tgz",
++      "integrity": "sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==",
++      "license": "MIT"
++    },
++    "node_modules/picocolors": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
++      "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==",
++      "license": "ISC"
++    },
++    "node_modules/postcss": {
++      "version": "8.4.31",
++      "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.4.31.tgz",
++      "integrity": "sha512-PS08Iboia9mts/2ygV3eLpY5ghnUcfLV/EXTOW1E2qYxJKGGBUtNjN76FYHnMs36RmARn41bC0AZmn+rR0OVpQ==",
++      "funding": [
++        {
++          "type": "opencollective",
++          "url": "https://opencollective.com/postcss/"
++        },
++        {
++          "type": "tidelift",
++          "url": "https://tidelift.com/funding/github/npm/postcss"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/ai"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "nanoid": "^3.3.6",
++        "picocolors": "^1.0.0",
++        "source-map-js": "^1.0.2"
++      },
++      "engines": {
++        "node": "^10 || ^12 || >=14"
++      }
++    },
++    "node_modules/react": {
++      "version": "18.3.1",
++      "resolved": "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
++      "integrity": "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==",
++      "license": "MIT",
++      "dependencies": {
++        "loose-envify": "^1.1.0"
++      },
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/react-dom": {
++      "version": "18.3.1",
++      "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-18.3.1.tgz",
++      "integrity": "sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==",
++      "license": "MIT",
++      "dependencies": {
++        "loose-envify": "^1.1.0",
++        "scheduler": "^0.23.2"
++      },
++      "peerDependencies": {
++        "react": "^18.3.1"
++      }
++    },
++    "node_modules/scheduler": {
++      "version": "0.23.2",
++      "resolved": "https://registry.npmjs.org/scheduler/-/scheduler-0.23.2.tgz",
++      "integrity": "sha512-UOShsPwz7NrMUqhR6t0hWjFduvOzbtv7toDH1/hIrfRNIDBnnBWd0CwJTGvTpngVlmwGCdP9/Zl/tVrDqcuYzQ==",
++      "license": "MIT",
++      "dependencies": {
++        "loose-envify": "^1.1.0"
++      }
++    },
++    "node_modules/source-map-js": {
++      "version": "1.2.1",
++      "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
++      "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==",
++      "license": "BSD-3-Clause",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/streamsearch": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/streamsearch/-/streamsearch-1.1.0.tgz",
++      "integrity": "sha512-Mcc5wHehp9aXz1ax6bZUyY5afg9u2rv5cqQI3mRrYkGC8rW2hM02jWuwjtL++LS5qinSyhj2QfLyNsuc+VsExg==",
++      "engines": {
++        "node": ">=10.0.0"
++      }
++    },
++    "node_modules/styled-jsx": {
++      "version": "5.1.1",
++      "resolved": "https://registry.npmjs.org/styled-jsx/-/styled-jsx-5.1.1.tgz",
++      "integrity": "sha512-pW7uC1l4mBZ8ugbiZrcIsiIvVx1UmTfw7UkC3Um2tmfUq9Bhk8IiyEIPl6F8agHgjzku6j0xQEZbfA5uSgSaCw==",
++      "license": "MIT",
++      "dependencies": {
++        "client-only": "0.0.1"
++      },
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "peerDependencies": {
++        "react": ">= 16.8.0 || 17.x.x || ^18.0.0-0"
++      },
++      "peerDependenciesMeta": {
++        "@babel/core": {
++          "optional": true
++        },
++        "babel-plugin-macros": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/tslib": {
++      "version": "2.8.1",
++      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
++      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
++      "license": "0BSD"
++    },
++    "node_modules/typescript": {
++      "version": "5.9.3",
++      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
++      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "tsc": "bin/tsc",
++        "tsserver": "bin/tsserver"
++      },
++      "engines": {
++        "node": ">=14.17"
++      }
++    },
++    "node_modules/undici-types": {
++      "version": "6.21.0",
++      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
++      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/zod": {
++      "version": "3.25.76",
++      "resolved": "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz",
++      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
++      "license": "MIT",
++      "funding": {
++        "url": "https://github.com/sponsors/colinhacks"
++      }
++    }
++  }
++}
+--- a/package.json
++++ b/package.json
+@@ -0,0 +1,25 @@
++{
++  "name": "bulk-import-tool",
++  "version": "1.0.0",
++  "private": true,
++  "scripts": {
++    "dev": "next dev",
++    "build": "next build",
++    "start": "next start",
++    "lint": "next lint"
++  },
++  "dependencies": {
++    "next": "14.2.3",
++    "react": "^18.3.1",
++    "react-dom": "^18.3.1",
++    "zod": "^3.23.8",
++    "papaparse": "^5.4.1"
++  },
++  "devDependencies": {
++    "@types/node": "^20.14.2",
++    "@types/react": "^18.3.3",
++    "@types/react-dom": "^18.3.0",
++    "@types/papaparse": "^5.3.14",
++    "typescript": "^5.4.5"
++  }
++}
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -0,0 +1,26 @@
++{
++  "compilerOptions": {
++    "lib": ["dom", "dom.iterable", "esnext"],
++    "allowJs": true,
++    "skipLibCheck": true,
++    "strict": true,
++    "noEmit": true,
++    "esModuleInterop": true,
++    "module": "esnext",
++    "moduleResolution": "bundler",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "jsx": "preserve",
++    "incremental": true,
++    "plugins": [
++      {
++        "name": "next"
++      }
++    ],
++    "paths": {
++      "@/*": ["./*"]
++    }
++  },
++  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
++  "exclude": ["node_modules"]
++}
+--- a/app\globals.css
++++ b/app\globals.css
+@@ -0,0 +1,440 @@
++:root {
++  --primary-color: #6366f1;
++  --primary-hover: #4f46e5;
++  --success-color: #10b981;
++  --error-color: #ef4444;
++  --warning-color: #f59e0b;
++  --background: #0f172a;
++  --surface: #1e293b;
++  --surface-light: #334155;
++  --text-primary: #f8fafc;
++  --text-secondary: #94a3b8;
++  --border-color: #475569;
++  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
++  --radius: 12px;
++}
++
++* {
++  box-sizing: border-box;
++  margin: 0;
++  padding: 0;
++}
++
++html,
++body {
++  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
++  background: var(--background);
++  color: var(--text-primary);
++  min-height: 100vh;
++  line-height: 1.6;
++}
++
++/* Container */
++.container {
++  max-width: 1200px;
++  margin: 0 auto;
++  padding: 2rem;
++}
++
++/* Header */
++.header {
++  text-align: center;
++  margin-bottom: 3rem;
++}
++
++.header h1 {
++  font-size: 2.5rem;
++  font-weight: 700;
++  background: linear-gradient(135deg, var(--primary-color), #a855f7);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++  background-clip: text;
++  margin-bottom: 0.5rem;
++}
++
++.header p {
++  color: var(--text-secondary);
++  font-size: 1.1rem;
++}
++
++/* Card */
++.card {
++  background: var(--surface);
++  border-radius: var(--radius);
++  padding: 1.5rem;
++  box-shadow: var(--shadow);
++  border: 1px solid var(--border-color);
++  margin-bottom: 1.5rem;
++}
++
++.card-title {
++  font-size: 1.25rem;
++  font-weight: 600;
++  margin-bottom: 1rem;
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++}
++
++/* Upload Area */
++.upload-area {
++  border: 2px dashed var(--border-color);
++  border-radius: var(--radius);
++  padding: 3rem 2rem;
++  text-align: center;
++  cursor: pointer;
++  transition: all 0.3s ease;
++  background: var(--surface-light);
++}
++
++.upload-area:hover {
++  border-color: var(--primary-color);
++  background: rgba(99, 102, 241, 0.1);
++}
++
++.upload-area.dragover {
++  border-color: var(--primary-color);
++  background: rgba(99, 102, 241, 0.15);
++}
++
++.upload-icon {
++  font-size: 3rem;
++  margin-bottom: 1rem;
++}
++
++.upload-text {
++  font-size: 1.1rem;
++  color: var(--text-primary);
++  margin-bottom: 0.5rem;
++}
++
++.upload-hint {
++  font-size: 0.875rem;
++  color: var(--text-secondary);
++}
++
++.file-input {
++  display: none;
++}
++
++/* Summary Dashboard */
++.summary-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
++  gap: 1rem;
++}
++
++.summary-item {
++  background: var(--surface-light);
++  border-radius: var(--radius);
++  padding: 1.25rem;
++  text-align: center;
++  transition: transform 0.2s ease;
++}
++
++.summary-item:hover {
++  transform: translateY(-2px);
++}
++
++.summary-item.total {
++  border-left: 4px solid var(--primary-color);
++}
++
++.summary-item.valid {
++  border-left: 4px solid var(--success-color);
++}
++
++.summary-item.invalid {
++  border-left: 4px solid var(--error-color);
++}
++
++.summary-value {
++  font-size: 2rem;
++  font-weight: 700;
++  display: block;
++}
++
++.summary-item.total .summary-value {
++  color: var(--primary-color);
++}
++
++.summary-item.valid .summary-value {
++  color: var(--success-color);
++}
++
++.summary-item.invalid .summary-value {
++  color: var(--error-color);
++}
++
++.summary-label {
++  font-size: 0.875rem;
++  color: var(--text-secondary);
++  text-transform: uppercase;
++  letter-spacing: 0.05em;
++}
++
++/* Preview Table */
++.table-container {
++  overflow-x: auto;
++  margin-top: 1rem;
++}
++
++.preview-table {
++  width: 100%;
++  border-collapse: collapse;
++  font-size: 0.875rem;
++}
++
++.preview-table th,
++.preview-table td {
++  padding: 0.75rem 1rem;
++  text-align: left;
++  border-bottom: 1px solid var(--border-color);
++}
++
++.preview-table th {
++  background: var(--surface-light);
++  font-weight: 600;
++  color: var(--text-secondary);
++  text-transform: uppercase;
++  font-size: 0.75rem;
++  letter-spacing: 0.05em;
++}
++
++.preview-table tr:hover {
++  background: rgba(99, 102, 241, 0.05);
++}
++
++.preview-table tr.error-row {
++  background: rgba(239, 68, 68, 0.1);
++}
++
++.preview-table tr.error-row:hover {
++  background: rgba(239, 68, 68, 0.15);
++}
++
++/* Status Badge */
++.status-badge {
++  display: inline-flex;
++  align-items: center;
++  gap: 0.25rem;
++  padding: 0.25rem 0.75rem;
++  border-radius: 9999px;
++  font-size: 0.75rem;
++  font-weight: 600;
++}
++
++.status-badge.ok {
++  background: rgba(16, 185, 129, 0.2);
++  color: var(--success-color);
++}
++
++.status-badge.error {
++  background: rgba(239, 68, 68, 0.2);
++  color: var(--error-color);
++}
++
++/* Error Messages */
++.error-message {
++  color: var(--error-color);
++  font-size: 0.75rem;
++  margin-top: 0.25rem;
++}
++
++.error-list {
++  list-style: none;
++  padding: 0;
++  margin: 0;
++}
++
++.error-list li {
++  color: var(--error-color);
++  font-size: 0.75rem;
++}
++
++/* Alert */
++.alert {
++  padding: 1rem 1.25rem;
++  border-radius: var(--radius);
++  margin-bottom: 1.5rem;
++  display: flex;
++  align-items: flex-start;
++  gap: 0.75rem;
++}
++
++.alert-error {
++  background: rgba(239, 68, 68, 0.15);
++  border: 1px solid var(--error-color);
++  color: var(--error-color);
++}
++
++.alert-warning {
++  background: rgba(245, 158, 11, 0.15);
++  border: 1px solid var(--warning-color);
++  color: var(--warning-color);
++}
++
++.alert-success {
++  background: rgba(16, 185, 129, 0.15);
++  border: 1px solid var(--success-color);
++  color: var(--success-color);
++}
++
++.alert-icon {
++  font-size: 1.25rem;
++  flex-shrink: 0;
++}
++
++.alert-content {
++  flex: 1;
++}
++
++.alert-title {
++  font-weight: 600;
++  margin-bottom: 0.25rem;
++}
++
++/* Buttons */
++.btn {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: 0.5rem;
++  padding: 0.75rem 1.5rem;
++  border: none;
++  border-radius: var(--radius);
++  font-size: 1rem;
++  font-weight: 600;
++  cursor: pointer;
++  transition: all 0.2s ease;
++}
++
++.btn-primary {
++  background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
++  color: white;
++}
++
++.btn-primary:hover:not(:disabled) {
++  transform: translateY(-2px);
++  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
++}
++
++.btn-primary:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++.btn-secondary {
++  background: var(--surface-light);
++  color: var(--text-primary);
++  border: 1px solid var(--border-color);
++}
++
++.btn-secondary:hover {
++  background: var(--surface);
++  border-color: var(--primary-color);
++}
++
++.btn-group {
++  display: flex;
++  gap: 1rem;
++  flex-wrap: wrap;
++  margin-top: 1.5rem;
++}
++
++/* Loading Spinner */
++.spinner {
++  width: 20px;
++  height: 20px;
++  border: 2px solid rgba(255, 255, 255, 0.3);
++  border-top-color: white;
++  border-radius: 50%;
++  animation: spin 0.8s linear infinite;
++}
++
++@keyframes spin {
++  to {
++    transform: rotate(360deg);
++  }
++}
++
++/* Responsive */
++@media (max-width: 768px) {
++  .container {
++    padding: 1rem;
++  }
++
++  .header h1 {
++    font-size: 1.75rem;
++  }
++
++  .summary-grid {
++    grid-template-columns: 1fr;
++  }
++
++  .preview-table {
++    font-size: 0.75rem;
++  }
++
++  .preview-table th,
++  .preview-table td {
++    padding: 0.5rem;
++  }
++
++  .btn-group {
++    flex-direction: column;
++  }
++
++  .btn {
++    width: 100%;
++  }
++}
++
++/* File info */
++.file-info {
++  display: flex;
++  align-items: center;
++  gap: 1rem;
++  padding: 1rem;
++  background: var(--surface-light);
++  border-radius: var(--radius);
++  margin-top: 1rem;
++}
++
++.file-icon {
++  font-size: 2rem;
++}
++
++.file-details {
++  flex: 1;
++}
++
++.file-name {
++  font-weight: 600;
++  margin-bottom: 0.25rem;
++}
++
++.file-size {
++  font-size: 0.875rem;
++  color: var(--text-secondary);
++}
++
++.file-remove {
++  background: none;
++  border: none;
++  color: var(--text-secondary);
++  cursor: pointer;
++  font-size: 1.5rem;
++  padding: 0.25rem;
++  transition: color 0.2s;
++}
++
++.file-remove:hover {
++  color: var(--error-color);
++}
++
++/* Row number column */
++.row-number {
++  color: var(--text-secondary);
++  font-weight: 500;
++}
+--- a/app\layout.tsx
++++ b/app\layout.tsx
+@@ -0,0 +1,19 @@
++import type { Metadata } from 'next';
++import './globals.css';
++
++export const metadata: Metadata = {
++  title: 'Bulk Import Tool',
++  description: 'Upload and validate CSV files for bulk data import',
++};
++
++export default function RootLayout({
++  children,
++}: {
++  children: React.ReactNode;
++}) {
++  return (
++    <html lang="en">
++      <body>{children}</body>
++    </html>
++  );
++}
+--- a/app\page.tsx
++++ b/app\page.tsx
+@@ -0,0 +1,13 @@
++import CSVUploader from '@/components/CSVUploader';
++
++export default function Home() {
++  return (
++    <main className="container">
++      <header className="header">
++        <h1>📊 Bulk Import Tool</h1>
++        <p>Upload a CSV file to validate and import your data</p>
++      </header>
++      <CSVUploader />
++    </main>
++  );
++}
+--- a/app\api\import\route.ts
++++ b/app\api\import\route.ts
+@@ -0,0 +1,102 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { RawRow } from '@/lib/schema';
++import { normalizeRow, validateRow } from '@/lib/validation';
++
++// In-memory database for demo purposes
++// In production, this would be replaced with a real database
++const importedData: Array<{
++  id: number;
++  name: string;
++  email: string;
++  age: number;
++  importedAt: Date;
++}> = [];
++
++let nextId = 1;
++
++interface ImportRequest {
++  rows: Array<{
++    rowNumber: number;
++    data: RawRow;
++  }>;
++}
++
++export async function POST(request: NextRequest) {
++  try {
++    const body: ImportRequest = await request.json();
++
++    if (!body.rows || !Array.isArray(body.rows)) {
++      return NextResponse.json(
++        { error: 'Invalid request: rows array is required' },
++        { status: 400 }
++      );
++    }
++
++    const validRows: Array<{
++      rowNumber: number;
++      name: string;
++      email: string;
++      age: number;
++    }> = [];
++
++    const invalidRows: Array<{
++      rowNumber: number;
++      errors: Record<string, string>;
++    }> = [];
++
++    // Re-validate ALL rows server-side to prevent client-side tampering
++    for (const row of body.rows) {
++      // Normalize values again on server
++      const normalizedData = normalizeRow(row.data);
++      
++      // Validate using shared schema
++      const validation = validateRow(normalizedData);
++
++      if (validation.isValid && validation.data) {
++        validRows.push({
++          rowNumber: row.rowNumber,
++          name: validation.data.name,
++          email: validation.data.email,
++          age: validation.data.age,
++        });
++      } else if (validation.errors) {
++        invalidRows.push({
++          rowNumber: row.rowNumber,
++          errors: validation.errors,
++        });
++      }
++    }
++
++    // Import only valid rows to the "database"
++    for (const row of validRows) {
++      importedData.push({
++        id: nextId++,
++        name: row.name,
++        email: row.email,
++        age: row.age,
++        importedAt: new Date(),
++      });
++    }
++
++    return NextResponse.json({
++      success: true,
++      importedCount: validRows.length,
++      invalidRows: invalidRows,
++      totalProcessed: body.rows.length,
++    });
++  } catch (error) {
++    console.error('Import error:', error);
++    return NextResponse.json(
++      { error: 'Failed to process import request' },
++      { status: 500 }
++    );
++  }
++}
++
++// GET endpoint to retrieve imported data (for verification)
++export async function GET() {
++  return NextResponse.json({
++    data: importedData,
++    count: importedData.length,
++  });
++}
+--- a/components\CSVUploader.tsx
++++ b/components\CSVUploader.tsx
+@@ -0,0 +1,318 @@
++'use client';
++
++import { useState, useRef, useCallback } from 'react';
++import Papa from 'papaparse';
++import { ParsedRow, RawRow, REQUIRED_HEADERS } from '@/lib/schema';
++import { normalizeRow, validateRow, validateHeaders, isEmptyRow, formatErrorsForDisplay } from '@/lib/validation';
++import SummaryDashboard from './SummaryDashboard';
++import PreviewTable from './PreviewTable';
++import ImportButton from './ImportButton';
++
++interface ParseState {
++  fileName: string | null;
++  fileSize: number;
++  headers: string[];
++  rows: ParsedRow[];
++  headerError: string | null;
++  parseError: string | null;
++  totalRows: number;
++  validRows: number;
++  invalidRows: number;
++}
++
++const initialState: ParseState = {
++  fileName: null,
++  fileSize: 0,
++  headers: [],
++  rows: [],
++  headerError: null,
++  parseError: null,
++  totalRows: 0,
++  validRows: 0,
++  invalidRows: 0,
++};
++
++export default function CSVUploader() {
++  const [state, setState] = useState<ParseState>(initialState);
++  const [isDragOver, setIsDragOver] = useState(false);
++  const [importResult, setImportResult] = useState<{
++    success: boolean;
++    message: string;
++    invalidRows?: Array<{ rowNumber: number; errors: Record<string, string> }>;
++  } | null>(null);
++  const fileInputRef = useRef<HTMLInputElement>(null);
++
++  const resetState = useCallback(() => {
++    setState(initialState);
++    setImportResult(null);
++    if (fileInputRef.current) {
++      fileInputRef.current.value = '';
++    }
++  }, []);
++
++  const parseCSV = useCallback((file: File) => {
++    // Validate file type
++    if (!file.name.toLowerCase().endsWith('.csv')) {
++      setState({
++        ...initialState,
++        parseError: 'Please upload a valid CSV file. Only .csv files are accepted.',
++      });
++      return;
++    }
++
++    setImportResult(null);
++
++    Papa.parse<RawRow>(file, {
++      header: true,
++      skipEmptyLines: 'greedy', // Skip all empty lines including whitespace-only
++      transformHeader: (header) => header.trim().toLowerCase(),
++      complete: (results) => {
++        const headers = results.meta.fields || [];
++        
++        // Validate headers
++        const headerValidation = validateHeaders(headers);
++        if (!headerValidation.valid) {
++          setState({
++            ...initialState,
++            fileName: file.name,
++            fileSize: file.size,
++            headers,
++            headerError: `Missing required headers: ${headerValidation.missing.join(', ')}`,
++          });
++          return;
++        }
++
++        // Process rows
++        const parsedRows: ParsedRow[] = [];
++        let validCount = 0;
++        let invalidCount = 0;
++        let rowNumber = 0;
++
++        for (const row of results.data) {
++          // Skip empty rows
++          if (isEmptyRow(row)) {
++            continue;
++          }
++
++          rowNumber++;
++          const normalizedRow = normalizeRow(row);
++          const validation = validateRow(normalizedRow);
++
++          parsedRows.push({
++            rowNumber,
++            data: normalizedRow,
++            isValid: validation.isValid,
++            errors: validation.errors,
++          });
++
++          if (validation.isValid) {
++            validCount++;
++          } else {
++            invalidCount++;
++          }
++        }
++
++        setState({
++          fileName: file.name,
++          fileSize: file.size,
++          headers: headers.map(h => h.trim().toLowerCase()),
++          rows: parsedRows,
++          headerError: null,
++          parseError: null, // Don't show parse errors - let validation handle issues
++          totalRows: parsedRows.length,
++          validRows: validCount,
++          invalidRows: invalidCount,
++        });
++      },
++      error: (error) => {
++        setState({
++          ...initialState,
++          parseError: `Failed to parse CSV: ${error.message}`,
++        });
++      },
++    });
++  }, []);
++
++  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
++    const file = e.target.files?.[0];
++    if (file) {
++      parseCSV(file);
++    }
++  }, [parseCSV]);
++
++  const handleDrop = useCallback((e: React.DragEvent) => {
++    e.preventDefault();
++    setIsDragOver(false);
++    const file = e.dataTransfer.files[0];
++    if (file) {
++      parseCSV(file);
++    }
++  }, [parseCSV]);
++
++  const handleDragOver = useCallback((e: React.DragEvent) => {
++    e.preventDefault();
++    setIsDragOver(true);
++  }, []);
++
++  const handleDragLeave = useCallback((e: React.DragEvent) => {
++    e.preventDefault();
++    setIsDragOver(false);
++  }, []);
++
++  const handleUploadClick = useCallback(() => {
++    fileInputRef.current?.click();
++  }, []);
++
++  const formatFileSize = (bytes: number): string => {
++    if (bytes < 1024) return bytes + ' B';
++    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
++    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
++  };
++
++  const handleImportComplete = useCallback((result: {
++    success: boolean;
++    message: string;
++    invalidRows?: Array<{ rowNumber: number; errors: Record<string, string> }>;
++  }) => {
++    setImportResult(result);
++  }, []);
++
++  const downloadErrorReport = useCallback(() => {
++    if (!importResult?.invalidRows?.length) return;
++
++    const lines = ['Row Number,Field,Error'];
++    for (const row of importResult.invalidRows) {
++      for (const [field, error] of Object.entries(row.errors)) {
++        lines.push(`${row.rowNumber},"${field}","${error.replace(/"/g, '""')}"`);
++      }
++    }
++
++    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
++    const url = URL.createObjectURL(blob);
++    const a = document.createElement('a');
++    a.href = url;
++    a.download = 'error_report.csv';
++    document.body.appendChild(a);
++    a.click();
++    document.body.removeChild(a);
++    URL.revokeObjectURL(url);
++  }, [importResult]);
++
++  const hasFile = state.fileName !== null;
++  const hasValidData = state.totalRows > 0 && !state.headerError && !state.parseError;
++  const canImport = hasValidData && state.validRows > 0;
++
++  return (
++    <div>
++      {/* Upload Area */}
++      <div className="card">
++        <h2 className="card-title">📁 Upload CSV File</h2>
++        
++        <div
++          className={`upload-area ${isDragOver ? 'dragover' : ''}`}
++          onClick={handleUploadClick}
++          onDrop={handleDrop}
++          onDragOver={handleDragOver}
++          onDragLeave={handleDragLeave}
++        >
++          <div className="upload-icon">📤</div>
++          <p className="upload-text">
++            {hasFile ? 'Click or drag to replace file' : 'Click or drag a CSV file here'}
++          </p>
++          <p className="upload-hint">Only .csv files are accepted • Required headers: {REQUIRED_HEADERS.join(', ')}</p>
++          <input
++            ref={fileInputRef}
++            type="file"
++            accept=".csv"
++            onChange={handleFileChange}
++            className="file-input"
++            id="csv-file-input"
++          />
++        </div>
++
++        {/* File Info */}
++        {hasFile && (
++          <div className="file-info">
++            <span className="file-icon">📄</span>
++            <div className="file-details">
++              <div className="file-name">{state.fileName}</div>
++              <div className="file-size">{formatFileSize(state.fileSize)}</div>
++            </div>
++            <button className="file-remove" onClick={resetState} title="Remove file">
++              ✕
++            </button>
++          </div>
++        )}
++      </div>
++
++      {/* Error Alerts */}
++      {state.parseError && (
++        <div className="alert alert-error">
++          <span className="alert-icon">⚠️</span>
++          <div className="alert-content">
++            <div className="alert-title">Parse Error</div>
++            <div>{state.parseError}</div>
++          </div>
++        </div>
++      )}
++
++      {state.headerError && (
++        <div className="alert alert-error">
++          <span className="alert-icon">⚠️</span>
++          <div className="alert-content">
++            <div className="alert-title">Missing Required Headers</div>
++            <div>{state.headerError}</div>
++          </div>
++        </div>
++      )}
++
++      {/* Import Result */}
++      {importResult && (
++        <div className={`alert ${importResult.success ? 'alert-success' : 'alert-warning'}`}>
++          <span className="alert-icon">{importResult.success ? '✅' : '⚠️'}</span>
++          <div className="alert-content">
++            <div className="alert-title">{importResult.success ? 'Import Complete' : 'Import Completed with Errors'}</div>
++            <div>{importResult.message}</div>
++            {importResult.invalidRows && importResult.invalidRows.length > 0 && (
++              <button 
++                className="btn btn-secondary" 
++                onClick={downloadErrorReport}
++                style={{ marginTop: '0.75rem' }}
++              >
++                📥 Download Error Report
++              </button>
++            )}
++          </div>
++        </div>
++      )}
++
++      {/* Summary Dashboard */}
++      {hasValidData && (
++        <SummaryDashboard
++          totalRows={state.totalRows}
++          validRows={state.validRows}
++          invalidRows={state.invalidRows}
++        />
++      )}
++
++      {/* Preview Table */}
++      {hasValidData && (
++        <PreviewTable rows={state.rows.slice(0, 20)} headers={state.headers} />
++      )}
++
++      {/* Action Buttons */}
++      {hasFile && (
++        <div className="btn-group">
++          <ImportButton
++            rows={state.rows}
++            disabled={!canImport}
++            onImportComplete={handleImportComplete}
++          />
++          <button className="btn btn-secondary" onClick={resetState}>
++            🔄 Reset
++          </button>
++        </div>
++      )}
++    </div>
++  );
++}
+--- a/components\ImportButton.tsx
++++ b/components\ImportButton.tsx
+@@ -0,0 +1,88 @@
++'use client';
++
++import { useState } from 'react';
++import { ParsedRow } from '@/lib/schema';
++
++interface ImportButtonProps {
++  rows: ParsedRow[];
++  disabled: boolean;
++  onImportComplete: (result: {
++    success: boolean;
++    message: string;
++    invalidRows?: Array<{ rowNumber: number; errors: Record<string, string> }>;
++  }) => void;
++}
++
++export default function ImportButton({ rows, disabled, onImportComplete }: ImportButtonProps) {
++  const [isLoading, setIsLoading] = useState(false);
++
++  const handleImport = async () => {
++    if (disabled || isLoading) return;
++
++    setIsLoading(true);
++
++    try {
++      const response = await fetch('/api/import', {
++        method: 'POST',
++        headers: {
++          'Content-Type': 'application/json',
++        },
++        body: JSON.stringify({
++          rows: rows.map(r => ({
++            rowNumber: r.rowNumber,
++            data: r.data,
++          })),
++        }),
++      });
++
++      const result = await response.json();
++
++      if (!response.ok) {
++        onImportComplete({
++          success: false,
++          message: result.error || 'Import failed. Please try again.',
++        });
++        return;
++      }
++
++      const hasErrors = result.invalidRows && result.invalidRows.length > 0;
++      
++      onImportComplete({
++        success: !hasErrors,
++        message: `Successfully imported ${result.importedCount} row(s).${
++          hasErrors ? ` ${result.invalidRows.length} row(s) failed validation.` : ''
++        }`,
++        invalidRows: result.invalidRows,
++      });
++    } catch (error) {
++      onImportComplete({
++        success: false,
++        message: error instanceof Error ? error.message : 'Network error. Please check your connection and try again.',
++      });
++    } finally {
++      setIsLoading(false);
++    }
++  };
++
++  const validCount = rows.filter(r => r.isValid).length;
++
++  return (
++    <button
++      id="import-button"
++      className="btn btn-primary"
++      onClick={handleImport}
++      disabled={disabled || isLoading}
++    >
++      {isLoading ? (
++        <>
++          <span className="spinner"></span>
++          Importing...
++        </>
++      ) : (
++        <>
++          📥 Import {validCount} Valid Row{validCount !== 1 ? 's' : ''}
++        </>
++      )}
++    </button>
++  );
++}
+--- a/components\PreviewTable.tsx
++++ b/components\PreviewTable.tsx
+@@ -0,0 +1,65 @@
++import { ParsedRow } from '@/lib/schema';
++import { formatErrorsForDisplay } from '@/lib/validation';
++
++interface PreviewTableProps {
++  rows: ParsedRow[];
++  headers: string[];
++}
++
++export default function PreviewTable({ rows, headers }: PreviewTableProps) {
++  if (rows.length === 0) {
++    return null;
++  }
++
++  return (
++    <div className="card" id="preview-table-container">
++      <h2 className="card-title">👀 Preview (First 20 Rows)</h2>
++      <div className="table-container">
++        <table className="preview-table" id="preview-table">
++          <thead>
++            <tr>
++              <th>Row #</th>
++              {headers.map((header) => (
++                <th key={header}>{header}</th>
++              ))}
++              <th>Status</th>
++            </tr>
++          </thead>
++          <tbody>
++            {rows.map((row) => (
++              <tr 
++                key={row.rowNumber} 
++                className={row.isValid ? '' : 'error-row'}
++                data-row-number={row.rowNumber}
++                data-valid={row.isValid}
++              >
++                <td className="row-number">{row.rowNumber}</td>
++                {headers.map((header) => (
++                  <td key={header}>{row.data[header] || ''}</td>
++                ))}
++                <td>
++                  {row.isValid ? (
++                    <span className="status-badge ok">✓ OK</span>
++                  ) : (
++                    <div>
++                      <span className="status-badge error">✗ Error</span>
++                      {row.errors && (
++                        <ul className="error-list">
++                          {Object.entries(row.errors).map(([field, message]) => (
++                            <li key={field}>
++                              {field}: {message}
++                            </li>
++                          ))}
++                        </ul>
++                      )}
++                    </div>
++                  )}
++                </td>
++              </tr>
++            ))}
++          </tbody>
++        </table>
++      </div>
++    </div>
++  );
++}
+--- a/components\SummaryDashboard.tsx
++++ b/components\SummaryDashboard.tsx
+@@ -0,0 +1,27 @@
++interface SummaryDashboardProps {
++  totalRows: number;
++  validRows: number;
++  invalidRows: number;
++}
++
++export default function SummaryDashboard({ totalRows, validRows, invalidRows }: SummaryDashboardProps) {
++  return (
++    <div className="card" id="summary-dashboard">
++      <h2 className="card-title">📊 Summary</h2>
++      <div className="summary-grid">
++        <div className="summary-item total">
++          <span className="summary-value" id="total-rows">{totalRows}</span>
++          <span className="summary-label">Total Rows</span>
++        </div>
++        <div className="summary-item valid">
++          <span className="summary-value" id="valid-rows">{validRows}</span>
++          <span className="summary-label">Valid Rows</span>
++        </div>
++        <div className="summary-item invalid">
++          <span className="summary-value" id="invalid-rows">{invalidRows}</span>
++          <span className="summary-label">Invalid Rows</span>
++        </div>
++      </div>
++    </div>
++  );
++}
+--- a/lib\schema.ts
++++ b/lib\schema.ts
+@@ -0,0 +1,66 @@
++import { z } from 'zod';
++
++/**
++ * Required headers for CSV import
++ */
++export const REQUIRED_HEADERS = ['name', 'email', 'age'] as const;
++
++/**
++ * Zod schema for validating a single row
++ * Used by both client and server for consistent validation
++ */
++export const rowSchema = z.object({
++  name: z
++    .string({ required_error: 'Name is required' })
++    .min(1, 'Name is required'),
++  email: z
++    .string({ required_error: 'Email is required' })
++    .min(1, 'Email is required')
++    .email('Invalid email'),
++  age: z
++    .string()
++    .min(1, 'Age is required')
++    .transform((val) => {
++      const parsed = parseInt(val, 10);
++      if (isNaN(parsed)) {
++        throw new Error('Age must be a number');
++      }
++      return parsed;
++    })
++    .pipe(
++      z
++        .number({ required_error: 'Age is required' })
++        .int('Age must be a whole number')
++        .min(0, 'Age must be at least 0')
++        .max(150, 'Age must be at most 150')
++    ),
++});
++
++/**
++ * Type for a validated row
++ */
++export type ValidatedRow = z.infer<typeof rowSchema>;
++
++/**
++ * Type for a raw CSV row before validation
++ */
++export type RawRow = Record<string, string>;
++
++/**
++ * Type for validation result
++ */
++export interface ValidationResult {
++  isValid: boolean;
++  data?: ValidatedRow;
++  errors?: Record<string, string>;
++}
++
++/**
++ * Type for a row with validation status
++ */
++export interface ParsedRow {
++  rowNumber: number;
++  data: RawRow;
++  isValid: boolean;
++  errors?: Record<string, string>;
++}
+--- a/lib\validation.ts
++++ b/lib\validation.ts
+@@ -0,0 +1,73 @@
++import { ZodError } from 'zod';
++import { rowSchema, RawRow, ValidationResult, REQUIRED_HEADERS } from './schema';
++
++/**
++ * Normalize (trim) all string values in a row
++ */
++export function normalizeRow(row: RawRow): RawRow {
++  const normalized: RawRow = {};
++  for (const [key, value] of Object.entries(row)) {
++    normalized[key.trim().toLowerCase()] = typeof value === 'string' ? value.trim() : value;
++  }
++  return normalized;
++}
++
++/**
++ * Format Zod errors into human-readable field-level messages
++ */
++export function formatErrors(error: ZodError): Record<string, string> {
++  const errors: Record<string, string> = {};
++  
++  for (const issue of error.issues) {
++    const path = issue.path.join('.');
++    // Use the first error for each field
++    if (!errors[path]) {
++      errors[path] = issue.message;
++    }
++  }
++  
++  return errors;
++}
++
++/**
++ * Validate a single row using the shared schema
++ */
++export function validateRow(row: RawRow): ValidationResult {
++  try {
++    const data = rowSchema.parse(row);
++    return { isValid: true, data };
++  } catch (error) {
++    if (error instanceof ZodError) {
++      return { isValid: false, errors: formatErrors(error) };
++    }
++    return { isValid: false, errors: { _general: 'Validation failed' } };
++  }
++}
++
++/**
++ * Check if all required headers are present
++ */
++export function validateHeaders(headers: string[]): { valid: boolean; missing: string[] } {
++  const normalizedHeaders = headers.map(h => h.trim().toLowerCase());
++  const missing = REQUIRED_HEADERS.filter(h => !normalizedHeaders.includes(h));
++  return {
++    valid: missing.length === 0,
++    missing,
++  };
++}
++
++/**
++ * Check if a row is empty (all values are empty strings or whitespace)
++ */
++export function isEmptyRow(row: RawRow): boolean {
++  return Object.values(row).every(value => !value || value.trim() === '');
++}
++
++/**
++ * Format error messages for display in UI
++ */
++export function formatErrorsForDisplay(errors: Record<string, string>): string {
++  return Object.entries(errors)
++    .map(([field, message]) => `${field}: ${message}`)
++    .join(', ');
++}
+--- a/public\.gitkeep
++++ b/public\.gitkeep
+@@ -0,0 +1,3 @@
++
++ 
++ 
