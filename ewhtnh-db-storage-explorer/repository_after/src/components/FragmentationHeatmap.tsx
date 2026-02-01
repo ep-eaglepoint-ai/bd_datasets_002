@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
+import AutoSizer from 'react-virtualized-auto-sizer'
+import { FixedSizeList as List } from 'react-window'
 import { StorageSnapshot, HeatmapData } from '@/types/storage'
 
 interface FragmentationHeatmapProps {
@@ -213,65 +215,62 @@ export default function FragmentationHeatmap({ snapshot }: FragmentationHeatmapP
 
       <div>
         <h4 className="text-md font-medium text-gray-900 mb-3">Page Details</h4>
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Density</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fragmentation</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Recommendation</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {heatmapData.pages.map((page) => (
-                <tr key={page.pageNumber} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-sm font-medium">{page.pageNumber}</td>
-                  <td className="px-4 py-2 text-sm">
-                    <div className="flex items-center">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            page.density > 80 ? 'bg-green-500' :
-                            page.density > 60 ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${page.density}%` }}
-                        ></div>
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden max-h-96">
+          <div style={{ height: 360 }}>
+            <AutoSizer>
+              {({ height, width }) => (
+                <List
+                  height={height}
+                  itemCount={heatmapData.pages.length}
+                  itemSize={48}
+                  width={width}
+                  itemKey={(index) => heatmapData.pages[index].pageNumber}
+                >
+                  {({ index, style }) => {
+                    const page = heatmapData.pages[index]
+                    return (
+                      <div style={style} className="flex items-center px-4 border-b border-gray-100 hover:bg-gray-50">
+                        <div className="w-16 font-medium">{page.pageNumber}</div>
+                        <div className="flex-1 pr-4">
+                          <div className="flex items-center">
+                            <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  page.density > 80 ? 'bg-green-500' : page.density > 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${page.density}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-xs font-mono w-14 text-right">{page.density.toFixed(1)}%</div>
+                          </div>
+                          <div className="mt-1 flex items-center">
+                            <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  page.fragmentation > 0.3 ? 'bg-red-500' : page.fragmentation > 0.1 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
+                                style={{ width: `${page.fragmentation * 100}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-xs font-mono w-14 text-right">{(page.fragmentation * 100).toFixed(1)}%</div>
+                          </div>
+                        </div>
+                        <div className="w-40 text-sm">
+                          <div className={`inline-flex px-2 py-1 text-xs rounded-full ${
+                            getPageStatus(page) === 'HEALTHY' ? 'bg-green-100 text-green-800' :
+                            getPageStatus(page) === 'WARNING' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {getPageStatus(page)}
+                          </div>
+                        </div>
+                        <div className="w-56 text-xs text-gray-600">{getRecommendation(page)}</div>
                       </div>
-                      <span className="text-xs font-mono">{page.density.toFixed(1)}%</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    <div className="flex items-center">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            page.fragmentation > 0.3 ? 'bg-red-500' :
-                            page.fragmentation > 0.1 ? 'bg-yellow-500' : 'bg-green-500'
-                          }`}
-                          style={{ width: `${page.fragmentation * 100}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-xs font-mono">{(page.fragmentation * 100).toFixed(1)}%</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                      getPageStatus(page) === 'HEALTHY' ? 'bg-green-100 text-green-800' :
-                      getPageStatus(page) === 'WARNING' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {getPageStatus(page)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-xs text-gray-600">
-                    {getRecommendation(page)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    )
+                  }}
+                </List>
+              )}
+            </AutoSizer>
+          </div>
         </div>
       </div>
     </div>

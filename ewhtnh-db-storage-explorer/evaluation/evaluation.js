@@ -6,8 +6,8 @@ const os = require('os')
 
 function generateTimestamp() {
   const now = new Date()
-  const date = now.toISOString().split('T')[0] // yyyy-mm-dd
-  const time = now.toTimeString().split(' ')[0].replace(/:/g, '-') // hh-mm-ss
+  const date = now.toISOString().split('T')[0]
+  const time = now.toTimeString().split(' ')[0].replace(/:/g, '-')
   return `${date}/${time}`
 }
 
@@ -21,188 +21,158 @@ function getEnvironmentInfo() {
   }
 }
 
-function parseJestOutput(output) {
-  const lines = output.split('\n')
+function safeIntMatch(line, regex) {
+  const m = line.match(regex)
+  return m ? parseInt(m[1], 10) : 0
+}
+
+function parseJestTextOutput(output) {
+  const lines = String(output || '').split('\n')
   const tests = []
-  let summary = {
-    total: 0,
-    passed: 0,
-    failed: 0,
-    xfailed: 0,
-    errors: 0,
-    skipped: 0
-  }
+  let summary = { total: 0, passed: 0, failed: 0, xfailed: 0, errors: 0, skipped: 0 }
 
   for (const line of lines) {
-    // Parse individual test results - look for test names and pass/fail status
-    if (line.includes('✓') || line.includes('✗')) {
-      const match = line.match(/[✓✗]\s+(.+?)(?:\s+\((\d+)ms\))?/)
+    if (line.includes('✓') || line.includes('✗') || line.includes('✔') || line.includes('✖')) {
+      const match = line.match(/[✓✔✚✖✗]\s+(.+?)(?:\s+\((\d+)ms\))?/)
       if (match) {
         const [, name, duration] = match
-        const status = line.includes('✓') ? 'passed' : 'failed'
-        tests.push({
-          name: name.trim(),
-          status: status,
-          duration: duration ? parseInt(duration) : Math.floor(Math.random() * 100) + 1,
-          failureMessages: status === 'failed' ? ['Test failed'] : []
-        })
-      }
-    }
-    
-    // Parse PASS/FAIL lines for test suites
-    if (line.includes('PASS') || line.includes('FAIL')) {
-      const match = line.match(/(PASS|FAIL)\s+(.+?)\s*\((\d+\.?\d*)\s*s\)/)
-      if (match) {
-        const [, status, name, duration] = match
-        tests.push({
-          name: name.trim(),
-          status: status === 'PASS' ? 'passed' : 'failed',
-          duration: Math.floor(parseFloat(duration) * 1000),
-          failureMessages: status === 'FAIL' ? ['Test suite failed'] : []
-        })
+        const status = line.includes('✓') || line.includes('✔') ? 'passed' : 'failed'
+        tests.push({ name: name.trim(), status, duration: duration ? parseInt(duration, 10) : null, failureMessages: status === 'failed' ? [line.trim()] : [] })
       }
     }
 
-    // Parse summary from the final test summary line
-    if (line.includes('Tests:') && line.includes('passed') && line.includes('failed')) {
-      const testMatch = line.match(/Tests:\s+(\d+)\s+passed,\s+(\d+)\s+failed/)
-      if (testMatch) {
-        summary.total = parseInt(testMatch[1]) + parseInt(testMatch[2])
-        summary.passed = parseInt(testMatch[1])
-        summary.failed = parseInt(testMatch[2])
+    if (/\b(PASS|FAIL)\b/.test(line)) {
+      const m = line.match(/\b(PASS|FAIL)\b\s+(.+?)\s*\((\d+\.?\d*)\s*s\)/)
+      if (m) {
+        const [, status, name, duration] = m
+        tests.push({ name: name.trim(), status: status === 'PASS' ? 'passed' : 'failed', duration: Math.round(parseFloat(duration) * 1000), failureMessages: status === 'FAIL' ? ['Test suite failed'] : [] })
       }
     }
-    
-    // Alternative parsing for different Jest output formats
+
+    if (line.includes('Tests:')) {
+      summary.passed += safeIntMatch(line, /(\d+)\s+passed/)
+      summary.failed += safeIntMatch(line, /(\d+)\s+failed/)
+      summary.skipped += safeIntMatch(line, /(\d+)\s+skipped/)
+      const totalMatch = line.match(/(\d+)\s+total/)
+      if (totalMatch) summary.total = parseInt(totalMatch[1], 10)
+    }
+
     if (line.includes('Test Suites:')) {
-      const suiteMatch = line.match(/Test Suites:\s+(\d+)\s+passed,\s+(\d+)\s+failed/)
-      if (suiteMatch) {
-        // If we couldn't get individual test counts, use suite counts
-        if (summary.total === 0) {
-          summary.total = parseInt(suiteMatch[1]) + parseInt(suiteMatch[2])
-          summary.passed = parseInt(suiteMatch[1])
-          summary.failed = parseInt(suiteMatch[2])
+      summary.passed += safeIntMatch(line, /(\d+)\s+passed/)
+      summary.failed += safeIntMatch(line, /(\d+)\s+failed/)
+    }
+  }
+
+  const perTestSum = summary.passed + summary.failed + summary.skipped
+  if (summary.total === 0 && perTestSum > 0) summary.total = perTestSum
+
+  return { tests, summary, raw: String(output || '') }
+}
+
+function parseJestJsonOutput(jsonString) {
+  try {
+    const obj = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString
+    const tests = []
+    let summary = { total: 0, passed: 0, failed: 0, xfailed: 0, errors: 0, skipped: 0 }
+
+    if (Array.isArray(obj.testResults)) {
+      for (const suite of obj.testResults) {
+        if (Array.isArray(suite.assertionResults)) {
+          for (const a of suite.assertionResults) {
+            tests.push({
+              name: (suite.name ? `${path.basename(suite.name)} › ` : '') + (a.fullName || a.title || a.ancestorTitles?.join(' › ') || ''),
+              status: a.status === 'passed' ? 'passed' : 'failed',
+              duration: a.duration || null,
+              failureMessages: a.failureMessages || []
+            })
+          }
         }
+        summary.passed += safeIntMatch(String(suite.status || ''), /passed/) ? 0 : 0
       }
     }
-  }
 
-  // If we still couldn't parse properly, create mock test data based on what we see
-  if (summary.total === 0 && tests.length === 0) {
-    // Based on the actual output we see, create representative test data
-    const mockTests = [
-      { name: "Test Infrastructure › should run a basic test", status: "passed", duration: 44, failureMessages: [] },
-      { name: "Test Infrastructure › should verify math operations", status: "passed", duration: 7, failureMessages: [] },
-      { name: "Test Infrastructure › should verify string operations", status: "passed", duration: 3, failureMessages: [] },
-      { name: "Application Requirements Verification › should verify all core components exist", status: "passed", duration: 3, failureMessages: [] },
-      { name: "Application Requirements Verification › should verify storage types are defined", status: "passed", duration: 4, failureMessages: [] },
-      { name: "Application Requirements Verification › should verify utility functions exist", status: "passed", duration: 54, failureMessages: [] },
-      { name: "File Import and Parsing › should import and parse local database storage snapshots", status: "passed", duration: 12, failureMessages: [] },
-      { name: "Heap Page Layout Visualization › should decode and visualize heap page layouts", status: "passed", duration: 8, failureMessages: [] },
-      { name: "Row-level Tuple Inspection › should provide row-level tuple inspection", status: "passed", duration: 15, failureMessages: [] },
-      { name: "Index Page Visualization › should support index page visualization", status: "passed", duration: 9, failureMessages: [] },
-      { name: "Storage Fragmentation Metrics › should compute and display storage fragmentation metrics", status: "passed", duration: 11, failureMessages: [] },
-      { name: "Page Occupancy and Density › should track page occupancy and density", status: "passed", duration: 6, failureMessages: [] },
-      { name: "Free Space Map Exploration › should provide free space map exploration", status: "passed", duration: 7, failureMessages: [] },
-      { name: "Historical Storage State Comparison › should implement historical storage state comparison", status: "passed", duration: 13, failureMessages: [] },
-      { name: "Dead Tuple and Anomaly Detection › should detect and flag dead tuples and anomalies", status: "passed", duration: 10, failureMessages: [] },
-      { name: "Storage Efficiency Analytics › should generate storage efficiency analytics", status: "passed", duration: 14, failureMessages: [] },
-      { name: "Page-level Heatmaps › should visualize page-level heatmaps", status: "passed", duration: 8, failureMessages: [] },
-      { name: "Binary-level Inspection Tools › should support binary-level inspection tools", status: "passed", duration: 16, failureMessages: [] },
-      { name: "Storage Operation Simulation › should allow users to simulate storage operations", status: "passed", duration: 12, failureMessages: [] },
-      { name: "Index Depth and Fanout Analysis › should implement index depth and fanout analysis", status: "passed", duration: 9, failureMessages: [] },
-      { name: "Tuple Lifecycle Visualization › should provide tuple lifecycle visualization", status: "passed", duration: 11, failureMessages: [] },
-      { name: "Search and Filtering › should support search and filtering across pages and tuples", status: "passed", duration: 7, failureMessages: [] },
-      { name: "Immutable Inspection Logs › should maintain immutable inspection logs", status: "passed", duration: 5, failureMessages: [] },
-      { name: "Performance Optimizations › should implement performance optimizations", status: "passed", duration: 8, failureMessages: [] },
-      { name: "Edge Case Handling › should handle edge cases without crashing", status: "passed", duration: 6, failureMessages: [] },
-      { name: "Deterministic Decoding and Explainable Metrics › should ensure deterministic decoding and explainable storage metrics", status: "passed", duration: 10, failureMessages: [] },
-      { name: "Component Structure Tests › should verify PageLayoutView component exists", status: "passed", duration: 3, failureMessages: [] },
-      { name: "Component Structure Tests › should verify TupleInspector component exists", status: "passed", duration: 2, failureMessages: [] },
-      { name: "Component Structure Tests › should verify IndexVisualization component exists", status: "passed", duration: 2, failureMessages: [] },
-      { name: "Component Structure Tests › should verify FragmentationHeatmap component exists", status: "passed", duration: 2, failureMessages: [] },
-      { name: "Component Structure Tests › should verify BinaryInspector component exists", status: "passed", duration: 2, failureMessages: [] },
-      { name: "Component Structure Tests › should verify storage types exist", status: "passed", duration: 1, failureMessages: [] },
-      { name: "Component Structure Tests › should verify utility functions exist", status: "passed", duration: 1, failureMessages: [] }
-    ]
-    
-    return { 
-      tests: mockTests, 
-      summary: {
-        total: mockTests.length,
-        passed: mockTests.filter(t => t.status === 'passed').length,
-        failed: mockTests.filter(t => t.status === 'failed').length,
-        xfailed: 0,
-        errors: 0,
-        skipped: 0
-      }
-    }
-  }
+    if (typeof obj.numTotalTests === 'number') summary.total = obj.numTotalTests
+    if (typeof obj.numPassedTests === 'number') summary.passed = obj.numPassedTests
+    if (typeof obj.numFailedTests === 'number') summary.failed = obj.numFailedTests
+    if (typeof obj.numPendingTests === 'number') summary.skipped = obj.numPendingTests
+    if (typeof obj.numTodoTests === 'number') summary.xfailed = obj.numTodoTests
 
-  // If we have tests but no summary, calculate from tests
-  if (summary.total === 0 && tests.length > 0) {
-    summary = {
-      total: tests.length,
-      passed: tests.filter(t => t.status === 'passed').length,
-      failed: tests.filter(t => t.status === 'failed').length,
-      xfailed: 0,
-      errors: 0,
-      skipped: 0
-    }
+    return { tests, summary, raw: JSON.stringify(obj) }
+  } catch (err) {
+    return { tests: [], summary: { total: 0, passed: 0, failed: 0, xfailed: 0, errors: 0, skipped: 0 }, raw: String(jsonString || '') }
   }
+}
 
-  return { tests, summary }
+function runCommand(cmd, cwd = '/app') {
+  try {
+    const out = execSync(cmd, { encoding: 'utf8', cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    return { ok: true, out: String(out) }
+  } catch (error) {
+    const out = (error.stdout || '') + (error.stderr || '') || error.message || ''
+    return { ok: false, out: String(out), code: error.status || 1 }
+  }
 }
 
 function runTests() {
-  const startTime = Date.now()
-  
+  // Primary attempt: run through npm test (standard)
+  const primary = runCommand('cd repository_after && npm test --silent')
+  const parsedPrimary = parseJestTextOutput(primary.out)
+
+  // If primary produced reasonable data (some tests or totals), return it
+  if ((parsedPrimary.summary.total > 0) || parsedPrimary.tests.length > 0) {
+    return { success: primary.ok, exit_code: primary.ok ? 0 : primary.code || 1, tests: parsedPrimary.tests, summary: parsedPrimary.summary, raw_output: parsedPrimary.raw }
+  }
+
+  // Fallback 1: run jest directly with JSON output (preferred)
+  const fallbackJson = runCommand('cd repository_after && npx --no-install jest --json --outputFile=jest-output.json || npx jest --json')
+  // If a file was produced, try to read it
+  let jestJsonRaw = fallbackJson.out
   try {
-    // Change to repository_after directory and run tests
-    const testOutput = execSync('cd repository_after && npm test', {
-      encoding: 'utf8',
-      cwd: '/app'
-    })
-    
-    const exitCode = 0
-    const { tests, summary } = parseJestOutput(testOutput)
-    
-    return {
-      success: true,
-      exit_code: exitCode,
-      tests,
-      summary
+    const candidatePath = path.join('/app', 'repository_after', 'jest-output.json')
+    if (fs.existsSync(candidatePath)) {
+      jestJsonRaw = fs.readFileSync(candidatePath, 'utf8')
+      // cleanup the temporary file
+      try { fs.unlinkSync(candidatePath) } catch (_) {}
     }
-  } catch (error) {
-    const exitCode = error.status || 1
-    const output = error.stdout || error.message || ''
-    const { tests, summary } = parseJestOutput(output)
-    
+  } catch (_) {}
+
+  const parsedJson = parseJestJsonOutput(jestJsonRaw)
+  if (parsedJson.summary.total > 0 || parsedJson.tests.length > 0) {
+    return { success: fallbackJson.ok, exit_code: fallbackJson.ok ? 0 : fallbackJson.code || 1, tests: parsedJson.tests, summary: parsedJson.summary, raw_output: parsedJson.raw }
+  }
+
+  // Fallback 2: list tests to see if Jest can find any tests
+  const listCmd = runCommand('cd repository_after && npx --no-install jest --listTests --json || npx jest --listTests --json')
+  let listResults = []
+  try { listResults = JSON.parse(listCmd.out || '[]') } catch (_) { listResults = [] }
+  if (Array.isArray(listResults) && listResults.length > 0) {
+    // create synthetic summary saying tests found but not executed
     return {
       success: false,
-      exit_code: exitCode,
-      tests,
-      summary
+      exit_code: 0,
+      tests: [],
+      summary: { total: 0, passed: 0, failed: 0, xfailed: 0, errors: 0, skipped: 0 },
+      raw_output: `Found test files but no run output.\nFiles:\n${listResults.join('\n')}`
     }
   }
+
+  // As last resort, return the primary raw output (likely the npm header) for transparency
+  return { success: primary.ok, exit_code: primary.ok ? 0 : primary.code || 1, tests: parsedPrimary.tests, summary: parsedPrimary.summary, raw_output: parsedPrimary.raw }
 }
 
 function main() {
   const startTime = Date.now()
   const startedAt = new Date().toISOString()
   const runId = randomUUID()
-  
+
   console.log(`Starting evaluation with run ID: ${runId}`)
-  
+
   try {
-    // Get environment info
     const environment = getEnvironmentInfo()
-    
-    // Run tests
+
     console.log('Running tests...')
     const afterResults = runTests()
-    
-    // Create comparison results
+
     const comparison = {
       after_tests_passed: afterResults.success,
       after_total: afterResults.summary.total,
@@ -210,45 +180,39 @@ function main() {
       after_failed: afterResults.summary.failed,
       after_xfailed: afterResults.summary.xfailed
     }
-    
+
     const finishedAt = new Date().toISOString()
     const durationSeconds = (Date.now() - startTime) / 1000
-    
-    // Create evaluation report
+
     const report = {
       run_id: runId,
       started_at: startedAt,
       finished_at: finishedAt,
       duration_seconds: durationSeconds,
       success: afterResults.success,
-      error: afterResults.success ? null : 'Tests failed',
+      error: afterResults.success ? null : 'Tests failed or no tests executed',
       environment,
       results: {
         after: afterResults,
         comparison
       }
     }
-    
-    // Create timestamped directory
+
     const timestamp = generateTimestamp()
     const reportDir = `/app/evaluation/${timestamp}`
-    
-    // Ensure directory exists
     fs.mkdirSync(reportDir, { recursive: true })
-    
-    // Write report to JSON file
+
     const reportPath = path.join(reportDir, 'report.json')
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
-    
-    console.log(`Evaluation completed successfully!`)
+
+    console.log(`Evaluation completed.`)
     console.log(`Report saved to: ${reportPath}`)
     console.log(`Tests: ${afterResults.summary.total} total, ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`)
-    
+
   } catch (error) {
     const finishedAt = new Date().toISOString()
     const durationSeconds = (Date.now() - startTime) / 1000
-    
-    // Create error report
+
     const errorReport = {
       run_id: runId,
       started_at: startedAt,
@@ -258,43 +222,23 @@ function main() {
       error: error.message || 'Unknown error occurred',
       environment: getEnvironmentInfo(),
       results: {
-        after: {
-          success: false,
-          exit_code: 1,
-          tests: [],
-          summary: {
-            total: 0,
-            passed: 0,
-            failed: 0,
-            xfailed: 0,
-            errors: 0,
-            skipped: 0
-          }
-        },
-        comparison: {
-          after_tests_passed: false,
-          after_total: 0,
-          after_passed: 0,
-          after_failed: 0,
-          after_xfailed: 0
-        }
+        after: { success: false, exit_code: 1, tests: [], summary: { total: 0, passed: 0, failed: 0, xfailed: 0, errors: 0, skipped: 0 }, raw_output: '' },
+        comparison: { after_tests_passed: false, after_total: 0, after_passed: 0, after_failed: 0, after_xfailed: 0 }
       }
     }
-    
-    // Create timestamped directory for error report
+
     const timestamp = generateTimestamp()
     const reportDir = `/app/evaluation/${timestamp}`
     fs.mkdirSync(reportDir, { recursive: true })
-    
+
     const reportPath = path.join(reportDir, 'report.json')
     fs.writeFileSync(reportPath, JSON.stringify(errorReport, null, 2))
-    
+
     console.error(`Evaluation failed: ${error.message}`)
     console.error(`Error report saved to: ${reportPath}`)
-    
+
     process.exit(1)
   }
 }
 
-// Run the evaluation
 main()

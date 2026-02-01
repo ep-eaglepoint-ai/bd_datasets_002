@@ -22,10 +22,40 @@ export default function FileImport({ onFileLoad }: FileImportProps) {
     setStoreError(null)
 
     try {
-      const snapshot = await StorageParser.parseFile(file)
-      
+      // If JSON, prefer offloading parse to a Web Worker (optional optimization)
+      let snapshot = null as any
+
+      const isJSON = file.type === 'application/json' || file.name.toLowerCase().endsWith('.json')
+
+      if (isJSON && typeof Worker !== 'undefined') {
+        try {
+          const text = await file.text()
+          const worker = new Worker('/workers/jsonParserWorker.js')
+
+          snapshot = await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Worker timeout')), 15000)
+            worker.onmessage = (e) => {
+              clearTimeout(timeout)
+              if (e.data.error) reject(new Error(e.data.error))
+              else resolve(e.data.snapshot)
+            }
+            worker.onerror = (err) => {
+              clearTimeout(timeout)
+              reject(err)
+            }
+            worker.postMessage({ text, filename: file.name })
+          })
+        } catch (err) {
+          // Worker failed; fallback to main-thread parsing
+          console.warn('Worker parse failed, falling back to main parser:', err)
+          snapshot = await StorageParser.parseFile(file)
+        }
+      } else {
+        snapshot = await StorageParser.parseFile(file)
+      }
+
       addSnapshot(snapshot)
-      
+
       const log: InspectionLog = {
         id: Math.random().toString(36).substr(2, 9),
         timestamp: Date.now(),
@@ -34,13 +64,13 @@ export default function FileImport({ onFileLoad }: FileImportProps) {
         details: {
           fileName: file.name,
           fileSize: file.size,
-          totalPages: snapshot.metrics.totalPages,
-          heapPages: snapshot.heapPages.length,
-          indexPages: snapshot.indexPages.length,
-          corruptedPages: snapshot.corruptedPages.length
+          totalPages: snapshot.metrics?.totalPages ?? 0,
+          heapPages: snapshot.heapPages?.length ?? 0,
+          indexPages: snapshot.indexPages?.length ?? 0,
+          corruptedPages: snapshot.corruptedPages?.length ?? 0
         }
       }
-      
+
       addInspectionLog(log)
       onFileLoad(true)
     } catch (err) {

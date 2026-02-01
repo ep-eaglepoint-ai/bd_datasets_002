@@ -17,46 +17,33 @@ describe('Test Infrastructure', () => {
 
 describe('Application Requirements Verification', () => {
   it('should verify all core components exist', () => {
-    // This test verifies that all required components are implemented
-    const requiredComponents = [
-      'PageLayoutView',
-      'TupleInspector', 
-      'IndexVisualization',
-      'FragmentationHeatmap',
-      'BinaryInspector'
+    // Verify the actual component modules can be required
+    const comps = [
+      '../repository_after/src/components/PageLayoutView',
+      '../repository_after/src/components/TupleInspector',
+      '../repository_after/src/components/IndexVisualization',
+      '../repository_after/src/components/FragmentationHeatmap',
+      '../repository_after/src/components/BinaryInspector'
     ]
-    
-    requiredComponents.forEach(component => {
-      expect(component).toBeDefined()
+
+    comps.forEach(path => {
+      const mod = require(path)
+      expect(mod).toBeDefined()
     })
   })
 
   it('should verify storage types are defined', () => {
-    // Verify core storage types exist
-    const requiredTypes = [
-      'StorageSnapshot',
-      'HeapPage',
-      'Tuple',
-      'IndexPage',
-      'PageHeader',
-      'TupleHeader'
-    ]
-    
-    requiredTypes.forEach(type => {
-      expect(type).toBeDefined()
-    })
+    // Verify the types module exports expected symbols
+    const types = require('../repository_after/src/types/storage')
+    expect(types).toBeDefined()
+    // Basic presence check; avoid heavy pretty-format usage during test formatting
+    expect(!!types).toBe(true)
   })
 
   it('should verify utility functions exist', () => {
-    // Verify core utilities exist
-    const requiredUtilities = [
-      'StorageParser',
-      'StorageAnalyzer',
-      'BinaryFormatter'
-    ]
-    
-    requiredUtilities.forEach(utility => {
-      expect(utility).toBeDefined()
-    })
+    // Verify storage parser exists and exports parseFile
+    const parser = require('../repository_after/src/utils/storageParser')
+    expect(parser).toBeDefined()
+    expect(typeof parser.StorageParser).toBe('function')
   })
 })

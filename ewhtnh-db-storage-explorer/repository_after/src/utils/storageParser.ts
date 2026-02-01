@@ -10,6 +10,7 @@ import {
   StorageMetrics,
   BinaryInspection 
 } from '@/types/storage'
+import { SnapshotSchema } from './schemas'
 
 export class StorageParser {
   private static readonly PAGE_SIZE = 8192
@@ -18,7 +19,15 @@ export class StorageParser {
   private static readonly LINE_POINTER_SIZE = 4
 
   static async parseFile(file: File): Promise<StorageSnapshot> {
-    const buffer = await file.arrayBuffer()
+    let buffer: ArrayBuffer
+    if (file && typeof (file as any).arrayBuffer === 'function') {
+      buffer = await (file as any).arrayBuffer()
+    } else if (file && typeof (file as any).text === 'function') {
+      const text = await (file as any).text()
+      buffer = new TextEncoder().encode(text).buffer
+    } else {
+      throw new Error('Unsupported file object: missing arrayBuffer/text methods')
+    }
     const dataView = new DataView(buffer)
     
     try {
@@ -98,7 +107,12 @@ export class StorageParser {
     
     const freeSpaceMap = this.buildFreeSpaceMap(pages)
     const metrics = this.calculateMetrics(pages, indexPages, totalPages)
-    
+    const heatmapData = pages.map(p => ({
+      pageNumber: p.header.pageNumber,
+      density: p.fillFactor,
+      fragmentation: p.deadTupleRatio
+    }))
+
     return {
       id: this.generateId(),
       name: filename,
@@ -108,6 +122,7 @@ export class StorageParser {
       heapPages: pages,
       indexPages,
       freeSpaceMap,
+      heatmapData,
       metrics,
       corruptedPages,
       parsingErrors
@@ -117,8 +132,10 @@ export class StorageParser {
   private static parseJSONDump(buffer: ArrayBuffer, filename: string): StorageSnapshot {
     try {
       const jsonText = new TextDecoder().decode(buffer)
-      const data = JSON.parse(jsonText)
-      
+      const parsed = JSON.parse(jsonText)
+      // Validate incoming JSON against a Zod schema to ensure deterministic decoding
+      const data = SnapshotSchema.parse(parsed)
+
       return this.convertJSONToSnapshot(data, filename)
     } catch (error) {
       throw new Error(`Invalid JSON format: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -467,14 +484,25 @@ export class StorageParser {
   }
 
   private static convertJSONToSnapshot(data: any, filename: string): StorageSnapshot {
-    const heapPages: HeapPage[] = (data.heapPages || []).map((pageData: any) => ({
-      header: pageData.header,
-      linePointers: pageData.linePointers || [],
-      tuples: pageData.tuples || [],
-      freeSpace: pageData.freeSpace || { offset: 0, length: 0 },
-      fillFactor: pageData.fillFactor || 0,
-      deadTupleRatio: pageData.deadTupleRatio || 0
-    }))
+    const heapPages: HeapPage[] = (data.heapPages || []).map((pageData: any) => {
+      const freeSpace = pageData.freeSpace || { offset: 0, length: 0 }
+      const tuples = pageData.tuples || []
+      const fillFactor = typeof pageData.fillFactor === 'number'
+        ? pageData.fillFactor
+        : ((this.PAGE_SIZE - (freeSpace.length || 0)) / this.PAGE_SIZE) * 100
+      const deadTupleRatio = typeof pageData.deadTupleRatio === 'number'
+        ? pageData.deadTupleRatio
+        : (tuples.length > 0 ? (tuples.filter((t: any) => t.isDead).length / tuples.length) : 0)
+
+      return {
+        header: pageData.header,
+        linePointers: pageData.linePointers || [],
+        tuples,
+        freeSpace,
+        fillFactor,
+        deadTupleRatio
+      }
+    })
     
     const indexPages: IndexPage[] = (data.indexPages || []).map((pageData: any) => ({
       header: pageData.header,
@@ -485,7 +513,14 @@ export class StorageParser {
     
     const freeSpaceMap = this.buildFreeSpaceMap(heapPages)
     const metrics = this.calculateMetrics(heapPages, indexPages, data.totalPages || heapPages.length + indexPages.length)
-    
+    const heatmapData = heapPages
+      .map(p => ({
+        pageNumber: p.header.pageNumber,
+        density: typeof p.fillFactor === 'number' ? p.fillFactor : 0,
+        fragmentation: typeof p.deadTupleRatio === 'number' ? p.deadTupleRatio : 0
+      }))
+      .sort((a, b) => a.pageNumber - b.pageNumber)
+
     return {
       id: this.generateId(),
       name: filename,
@@ -495,6 +530,7 @@ export class StorageParser {
       heapPages,
       indexPages,
       freeSpaceMap,
+      heatmapData,
       metrics,
       corruptedPages: data.corruptedPages || [],
       parsingErrors: data.parsingErrors || []

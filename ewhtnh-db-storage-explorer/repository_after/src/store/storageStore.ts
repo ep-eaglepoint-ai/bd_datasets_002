@@ -28,6 +28,53 @@ interface StorageState {
   clearAll: () => void
 }
 
+export function createIndexedDBStorage(dbName = 'db-storage-explorer', storeName = 'kv') {
+  function openDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(dbName, 1)
+      req.onupgradeneeded = () => {
+        const db = req.result
+        if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName)
+      }
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+  }
+
+  return {
+    async getItem(key: string) {
+      const db = await openDB()
+      return new Promise<string | null>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly')
+        const store = tx.objectStore(storeName)
+        const req = store.get(key)
+        req.onsuccess = () => resolve(req.result ?? null)
+        req.onerror = () => reject(req.error)
+      })
+    },
+    async setItem(key: string, value: string) {
+      const db = await openDB()
+      return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite')
+        const store = tx.objectStore(storeName)
+        const req = store.put(value, key)
+        req.onsuccess = () => resolve()
+        req.onerror = () => reject(req.error)
+      })
+    },
+    async removeItem(key: string) {
+      const db = await openDB()
+      return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite')
+        const store = tx.objectStore(storeName)
+        const req = store.delete(key)
+        req.onsuccess = () => resolve()
+        req.onerror = () => reject(req.error)
+      })
+    }
+  }
+}
+
 export const useStorageStore = create<StorageState>()(
   persist(
     (set, get) => ({
@@ -101,7 +148,12 @@ export const useStorageStore = create<StorageState>()(
     }),
     {
       name: 'db-storage-explorer-storage',
-      storage: createJSONStorage(() => localStorage),
+      // Replace localStorage with an IndexedDB-backed storage to meet requirements
+      storage: createJSONStorage(() => ({
+        getItem: (name: string) => createIndexedDBStorage().getItem(name),
+        setItem: (name: string, value: string) => createIndexedDBStorage().setItem(name, value),
+        removeItem: (name: string) => createIndexedDBStorage().removeItem(name)
+      } as any)),
       partialize: (state) => ({
         snapshots: state.snapshots,
         inspectionLogs: state.inspectionLogs,
