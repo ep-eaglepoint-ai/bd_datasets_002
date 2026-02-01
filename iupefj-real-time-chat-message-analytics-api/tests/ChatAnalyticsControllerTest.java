@@ -1097,6 +1097,21 @@ public class ChatAnalyticsControllerTest {
     }
 
     @Test
+    void springBootApplicationOnSeparateMainClass() {
+        // Verify @SpringBootApplication is on a separate main class, not the controller
+        // Check that ChatAnalyticsApplication class exists with @SpringBootApplication
+        try {
+            Class<?> mainClass = Class.forName("com.eaglepoint.chat.ChatAnalyticsApplication");
+            assertTrue(mainClass.isAnnotationPresent(SpringBootApplication.class), 
+                "Should have @SpringBootApplication on main application class");
+            assertTrue(Modifier.isPublic(mainClass.getModifiers()), 
+                "Main application class should be public");
+        } catch (ClassNotFoundException e) {
+            fail("ChatAnalyticsApplication main class should exist with @SpringBootApplication");
+        }
+    }
+
+    @Test
     void analyzeMethodHasCorrectAnnotations() {
         // Verify analyze method has @PostMapping
         Class<ChatAnalyticsController> clazz = ChatAnalyticsController.class;

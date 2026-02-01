@@ -7,6 +7,7 @@ RUN mvn dependency:go-offline
 RUN mkdir -p /app/src/main/java/com/eaglepoint/chat
 COPY repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/
 COPY repository_after/src/main/java/com/eaglepoint/chat/TestConfig.java /app/src/main/java/com/eaglepoint/chat/
+COPY repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsApplication.java /app/src/main/java/com/eaglepoint/chat/
 COPY repository_after/src/main/resources /app/src/main/resources
 COPY tests /app/tests
 COPY evaluation /app/evaluation
@@ -26,6 +27,7 @@ ENTRYPOINT ["bash", "-c", "\
       cp /app/repository_before/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/; \
     else \
       cp /app/repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/; \
+      cp /app/repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsApplication.java /app/src/main/java/com/eaglepoint/chat/; \
     fi; \
     cd /app/evaluation; \
     javac evaluation.java; \
@@ -37,9 +39,9 @@ ENTRYPOINT ["bash", "-c", "\
       cp /app/repository_before/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/; \
     else \
       cp /app/repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/; \
+      cp /app/repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsApplication.java /app/src/main/java/com/eaglepoint/chat/; \
+      cp /app/repository_after/src/main/java/com/eaglepoint/chat/TestConfig.java /app/src/main/java/com/eaglepoint/chat/; \
     fi; \
-    # Always copy TestConfig for tests (needed by @WebMvcTest)
-    cp /app/repository_after/src/main/java/com/eaglepoint/chat/TestConfig.java /app/src/main/java/com/eaglepoint/chat/; \
     if [ ${#ARGS[@]} -eq 0 ]; then exec mvn test; else exec mvn \"${ARGS[@]}\"; fi; \
   fi"]
 CMD ["test"]
