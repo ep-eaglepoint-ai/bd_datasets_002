@@ -1,9 +1,17 @@
 services:
-  app-after:
+  app-before:
     build: .
     environment:
       - NO_COLOR=1
     command: deno test -A repository_after/tests/billing_service_test.ts
+    volumes:
+      - .:/app
+
+  app-after:
+    build: .
+    environment:
+      - NO_COLOR=1
+    command: deno test -A tests/billing_meta_test.ts
     volumes:
       - .:/app
 
