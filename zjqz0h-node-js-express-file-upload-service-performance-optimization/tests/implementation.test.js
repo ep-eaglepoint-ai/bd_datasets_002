@@ -204,6 +204,7 @@ describe("File Upload Service Optimization", () => {
     const beforeUploads = fs.readdirSync(process.env.UPLOAD_DIR);
     const beforeTemp = fs.readdirSync(process.env.TEMP_DIR);
 
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const dbSpy = jest.spyOn(database, "saveUploadRecord").mockImplementationOnce(() => {
       throw new Error("DB failure");
     });
@@ -222,5 +223,90 @@ describe("File Upload Service Optimization", () => {
     expect(afterTemp.length).toBe(beforeTemp.length);
 
     dbSpy.mockRestore();
+    consoleSpy.mockRestore();
   });
+
+  test("Req Load: 100 concurrent uploads without errors", async () => {
+    const pdfBuffer = Buffer.from("%PDF-1.4\n%junk\n");
+    const uploads = [];
+    for (let i = 0; i < 100; i++) {
+      uploads.push(
+        request(app)
+          .post("/uploads")
+          .attach("file", pdfBuffer, { filename: `concurrent_${i}.pdf`, contentType: "application/pdf" }),
+      );
+    }
+    const results = await Promise.all(uploads);
+
+    const failures = results.filter((r) => r.status !== 200);
+    if (failures.length > 0) {
+      // console.error("Failures:", failures.map(f => f.body));
+    }
+    expect(failures.length).toBe(0);
+  }, 60000);
+
+  test("Req Perf: 50MB file processes in under 10 seconds", async () => {
+    const largePdf = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(50 * 1024 * 1024)]);
+    const start = Date.now();
+    const res = await request(app)
+      .post("/uploads")
+      .attach("file", largePdf, { filename: "perf_50mb.pdf", contentType: "application/pdf" });
+    const duration = Date.now() - start;
+
+    expect(res.status).toBe(200);
+    expect(duration).toBeLessThan(10000);
+  }, 20000);
+
+  test("Req Pool: Database Connection Pool Exhaustion Test", async () => {
+    const pdfBuffer = Buffer.from("%PDF-1.4\nPool Test\n");
+    const uploads = [];
+    for (let i = 0; i < 50; i++) {
+      uploads.push(
+        request(app)
+          .post("/uploads")
+          .attach("file", pdfBuffer, { filename: `pool_${i}.pdf`, contentType: "application/pdf" }),
+      );
+    }
+    const results = await Promise.all(uploads);
+    const failures = results.filter((r) => r.status !== 200);
+    expect(failures.length).toBe(0);
+  }, 30000);
+
+  test("Req Health: Health check should respond in under 100ms during upload", async () => {
+    const largePdf = Buffer.concat([Buffer.from("%PDF-1.4\n health"), Buffer.alloc(20 * 1024 * 1024)]);
+
+    const uploadPromise = request(app)
+      .post("/uploads")
+      .attach("file", largePdf, { filename: "health_test.pdf", contentType: "application/pdf" });
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const start = Date.now();
+    const healthRes = await request(app).get("/health");
+    const duration = Date.now() - start;
+
+    expect(healthRes.status).toBe(200);
+    expect(duration).toBeLessThan(100);
+
+    await uploadPromise;
+  }, 20000);
+
+  test("Req Memory: Memory usage should stay under 512MB during large upload", async () => {
+    // Construct a valid PDF buffer (starts with %PDF) to pass validation
+    const header = Buffer.from("%PDF-1.4\n");
+    const content = Buffer.alloc(50 * 1024 * 1024 - header.length);
+    const largeFile = Buffer.concat([header, content]);
+
+    const res = await request(app)
+      .post("/uploads")
+      .attach("file", largeFile, { filename: "memory_test.pdf", contentType: "application/pdf" });
+
+    // The requirement is max 512MB per request.
+    // Since we are running in a test process which holds the 50MB buffer + Jest overhead,
+    // we assert the total process memory is within reason.
+    // If the server was leaking or buffering everything, this would likely explode or exceed 512MB easily with other overhead.
+    expect(res.status).toBe(200);
+    // Checking current memory usage is < 512MB
+    expect(process.memoryUsage().rss).toBeLessThan(512 * 1024 * 1024);
+  }, 30000);
 });
