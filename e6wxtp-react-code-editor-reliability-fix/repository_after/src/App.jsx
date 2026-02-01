@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Download, Upload, RotateCcw, Save, FileText, Search, Zap } from 'lucide-react';
 
 export default function CodeEditor() {
@@ -18,10 +18,8 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   const [replaceMode, setReplaceMode] = useState(false);
   const [replaceTerm, setReplaceTerm] = useState('');
 
-  const [history, setHistory] = useState({
-    stack: [DEFAULT_CODE],
-    index: 0
-  });
+  const [history, setHistory] = useState([DEFAULT_CODE]);
+  const [historyIndex, setHistoryIndex] = useState(0);
 
   const [savedVersion, setSavedVersion] = useState(DEFAULT_CODE);
   const [isModified, setIsModified] = useState(false);
@@ -37,22 +35,19 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     setIsModified(normalize(savedVersion) !== normalize(code));
   }, [code, savedVersion]);
 
-  const updateHistory = useCallback((newCode) => {
+  const updateHistory = (newCode) => {
     if (historyTimeout.current) {
       clearTimeout(historyTimeout.current);
       historyTimeout.current = null;
     }
 
-    setHistory(prev => {
-      if (prev.stack[prev.index] === newCode) return prev;
+    if (history[historyIndex] === newCode) return;
 
-      const newStack = prev.stack.slice(0, prev.index + 1);
-      return {
-        stack: [...newStack, newCode],
-        index: newStack.length
-      };
-    });
-  }, []);
+    const newStack = history.slice(0, historyIndex + 1);
+    newStack.push(newCode);
+    setHistory(newStack);
+    setHistoryIndex(newStack.length - 1);
+  };
 
   const handleCodeChange = (e) => {
     const newCode = e.target.value;
@@ -69,8 +64,8 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
   };
 
   const undo = () => {
-    let newStack = [...history.stack];
-    let newIndex = history.index;
+    let newStack = [...history];
+    let newIndex = historyIndex;
     let newCode = code;
 
     if (historyTimeout.current) {
@@ -90,13 +85,14 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       }
     }
 
-    setHistory({ stack: newStack, index: newIndex });
+    setHistory(newStack);
+    setHistoryIndex(newIndex);
     setCode(newCode);
   };
 
   const redo = () => {
-    let newStack = [...history.stack];
-    let newIndex = history.index;
+    let newStack = [...history];
+    let newIndex = historyIndex;
     let newCode = code;
 
     if (historyTimeout.current) {
@@ -115,7 +111,8 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
       }
     }
 
-    setHistory({ stack: newStack, index: newIndex });
+    setHistory(newStack);
+    setHistoryIndex(newIndex);
     setCode(newCode);
   };
 
@@ -139,17 +136,13 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
 
       const newCode = code.replace(regex, replaceTerm);
       if (newCode !== code) {
-        setHistory(prev => {
-          const newStack = prev.stack.slice(0, prev.index + 1);
-          if (prev.stack[prev.index] !== code) {
-            newStack.push(code);
-          }
-          newStack.push(newCode);
-          return {
-            stack: newStack,
-            index: newStack.length - 1
-          };
-        });
+        const newStack = history.slice(0, historyIndex + 1);
+        if (history[historyIndex] !== code) {
+          newStack.push(code);
+        }
+        newStack.push(newCode);
+        setHistory(newStack);
+        setHistoryIndex(newStack.length - 1);
         setCode(newCode);
       }
     } catch (e) {
@@ -206,17 +199,13 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
         const content = event.target.result;
         if (typeof content !== 'string') return;
 
-        setHistory(prev => {
-          const newStack = prev.stack.slice(0, prev.index + 1);
-          if (prev.stack[prev.index] !== currentCode) {
-            newStack.push(currentCode);
-          }
-          newStack.push(content);
-          return {
-            stack: newStack,
-            index: newStack.length - 1
-          };
-        });
+        const newStack = history.slice(0, historyIndex + 1);
+        if (history[historyIndex] !== currentCode) {
+          newStack.push(currentCode);
+        }
+        newStack.push(content);
+        setHistory(newStack);
+        setHistoryIndex(newStack.length - 1);
         setCode(content);
 
         const nameParts = file.name.split('.');
@@ -237,6 +226,9 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
         if (ext && langMap[ext]) {
           setLanguage(langMap[ext]);
         }
+      };
+      reader.onerror = () => {
+        alert('Error reading file');
       };
       reader.readAsText(file);
       e.target.value = '';
@@ -259,7 +251,8 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
 
     const defaultCode = '// Write your code here\n';
     setCode(defaultCode);
-    setHistory({ stack: [defaultCode], index: 0 });
+    setHistory([defaultCode]);
+    setHistoryIndex(0);
     setFileName('untitled');
     setSavedVersion(defaultCode);
     setSearchTerm('');
@@ -313,17 +306,13 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
     }).join('\n');
 
     if (formatted !== code) {
-      setHistory(prev => {
-        const newStack = prev.stack.slice(0, prev.index + 1);
-        if (prev.stack[prev.index] !== code) {
-          newStack.push(code);
-        }
-        newStack.push(formatted);
-        return {
-          stack: newStack,
-          index: newStack.length - 1
-        };
-      });
+      const newStack = history.slice(0, historyIndex + 1);
+      if (history[historyIndex] !== code) {
+        newStack.push(code);
+      }
+      newStack.push(formatted);
+      setHistory(newStack);
+      setHistoryIndex(newStack.length - 1);
       setCode(formatted);
     }
   };
@@ -492,7 +481,7 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={undo}
-                disabled={history.index <= 0}
+                disabled={historyIndex <= 0 && code === history[historyIndex]}
                 className="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Undo (Ctrl+Z)"
               >
@@ -501,7 +490,7 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
 
               <button
                 onClick={redo}
-                disabled={history.index >= history.stack.length - 1}
+                disabled={historyIndex >= history.length - 1}
                 className="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Redo (Ctrl+Y)"
               >
@@ -663,10 +652,10 @@ console.log("Fibonacci(10):", fibonacci(10));`.replace(/\r\n/g, '\n').replace(/\
               Characters: <span className="text-white font-mono">{charCount}</span>
             </div>
             <div className="text-gray-400">
-              History: <span className="text-white font-mono">{history.stack.length}</span>
+              History: <span className="text-white font-mono">{history.length}</span>
             </div>
             <div className="text-gray-400">
-              Position: <span className="text-white font-mono">{history.index + 1}/{history.stack.length}</span>
+              Position: <span className="text-white font-mono">{historyIndex + 1}/{history.length}</span>
             </div>
           </div>
         </div>
