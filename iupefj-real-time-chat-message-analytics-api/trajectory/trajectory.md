@@ -1,422 +1,301 @@
-# Trajectory: Real-Time Chat Message Analytics API
+# Trajectory: Real-Time Chat Message Analytics API Optimization
 
-## I. Problem Statement
+## 1. Problem Statement
 
-The original `/api/chat/analyze` endpoint had several critical issues that needed to be addressed:
+Based on the prompt, I identified that the current `/api/chat/analyze` endpoint has several critical issues:
 
-1. **Thread Safety Issue**: The `cachedMessages` field was a shared mutable instance variable that could cause cross-request interference when multiple clients made concurrent requests. One request could clear the cache while another was still processing, leading to corrupted results.
+- **Performance Problem**: The implementation contains a redundant nested loop (lines 35-37) that iterates through all messages for each message, resulting in O(n²) complexity instead of O(n).
+- **Thread Safety Issue**: The controller uses a shared mutable `cachedMessages` field (line 10) that is modified during request handling, causing cross-request interference when multiple clients invoke the endpoint concurrently.
+- **No Input Validation**: The original code does not handle null input, malformed messages, or messages with missing required fields, which can cause NullPointerExceptions and corrupt analytics results.
+- **Non-deterministic Longest Message Selection**: When multiple messages have the same length, the implementation arbitrarily selects one without any deterministic criteria.
 
-2. **Performance Issue**: There was an unnecessary nested loop (lines 35-37) that iterated through all messages for every message, resulting in O(n²) complexity instead of O(n). This made the solution non-scalable for large message lists.
+Based on the requirement that "the endpoint must compute per-user analytics from the provided messages" and "analytics must be computed independently per request", I determined that a complete redesign was necessary.
 
-3. **Input Validation Missing**: The code did not handle null input or validate message fields (userId, content), which could cause NullPointerExceptions.
+## 2. Requirements
 
-4. **Non-Deterministic Longest Message**: When multiple messages had the same maximum length, the selection was not deterministic—it would pick whichever message happened to be processed last.
+Based on the prompt requirements, I identified the following functional and non-functional requirements:
 
-5. **State Management Problem**: The cache was cleared and repopulated for each request, which was both wasteful (serving no functional purpose) and dangerous (causing thread safety issues).
+### Functional Requirements:
+1. Compute per-user message count from the request payload only
+2. Compute per-user average message length from the request payload only
+3. Compute per-user longest message from the request payload only
+4. Analytics must be independent per request (no shared state)
+5. Response must include analytics only for users with at least one valid message
+6. Longest message selection must be deterministic when lengths are equal
+7. Response format must remain backward-compatible with existing API contract
 
----
+### Non-Functional Requirements:
+8. Handle malformed or partially invalid input gracefully
+9. Exclude invalid messages from analytics calculations
+10. Scale linearly with the number of input messages (O(n) complexity)
+11. Avoid redundant loops and unnecessary computations
+12. Remain safe and correct under concurrent requests
+13. Follow standard Spring Boot and Java best practices
 
-## II. Requirements Analysis
+## 3. Constraints
 
-I broke down the requirements into the following categories:
+Based on the requirements analysis, I identified the following constraints:
 
-### Core Functional Requirements
-1. **Per-user message count**: Count total messages per user from the request payload only
-2. **Average message length**: Calculate average length of messages per user
-3. **Longest message**: Find the longest message per user
+- **Response Shape Constraint**: Cannot change the response format - must maintain `perUser` and `cacheSize` fields
+- **Thread Safety Constraint**: Cannot use any shared mutable state between requests
+- **Backward Compatibility Constraint**: Field names (`count`, `averageLength`, `longestMessage`) must remain unchanged
+- **Input Constraint**: Must handle null, empty, and partially invalid inputs without failing
+- **Performance Constraint**: Must achieve O(n) time complexity, not O(n²)
+- **Code Quality Constraint**: Must be clear, maintainable, and follow Java best practices
 
-### Data Isolation Requirements
-4. **Request independence**: Analytics must be computed independently per request with no reliance on previous requests or shared state
-5. **No cross-request interference**: Concurrent requests must not affect each other's results
+## 4. Research and Resources
 
-### API Compatibility Requirements
-6. **Backward-compatible response**: Must preserve the existing response format with `perUser` and `cacheSize` fields
-7. **Field names preservation**: Response field names must remain unchanged
+Based on the requirements, I researched the following approaches and concepts:
 
-### Input Handling Requirements
-8. **Graceful malformed input handling**: Must handle partially invalid input without failing the entire request
-9. **Invalid field filtering**: Messages with missing or invalid required fields must be excluded from analytics
-10. **Edge case resilience**: Must handle empty lists, null input, single messages, and large payloads
-
-### Performance Requirements
-11. **Linear scalability**: Solution must scale linearly with the number of input messages (O(n) complexity)
-12. **Avoid redundant work**: Must eliminate unnecessary loops and repeated computations
-13. **High-volume efficiency**: Must remain efficient under high request volume and large message lists
-
-### Thread Safety Requirements
-14. **Concurrent request safety**: Must be safe to invoke concurrently by multiple clients
-15. **No shared mutable state**: Request handling must not rely on shared mutable state
-16. **Consistent behavior**: Behavior must be consistent regardless of execution order or parallelism
-
-### Code Quality Requirements
-17. **Maintainability**: Solution should favor clarity, correctness, and maintainability over micro-optimizations
-18. **Best practices**: Must follow standard Spring Boot and Java best practices
-19. **Reasonability**: Code should be structured to make correctness, performance, and thread-safety easy to reason about during review
-
----
-
-## III. Constraints
-
-### Technical Constraints
-- Must use Java and Spring Boot framework
-- Must use the existing `/api/chat/analyze` endpoint structure
-- Response must include `perUser` and `cacheSize` fields
-- Cannot change the existing API contract
-
-### Performance Constraints
-- Must achieve O(n) time complexity
-- Cannot use unnecessary memory allocations
-- Must avoid nested loops that cause quadratic complexity
-
-### Thread Safety Constraints
-- Cannot use instance variables for request-specific data
-- All state must be local to each request handler
-- Must be stateless or use thread-safe patterns only
-
-### Input Constraints
-- Must handle null, empty, and partially valid input
-- Must filter invalid messages without crashing
-- Must return valid results for valid portions of input
-
----
-
-## IV. Research and Resources
-
-### Java Stream API Documentation
-I reviewed the official Java documentation for Stream operations to understand how to use `stream()`, `filter()`, `collect()`, and `max()` effectively.
-
-- **Resource**: [Java 8 Stream Documentation](https://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html)
-- **Key Learnings**: Streams provide a declarative way to process collections with filter-map-reduce patterns. The `Collectors.groupingBy()` method is perfect for grouping messages by user.
-
-### Spring Boot Request Handling Best Practices
-I researched Spring Boot best practices for REST controllers to ensure proper request handling.
-
-- **Resource**: [Spring Boot Reference Documentation](https://docs.spring.io/spring-boot/docs/current/reference/html/web.html#web)
-- **Key Learnings**: Spring Boot automatically handles JSON deserialization, but null safety must be explicitly handled in application code.
-
-### Comparator and Comparator.comparing() Methods
-I studied the Comparator interface to understand how to implement deterministic longest message selection.
-
-- **Resource**: [Java Comparator Documentation](https://docs.oracle.com/javase/8/docs/api/java/util/Comparator.html)
-- **Key Learnings**: `Comparator.comparingInt()` for primitive int comparison and `thenComparingLong()` for secondary comparison enable multi-level sorting for deterministic results.
+### Java Streams for Data Processing
+I researched Java Stream API for efficient data processing:
+- [Java Streams Documentation](https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html)
+- Java Streams provide a declarative approach to process collections with built-in parallelization support
+- Streams can perform grouping, filtering, and aggregation operations efficiently
 
 ### Thread Safety in Spring Controllers
-I researched thread safety patterns in Spring applications.
+I reviewed thread safety best practices for Spring MVC:
+- [Spring MVC Thread Safety](https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-controller)
+- Controllers should be stateless - any state should be managed in dedicated services with proper synchronization
+- Request-scoped beans are inherently thread-safe
+- Avoiding instance variables that store request-specific data
 
-- **Resource**: [Spring MVC Thread Safety](https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-controller)
-- **Key Learnings**: Controllers are singleton beans, so they must not have instance variables that store request-specific data. All state must be method-local.
+### Comparator for Deterministic Selection
+I researched Java Comparator for implementing deterministic ordering:
+- [Java Comparator Documentation](https://docs.oracle.com/javase/8/docs/api/java/util/Comparator.html)
+- Comparator.comparingInt() for primary comparison
+- Comparator.thenComparing() for chained deterministic comparisons
+- Using timestamp as secondary key ensures order consistency
+- Using userId as tertiary key provides final determinism
 
-### Stream Performance Considerations
-I studied stream performance characteristics to ensure O(n) complexity.
+### Input Validation Strategies
+I reviewed strategies for graceful input handling:
+- Null checks before processing
+- Stream filtering to exclude invalid entries
+- Defensive programming without exceptions for expected edge cases
+- Null-safe processing using Optional or conditional checks
 
-- **Resource**: [Java Stream Performance](https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html)
-- **Key Learnings**: Stream operations are designed for single-pass processing. Chaining multiple operations still results in O(n) total complexity when done correctly.
+## 5. Choosing Methods and Why
 
----
+### Why I Chose Java Streams Over Imperative Loop
 
-## V. Method Selection and Rationale
+Based on the requirement to "scale linearly with the number of input messages" and "avoid redundant loops", I evaluated two approaches:
 
-### Step 1: Eliminating Shared Mutable State
-
-I decided to remove the `cachedMessages` instance variable entirely. The original code used it for storing cache size in the response, but this was both unnecessary and dangerous. 
-
-**Why**: Shared mutable state is the root cause of thread safety issues in Spring controllers. Since controllers are singletons, any instance variable is shared across all requests. Removing this variable eliminates cross-request interference entirely.
-
-**How**: I removed the field declaration and instead used `messages.size()` directly when setting `cacheSize` in the response.
-
-### Step 2: Input Validation Strategy
-
-I chose to implement input validation at the start of the method using Java Streams.
-
-**Why**: This approach is declarative and concise. It clearly expresses the intent (filtering) without imperative control flow. It also allows all validation rules to be specified in one location.
-
-**How**: I used `stream().filter()` to create a pipeline that:
-- Filters out null messages
-- Filters out messages with null or empty userId
-- Filters out messages with null content
-
-This ensures only valid messages proceed to analytics calculation.
-
-### Step 3: User Grouping Approach
-
-I chose to use `Collectors.groupingBy()` to group messages by user.
-
-**Why**: Grouping by user is a fundamental operation in this problem. The `groupingBy` collector automatically handles the creation of a Map<String, List<Message>> where each user maps to their messages. This is both idiomatic Java and efficient.
-
-**How**: `validMessages.stream().collect(Collectors.groupingBy(Message::getUserId))` creates the grouped structure in a single operation.
-
-### Step 4: Per-User Statistics Calculation
-
-I chose to iterate through each user's message list and compute statistics.
-
-**Why**: Once messages are grouped by user, each group can be processed independently. This follows a natural data flow: group first, then compute statistics per group. The iteration is O(n) since each message is processed exactly once.
-
-**How**: 
-- Count: `msgs.size()` - direct O(1) operation
-- Total length: `msgs.stream().mapToInt(msg -> msg.getContent().length()).sum()` - single pass O(n)
-- Average: `totalLength / count` - O(1) division
-
-### Step 5: Deterministic Longest Message Selection
-
-I chose to use `Comparator.comparingInt().thenComparingLong()` for longest message selection.
-
-**Why**: The requirement specified that when multiple messages have equal maximum length, the selection must be deterministic. Using timestamp as a tiebreaker ensures consistent results regardless of message order in the input.
-
-**How**: 
+**Option 1: Optimized Imperative Loop**
 ```java
-Message longest = msgs.stream()
-    .max(Comparator.comparingInt((Message m) -> m.getContent().length())
-            .thenComparingLong(Message::getTimestamp))
-    .orElse(null);
-```
-
-This comparator:
-1. First compares by content length (descending via `max()`)
-2. If lengths are equal, compares by timestamp (ascending - earlier timestamp wins)
-3. Returns null if user has no messages (handled gracefully)
-
-### Step 6: Response Construction
-
-I chose to build the response map using standard HashMap operations.
-
-**Why**: The response format must remain backward-compatible. Using HashMap with explicit `put()` calls makes the structure clear and ensures all required fields are present.
-
-**How**: Created `perUserStats` map with user-level statistics, then wrapped in `result` map with `perUser` and `cacheSize` fields.
-
----
-
-## VI. Solution Implementation and Explanation
-
-### Implementation Code
-
-```java
-@RestController
-@RequestMapping("/api/chat")
-@SpringBootApplication
-public class ChatAnalyticsController {
-
-    @PostMapping("/analyze")
-    public Map<String, Object> analyze(@RequestBody List<Message> messages) {
-        // Step 1: Handle null input
-        if (messages == null) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("perUser", new HashMap<>());
-            result.put("cacheSize", 0);
-            return result;
-        }
-        
-        // Step 2: Filter valid messages
-        List<Message> validMessages = messages.stream()
-                .filter(msg -> msg != null 
-                    && msg.getUserId() != null 
-                    && !msg.getUserId().trim().isEmpty() 
-                    && msg.getContent() != null)
-                .collect(Collectors.toList());
-
-        // Step 3: Group messages by user
-        Map<String, List<Message>> userMessages = validMessages.stream()
-                .collect(Collectors.groupingBy(Message::getUserId));
-
-        // Step 4: Compute per-user statistics
-        Map<String, Object> perUserStats = new HashMap<>();
-        for (Map.Entry<String, List<Message>> entry : userMessages.entrySet()) {
-            String user = entry.getKey();
-            List<Message> msgs = entry.getValue();
-
-            // Calculate count, total length, average
-            int count = msgs.size();
-            int totalLength = msgs.stream()
-                    .mapToInt(msg -> msg.getContent().length())
-                    .sum();
-            int averageLength = totalLength / count;
-
-            // Find longest message with deterministic tie-breaking
-            Message longest = msgs.stream()
-                    .max(Comparator.comparingInt((Message m) -> m.getContent().length())
-                            .thenComparingLong(Message::getTimestamp))
-                    .orElse(null);
-
-            // Build user stats map
-            Map<String, Object> stats = new HashMap<>();
-            stats.put("count", count);
-            stats.put("averageLength", averageLength);
-            stats.put("longestMessage", longest);
-            perUserStats.put(user, stats);
-        }
-
-        // Step 5: Build final response
-        Map<String, Object> result = new HashMap<>();
-        result.put("perUser", perUserStats);
-        result.put("cacheSize", messages.size());
-        return result;
-    }
+// Single pass with manual accumulators
+for (Message msg : validMessages) {
+    // Update counts, lengths, and longest in one pass
 }
 ```
 
-### Key Implementation Decisions
+**Option 2: Java Streams with Grouping**
+```java
+Map<String, List<Message>> userMessages = validMessages.stream()
+    .collect(Collectors.groupingBy(Message::getUserId));
+```
 
-1. **Null Input Handling**: Added an explicit null check at the method start. This is the first line of defense against malformed input.
+I chose Option 2 (Streams) because:
+- **Clarity**: The groupingBy operation clearly expresses intent - "group messages by user"
+- **Maintainability**: Each operation (filter, group, compute stats) is separate and easy to understand
+- **Built-in Optimization**: Java Streams are well-optimized in modern JVMs
+- **Functional Purity**: No mutable accumulators needed, reducing error potential
+- **Parallel Processing**: Streams can easily be parallelized for large inputs
 
-2. **Stream-Based Filtering**: Used a single filter operation with compound conditions. This processes each message exactly once and produces a clean list of valid messages.
+### Why I Removed the CachedMessages Field
 
-3. **Grouping Collector**: Used `groupingBy` to create the user-message mapping. This is more efficient than manual iteration and grouping.
+Based on the requirement that "analytics must be computed independently per request" and "request handling must not rely on shared mutable state", I determined that the cachedMessages field was fundamentally problematic:
 
-4. **Per-Group Processing**: For each user, computed statistics by iterating through their messages. Each message is processed a constant number of times (once for grouping, once for length calculation, once for longest message check).
+- **Thread Safety**: Multiple concurrent requests would overwrite the same field, causing data corruption
+- **Requirement Violation**: Analytics should come from "the provided messages" only, not cached data
+- **Unnecessary**: The cacheSize in response could be computed from valid messages directly
 
-5. **Comparator Chain**: Used `comparingInt` with `thenComparingLong` to ensure deterministic selection. The `max()` operation with this comparator returns the message with longest content; if multiple messages have the same length, the one with the smallest timestamp is selected.
+I removed the field entirely and compute cacheSize from filtered valid messages.
 
-6. **No Shared State**: All variables are local to the method. The controller has no instance variables that store request-specific data, ensuring complete thread safety.
+### Why I Chose Multi-Criteria Comparator for Longest Message
 
----
+Based on the requirement that "in the presence of multiple messages with equal maximum length, the selected longest message must be deterministic", I needed a deterministic tiebreaker strategy.
 
-## VII. How Solution Meets Requirements and Constraints
+**Primary Key**: message content length (int comparison)
+**Secondary Key**: timestamp (long comparison) - earlier timestamp selected when lengths are equal
+**Tertiary Key**: userId (String comparison) - lexicographically smaller userId selected as final tiebreaker
 
-### Thread Safety Requirements Met
+This ensures deterministic selection regardless of input order or JVM implementation details.
 
-**Requirement 14 (Concurrent Request Safety)**: ✅ Met
-- The solution has no instance variables for request data
-- All state is local to the method call
-- Multiple concurrent requests each get their own stack frames with independent data
+### Why I Added Input Validation
 
-**Requirement 15 (No Shared Mutable State)**: ✅ Met
-- Removed the `cachedMessages` instance variable
-- No static fields are used
-- All collections are created and used within a single request context
+Based on the requirement to "handle malformed or partially invalid input gracefully" and "messages with missing or invalid required fields must not corrupt analytics results", I implemented filtering:
 
-**Requirement 16 (Consistent Behavior)**: ✅ Met
-- Deterministic longest message selection ensures consistent results
-- No reliance on external state or timing
-- Same input always produces same output
+```java
+.filter(msg -> msg != null 
+    && msg.getUserId() != null 
+    && !msg.getUserId().trim().isEmpty() 
+    && msg.getContent() != null)
+```
 
-### Performance Requirements Met
+This approach:
+- Handles null messages gracefully
+- Excludes messages with null userId
+- Excludes messages with empty/whitespace userId
+- Excludes messages with null content
+- Preserves valid messages for analytics
 
-**Requirement 11 (Linear Scalability)**: ✅ Met
-- Time complexity is O(n) where n is the number of input messages
-- Each message is processed a constant number of times:
-  - Once in the filter pass
-  - Once in the grouping pass
-  - Once in the per-user statistics calculation
-- No nested loops that would cause O(n²) complexity
+## 6. Solution Implementation and Explanation
 
-**Requirement 12 (Avoid Redundant Work)**: ✅ Met
-- Removed the redundant nested loop from the original code
-- Stream operations are chained efficiently without intermediate materialization
-- No duplicate computations of the same values
+### Step 1: Null Input Handling
+Based on the requirement to "remain resilient to empty input and edge cases", I first check for null input:
 
-**Requirement 13 (High-Volume Efficiency)**: ✅ Met
-- Stream operations use internal iteration which is often more efficient than external iteration
-- Minimal object allocation (only necessary collections are created)
-- Memory usage is proportional to the number of unique users and messages
+```java
+if (messages == null) {
+    Map<String, Object> result = new HashMap<>();
+    result.put("perUser", new HashMap<>());
+    result.put("cacheSize", 0);
+    return result;
+}
+```
 
-### Input Handling Requirements Met
+This ensures the endpoint handles null request bodies gracefully without throwing exceptions.
 
-**Requirement 8 (Graceful Malformed Input)**: ✅ Met
-- Null input is handled with an explicit check
-- Filtered messages are excluded from processing
-- The method never throws NullPointerException or other runtime exceptions
+### Step 2: Message Validation and Filtering
+Based on the requirement that "invalid messages must not corrupt analytics results", I filter valid messages:
 
-**Requirement 9 (Invalid Field Filtering)**: ✅ Met
-- Messages with null userId are filtered out
-- Messages with empty/whitespace userId are filtered out
-- Messages with null content are filtered out
-- Valid messages are processed normally
+```java
+List<Message> validMessages = messages.stream()
+    .filter(msg -> msg != null 
+        && msg.getUserId() != null 
+        && !msg.getUserId().trim().isEmpty() 
+        && msg.getContent() != null)
+    .collect(Collectors.toList());
+```
 
-**Requirement 10 (Edge Case Resilience)**: ✅ Met
-- Empty input: Returns empty perUser map with cacheSize 0
-- Single message: Works correctly with one user
-- Large payloads: Scales linearly with message count
-- All-null input: Returns empty results gracefully
+This removes any messages that are null, have null userId, have empty userId, or have null content.
 
-### Functional Requirements Met
+### Step 3: User Grouping
+Based on the requirement to "compute per-user analytics", I group valid messages by userId:
 
-**Requirement 1 (Message Count)**: ✅ Met
-- `count` field is computed as `msgs.size()` for each user
-- Accurate count of valid messages per user
+```java
+Map<String, List<Message>> userMessages = validMessages.stream()
+    .collect(Collectors.groupingBy(Message::getUserId));
+```
 
-**Requirement 2 (Average Length)**: ✅ Met
-- `averageLength` field is computed as `totalLength / count`
-- Uses integer division as in the original implementation
+This creates a map where each key is a userId and each value is a list of all valid messages from that user.
 
-**Requirement 3 (Longest Message)**: ✅ Met
-- `longestMessage` field contains the message with maximum content length
-- Deterministic selection via timestamp tiebreaker
+### Step 4: Per-User Statistics Calculation
+I iterate through each user's messages and compute the three required metrics:
 
-### API Compatibility Requirements Met
+**Message Count**: `int count = msgs.size();` - Simple list size operation.
 
-**Requirement 6 (Backward-Compatible Response)**: ✅ Met
-- Response contains exactly the same fields: `perUser` and `cacheSize`
-- `perUser` contains userId → statistics mappings
-- Statistics contain `count`, `averageLength`, and `longestMessage`
+**Average Length**: `int totalLength = msgs.stream().mapToInt(msg -> msg.getContent().length()).sum();` - Stream through messages, extract length, sum them, then divide by count.
 
-**Requirement 7 (Field Names Preservation)**: ✅ Met
-- All field names match the original implementation exactly
+**Longest Message**: Using the multi-criteria comparator:
+```java
+Message longest = msgs.stream()
+    .max(Comparator.comparingInt((Message m) -> m.getContent().length())
+            .thenComparingLong(Message::getTimestamp)
+            .thenComparing(Message::getUserId))
+    .orElse(null);
+```
 
-### Data Isolation Requirements Met
+This uses Stream.max() with a Comparator that:
+1. Compares message length (descending via max)
+2. Then compares timestamp (ascending - smaller timestamp wins ties)
+3. Then compares userId (ascending - lexicographically smaller wins final ties)
 
-**Requirement 4 (Request Independence)**: ✅ Met
-- Analytics are computed from `messages` parameter only
-- No reference to any previous request data
-- Each method call is completely independent
+### Step 5: Response Construction
+I construct the response maintaining backward compatibility:
 
-**Requirement 5 (No Cross-Request Interference)**: ✅ Met
-- No shared state between requests
-- Concurrent requests cannot affect each other's results
+```java
+Map<String, Object> stats = new HashMap<>();
+stats.put("count", count);
+stats.put("averageLength", averageLength);
+stats.put("longestMessage", longest);
+perUserStats.put(user, stats);
 
-### Code Quality Requirements Met
+result.put("perUser", perUserStats);
+result.put("cacheSize", validMessages.size());
+```
 
-**Requirement 17 (Maintainability)**: ✅ Met
-- Clear, declarative code using streams
-- Well-structured with explicit steps
-- Easy to understand and modify
+### Step 6: Message Class Enhancement
+Based on Spring Boot best practices, I added a no-arg constructor for JSON deserialization:
 
-**Requirement 18 (Best Practices)**: ✅ Met
-- Follows Spring Boot conventions
-- Uses Java 8+ idioms appropriately
-- Proper null handling and input validation
+```java
+public Message() {}
 
-**Requirement 19 (Reasonability)**: ✅ Met
-- Thread safety is obvious (no shared state)
-- Performance characteristics are clear (O(n) complexity)
-- Each step has a single, clear purpose
+public Message(String userId, String content, long timestamp) {
+    this.userId = userId;
+    this.content = content;
+    this.timestamp = timestamp;
+}
+```
 
----
+## 7. How Solution Handles Constraints, Requirements, and Edge Cases
 
-## VIII. Edge Cases Handled
+### Requirement 1-3: Per-User Analytics Computation
+The solution computes all three metrics (count, averageLength, longestMessage) per user using the grouping approach. Each metric is computed from the grouped messages for that user only.
 
-### Edge Case 1: Null Input List
-When `messages` is null, the method returns an empty `perUser` map with `cacheSize` 0. No exception is thrown.
+### Requirement 4: Independent Request Analytics
+The solution has no shared state. All data comes from the request input (validMessages) and is processed within the request method. Each request is completely independent.
 
-### Edge Case 2: Empty Input List
-When `messages` is an empty list, no users are added to `perUser`, and `cacheSize` is 0.
+### Requirement 5: Valid Message Only
+The filtering step removes all invalid messages before grouping. Users without valid messages are never added to the perUserStats map.
 
-### Edge Case 3: All Invalid Messages
-When all messages are null or have invalid fields, `validMessages` is empty, resulting in no users in `perUser`.
+### Requirement 6: Deterministic Longest Message
+The three-level comparator ensures deterministic selection regardless of input order or equal-length messages.
 
-### Edge Case 4: Single Valid Message
-The solution correctly computes count=1, averageLength=content.length, and longestMessage=the single message.
+### Requirement 7: Backward Compatibility
+The response maintains the exact same structure with `perUser` and `cacheSize` fields, and each user's stats contain `count`, `averageLength`, and `longestMessage` with the same data types.
 
-### Edge Case 5: Multiple Messages with Same Length
-When multiple messages have the same maximum length, the one with the smallest timestamp is selected as the longest message. This ensures deterministic results.
+### Constraint: Thread Safety
+By removing the cachedMessages field and processing everything within the method scope, there is no shared mutable state. The controller is now thread-safe by design.
 
-### Edge Case 6: Large Message Count
-The solution scales linearly with message count. Each message is processed a constant number of times, making it suitable for large payloads.
+### Constraint: O(n) Time Complexity
+The solution processes each message a constant number of times:
+- Once during filtering
+- Once during grouping
+- Once during per-user statistics calculation
 
-### Edge Case 7: Many Unique Users
-The solution creates one entry in `perUser` per unique user. Memory usage is proportional to the number of unique users.
+This is O(n) where n is the number of input messages, compared to the original O(n²) due to the nested loop.
 
-### Edge Case 8: Messages with Whitespace UserId
-Messages with userId containing only whitespace are filtered out, preventing empty string keys in the results.
+### Constraint: Empty Input Handling
+The solution handles multiple edge cases:
+- Null input: Returns empty perUser map with cacheSize 0
+- Empty list: Returns empty perUser map with cacheSize 0
+- All invalid messages: Returns empty perUser map with cacheSize 0
+- Single valid message: Works correctly with count=1, averageLength=message length, longestMessage=the message
+- Single invalid message: Treated as no valid messages
 
----
+### Constraint: Large Payloads
+The solution scales linearly with input size. Java Streams are memory-efficient for large datasets. The groupingBy operation creates a single map entry per unique user, regardless of message count.
 
-## IX. Conclusion
+### Edge Case: Multiple Messages with Same Length
+The comparator chain ensures deterministic selection using timestamp first, then userId as tiebreakers.
 
-The implemented solution addresses all identified problems in the original code:
+### Edge Case: Messages with Null Content
+Filtered out by the validation step, preventing NullPointerException when calling getContent().
 
-1. **Thread Safety**: Achieved by eliminating all shared mutable state
-2. **Performance**: Achieved O(n) complexity by removing nested loops and using efficient stream operations
-3. **Input Validation**: Comprehensive filtering of null and invalid messages
-4. **Determinism**: Deterministic longest message selection via timestamp tiebreaker
-5. **Maintainability**: Clear, declarative code that is easy to understand and review
+### Edge Case: Messages with Empty UserId
+Filtered out by checking `!msg.getUserId().trim().isEmpty()`, preventing users with empty identifiers from polluting results.
 
-The solution meets all requirements and constraints while preserving backward compatibility with the existing API contract.
+### Edge Case: Large Number of Unique Users
+The solution handles this efficiently. Each user's messages are processed independently, and the memory usage scales with the number of unique users and total messages.
+
+### Edge Case: Very Long Messages
+The solution uses `int` for message length, which can handle messages up to 2GB. For typical chat messages, this is more than sufficient.
+
+### Constraint: Maintainability
+The code is structured with clear, single-purpose operations:
+1. Null check
+2. Validation/filtering
+3. Grouping
+4. Per-user statistics calculation
+5. Response construction
+
+Each step is easy to understand, test, and modify independently.
+
+### Constraint: Best Practices
+The solution follows Spring Boot and Java best practices:
+- Stateless controller design
+- Proper null handling
+- Stream API for data processing
+- Meaningful variable names
+- Separation of concerns within the method
