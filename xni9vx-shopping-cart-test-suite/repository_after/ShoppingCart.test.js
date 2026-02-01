@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { setCart, setDeleteCart, cartReducer } from '../repository_before/slices/cartSlice';
+import { setCart, setDeleteCart, cartReducer } from './slices/cartSlice';
 
 jest.mock('react-toastify', () => ({
   toast: {
