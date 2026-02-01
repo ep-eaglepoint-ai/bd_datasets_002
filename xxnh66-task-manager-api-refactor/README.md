@@ -1,6 +1,6 @@
 # Task Manager API Refactor
 
-### 1. Run Evaluation
+### 1. Run Evaluation (Docker Compose)
 ```sh
 docker compose run --rm evaluation
 ```

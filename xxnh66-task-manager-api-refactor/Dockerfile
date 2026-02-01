@@ -11,7 +11,8 @@ COPY repository_after/go.mod ./repository_after/
 COPY . .
 
 # Build the evaluation runner
-RUN go build -mod=vendor -o /usr/local/bin/evaluation ./evaluation
+RUN go build -mod=vendor -o /usr/local/bin/evaluation ./evaluation/evaluation.go
 
-# Set default command to run the evaluation
-CMD ["/usr/local/bin/evaluation"]
+# Set default command
+ENTRYPOINT ["/usr/local/bin/evaluation"]
+CMD []
