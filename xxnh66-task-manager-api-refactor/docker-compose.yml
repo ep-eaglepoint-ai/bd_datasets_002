@@ -1,4 +1,5 @@
 services:
+  # 1. Run evaluation (default)
   evaluation:
     build: .
     volumes:
@@ -6,3 +7,24 @@ services:
     environment:
       - GOCACHE=/tmp/gocache
     working_dir: /app
+    command: [ "/usr/local/bin/evaluation" ]
+
+  # 2. Run repository_before tests
+  before:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - GOCACHE=/tmp/gocache
+    working_dir: /app/repository_before
+    command: [ "go", "test", "-mod=vendor", "-race", "-v", "./..." ]
+
+  # 3. Run repository_after tests
+  after:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - GOCACHE=/tmp/gocache
+    working_dir: /app/repository_after
+    command: [ "go", "test", "-mod=vendor", "-race", "-v", "./..." ]

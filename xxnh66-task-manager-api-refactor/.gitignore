@@ -1,4 +1,4 @@
-**/vendor/
+
 report.json
 *.log
 __pycache__/
