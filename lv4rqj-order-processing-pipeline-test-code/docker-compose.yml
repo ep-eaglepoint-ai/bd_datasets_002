@@ -1,0 +1,14 @@
+services:
+  test-before:
+    build: .
+    command: sh -c "npm run test:before || exit 0"
+
+  test-after:
+    build: .
+    command: npm run test:after
+
+  evaluate:
+    build: .
+    command: npm run evaluate
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports

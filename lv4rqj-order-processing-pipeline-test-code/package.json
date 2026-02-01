@@ -1,0 +1,25 @@
+{
+  "name": "lv4rqj-order-processing-pipeline-test-code",
+  "version": "1.0.0",
+  "scripts": {
+    "test:before": "cross-env TEST_STATE=before npx jest --runInBand",
+    "test:after": "cross-env TEST_STATE=after npx jest --runInBand",
+    "evaluate": "node ./node_modules/ts-node/dist/bin.js --project tsconfig.json evaluation/evaluation.ts"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": ["tests"],
+    "testMatch": ["**/test_*.ts"],
+    "testPathIgnorePatterns": ["/node_modules/"]
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "ts-node": "^10.9.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.1",
+    "cross-env": "^7.0.3"
+  }
+}
