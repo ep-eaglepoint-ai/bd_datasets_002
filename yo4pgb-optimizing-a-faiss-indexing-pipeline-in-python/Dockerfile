@@ -29,7 +29,7 @@ ENV PATH=/root/.local/bin:$PATH
 COPY . .
 
 # Set PYTHONPATH to include /app for the mock library
-ENV PYTHONPATH="/app:${PYTHONPATH}"
+ENV PYTHONPATH="/app"
 
 # Default to the optimized implementation
 ENV REPO_PATH="/app/repository_after"

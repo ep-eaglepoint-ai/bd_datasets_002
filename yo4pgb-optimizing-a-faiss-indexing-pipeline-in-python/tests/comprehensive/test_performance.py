@@ -9,10 +9,7 @@ from unittest.mock import patch
 @pytest.mark.timeout(300)
 def test_performance_large_batch():
     """
-    Test that the pipeline handles a larger dataset efficiently.
-    500 records:
-    - Optimized version (batching) passes easily (~2s).
-    - Original version (1-by-1) is too slow (failing the 10.0s assertion).
+    PERFORMANCE GATE TEST - This test is EXPECTED to FAIL for repository_before.
     """
     num_records = 500 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:

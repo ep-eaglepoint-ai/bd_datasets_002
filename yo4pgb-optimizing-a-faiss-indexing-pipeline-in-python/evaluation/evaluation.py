@@ -48,10 +48,77 @@ def run_tests(repo_name: str) -> dict:
 
 def run_metrics(repo_path: Path) -> dict:
     """
-    Placeholder for collecting task-specific metrics (e.g., latency, throughput).
-    Currently unused but preserved for future extensibility.
+    Collect performance metrics by running a controlled benchmark.
+    Measures actual execution time to demonstrate optimization impact.
     """
-    return {}
+    try:
+        import tempfile
+        import time
+        
+        # Create a small benchmark dataset (100 records for speed)
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+            for i in range(100):
+                f.write(json.dumps({"text": f"Benchmark record {i} " * 10}) + "\n")
+            input_path = f.name
+        
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            index_path = os.path.join(tmp_dir, "bench.faiss")
+            store_path = os.path.join(tmp_dir, "bench.jsonl")
+            
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(repo_path) + ":" + str(ROOT)
+            
+            # Measure execution time
+            start = time.perf_counter()
+            proc = subprocess.run(
+                [
+                    "python", str(repo_path / "build_index.py"),
+                    "--input", input_path,
+                    "--index", index_path,
+                    "--store", store_path
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=30
+            )
+            duration_ms = (time.perf_counter() - start) * 1000
+            
+        os.unlink(input_path)
+        
+        if proc.returncode == 0:
+            return {
+                "avg_time_ms": round(duration_ms, 2),
+                "records_processed": 100,
+                "throughput_records_per_sec": round(100 / (duration_ms / 1000), 2)
+            }
+        else:
+            return {"error": "benchmark_failed"}
+            
+    except Exception as e:
+        return {"error": str(e)}
+
+def _generate_improvement_summary(before: dict, after: dict) -> str:
+    """Generate a human-readable summary of improvements"""
+    parts = []
+    
+    # Test status
+    if after["tests"]["passed"] and not before["tests"]["passed"]:
+        parts.append("✅ All tests passing after optimization")
+    elif after["tests"]["passed"]:
+        parts.append("✅ Tests passing (maintained correctness)")
+    
+    # Performance metrics
+    before_metrics = before.get("metrics", {})
+    after_metrics = after.get("metrics", {})
+    
+    if "avg_time_ms" in before_metrics and "avg_time_ms" in after_metrics:
+        before_time = before_metrics["avg_time_ms"]
+        after_time = after_metrics["avg_time_ms"]
+        speedup = before_time / after_time if after_time > 0 else 0
+        parts.append(f"⚡ {speedup:.1f}x faster ({before_time:.0f}ms → {after_time:.0f}ms)")
+    
+    return " | ".join(parts) if parts else "Optimization complete"
 
 def run_evaluation() -> dict:
     """
@@ -73,10 +140,10 @@ def run_evaluation() -> dict:
     
     comparison = {
         "passed_gate": after["tests"]["passed"],
-        "improvement_summary": "Tests passed after implementation"
+        "improvement_summary": _generate_improvement_summary(before, after)
     }
     
-    end = datetime.utcnow()
+    end = datetime.now(timezone.utc)
     
     report = {
         "run_id": run_id,
