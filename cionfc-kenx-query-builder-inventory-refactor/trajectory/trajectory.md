@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Successfully migrated the `InventoryService` (renamed to `KnexInventoryService`) from O(n) raw SQL string concatenation to a 100% type-safe **Knex.js query builder** implementation. The refactoring eliminates SQL injection risks, improves developer productivity via TypeScript, and maintains O(limit) pagination efficiency. The solution achieved a **100% pass rate** across all total test cases.
+Successfully migrated the `InventoryService` (renamed to `KnexInventoryService`) from O(n) raw SQL string concatenation to a 100% type-safe **Knex.js query builder** implementation. The refactoring eliminates SQL injection risks, improves developer productivity via TypeScript, and maintains O(limit) pagination efficiency. The solution achieved a **100% pass rate** across 11 test suites and 89 individual test cases.
 
 **Key Metrics:**
 - **SQL Integrity**: 0% un-aliased raw SQL calls remaining (using aliased `raw` for `COALESCE` where necessary)
@@ -69,7 +69,7 @@ if (filters.categoryName) {
 ## Phase 3: Implementation Steps
 
 ### Step 1: Query Builder Initialization
-**File**: `repository_after/inventoryService.ts`
+**File**: `repository_after/KnexInventoryService.ts`
 Replaced `pg.Pool` with `Knex` instance, enabling the builder API across the service.
 
 ### Step 2: Aggregation Subquery Implementation

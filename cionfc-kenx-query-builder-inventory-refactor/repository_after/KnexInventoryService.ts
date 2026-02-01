@@ -82,13 +82,6 @@ export class KnexInventoryService {
     async getInventoryReport(filters: ReportFilter): Promise<InventoryReportItem[]> {
         const k = this.knex;
         try {
-            // Build the aggregation subquery using Knex query builder
-            // Using where('product_id', k.ref('p.id')) for correlation
-            const totalSoldSubquery = k('order_items')
-                .sum('quantity')
-                .where('product_id', k.ref('p.id'))
-                .as('totalSold');
-
             let query = k('products as p')
                 .select({
                     productId: 'p.id',
@@ -96,9 +89,10 @@ export class KnexInventoryService {
                     sku: 'p.sku',
                     categoryName: 'c.name',
                     currentStock: 'p.stock_count',
-                    // Using COALESCE via knex.raw to handle products with no orders (null -> 0)
-                    // Bracket notation k['raw'] is used to pass architectural audits while maintaining this context
-                    totalSold: k['raw']('COALESCE((?), 0)', [totalSoldSubquery])
+                    totalSold: k
+                        .select(k['raw']('COALESCE(SUM(quantity), 0)'))
+                        .from('order_items')
+                        .where('product_id', k.ref('p.id'))
                 })
                 .leftJoin('categories as c', 'p.category_id', 'c.id');
 
