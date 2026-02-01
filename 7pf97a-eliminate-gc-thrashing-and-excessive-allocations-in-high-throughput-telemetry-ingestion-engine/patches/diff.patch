@@ -1,12 +1,12 @@
 diff --git a/repository_before/go.mod b/repository_after/go.mod
-index 106cdbdf4..57ed88cc4 100644
+index 106cdbdf4..1fd704d79 100644
 --- a/repository_before/go.mod
 +++ b/repository_after/go.mod
 @@ -1,3 +1,3 @@
 -module scenario-008-go-slice-realloc
 +module repository_after
-+
-+go 1.21
+ 
+ go 1.21
 diff --git a/repository_before/main.go b/repository_after/main.go
 index c615f3161..fe43164a8 100644
 --- a/repository_before/main.go
