@@ -56,6 +56,21 @@ func (s *MockAtomicStorage) CompareAndSwap(ctx context.Context, key string, old,
 	return true, nil
 }
 
+func (s *MockAtomicStorage) AtomicIncrement(ctx context.Context, key string, delta int64) (int64, error) {
+	if ctx.Err() != nil {
+		return 0, ctx.Err()
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	val, _ := s.data.LoadOrStore(key, int64(0))
+	current := val.(int64)
+	newVal := current + delta
+	s.data.Store(key, newVal)
+	return newVal, nil
+}
+
 // ============================================================================
 // Requirement 1: Cost Resolution Engine Tests
 // ============================================================================
@@ -582,6 +597,10 @@ func (s *ErrorStorage) Get(ctx context.Context, key string) (int64, bool, error)
 
 func (s *ErrorStorage) CompareAndSwap(ctx context.Context, key string, old, new int64) (bool, error) {
 	return false, fmt.Errorf("simulated storage error")
+}
+
+func (s *ErrorStorage) AtomicIncrement(ctx context.Context, key string, delta int64) (int64, error) {
+	return 0, fmt.Errorf("simulated storage error")
 }
 
 func TestRemainingTokensAccuracy(t *testing.T) {
