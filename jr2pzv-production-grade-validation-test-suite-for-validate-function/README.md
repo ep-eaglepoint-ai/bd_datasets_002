@@ -4,24 +4,27 @@ This repository contains a test suite for validating Go functions with a focus o
 
 ## 🐳 Docker Commands
 
-Use the following commands to build and run the validation suite using Docker:
+The Docker setup is **multi-platform compatible** and works on Linux, macOS, and Windows.
 
-### 1. Build the Docker Image
-Build the environment with all necessary dependencies (Go 1.22 and Python 3.11).
+### 🚀 Using Docker Compose (Recommended)
+This is the easiest way to build and run everything in one go:
 ```bash
+# Build and run evaluation
+docker-compose up --build
+```
+
+### 🛠️ Manual Docker Commands
+If you prefer to run Docker commands manually:
+
+```bash
+# Build image
 docker build -t jr2pzv-validation-app .
-```
 
-### 2. Run Repository Tests
-Run the Go tests for the validation logic.
-```bash
-docker run --rm jr2pzv-validation-app bash -c "cd repository_after && go test -v ./..."
-```
+# Run evaluation (creates report.json)
+docker run --rm -v "$(pwd):/app" jr2pzv-validation-app
 
-### 3. Run Full Evaluation
-Execute the Python evaluation script to generate the final validation report.
-```bash
-docker run --rm jr2pzv-validation-app python3 -m evaluation.evaluation
+# Run tests directly
+docker run --rm jr2pzv-validation-app go test -v ./repository_after/...
 ```
 
 ## 📂 Project Structure

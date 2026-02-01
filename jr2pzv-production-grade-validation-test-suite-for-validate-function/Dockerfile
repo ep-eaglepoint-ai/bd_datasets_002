@@ -1,22 +1,33 @@
-FROM python:3.11-slim
-WORKDIR /app
-COPY . /app
+# Multi-stage build for platform independence
+FROM golang:1.22.0 as go-builder
 
-# Install Go and Ubuntu packages
+FROM python:3.11-slim
+
+# Install system dependencies
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends wget curl ca-certificates git build-essential \
-    && wget -O go.tar.gz https://go.dev/dl/go1.22.0.linux-amd64.tar.gz \
-    && tar -C /usr/local -xzf go.tar.gz \
-    && rm go.tar.gz \
+    && apt-get install -y --no-install-recommends \
+        git \
+        build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy Go installation from builder stage
+COPY --from=go-builder /usr/local/go /usr/local/go
 
 # Set up Go environment
 ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/root/go"
 ENV GOBIN="/root/go/bin"
 
-
 # Make Go available system-wide
 RUN ln -sf /usr/local/go/bin/go /usr/bin/go
+
+# Set working directory
+WORKDIR /app
+
+# Copy application files
+COPY . .
+
+# Verify installations
+RUN go version && python3 --version
 
 CMD ["python3", "-m", "evaluation.evaluation"]
