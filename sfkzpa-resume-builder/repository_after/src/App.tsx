@@ -1,42 +1,60 @@
-import { useState, useEffect } from 'react';
-import type { ResumeData } from './types';
-import { ResumePreview } from './components/ResumePreview';
-import { ResumeForm } from './components/ResumeForm';
-import { Download, FileText } from 'lucide-react';
+import { useState, useEffect } from "react";
+import type { ResumeData } from "./types";
+import { ResumePreview } from "./components/ResumePreview";
+import { ResumeForm } from "./components/ResumeForm";
+import { Download, FileText } from "lucide-react";
 
 const initialResume: ResumeData = {
   personalInfo: {
-    fullName: '',
-    email: '',
-    phone: '',
-    address: '',
-    website: '',
-    linkedin: '',
+    fullName: "",
+    email: "",
+    phone: "",
+    address: "",
+    website: "",
+    linkedin: "",
   },
-  summary: '',
+  summary: "",
   experience: [],
   education: [],
-  skills: '',
+  skills: "",
   projects: [],
+  certifications: [],
   customSections: [],
   sections: [
-    { id: 'personal', title: 'Personal Info', isVisible: true, type: 'personal' },
-    { id: 'summary', title: 'Professional Summary', isVisible: true, type: 'summary' },
-    { id: 'experience', title: 'Work Experience', isVisible: true, type: 'experience' },
-    { id: 'education', title: 'Education', isVisible: true, type: 'education' },
-    { id: 'skills', title: 'Skills', isVisible: true, type: 'skills' },
-    { id: 'projects', title: 'Projects', isVisible: true, type: 'projects' },
+    { id: "personal", title: "Personal Info", isVisible: true, type: "personal" },
+    { id: "summary", title: "Professional Summary", isVisible: true, type: "summary" },
+    { id: "experience", title: "Work Experience", isVisible: true, type: "experience" },
+    { id: "education", title: "Education", isVisible: true, type: "education" },
+    { id: "skills", title: "Skills", isVisible: true, type: "skills" },
+    { id: "projects", title: "Projects", isVisible: true, type: "projects" },
+    { id: "certifications", title: "Certifications", isVisible: true, type: "certifications" },
   ],
 };
 
 function App() {
   const [resume, setResume] = useState<ResumeData>(() => {
-    const saved = localStorage.getItem('resume-data');
-    return saved ? JSON.parse(saved) : initialResume;
+    const saved = localStorage.getItem("resume-data");
+    if (!saved) {
+      return initialResume;
+    }
+    const parsed = JSON.parse(saved) as Partial<ResumeData>;
+    return {
+      ...initialResume,
+      ...parsed,
+      personalInfo: { ...initialResume.personalInfo, ...(parsed.personalInfo || {}) },
+      experience: parsed.experience || [],
+      education: parsed.education || [],
+      projects: parsed.projects || [],
+      certifications: parsed.certifications || [],
+      customSections: parsed.customSections || [],
+      summary: parsed.summary || "",
+      skills: parsed.skills || "",
+      sections: parsed.sections || initialResume.sections,
+    };
   });
 
   useEffect(() => {
-    localStorage.setItem('resume-data', JSON.stringify(resume));
+    localStorage.setItem("resume-data", JSON.stringify(resume));
   }, [resume]);
 
   const handlePrint = () => {
@@ -51,7 +69,9 @@ function App() {
             <div className="bg-blue-600 p-1.5 rounded-lg">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Resume<span className="text-blue-600">Builder</span></h1>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+              Resume<span className="text-blue-600">Builder</span>
+            </h1>
           </div>
           <button
             onClick={handlePrint}
