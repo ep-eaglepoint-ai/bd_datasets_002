@@ -1,0 +1,11 @@
+{
+            "instance_id": "6VJ6UW",
+            "problem_statement": "The objective is to optimize an existing order book aggregation component. The task is a performance refactor where the logic must remain identical in outcome but transition from an O(N) search and sort approach to a more efficient (ideally O(log N) or O(1)) structure while eliminating intermediate object allocations.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/6vj6uw-high-frequency-order-book-aggregator",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
