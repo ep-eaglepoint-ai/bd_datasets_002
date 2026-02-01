@@ -21,27 +21,46 @@ function parseVitestConsoleOutput(output) {
     let summary = { total: 0, passed: 0, failed: 0, xfailed: 0, errors: 0, skipped: 0 };
 
     try {
-        // Find first JSON object in output
+        // Find the JSON object in the output (skip any preamble text)
         const firstBrace = cleanOutput.indexOf('{');
-        if (firstBrace !== -1) {
-            const jsonText = cleanOutput.slice(firstBrace);
+        const lastBrace = cleanOutput.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            const jsonText = cleanOutput.slice(firstBrace, lastBrace + 1);
             const parsed = JSON.parse(jsonText);
 
-            // Vitest JSON reporter exposes `stats` and `tests` (depends on version)
-            if (parsed && parsed.stats) {
-                summary.total = parsed.stats.total ?? 0;
-                summary.passed = parsed.stats.passed ?? 0;
-                summary.failed = parsed.stats.failed ?? 0;
-                summary.skipped = parsed.stats.skipped ?? 0;
-            }
+            // Handle multiple Vitest JSON shapes
+            if (parsed) {
+                // Shape A: numTotalTests / numPassedTests + testResults
+                if (typeof parsed.numTotalTests === 'number') {
+                    summary.total = parsed.numTotalTests;
+                    summary.passed = parsed.numPassedTests ?? 0;
+                    summary.failed = parsed.numFailedTests ?? 0;
+                    summary.skipped = parsed.numPendingTests ?? 0;
+                }
 
-            if (parsed && Array.isArray(parsed.tests)) {
-                tests = parsed.tests.map((t, i) => ({
-                    name: t.name ?? `Test ${i + 1}`,
-                    status: t.status ?? 'unknown',
-                    duration: t.duration ?? 0,
-                    failureMessages: t.error ? [t.error.message || String(t.error)] : [],
-                }));
+                // Extract individual tests from testResults[].assertionResults
+                if (Array.isArray(parsed.testResults)) {
+                    parsed.testResults.forEach((suite) => {
+                        if (Array.isArray(suite.assertionResults)) {
+                            suite.assertionResults.forEach((t) => {
+                                tests.push({
+                                    name: t.fullName || t.title || `Test ${tests.length + 1}`,
+                                    status: t.status || 'unknown',
+                                    duration: t.duration ?? 0,
+                                    failureMessages: Array.isArray(t.failureMessages) ? t.failureMessages : (t.failureMessages ? [t.failureMessages] : []),
+                                });
+                            });
+                        }
+                    });
+                }
+
+                // Shape B: stats object
+                if (parsed.stats) {
+                    summary.total = parsed.stats.total ?? summary.total;
+                    summary.passed = parsed.stats.passed ?? summary.passed;
+                    summary.failed = parsed.stats.failed ?? summary.failed;
+                    summary.skipped = parsed.stats.skipped ?? summary.skipped;
+                }
             }
         }
     } catch (e) {
@@ -68,12 +87,11 @@ function runTests() {
     // Run vitest from repository_after directory (uses its vitest.config.ts)
     const repoAfterPath = path.resolve(__dirname, '..', 'repository_after');
 
-    // Run vitest and capture its output into a report file to avoid mixing other logs
-    const reportFile = path.join(repoAfterPath, 'vitest_report.json');
-    // Shell command writes both stdout and stderr to the file
-    const shellCmd = `npx vitest --reporter=json --run > "${reportFile}" 2>&1`;
+    // Run vitest and capture stdout/stderr directly
+    const cmd = 'npx';
+    const args = ['vitest', '--reporter=json', '--run'];
 
-    const result = spawnSync('bash', ['-lc', shellCmd], {
+    const result = spawnSync(cmd, args, {
         cwd: repoAfterPath,
         encoding: 'utf-8',
         shell: true,
@@ -81,12 +99,7 @@ function runTests() {
         env: process.env,
     });
 
-    let output = '';
-    try {
-        output = fs.readFileSync(reportFile, 'utf-8');
-    } catch (e) {
-        output = (result.stdout || '') + (result.stderr || '') + '\n' + (e.message || '');
-    }
+    const output = (result.stdout || '') + (result.stderr || '');
 
     return {
         success: result.status === 0,
