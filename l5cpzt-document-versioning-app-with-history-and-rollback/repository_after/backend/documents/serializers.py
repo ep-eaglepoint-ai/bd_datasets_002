@@ -114,17 +114,20 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
         fields = ['title', 'current_content', 'change_note']
 
     def create(self, validated_data):
+        from django.db import transaction
+        
         change_note = validated_data.pop('change_note', 'Initial version')
         user = self.context['request'].user
         
-        document = Document.objects.create(
-            owner=user,
-            **validated_data
-        )
-        
-        # Create initial version
-        document.create_version(user, change_note)
-        
+        with transaction.atomic():
+            document = Document.objects.create(
+                owner=user,
+                **validated_data
+            )
+            
+            # Create initial version
+            document.create_version(user, change_note)
+            
         return document
 
 

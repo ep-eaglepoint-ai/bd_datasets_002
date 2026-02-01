@@ -209,7 +209,8 @@ class DocumentAPITests(APITestCase):
         
         response = self.client.patch(f'/api/documents/{document.id}/', {
             'current_content': 'Updated',
-            'change_note': 'Made changes'
+            'change_note': 'Made changes',
+            'optimistic_version': document.optimistic_version
         })
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)

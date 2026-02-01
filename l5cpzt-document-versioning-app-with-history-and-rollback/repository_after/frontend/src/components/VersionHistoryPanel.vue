@@ -13,43 +13,54 @@
       <p>No versions yet</p>
     </div>
     
-    <div v-else class="versions-list">
-      <div 
-        v-for="version in versions" 
-        :key="version.id" 
-        class="version-item"
-        :class="{ current: version.version_number === currentVersion }"
-      >
-        <div class="version-info">
-          <div class="version-header">
-            <span class="version-number">v{{ version.version_number }}</span>
-            <span v-if="version.version_number === currentVersion" class="current-badge">Current</span>
-          </div>
-          <div class="version-meta">
-            <span class="version-date">{{ formatDate(version.created_at) }}</span>
-            <span class="version-user">by {{ version.created_by?.username || 'Unknown' }}</span>
-          </div>
-          <div v-if="version.change_note" class="version-note">
-            {{ version.change_note }}
-          </div>
-        </div>
-        
-        <div class="version-actions">
-          <button 
-            @click="viewVersion(version)"
-            class="btn btn-secondary btn-sm"
+    <div v-else class="versions-table-container">
+      <table class="versions-table">
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>Date</th>
+            <th>User</th>
+            <th>Note</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr 
+            v-for="version in versions" 
+            :key="version.id" 
+            :class="{ current: version.version_number === currentVersion }"
           >
-            View
-          </button>
-          <button 
-            v-if="version.version_number !== currentVersion"
-            @click="confirmRollback(version)"
-            class="btn btn-primary btn-sm"
-          >
-            Rollback
-          </button>
-        </div>
-      </div>
+            <td>
+              <div class="version-id-cell">
+                <span class="version-number">v{{ version.version_number }}</span>
+                <span v-if="version.version_number === currentVersion" class="current-badge">Current</span>
+              </div>
+            </td>
+            <td><span class="version-date">{{ formatDate(version.created_at) }}</span></td>
+            <td><span class="version-user">{{ version.created_by?.username || 'Unknown' }}</span></td>
+            <td>
+              <div class="version-note" :title="version.change_note">
+                {{ version.change_note || '-' }}
+              </div>
+            </td>
+            <td>
+              <div class="version-actions">
+                <button @click="viewVersion(version)" class="btn btn-secondary btn-xs" title="View Preview">
+                  👁️
+                </button>
+                <button 
+                  v-if="version.version_number !== currentVersion"
+                  @click="confirmRollback(version)"
+                  class="btn btn-primary btn-xs"
+                  title="Rollback to this version"
+                >
+                  ↩️
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- Rollback Confirmation Modal -->
@@ -220,35 +231,49 @@ const executeRollback = async () => {
   color: var(--gray-600);
 }
 
-.versions-list {
+.versions-table-container {
   flex: 1;
+  overflow-x: auto;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0;
 }
 
-.version-item {
-  padding: 1rem;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-md);
-  margin-bottom: 0.75rem;
-  transition: all var(--transition-fast);
+.versions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
 }
 
-.version-item:hover {
-  border-color: var(--primary-300);
+.versions-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+  color: var(--gray-600);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.versions-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+
+.versions-table tr:hover {
   background: var(--gray-50);
 }
 
-.version-item.current {
-  border-color: var(--primary-500);
+.versions-table tr.current {
   background: var(--primary-50);
 }
 
-.version-header {
+.version-id-cell {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .version-number {
@@ -257,27 +282,25 @@ const executeRollback = async () => {
 }
 
 .current-badge {
-  font-size: 0.75rem;
-  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
   background: var(--primary-500);
   color: white;
   border-radius: var(--radius-full);
+  align-self: flex-start;
 }
 
-.version-meta {
-  font-size: 0.8125rem;
+.version-date, .version-user {
   color: var(--gray-500);
-}
-
-.version-user {
-  margin-left: 0.5rem;
+  white-space: nowrap;
 }
 
 .version-note {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--gray-600);
-  font-style: italic;
 }
 
 .version-actions {

@@ -1,18 +1,11 @@
-# Document Versioning App
+# L5CPZT - Document Versioning App with History and Rollback
 
-## Docker Commands
-
-### 1. Build and Start the Application
+## Run Tests
 ```bash
-docker-compose up --build
+docker compose run --rm solution
 ```
 
-### 2. Stop the Application
+## Run Evaluation
 ```bash
-docker-compose down
-```
-
-### 3. Run Evaluation Tests
-```bash
-docker-compose run --rm evaluator
+docker compose run --rm evaluation
 ```

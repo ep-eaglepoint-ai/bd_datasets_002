@@ -96,10 +96,20 @@ const lastSaved = ref(null)
 const document = ref({
   title: '',
   current_content: '',
-  current_version: 0
+  current_version: 0,
+  optimistic_version: 1
 })
 const versions = ref([])
 const changeNote = ref('')
+
+// Debounce helper
+const debounce = (fn, delay) => {
+  let timeoutId
+  return (...args) => {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), delay)
+  }
+}
 
 const lastSavedText = computed(() => {
   if (!lastSaved.value) return ''
@@ -139,17 +149,21 @@ const fetchVersions = async () => {
   }
 }
 
-const saveDocument = async () => {
+const saveDocument = async (isAutoSave = false) => {
   if (!document.value.title.trim()) {
-    toast.show('Please enter a title', 'warning')
+    if (!isAutoSave) toast.show('Please enter a title', 'warning')
     return
   }
   
+  // Don't autosave new documents
+  if (isAutoSave && isNewDocument.value) return
+
   saving.value = true
   try {
     const payload = {
       title: document.value.title,
       current_content: document.value.current_content,
+      optimistic_version: document.value.optimistic_version,
       change_note: changeNote.value || undefined
     }
     
@@ -161,22 +175,36 @@ const saveDocument = async () => {
     } else {
       response = await api.patch(`/documents/${documentId.value}/`, payload)
       document.value = response.data.data
-      toast.show('Document saved!', 'success')
+      if (!isAutoSave) toast.show('Document saved!', 'success')
     }
     
     lastSaved.value = Date.now()
-    changeNote.value = ''
+    if (!isAutoSave) changeNote.value = ''
     fetchVersions()
   } catch (error) {
-    toast.show('Failed to save document', 'error')
+    const isConflict = error.response?.status === 400 && error.response?.data?.data?.optimistic_version
+    if (isConflict) {
+      toast.show('Conflict: This document was updated by someone else. Please refresh.', 'error')
+    } else if (!isAutoSave) {
+      toast.show('Failed to save document', 'error')
+    }
   } finally {
     saving.value = false
   }
 }
 
+const debouncedSave = debounce(() => saveDocument(true), 1500)
+
 const handleTitleChange = () => {
-  // Auto-save could be triggered here
+  if (!isNewDocument.value) debouncedSave()
 }
+
+// Watch for content changes to trigger autosave
+watch([() => document.value.current_content, () => document.value.title], () => {
+  if (!isNewDocument.value && !loading.value && !saving.value) {
+    debouncedSave()
+  }
+})
 
 const toggleHistory = () => {
   showHistory.value = !showHistory.value
