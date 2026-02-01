@@ -2,7 +2,7 @@
 FROM node:22-alpine AS frontend-builder
 WORKDIR /app/client
 COPY repository_after/client/package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 COPY repository_after/client ./
 RUN npm run build
 

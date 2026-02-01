@@ -4,9 +4,11 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-// Get current date for directory naming
+// Get current date/time for directory naming
 const now = new Date();
 const dateStr = now.toISOString().split('T')[0]; // yyyy-mm-dd format
+// time string hh-mm-ss for a second-level directory
+const timeStr = now.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-'); // hh-mm-ss
 
 const startedAt = now.toISOString();
 const runId = crypto.randomUUID();
@@ -144,11 +146,11 @@ function main() {
     report.finished_at = finishedAt.toISOString();
     report.duration_seconds = (finishedAt - now) / 1000;
 
-    // Create output directory
-    const outputDir = path.join('/workspace/evaluation', dateStr);
+    // Create output directory with date and time subdirectory (yyyy-mm-dd/hh-mm-ss)
+    const outputDir = path.join('/workspace/evaluation', dateStr, timeStr);
     fs.mkdirSync(outputDir, { recursive: true });
 
-    // Write report
+    // Write report to yyyy-mm-dd/hh-mm-ss/report.json
     const reportPath = path.join(outputDir, 'report.json');
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 

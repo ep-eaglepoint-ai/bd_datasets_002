@@ -2,6 +2,4 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 text-gray-900;
-}
+/* No custom CSS - styling must use Tailwind utility classes only */

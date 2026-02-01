@@ -27,7 +27,8 @@ function App() {
         throw new Error(result.error || 'Failed to generate QR code');
       }
 
-      setData(result);
+      // Backend returns base64-only string; convert to data URI for display
+      setData({ ...result, qrCode: `data:image/png;base64,${result.qrCode}` });
     } catch (err) {
       setError(err.message);
     } finally {
