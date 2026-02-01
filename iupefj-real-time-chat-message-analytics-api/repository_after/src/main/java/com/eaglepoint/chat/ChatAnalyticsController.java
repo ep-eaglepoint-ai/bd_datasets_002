@@ -1,13 +1,11 @@
 package com.eaglepoint.chat;
 
 import org.springframework.web.bind.annotation.*;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/chat")
-@SpringBootApplication
 public class ChatAnalyticsController {
 
     @PostMapping("/analyze")
@@ -36,10 +34,11 @@ public class ChatAnalyticsController {
             int totalLength = msgs.stream().mapToInt(msg -> msg.getContent().length()).sum();
             int averageLength = totalLength / count;
 
-            // Find longest message: max length, if tie, smallest timestamp
+            // Find longest message: max length, if tie, smallest timestamp, if tie, smallest userId (for determinism)
             Message longest = msgs.stream()
                     .max(Comparator.comparingInt((Message m) -> m.getContent().length())
-                            .thenComparingLong(Message::getTimestamp))
+                            .thenComparingLong(Message::getTimestamp)
+                            .thenComparing(Message::getUserId))
                     .orElse(null);
 
             Map<String, Object> stats = new HashMap<>();
@@ -51,14 +50,14 @@ public class ChatAnalyticsController {
 
         Map<String, Object> result = new HashMap<>();
         result.put("perUser", perUserStats);
-        result.put("cacheSize", messages.size());
+        result.put("cacheSize", validMessages.size());
         return result;
     }
 
     public static class Message {
-        public String userId;
-        public String content;
-        public long timestamp;
+        private String userId;
+        private String content;
+        private long timestamp;
 
         public Message() {}
 

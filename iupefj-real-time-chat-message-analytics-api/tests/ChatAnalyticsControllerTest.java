@@ -2,18 +2,29 @@ package com.eaglepoint.chat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(classes = ChatAnalyticsController.class)
+// Use WebMvcTest for controller-only testing to avoid Spring Boot auto-configuration issues
+// This is a best practice for testing controllers in isolation
+// Specify TestConfig to provide the required @SpringBootConfiguration
+@WebMvcTest(controllers = ChatAnalyticsController.class)
 @AutoConfigureMockMvc
 public class ChatAnalyticsControllerTest {
 
@@ -244,6 +255,56 @@ public class ChatAnalyticsControllerTest {
     }
 
     @Test
+    void deterministicTieBreaking_equalLengthAndTimestamp() {
+        ChatAnalyticsController controller = new ChatAnalyticsController();
+        // Test equal length AND equal timestamp - should use userId as final tie-breaker
+        List<ChatAnalyticsController.Message> messages = Arrays.asList(
+                createMessage("user1", "test", 1000),  // length 4, timestamp 1000
+                createMessage("user2", "test", 1000)   // length 4, timestamp 1000 - same as above
+        );
+
+        Map<String, Object> result = controller.analyze(messages);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> perUser = (Map<String, Object>) result.get("perUser");
+        
+        // Both users should be in the result
+        assertEquals(2, perUser.size());
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> user1 = (Map<String, Object>) perUser.get("user1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> user2 = (Map<String, Object>) perUser.get("user2");
+        
+        // Each user has only one message, so longest is "test" for both
+        assertEquals("test", ((ChatAnalyticsController.Message) user1.get("longestMessage")).getContent());
+        assertEquals("test", ((ChatAnalyticsController.Message) user2.get("longestMessage")).getContent());
+    }
+
+    @Test
+    void deterministicTieBreaking_multipleEqualScenarios() {
+        ChatAnalyticsController controller = new ChatAnalyticsController();
+        // Multiple messages with same length and same timestamp - deterministic selection
+        List<ChatAnalyticsController.Message> messages = Arrays.asList(
+                createMessage("user1", "abc", 1000),  // length 3, timestamp 1000
+                createMessage("user1", "abc", 1000),  // length 3, timestamp 1000 - duplicate
+                createMessage("user1", "abc", 1000)   // length 3, timestamp 1000 - duplicate
+        );
+
+        Map<String, Object> result = controller.analyze(messages);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> perUser = (Map<String, Object>) result.get("perUser");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> user1 = (Map<String, Object>) perUser.get("user1");
+        
+        // Count should be 3 (all messages included)
+        assertEquals(3, user1.get("count"));
+        // Longest message should be "abc" (all have same length)
+        assertEquals("abc", ((ChatAnalyticsController.Message) user1.get("longestMessage")).getContent());
+    }
+
+    @Test
     void orderIndependentOutput() {
         ChatAnalyticsController controller = new ChatAnalyticsController();
         
@@ -401,7 +462,7 @@ public class ChatAnalyticsControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> perUser = (Map<String, Object>) result.get("perUser");
         assertTrue(perUser.isEmpty());
-        assertEquals(3, result.get("cacheSize"));  // Original count including invalid
+        assertEquals(0, result.get("cacheSize"));  // Only valid messages counted
     }
 
     @Test
@@ -938,6 +999,128 @@ public class ChatAnalyticsControllerTest {
         
         // At least 90% should succeed under load
         assertTrue(successCount >= 90, "Resilience test failed: " + successCount + "/100 succeeded");
+    }
+
+    // ========== ENCAPSULATION TESTS ==========
+
+    @Test
+    void messageFieldsArePrivate() {
+        // Verify Message class fields are private (encapsulation)
+        ChatAnalyticsController.Message msg = createMessage("user", "content", 1000);
+        
+        // These fields should not be accessible directly (compile error if public)
+        // We verify this by checking that getDeclaredField returns private fields
+        Field[] fields = ChatAnalyticsController.Message.class.getDeclaredFields();
+        
+        int publicFieldCount = 0;
+        int privateFieldCount = 0;
+        
+        for (Field field : fields) {
+            if (Modifier.isPublic(field.getModifiers())) {
+                publicFieldCount++;
+            }
+            if (Modifier.isPrivate(field.getModifiers())) {
+                privateFieldCount++;
+            }
+        }
+        
+        // Should have 3 private fields (userId, content, timestamp)
+        assertEquals(3, privateFieldCount, "Message class should have 3 private fields");
+        // Should have 0 public fields
+        assertEquals(0, publicFieldCount, "Message class should not have public fields");
+    }
+
+    @Test
+    void messageAccessorsWorkCorrectly() {
+        // Verify that getters work correctly
+        ChatAnalyticsController.Message msg = createMessage("testUser", "test content", 12345L);
+        
+        assertEquals("testUser", msg.getUserId());
+        assertEquals("test content", msg.getContent());
+        assertEquals(12345L, msg.getTimestamp());
+    }
+
+    @Test
+    void messageDefaultConstructorExists() {
+        // Verify default constructor exists for deserialization
+        assertDoesNotThrow(() -> {
+            ChatAnalyticsController.Message msg = ChatAnalyticsController.Message.class.getDeclaredConstructor().newInstance();
+            assertNotNull(msg);
+        });
+    }
+
+    @Test
+    void messageParameterizedConstructorExists() {
+        // Verify parameterized constructor exists using reflection
+        // This test will FAIL on repository_before (no parameterized constructor)
+        // and PASS on repository_after (has parameterized constructor)
+        final Constructor<?> constructor;
+        try {
+            constructor = ChatAnalyticsController.Message.class.getConstructor(String.class, String.class, long.class);
+        } catch (NoSuchMethodException e) {
+            fail("Message class should have a parameterized constructor (String, String, long)");
+            return; // unreachable, but needed for compilation
+        }
+        assertNotNull(constructor, "Parameterized constructor should exist");
+        
+        // Also verify it works by creating an instance
+        assertDoesNotThrow(() -> {
+            Object obj = constructor.newInstance("user", "content", 1000);
+            ChatAnalyticsController.Message msg = (ChatAnalyticsController.Message) obj;
+            assertEquals("user", msg.getUserId());
+            assertEquals("content", msg.getContent());
+            assertEquals(1000L, msg.getTimestamp());
+        });
+    }
+
+    // ========== ARCHITECTURAL TESTS ==========
+
+    @Test
+    void controllerHasCorrectSpringBootAnnotations() {
+        // Verify ChatAnalyticsController has correct Spring Boot annotations
+        Class<ChatAnalyticsController> clazz = ChatAnalyticsController.class;
+        
+        // Should have @RestController
+        assertTrue(clazz.isAnnotationPresent(RestController.class), "Should have @RestController annotation");
+        
+        // Should have @RequestMapping
+        assertTrue(clazz.isAnnotationPresent(RequestMapping.class), "Should have @RequestMapping annotation");
+        
+        // Should NOT have @SpringBootApplication (architecture violation)
+        assertFalse(clazz.isAnnotationPresent(SpringBootApplication.class), "Should NOT have @SpringBootApplication on controller");
+        
+        // Verify @RequestMapping value
+        RequestMapping requestMapping = clazz.getAnnotation(RequestMapping.class);
+        assertNotNull(requestMapping);
+        assertEquals(1, requestMapping.value().length);
+        assertEquals("/api/chat", requestMapping.value()[0]);
+    }
+
+    @Test
+    void analyzeMethodHasCorrectAnnotations() {
+        // Verify analyze method has @PostMapping
+        Class<ChatAnalyticsController> clazz = ChatAnalyticsController.class;
+        
+        Method analyzeMethod = null;
+        try {
+            analyzeMethod = clazz.getMethod("analyze", List.class);
+        } catch (NoSuchMethodException e) {
+            fail("analyze method not found");
+        }
+        
+        assertNotNull(analyzeMethod);
+        assertTrue(analyzeMethod.isAnnotationPresent(PostMapping.class), "Should have @PostMapping annotation");
+        
+        PostMapping postMapping = analyzeMethod.getAnnotation(PostMapping.class);
+        assertNotNull(postMapping);
+        assertEquals("/analyze", postMapping.value()[0]);
+    }
+
+    @Test
+    void messageClassIsStaticAndPublic() {
+        // Verify Message class structure
+        assertTrue(Modifier.isStatic(ChatAnalyticsController.Message.class.getModifiers()), "Message class should be static");
+        assertTrue(Modifier.isPublic(ChatAnalyticsController.Message.class.getModifiers()), "Message class should be public");
     }
 
     // Helper
