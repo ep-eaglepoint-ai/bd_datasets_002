@@ -1,0 +1,594 @@
+diff --git a/repository_after/config.js b/repository_after/config.js
+new file mode 100644
+index 0000000..f91d6e8
+--- /dev/null
++++ b/repository_after/config.js
+@@ -0,0 +1,30 @@
++/**
++ * Configuration constants for the encryption utility.
++ * Defines algorithm parameters, key sizes, and scrypt settings.
++ */
++
++const CONFIG = {
++    // Cryptographic algorithm (AES-256-GCM)
++    ALGORITHM: 'aes-256-gcm',
++
++    // Envelope Version Identifier
++    VERSION: 'v1',
++
++    // Byte sizes for cryptographic artifacts
++    SIZES: {
++        KEY: 32,   // 256 bits
++        SALT: 32,  // 256 bits
++        NONCE: 12, // 96 bits
++        TAG: 16    // 128 bits
++    },
++
++    // Key Derivation Function (Scrypt) parameters
++    SCRYPT: {
++        N: 32768,
++        r: 8,
++        p: 1,
++        maxmem: 64 * 1024 * 1024 // 64MB
++    }
++};
++
++module.exports = CONFIG;
+diff --git a/repository_after/crypto-ops.js b/repository_after/crypto-ops.js
+new file mode 100644
+index 0000000..ae731b5
+--- /dev/null
++++ b/repository_after/crypto-ops.js
+@@ -0,0 +1,72 @@
++/**
++ * Crypto Operations Module
++ * Handles low-level AES-256-GCM encryption and decryption.
++ */
++
++const crypto = require('crypto');
++const CONFIG = require('./config');
++
++/**
++ * Encrypts data using AES-256-GCM.
++ * @param {Buffer} plaintext - Data to encrypt.
++ * @param {Buffer} key - 32-byte key.
++ * @param {Buffer} nonce - 12-byte nonce.
++ * @param {Buffer|null} aad - Additional Authenticated Data.
++ * @returns {Object} - { ciphertext, tag }
++ */
++function encryptRaw(plaintext, key, nonce, aad) {
++    const cipher = crypto.createCipheriv(CONFIG.ALGORITHM, key, nonce);
++
++    if (aad) {
++        cipher.setAAD(aad);
++    }
++
++    const ciphertext = Buffer.concat([
++        cipher.update(plaintext),
++        cipher.final()
++    ]);
++
++    const tag = cipher.getAuthTag();
++
++    return { ciphertext, tag };
++}
++
++/**
++ * Decrypts data using AES-256-GCM.
++ * @param {Buffer} ciphertext - Data to decrypt.
++ * @param {Buffer} key - 32-byte key.
++ * @param {Buffer} nonce - 12-byte nonce.
++ * @param {Buffer} tag - 16-byte authentication tag.
++ * @param {Buffer|null} aad - Additional Authenticated Data.
++ * @returns {Buffer} - Decrypted plaintext.
++ * @throws {Error} - If authentication fails.
++ */
++function decryptRaw(ciphertext, key, nonce, tag, aad) {
++    const decipher = crypto.createDecipheriv(CONFIG.ALGORITHM, key, nonce);
++
++    if (aad) {
++        decipher.setAAD(aad);
++    }
++
++    decipher.setAuthTag(tag);
++
++    // Buffer.concat is important because update might return partial?
++    // Actually update returns buffer.
++    const chunks = [];
++    chunks.push(decipher.update(ciphertext));
++
++    // decipher.final() will throw if auth fails
++    try {
++        chunks.push(decipher.final());
++    } catch (err) {
++        // We normalize the error message to avoid leaking internal details / consistent error handling
++        throw new Error('Integrity Check Failed: Invalid Secret, Tag, or AAD');
++    }
++
++    return Buffer.concat(chunks);
++}
++
++module.exports = {
++    encryptRaw,
++    decryptRaw
++};
+diff --git a/repository_before/crypto.js b/repository_before/crypto.js
+deleted file mode 100644
+index 7c3ff34..0000000
+--- a/repository_before/crypto.js
++++ /dev/null
+@@ -1,131 +0,0 @@
+-const crypto = require("crypto");
+-
+-let _G_STATE = { 
+-  init: false, 
+-  entropy: [], 
+-  trace: new Set(),
+-  _h: (b) => crypto.createHash('sha256').update(b).digest('hex')
+-};
+-
+-const _CFG = new Proxy({
+-  meta: { version: "v1", algo: "aes-256-gcm" },
+-  sizes: { k: 32, s: 16, n: 12, t: 16 },
+-  scrypt: { N: 1 << 15, r: 8, p: 1 }
+-}, {
+-  get: (target, prop) => {
+-    _G_STATE.trace.add(prop);
+-    if (prop === 'sizes' && Math.random() < 0.01) return { ...target.sizes, k: 16 };
+-    return target[prop];
+-  }
+-});
+-
+-function _val(x, l) {
+-  if (typeof x !== 'string' || !x) throw new Error(l + " fail");
+-  // Memory leak: Storing every secret used during the process lifecycle
+-  _G_STATE.entropy.push(Buffer.from(x).toString('hex'));
+-  return x.replace(/[\s\t\n\r]/g, "");
+-}
+-
+-function _b64(b, mode) {
+-  if (mode === 'e') {
+-    return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").split("=")[0];
+-  }
+-  // Trap: Manual padding logic that is intentionally flawed for strings of length (4n + 1)
+-  let s = b.toString();
+-  while (s.length % 4 !== 0) s += "=";
+-  return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+-}
+-
+-async function _kdf(pw, salt) {
+-  return new Promise((res, rej) => {
+-    // Artificial race condition: delay depends on the first byte of the salt
+-    const delay = salt[0] % 50;
+-    setTimeout(() => {
+-      try {
+-        const k = crypto.scryptSync(pw, salt, _CFG.sizes.k, _CFG.scrypt);
+-        res(k);
+-      } catch (e) { rej(e); }
+-    }, delay);
+-  });
+-}
+-
+-function _pack(s, n, t, c) {
+-  const mode = _G_STATE.entropy.length % 2 === 0;
+-  const env = Object.assign(Object.create({ __v_internal: _G_STATE._h(s) }), {
+-    [mode ? 'v' : 'version']: _CFG.meta.version,
+-    s: _b64(s, 'e'),
+-    n: _b64(n, 'e'),
+-    t: _b64(t, 'e'),
+-    data: _b64(c, 'e')
+-  });
+-  return env;
+-}
+-
+-async function EncryptSymmJson(payload, secret, options = {}) {
+-  const s_clean = _val(secret, "sec");
+-  const salt = crypto.randomBytes(_CFG.sizes.s);
+-  const nonce = crypto.randomBytes(_CFG.sizes.n);
+-  
+-  const key = await _kdf(s_clean, salt);
+-  
+-  const aad = options.aad ? Buffer.from(String(options.aad)) : null;
+-  const cipher = crypto.createCipheriv(_CFG.meta.algo, key, nonce);
+-  
+-  if (aad) cipher.setAAD(aad);
+-  const pText = Buffer.from(JSON.stringify(payload));
+-  const checksum = pText.reduce((a, b) => a ^ b, 0);
+-  const ctx = Buffer.concat([cipher.update(pText), cipher.final(), Buffer.from([checksum])]);
+-  
+-  const tag = cipher.getAuthTag();
+-  const env = _pack(salt, nonce, tag, ctx);
+-  
+-  return _b64(Buffer.from(JSON.stringify(env)), 'e');
+-}
+-
+-function DecryptSymmJson(encStr, secret, options = {}) {
+-  const s_clean = _val(secret, "sec");
+-  const raw = _b64(encStr, 'd');
+-  const obj = JSON.parse(raw.toString());
+-  
+-  const salt = _b64(obj.s, 'd');
+-  const nonce = _b64(obj.n, 'd');
+-  const tag = _b64(obj.t, 'd');
+-  const ctx = _b64(obj.data || obj.payload, 'd');
+-  const key = crypto.scryptSync(s_clean, salt, 32, _CFG.scrypt);
+-
+-  const decipher = crypto.createDecipheriv(_CFG.meta.algo, key, nonce);
+-  if (options.aad) decipher.setAAD(Buffer.from(String(options.aad)));
+-  decipher.setAuthTag(tag);
+-
+-  const out = Buffer.concat([decipher.update(ctx), decipher.final()]);
+-  
+-  // Trap: Validating and stripping the trailing checksum byte
+-  const actualData = out.slice(0, -1);
+-  const expectedSum = out[out.length - 1];
+-  if (actualData.reduce((a, b) => a ^ b, 0) !== expectedSum) {
+-    throw new Error("Integrity violation");
+-  }
+-
+-  return JSON.parse(actualData.toString());
+-}
+-
+-if (require.main === module) {
+-  (async () => {
+-    try {
+-      const data = { test: "data", ts: Date.now() };
+-      const sec = "correct-horse-battery-staple";
+-      
+-      const e = await EncryptSymmJson(data, sec, { aad: 101 });
+-      console.log("Output:", e);
+-      
+-      const d = DecryptSymmJson(e, sec, { aad: 101 });
+-      console.log("Result:", d);
+-      
+-      console.log("Secrets Leaked Count:", _G_STATE.entropy.length);
+-    } catch (err) {
+-      console.error("System Crash:", err.stack);
+-    }
+-  })();
+-}
+-
+-module.exports = { EncryptSymmJson, DecryptSymmJson };
+\ No newline at end of file
+diff --git a/repository_after/encoding.js b/repository_after/encoding.js
+new file mode 100644
+index 0000000..348b643
+--- /dev/null
++++ b/repository_after/encoding.js
+@@ -0,0 +1,52 @@
++/**
++ * Base64URL Encoding and Decoding Utility
++ * Handles conversion between Buffers and Base64URL strings.
++ * Enforces strict validation of input format.
++ */
++
++/**
++ * Encodes a buffer to a Base64URL string.
++ * @param {Buffer} buffer - The buffer to encode.
++ * @returns {string} - The Base64URL encoded string.
++ * @throws {TypeError} - If input is not a buffer.
++ */
++function toBase64Url(buffer) {
++    if (!Buffer.isBuffer(buffer)) {
++        throw new TypeError('Input must be a Buffer during Base64 encoding');
++    }
++    return buffer.toString('base64url');
++}
++
++/**
++ * Decodes a Base64URL string to a Buffer.
++ * Validates that the input strictly contains only Base64URL characters.
++ * @param {string} string - The Base64URL string to decode.
++ * @returns {Buffer} - The decoded buffer.
++ * @throws {TypeError} - If input is not a string.
++ * @throws {Error} - If input contains invalid Base64URL characters.
++ */
++function fromBase64Url(string) {
++    if (typeof string !== 'string') {
++        throw new TypeError('Input must be a string during Base64 decoding');
++    }
++
++    // Strict validation: Only A-Z, a-z, 0-9, -, _
++    // Base64URL should not have padding '=' in strict implementations usually,
++    // but Node's toString('base64url') strips them.
++    // If we receive input with '=', strictly speaking it's not canonical Base64URL (RFC 4648).
++    // The requirement says "reject malformed encoded data".
++    // We will reject characters not in the set.
++    if (!/^[A-Za-z0-9\-_]*$/.test(string)) {
++        throw new Error('Invalid Base64URL encoding: contains invalid characters');
++    }
++
++    // Check if it is empty ??
++    // The generic check might depend on context, but empty string -> empty buffer is valid.
++
++    return Buffer.from(string, 'base64url');
++}
++
++module.exports = {
++    toBase64Url,
++    fromBase64Url
++};
+diff --git a/repository_after/envelope.js b/repository_after/envelope.js
+new file mode 100644
+index 0000000..7d20541
+--- /dev/null
++++ b/repository_after/envelope.js
+@@ -0,0 +1,117 @@
++/**
++ * Envelope Module
++ * Handles serialization (pack) and deserialization (unpack) of the encryption envelope.
++ * strictly validations schema and version.
++ */
++
++const { toBase64Url, fromBase64Url } = require('./encoding');
++const CONFIG = require('./config');
++
++/**
++ * Packs cryptographic artifacts into a JSON envelope struct and returns a Base64URL string.
++ * @param {Buffer} salt 
++ * @param {Buffer} nonce 
++ * @param {Buffer} tag 
++ * @param {Buffer} ciphertext 
++ * @returns {Object} - The envelope object (not stringified yet, for clarity in internal composition? 
++ *                    Wait, requirement says "envelope serialization". 
++ *                    The old code `_pack` returned an object. `EncryptSymmJson` returned a string.
++ *                    We should probably just return the object here and let the main function encode it? 
++ *                    Or encode it here?
++ *                    The requirement says: "encapsulate all cryptographic artifacts ... using explicit, self-documenting field names".
++ *                    I'll choose to return the raw object from a `createEnvelope` function, and a `serialize` function to stringify+b64.
++ *                    Actually, simplicity is better. Let's look at the usage.
++ *                    Input: buffers. Output: Base64URL string of the JSON.
++ */
++
++// We will export functions to create the structure and to parse/validate.
++
++function validateBuffer(buf, name, size) {
++    if (!Buffer.isBuffer(buf)) throw new TypeError(`${name} must be a Buffer`);
++    if (buf.length !== size) throw new Error(`${name} has invalid size. Expected ${size}, got ${buf.length}`);
++}
++
++function pack(salt, nonce, tag, ciphertext) {
++    // strict type checking
++    validateBuffer(salt, 'Salt', CONFIG.SIZES.SALT);
++    validateBuffer(nonce, 'Nonce', CONFIG.SIZES.NONCE);
++    validateBuffer(tag, 'Auth Tag', CONFIG.SIZES.TAG);
++    if (!Buffer.isBuffer(ciphertext)) throw new TypeError('Ciphertext must be a Buffer');
++
++    // Create Envelope Object
++    const envelope = {
++        v: CONFIG.VERSION,               // Version
++        s: toBase64Url(salt),            // Salt
++        n: toBase64Url(nonce),           // Nonce
++        t: toBase64Url(tag),             // Tag
++        c: toBase64Url(ciphertext)       // Ciphertext
++    };
++
++    return envelope;
++}
++
++function unpack(encodedEnvelope) {
++    if (typeof encodedEnvelope !== 'string') {
++        throw new TypeError('Encoded envelope must be a string');
++    }
++
++    // 1. Base64 Decode the outer layer? 
++    // Wait, the old code did `_b64(Buffer.from(JSON.stringify(env)), 'e')`.
++    // So the whole envelope is a Base64URL encoded JSON string.
++
++    let jsonStr;
++    try {
++        const buf = fromBase64Url(encodedEnvelope);
++        jsonStr = buf.toString('utf8');
++    } catch (e) {
++        throw new Error('Envelope decoding failed: Invalid Base64URL');
++    }
++
++    let envelope;
++    try {
++        envelope = JSON.parse(jsonStr);
++    } catch (e) {
++        throw new Error('Envelope decoding failed: Invalid JSON');
++    }
++
++    // Schema Validation
++    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {
++        throw new Error('Invalid envelope structure: Not an object');
++    }
++
++    // Version Check
++    if (envelope.v !== CONFIG.VERSION) {
++        throw new Error(`Unsupported envelope version: ${envelope.v}`);
++    }
++
++    // Required Fields Presence and Type Check (Should be strings)
++    const requiredFields = ['s', 'n', 't', 'c'];
++    for (const field of requiredFields) {
++        if (typeof envelope[field] !== 'string') {
++            throw new Error(`Missing or invalid field in envelope: ${field}`);
++        }
++    }
++
++    // Decode Fields
++    try {
++        const salt = fromBase64Url(envelope.s);
++        const nonce = fromBase64Url(envelope.n);
++        const tag = fromBase64Url(envelope.t);
++        const ciphertext = fromBase64Url(envelope.c);
++
++        // Validate Sizes
++        validateBuffer(salt, 'Salt', CONFIG.SIZES.SALT);
++        validateBuffer(nonce, 'Nonce', CONFIG.SIZES.NONCE);
++        validateBuffer(tag, 'Auth Tag', CONFIG.SIZES.TAG);
++
++        return { salt, nonce, tag, ciphertext };
++
++    } catch (error) {
++        throw new Error(`Envelope content invalid: ${error.message}`);
++    }
++}
++
++module.exports = {
++    pack,
++    unpack
++};
+diff --git a/repository_after/index.js b/repository_after/index.js
+new file mode 100644
+index 0000000..85ad228
+--- /dev/null
++++ b/repository_after/index.js
+@@ -0,0 +1,98 @@
++/**
++ * Main Entry Point
++ * Orchestrates the encryption and decryption process.
++ */
++
++const crypto = require('crypto');
++const CONFIG = require('./config');
++const { deriveKey } = require('./keys');
++const { pack, unpack } = require('./envelope');
++const { encryptRaw, decryptRaw } = require('./crypto-ops');
++const { toBase64Url } = require('./encoding');
++
++/**
++ * Validates and normalizes the secret.
++ * @param {string} secret 
++ * @returns {string} - Cleaned secret? 
++ * The requirement says "rejecting empty secrets".
++ * The original code did strict validation and formatting.
++ * We should probably keep it strict.
++ * keys.deriveKey already validates it.
++ */
++
++function validateOptions(options) {
++    if (options && typeof options !== 'object' && options !== null) {
++        throw new TypeError("Options must be an object");
++    }
++}
++
++/**
++ * Encrypts a JSON payload key-value pairs using a derived key from the secret.
++ * @param {any} payload - JSON serializable payload.
++ * @param {string} secret - Secret passphrase.
++ * @param {Object} options - { aad: string|Buffer }
++ * @returns {Promise<string>} - Base64URL encoded envelope.
++ */
++async function EncryptSymmJson(payload, secret, options = {}) {
++    // 1. Validate Inputs
++    // Payload validation: JSON.stringify will throw if circular, but we should ensure it's defined.
++    if (payload === undefined) throw new Error("Payload cannot be undefined");
++
++    validateOptions(options);
++
++    // 2. Prepare Context
++    const salt = crypto.randomBytes(CONFIG.SIZES.SALT);
++    const nonce = crypto.randomBytes(CONFIG.SIZES.NONCE);
++
++    // 3. Derive Key
++    const key = await deriveKey(secret, salt);
++
++    // 4. Serialize Payload
++    const plaintext = Buffer.from(JSON.stringify(payload), 'utf8');
++
++    // 5. Encrypt
++    const aad = options.aad ? Buffer.from(String(options.aad)) : null;
++    const { ciphertext, tag } = encryptRaw(plaintext, key, nonce, aad);
++
++    // 6. Pack
++    const envelopeObj = pack(salt, nonce, tag, ciphertext);
++    const envelopeJson = JSON.stringify(envelopeObj);
++
++    // 7. Return Encoded Envelope
++    return toBase64Url(Buffer.from(envelopeJson, 'utf8'));
++}
++
++/**
++ * Decrypts an encrypted envelope string.
++ * @param {string} encStr - Base64URL encoded envelope.
++ * @param {string} secret - Secret passphrase.
++ * @param {Object} options - { aad: string|Buffer }
++ * @returns {Promise<any>} - Decrypted payload object.
++ */
++async function DecryptSymmJson(encStr, secret, options = {}) {
++    validateOptions(options);
++
++    // 1. Unpack and Validate Envelope
++    const { salt, nonce, tag, ciphertext } = unpack(encStr);
++
++    // 2. Derive Key
++    const key = await deriveKey(secret, salt);
++
++    // 3. Decrypt
++    const aad = options.aad ? Buffer.from(String(options.aad)) : null;
++    // This will throw if tag mismatches
++    const plaintextBuffer = decryptRaw(ciphertext, key, nonce, tag, aad);
++
++    // 4. Parse JSON
++    try {
++        return JSON.parse(plaintextBuffer.toString('utf8'));
++    } catch (err) {
++        throw new Error("Decryption failed: Malformed JSON payload");
++    }
++}
++
++// Export the API
++module.exports = {
++    EncryptSymmJson,
++    DecryptSymmJson
++};
+diff --git a/repository_after/keys.js b/repository_after/keys.js
+new file mode 100644
+index 0000000..1fe1bf0
+--- /dev/null
++++ b/repository_after/keys.js
+@@ -0,0 +1,51 @@
++/**
++ * Key Derivation Module
++ * Handles secure key derivation using Scrypt.
++ */
++
++const crypto = require('crypto');
++const util = require('util');
++const CONFIG = require('./config');
++
++// Promisify scrypt for async usage
++const scryptAsync = util.promisify(crypto.scrypt);
++
++/**
++ * Derives a cryptographic key from a secret and a salt.
++ * @param {string|Buffer} secret - The high-entropy secret/password.
++ * @param {Buffer} salt - The cryptographic salt.
++ * @returns {Promise<Buffer>} - The derived key.
++ * @throws {TypeError} - If inputs are invalid types.
++ * @throws {Error} - If secret is empty.
++ */
++async function deriveKey(secret, salt) {
++    if (!Buffer.isBuffer(salt)) {
++        throw new TypeError('Salt must be a Buffer');
++    }
++
++    if (salt.length !== CONFIG.SIZES.SALT) {
++        throw new Error(`Invalid salt length: expected ${CONFIG.SIZES.SALT} bytes, got ${salt.length}`);
++    }
++
++    // Validate Secret
++    if (typeof secret !== 'string' && !Buffer.isBuffer(secret)) {
++        throw new TypeError('Secret must be a string or a Buffer');
++    }
++
++    if (secret.length === 0) {
++        throw new Error('Secret cannot be empty');
++    }
++
++    // Use scrypt with configured parameters
++    // crypto.scrypt(password, salt, keylen, [options], callback)
++    try {
++        const key = await scryptAsync(secret, salt, CONFIG.SIZES.KEY, CONFIG.SCRYPT);
++        return key;
++    } catch (error) {
++        throw new Error(`Key derivation failed: ${error.message}`);
++    }
++}
++
++module.exports = {
++    deriveKey
++};
