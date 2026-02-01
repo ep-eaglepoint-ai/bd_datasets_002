@@ -5,13 +5,13 @@
     "environment_setup": "docker-compose.yml",
     "language": "Go",
     "FAIL_TO_PASS": [
-        "functional/TestConcurrentUpdates",
-        "functional/TestConcurrentUpdatesSameVersion",
-        "functional/TestConversionWithInsufficientScore",
-        "functional/TestConversionWithSufficientScore",
-        "functional/TestVersionMismatchReturns409",
-        "functional/TestConversionRejectionReturns422",
-        "functional/TestSuccessfulUpdate"
+        "comprehensive/TestConcurrentUpdates",
+        "comprehensive/TestConcurrentUpdatesSameVersion",
+        "comprehensive/TestConversionWithInsufficientScore",
+        "comprehensive/TestConversionWithSufficientScore",
+        "comprehensive/TestVersionMismatchReturns409",
+        "comprehensive/TestConversionRejectionReturns422",
+        "comprehensive/TestSuccessfulUpdate"
     ],
     "PASS_TO_PASS": []
 }
