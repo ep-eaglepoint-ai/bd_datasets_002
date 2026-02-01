@@ -3,6 +3,7 @@ services:
     build: .
     environment:
       - REPO_PATH=repository_before
+      - PYTHONPATH=/app
     command: pytest -v tests --tb=short
     volumes:
       - .:/app
@@ -11,6 +12,7 @@ services:
     build: .
     environment:
       - REPO_PATH=repository_after
+      - PYTHONPATH=/app
     command: pytest -v tests --tb=short
     volumes:
       - .:/app

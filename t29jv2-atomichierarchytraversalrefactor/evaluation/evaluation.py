@@ -14,6 +14,15 @@ from datetime import datetime
 from pathlib import Path
 import platform
 
+# Quiet mode: when True, only the final report path is printed to console.
+# To enable full console output set environment variable EVALUATION_QUIET=0
+QUIET = os.environ.get("EVALUATION_QUIET", "1") != "0"
+
+
+def log(*args, **kwargs):
+    if not QUIET:
+        print(*args, **kwargs)
+
 
 def parse_pytest_output(output: str) -> dict:
     """
@@ -155,10 +164,10 @@ def generate_report() -> dict:
     run_id = str(uuid.uuid4())
     started_at = datetime.utcnow()
     
-    print("🧪 Running tests on repository_before...")
+    log("🧪 Running tests on repository_before...")
     before_results = run_tests("repository_before")
     
-    print("🧪 Running tests on repository_after...")
+    log("🧪 Running tests on repository_after...")
     after_results = run_tests("repository_after")
     
     finished_at = datetime.utcnow()
@@ -226,10 +235,10 @@ def generate_report() -> dict:
 
 def main():
     """Main execution function."""
-    print("=" * 70)
-    print("  Hierarchy Traversal Refactoring - Evaluation Report")
-    print("=" * 70)
-    print()
+    log("=" * 70)
+    log("  Hierarchy Traversal Refactoring - Evaluation Report")
+    log("=" * 70)
+    log()
     
     # Generate report
     report = generate_report()
@@ -244,32 +253,32 @@ def main():
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
     
-    print()
-    print("=" * 70)
-    print("📊 EVALUATION SUMMARY")
-    print("=" * 70)
-    print()
-    print(f"Repository Before:")
-    print(f"  ✓ Passed:  {report['results']['before']['summary']['passed']}")
-    print(f"  ✗ Failed:  {report['results']['before']['summary']['failed']}")
-    print(f"  ⊘ Skipped: {report['results']['before']['summary']['skipped']}")
-    print(f"  Total:     {report['results']['before']['summary']['total']}")
-    print()
-    print(f"Repository After:")
-    print(f"  ✓ Passed:  {report['results']['after']['summary']['passed']}")
-    print(f"  ✗ Failed:  {report['results']['after']['summary']['failed']}")
-    print(f"  ⊘ Skipped: {report['results']['after']['summary']['skipped']}")
-    print(f"  Total:     {report['results']['after']['summary']['total']}")
-    print()
-    print(f"Improvement:")
-    print(f"  Tests Fixed:     {report['results']['comparison']['improvement']['tests_fixed']}")
-    print(f"  Features Added:  {report['results']['comparison']['improvement']['features_added']}")
-    print()
-    print(f"Overall Success: {'✅ PASS' if report['success'] else '❌ FAIL'}")
-    print(f"Duration: {report['duration_seconds']}s")
-    print()
+    log()
+    log("=" * 70)
+    log("📊 EVALUATION SUMMARY")
+    log("=" * 70)
+    log()
+    log(f"Repository Before:")
+    log(f"  ✓ Passed:  {report['results']['before']['summary']['passed']}")
+    log(f"  ✗ Failed:  {report['results']['before']['summary']['failed']}")
+    log(f"  ⊘ Skipped: {report['results']['before']['summary']['skipped']}")
+    log(f"  Total:     {report['results']['before']['summary']['total']}")
+    log()
+    log(f"Repository After:")
+    log(f"  ✓ Passed:  {report['results']['after']['summary']['passed']}")
+    log(f"  ✗ Failed:  {report['results']['after']['summary']['failed']}")
+    log(f"  ⊘ Skipped: {report['results']['after']['summary']['skipped']}")
+    log(f"  Total:     {report['results']['after']['summary']['total']}")
+    log()
+    log(f"Improvement:")
+    log(f"  Tests Fixed:     {report['results']['comparison']['improvement']['tests_fixed']}")
+    log(f"  Features Added:  {report['results']['comparison']['improvement']['features_added']}")
+    log()
+    log(f"Overall Success: {'✅ PASS' if report['success'] else '❌ FAIL'}")
+    log(f"Duration: {report['duration_seconds']}s")
+    log()
     print(f"📄 Report saved to: {report_path}")
-    print("=" * 70)
+    log("=" * 70)
     
     # Exit with appropriate code
     sys.exit(0 if report['success'] else 1)

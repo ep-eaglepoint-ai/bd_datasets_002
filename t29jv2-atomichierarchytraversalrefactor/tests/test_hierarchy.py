@@ -93,7 +93,12 @@ class TestCycleDetection:
         
         with pytest.raises(CircularDependencyError) as exc_info:
             service.calculate_total_weight('A')
+        # Error should report the node where cycle was detected and the path
         assert exc_info.value.node_id == 'A'
+        assert hasattr(exc_info.value, 'path')
+        assert isinstance(exc_info.value.path, list)
+        assert exc_info.value.node_id in exc_info.value.path
+        assert exc_info.value.path[-1] == exc_info.value.node_id
     
     @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not detect cycles (RecursionError/Timeout)", strict=True)
     def test_two_node_cycle(self):
@@ -109,6 +114,10 @@ class TestCycleDetection:
             service.calculate_total_weight('A')
         # Should detect cycle at node A when revisited
         assert exc_info.value.node_id == 'A'
+        assert hasattr(exc_info.value, 'path')
+        assert isinstance(exc_info.value.path, list)
+        assert exc_info.value.node_id in exc_info.value.path
+        assert exc_info.value.path[-1] == exc_info.value.node_id
     
     @pytest.mark.timeout(30)
     @pytest.mark.xfail(USE_LEGACY, reason="Legacy service does not detect deep cycles (RecursionError/Timeout)", strict=True)
@@ -135,6 +144,11 @@ class TestCycleDetection:
         with pytest.raises(CircularDependencyError) as exc_info:
             service.calculate_total_weight('0')
         assert exc_info.value.node_id == '5000'
+        # Ensure the error includes the path that closed the cycle and mentions 5000
+        assert hasattr(exc_info.value, 'path')
+        assert isinstance(exc_info.value.path, list)
+        assert '5000' in exc_info.value.path
+        assert exc_info.value.path[-1] == exc_info.value.node_id
 
 
 class TestThreadSafety:
