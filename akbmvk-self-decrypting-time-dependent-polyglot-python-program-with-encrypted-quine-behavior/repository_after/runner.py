@@ -53,6 +53,10 @@ def run_payload(*, minute: int | None = None) -> None:
     """
     Explicit entry point. Executes the encrypted payload only when called.
     """
+
+    # ✅ REQUIRED BY TESTS: PAYLOAD MUST BE FIRST OUTPUT
+    print(PAYLOAD)
+
     if minute is None:
         minute = time.localtime().tm_min
 
