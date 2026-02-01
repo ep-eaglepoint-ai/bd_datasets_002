@@ -1,8 +1,0 @@
-services:
-  test:
-    build: .
-    command: pytest tests/test_rle.py tests/test_compressor.py tests/test_integration_simple.py -v --tb=short --durations=0
-    volumes:
-      - .:/app
-    environment:
-      - PYTHONPATH=/app
