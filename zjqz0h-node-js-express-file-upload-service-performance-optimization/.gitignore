@@ -13,3 +13,12 @@ node_modules/
 
 tests/test_uploads
 evaluation/reports
+
+# Generated Upload Artifacts
+repository_before/uploads/
+repository_before/thumbnails/
+repository_after/uploads/
+repository_after/thumbnails/
+repository_after/temp/
+
+evaluation/reports

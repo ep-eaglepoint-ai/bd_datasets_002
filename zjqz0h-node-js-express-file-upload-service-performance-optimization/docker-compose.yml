@@ -1,72 +1,90 @@
-version: '3'
 services:
-  app:
-    build: .
-    environment:
-      - DB_HOST=db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=uploads_db
-    depends_on:
-      - db
-    volumes:
-      - ./repository_after:/app
-      - ./tests:/app/tests
-      - /app/node_modules
-
-  test-after:
-    build: .
-    environment:
-      - DB_HOST=db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=uploads_db
-    depends_on:
-      - db
-    volumes:
-      - ./repository_after:/app
-      - ./tests:/app/tests
-      - /app/node_modules
-    command: npm test
-
-  test-before:
-    build: .
-    environment:
-      - DB_HOST=db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=uploads_db
-    depends_on:
-      - db
-    volumes:
-      - ./repository_before:/app
-      - ./tests:/app/tests
-      - /app/node_modules
-    command: sh -c "./node_modules/.bin/jest --forceExit || true"
-
-  evaluation:
-    build: .
-    environment:
-      - DB_HOST=db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=uploads_db
-    depends_on:
-      - db
-    volumes:
-      - .:/app_root
-      - /app/node_modules
-    working_dir: /app_root
-    command: node evaluation/evaluation.js
-
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: uploads_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=uploads_db
+    ports:
+      - "5435:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Main application service (optimized version)
+  app:
+    build:
+      context: .
+      args:
+        SOURCE_DIR: repository_after
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+  # Test runner for Optimized Service
+  test-after:
+    build:
+      context: .
+      args:
+        SOURCE_DIR: repository_after
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npm test
+
+  # Test runner for Unoptimized Service
+  test-before:
+    build:
+      context: .
+      args:
+        SOURCE_DIR: repository_before
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      db:
+        condition: service_healthy
+    # Using 'npm test -- --forceExit' to mimic the previous behavior if needed,
+    # or just 'npm test' if the shared package.json supports it.
+    # The shared package.json has "test": "jest".
+    command: npm test -- --forceExit
+
+  evaluation:
+    build:
+      context: .
+      args:
+        # Evaluation usually runs against the optimized version,
+        # or it is a separate script entirely.
+        # The previous evaluation config mounted volumes.
+        # Let's assume it needs the optimized code base.
+        SOURCE_DIR: repository_after
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=uploads_db
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Verify evaluation needs write access to reports?
+      # Old config: - ./evaluation:/app/evaluation
+      # if evaluation writes reports, we might need a volume for that specific folder
+      - ./evaluation:/app/evaluation
+    command: node evaluation/evaluation.js
