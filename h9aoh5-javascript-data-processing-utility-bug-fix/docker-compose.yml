@@ -1,0 +1,18 @@
+services:
+  verify_before:
+    build: .
+    command: sh -c "node tests/validation_runner.js repository_before || true"
+    volumes:
+      - .:/app
+
+  verify_after:
+    build: .
+    command: node tests/validation_runner.js repository_after
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app
