@@ -1,25 +1,19 @@
 services:
-  # Test repository_before
   test-before:
     build:
       context: .
       target: test-before
     container_name: ym836n-test-before
-    working_dir: /workspace/tests/unit
-    volumes:
-      - .:/workspace
+    working_dir: /workspace/repository_before/batch/unit_test
 
-  # Test repository_after
   test-after:
     build:
       context: .
       target: test-after
     container_name: ym836n-test-after
-    working_dir: /workspace/tests/unit
-    volumes:
-      - .:/workspace
+    working_dir: /workspace/repository_after/batch/unit_test
 
-  # Run evaluation
+    # Run evaluation
   evaluation:
     build:
       context: .

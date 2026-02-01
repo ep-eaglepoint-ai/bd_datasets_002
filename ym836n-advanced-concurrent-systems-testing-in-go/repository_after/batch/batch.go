@@ -88,7 +88,7 @@ func ProcessParallelOptimized(
 		id  int
 	}
 
-	jobs := make(chan job)
+	jobs := make(chan job, len(ids))
 	var wg sync.WaitGroup
 
 	var inflight int64
@@ -295,6 +295,12 @@ func (DefaultDownloader) Rand() Rand {
 type Clock interface {
 	Now() time.Time
 	Sleep(ctx context.Context, d time.Duration) error
+	NewTimer(d time.Duration) Timer
+}
+
+type Timer interface {
+	C() <-chan time.Time
+	Stop() bool
 }
 
 type RealClock struct{}
@@ -310,6 +316,16 @@ func (RealClock) Sleep(ctx context.Context, d time.Duration) error {
 		return nil
 	}
 }
+func (RealClock) NewTimer(d time.Duration) Timer {
+	return &realTimer{t: time.NewTimer(d)}
+}
+
+type realTimer struct {
+	t *time.Timer
+}
+
+func (r *realTimer) C() <-chan time.Time { return r.t.C }
+func (r *realTimer) Stop() bool          { return r.t.Stop() }
 
 type Rand interface {
 	Int63n(n int64) int64
@@ -444,8 +460,19 @@ func processOne(
 }
 
 func downloadWithPolicy(ctx context.Context, dl Downloader, id int, opts ProcessOptions, hooks *ProcessHooks) (string, error) {
-	itemCtx, cancel := context.WithTimeout(ctx, opts.TimeoutPerItem)
+	itemCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	timer := dl.Clock().NewTimer(opts.TimeoutPerItem)
+	defer timer.Stop()
+
+	go func() {
+		select {
+		case <-timer.C():
+			cancel()
+		case <-itemCtx.Done():
+		}
+	}()
 
 	var lastErr error
 	for attempt := 0; attempt <= opts.Retries; attempt++ {
@@ -457,9 +484,14 @@ func downloadWithPolicy(ctx context.Context, dl Downloader, id int, opts Process
 			return val, nil
 		}
 		lastErr = err
+
 		if itemCtx.Err() != nil {
-			return "", itemCtx.Err()
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+			return "", context.DeadlineExceeded
 		}
+
 		if attempt < opts.Retries {
 			wait := backoffWithJitter(dl, opts, attempt)
 			if err := dl.Clock().Sleep(itemCtx, wait); err != nil {

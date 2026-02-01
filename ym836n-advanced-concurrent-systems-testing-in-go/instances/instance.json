@@ -1,11 +1,25 @@
 {
-            "instance_id": "YM836N",
-            "problem_statement": "You are given a production-style Go package that implements a highly concurrent batch-processing pipeline with dynamic worker scaling, retries with exponential backoff and jitter, caching with TTL, request coalescing, circuit breaking, rate limiting, optional post-processing, and lifecycle hooks. The implementation is  non-deterministic unless properly controlled through dependency injection. Your task is to design and implement a comprehensive, deterministic test suite that validates the correctness, safety, and concurrency guarantees of this system under a wide range of operational conditions, without modifying the production code.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ym836n-advanced-concurrent-systems-testing-in-go",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+    "instance_id": "YM836N",
+    "problem_statement": "You are given a production-style Go package that implements a highly concurrent batch-processing pipeline with dynamic worker scaling, retries with exponential backoff and jitter, caching with TTL, request coalescing, circuit breaking, rate limiting, optional post-processing, and lifecycle hooks. The implementation is non-deterministic unless properly controlled through dependency injection. Your task is to design and implement a comprehensive, deterministic test suite that validates the correctness, safety, and concurrency guarantees of this system under a wide range of operational conditions, without modifying the production code.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ym836n-advanced-concurrent-systems-testing-in-go",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "TestProcessParallelOptimized_Deterministic",
+        "TestInputOrderPreservation",
+        "TestConcurrencyLimits",
+        "TestDynamicWorkerScaling",
+        "TestPerItemTimeouts",
+        "TestParentContextCancellation",
+        "TestRetryBehavior",
+        "TestCacheCorrectness",
+        "TestRequestCoalescing",
+        "TestCircuitBreaker",
+        "TestGlobalRateLimit",
+        "TestPostProcessing",
+        "TestHookInvocation",
+        "TestStress"
+    ],
+    "PASS_TO_PASS": []
+}

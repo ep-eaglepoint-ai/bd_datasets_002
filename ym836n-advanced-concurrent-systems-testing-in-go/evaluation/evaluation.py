@@ -5,6 +5,7 @@ import time
 import uuid
 import platform
 import subprocess
+import shutil
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -20,29 +21,55 @@ def environment_info():
 def run_tests(target_repo: str):
     """
     Runs go tests for the specified repository.
-    Handles go.mod modification for repository_before.
+    Handles test copying and patching for repository_before to ensure robust verification.
     """
-    test_dir = ROOT / "tests" / "unit"
-    go_mod_path = test_dir / "go.mod"
+    is_before = "repository_before" in target_repo
     
-    is_before_repo = "repository_before" in target_repo
-    original_content = None
+    # Path to the source of truth for tests
+    src_test_dir = ROOT / "repository_after" / "batch" / "unit_test"
+
+    if is_before:
+        # For repository_before, we create a temporary test setup inside the legacy module
+        # This mirrors what the Dockerfile 'test-before' stage does
+        test_dir = ROOT / "repository_before" / "batch" / "unit_test"
+        
+        # Cleanup any previous run
+        if test_dir.exists():
+            shutil.rmtree(test_dir)
+            
+        try:
+            # Copy the unit tests to the before location
+            shutil.copytree(src_test_dir, test_dir)
+            
+            # Patch the imports to point to the legacy package
+            for file_path in test_dir.glob("*.go"):
+                with open(file_path, "r") as f:
+                    content = f.read()
+                
+                # 1. Point import to legacy module: example.com/batch-standalone/batch
+                content = content.replace("example.com/batch-optimized", "example.com/batch-standalone/batch")
+                # 2. Mock the missing 'batch.Timer' interface (legacy code doesn't have it)
+                content = content.replace("batch.Timer", "interface{ C() <-chan time.Time; Stop() bool }")
+                
+                with open(file_path, "w") as f:
+                    f.write(content)
+                    
+        except Exception as e:
+             return {
+                "passed": False,
+                "return_code": -1,
+                "output": f"Setup failed for before tests: {str(e)}",
+                "metrics": {"passed_count": 0, "failed_count": 1, "total_count": 1}
+            }
+    else:
+        # FOr repository_after, run tests directly where they reside
+        test_dir = src_test_dir
 
     try:
-        if is_before_repo:
-            # Read original go.mod
-            with open(go_mod_path, "r") as f:
-                original_content = f.read()
-            
-            # Replace repository_after with repository_before
-            modified_content = original_content.replace("repository_after", "repository_before")
-            with open(go_mod_path, "w") as f:
-                f.write(modified_content)
-
-        # Run go test
+        # Run go test from the directory
         env = {**subprocess.os.environ, "GO111MODULE": "on", "CGO_ENABLED": "0"}
         proc = subprocess.run(
-            ["go", "test", "-v", "./..."],
+            ["go", "test", "-v", "."],
             cwd=test_dir,
             capture_output=True,
             text=True,
@@ -106,25 +133,26 @@ def run_tests(target_repo: str):
             "metrics": {"passed_count": 0, "failed_count": 1, "skipped_count": 0, "total_count": 1}
         }
     finally:
-        # Restore go.mod if it was modified
-        if original_content is not None:
-            with open(go_mod_path, "w") as f:
-                f.write(original_content)
+        # Cleanup the temporary test dir in repository_before
+        if is_before and test_dir.exists():
+            shutil.rmtree(test_dir)
 
 def run_meta_tests():
     """
     Runs meta validation tests from tests directory.
+    This executes 'tests/meta_test.go' which performs Mutation Testing:
+    it intentionally breaks the code and verifies the unit tests fail.
     """
     tests_dir = ROOT / "tests"
     
     try:
         env = {**subprocess.os.environ, "GO111MODULE": "on", "CGO_ENABLED": "0"}
         proc = subprocess.run(
-            ["go", "test", "-v", "-run", "^TestMeta"],
+            ["go", "test", "-v", "-run", "^TestMutation"], # Explicitly run the mutation test
             cwd=tests_dir,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120, # Increased timeout for mutation cycles
             env=env
         )
         
@@ -178,7 +206,6 @@ def run_evaluation():
     after = run_tests("repository_after")
     meta = run_meta_tests()
     
-    # Comparison logic
     passed_gate = after["passed"] and meta["passed"]
     
     improvement_summary = ""
