@@ -1,0 +1,6 @@
+services:
+  app:
+    build: .
+    command: node tests/run_tests.js
+    volumes:
+      - .:/app
