@@ -7,24 +7,16 @@ const router = Router();
 const OPERATING_HOURS = { start: 9, end: 18 }; // 9 AM - 6 PM
 const MIN_DURATION_MINUTES = 15;
 const MAX_DURATION_HOURS = 4;
-const TIMEZONE_OFFSET = parseInt(process.env.TIMEZONE_OFFSET || '0'); // Hours offset from UTC
 
-function toLocalDate(date) {
-  if (TIMEZONE_OFFSET === 0) return date;
-  const utcTime = date.getTime();
-  const offsetMs = TIMEZONE_OFFSET * 60 * 60 * 1000;
-  return new Date(utcTime + offsetMs);
-}
-
-function isWeekday(date) {
-  const localDate = toLocalDate(date);
-  const day = localDate.getUTCDay();
+function isWeekday(date, timezoneOffset) {
+  const localTime = date.getTime() - timezoneOffset * 60000;
+  const day = new Date(localTime).getUTCDay();
   return day >= 1 && day <= 5;
 }
 
-function isWithinOperatingHours(startTime, endTime) {
-  const localStart = toLocalDate(startTime);
-  const localEnd = toLocalDate(endTime);
+function isWithinOperatingHours(startTime, endTime, timezoneOffset) {
+  const localStart = new Date(startTime.getTime() - timezoneOffset * 60000);
+  const localEnd = new Date(endTime.getTime() - timezoneOffset * 60000);
   const startHour = localStart.getUTCHours() + localStart.getUTCMinutes() / 60;
   const endHour = localEnd.getUTCHours() + localEnd.getUTCMinutes() / 60;
 
@@ -39,9 +31,9 @@ function isWithinOperatingHours(startTime, endTime) {
   return startHour >= OPERATING_HOURS.start && endHour <= OPERATING_HOURS.end;
 }
 
-function isSameDay(date1, date2) {
-  const local1 = toLocalDate(date1);
-  const local2 = toLocalDate(date2);
+function isSameDay(date1, date2, timezoneOffset) {
+  const local1 = new Date(date1.getTime() - timezoneOffset * 60000);
+  const local2 = new Date(date2.getTime() - timezoneOffset * 60000);
   return (
     local1.getUTCFullYear() === local2.getUTCFullYear() &&
     local1.getUTCMonth() === local2.getUTCMonth() &&
@@ -53,8 +45,12 @@ router.post("/", authenticate, async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const { roomId, startTime, endTime } = req.body;
+    const { roomId, startTime, endTime, timezoneOffset } = req.body;
     const userId = req.user.id;
+
+    if (timezoneOffset === undefined) {
+      return res.status(400).json({ error: "timezoneOffset is required" });
+    }
 
     if (!roomId || !startTime || !endTime) {
       return res
@@ -80,17 +76,17 @@ router.post("/", authenticate, async (req, res) => {
         .json({ error: "End time must be after start time" });
     }
 
-    if (!isSameDay(start, end)) {
+    if (!isSameDay(start, end, timezoneOffset)) {
       return res.status(400).json({ error: "Bookings cannot cross midnight" });
     }
 
-    if (!isWeekday(start)) {
+    if (!isWeekday(start, timezoneOffset)) {
       return res
         .status(400)
         .json({ error: "Bookings are only allowed Monday through Friday" });
     }
 
-    if (!isWithinOperatingHours(start, end)) {
+    if (!isWithinOperatingHours(start, end, timezoneOffset)) {
       return res.status(400).json({
         error: "Bookings must be within operating hours (9:00 AM - 6:00 PM)",
       });

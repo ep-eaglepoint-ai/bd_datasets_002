@@ -112,7 +112,7 @@ describe("Requirement 1: Overlapping bookings must be rejected atomically", () =
         request(app)
           .post("/api/bookings")
           .set("Authorization", `Bearer ${testUsers.alice.token}`)
-          .send({ roomId: 1, startTime, endTime }),
+          .send({ roomId: 1, startTime, endTime, timezoneOffset: 0 }),
       );
 
     const results = await Promise.all(promises);
@@ -159,7 +159,7 @@ describe("Back-to-back bookings must be allowed", () => {
     const res1 = await request(app)
       .post("/api/bookings")
       .set("Authorization", `Bearer ${testUsers.alice.token}`)
-      .send({ roomId: 1, startTime: booking1Start, endTime: booking1End });
+      .send({ roomId: 1, startTime: booking1Start, endTime: booking1End, timezoneOffset: 0 });
 
     if (res1.status !== 201) {
       console.log("First booking failed:", res1.status, res1.body);
@@ -176,7 +176,7 @@ describe("Back-to-back bookings must be allowed", () => {
     const res2 = await request(app)
       .post("/api/bookings")
       .set("Authorization", `Bearer ${testUsers.bob.token}`)
-      .send({ roomId: 1, startTime: booking2Start, endTime: booking2End });
+      .send({ roomId: 1, startTime: booking2Start, endTime: booking2End, timezoneOffset: 0 });
 
     expect(res2.status).toBe(201);
   });
@@ -199,12 +199,12 @@ describe("Back-to-back bookings must be allowed", () => {
     await request(app)
       .post("/api/bookings")
       .set("Authorization", `Bearer ${testUsers.alice.token}`)
-      .send({ roomId: 1, startTime: booking1Start, endTime: booking1End });
+      .send({ roomId: 1, startTime: booking1Start, endTime: booking1End, timezoneOffset: 0 });
 
     const res2 = await request(app)
       .post("/api/bookings")
       .set("Authorization", `Bearer ${testUsers.bob.token}`)
-      .send({ roomId: 1, startTime: booking2Start, endTime: booking2End });
+      .send({ roomId: 1, startTime: booking2Start, endTime: booking2End, timezoneOffset: 0 });
 
     expect(res2.status).toBe(409);
   });
@@ -222,6 +222,7 @@ describe("Boundary bookings must be handled correctly", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(201);
@@ -238,6 +239,7 @@ describe("Boundary bookings must be handled correctly", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(201);
@@ -254,6 +256,7 @@ describe("Boundary bookings must be handled correctly", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(400);
@@ -273,6 +276,7 @@ describe("Past bookings must be rejected", () => {
         roomId: 1,
         startTime: past.toISOString(),
         endTime: new Date(past.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(400);
@@ -292,6 +296,7 @@ describe("Duration constraints must be enforced", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 10 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(400);
@@ -311,6 +316,7 @@ describe("Duration constraints must be enforced", () => {
         endTime: new Date(
           tomorrow.getTime() + 5 * 60 * 60 * 1000,
         ).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(400);
@@ -328,6 +334,7 @@ describe("Duration constraints must be enforced", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 15 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(201);
@@ -348,6 +355,7 @@ describe("Midnight crossing must be prevented", () => {
         endTime: new Date(
           tomorrow.getTime() + 2 * 60 * 60 * 1000,
         ).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(400);
@@ -367,6 +375,7 @@ describe("User ownership must be enforced for cancellation", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     const bookingId = createRes.body.booking.id;
@@ -389,6 +398,7 @@ describe("User ownership must be enforced for cancellation", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     const bookingId = createRes.body.booking.id;
@@ -443,6 +453,7 @@ describe("Double cancellation must be handled safely", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     const bookingId = createRes.body.booking.id;
@@ -476,6 +487,7 @@ describe("Invalid room booking must be rejected", () => {
         roomId: 999,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(404);
@@ -498,6 +510,7 @@ describe("Authentication must be required", () => {
         roomId: 1,
         startTime: tomorrow.toISOString(),
         endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+        timezoneOffset: 0,
       });
 
     expect(res.status).toBe(401);
@@ -557,7 +570,7 @@ describe("Concurrent booking stress test", () => {
         request(app)
           .post("/api/bookings")
           .set("Authorization", `Bearer ${testUsers.alice.token}`)
-          .send({ roomId: 1, startTime, endTime }),
+          .send({ roomId: 1, startTime, endTime, timezoneOffset: 0 }),
       );
 
     const results = await Promise.all(promises);

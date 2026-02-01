@@ -85,8 +85,11 @@ export default function RoomBookings() {
     setSubmitting(true);
 
     try {
-      const startTime = `${selectedDate}T${bookingStart}:00`;
-      const endTime = `${selectedDate}T${bookingEnd}:00`;
+      // Create Date objects in local time and convert to ISO (UTC) for the API
+      const startDate = new Date(`${selectedDate}T${bookingStart}:00`);
+      const endDate = new Date(`${selectedDate}T${bookingEnd}:00`);
+      const startTime = startDate.toISOString();
+      const endTime = endDate.toISOString();
 
       await api.createBooking(parseInt(id), startTime, endTime);
       setBookingSuccess('Booking confirmed!');

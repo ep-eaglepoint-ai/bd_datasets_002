@@ -123,10 +123,10 @@ index 0000000..2b860c2
 +}
 diff --git a/repository_after/client/src/api/client.js b/repository_after/client/src/api/client.js
 new file mode 100644
-index 0000000..e2f3283
+index 0000000..7b8b9a6
 --- /dev/null
 +++ b/repository_after/client/src/api/client.js
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,70 @@
 +const API_BASE = '/api';
 +
 +function getToken() {
@@ -184,7 +184,12 @@ index 0000000..e2f3283
 +  createBooking: (roomId, startTime, endTime) =>
 +    request('/bookings', {
 +      method: 'POST',
-+      body: JSON.stringify({ roomId, startTime, endTime }),
++      body: JSON.stringify({ 
++        roomId, 
++        startTime, 
++        endTime, 
++        timezoneOffset: new Date().getTimezoneOffset() 
++      }),
 +    }),
 +
 +  getMyBookings: () => request('/bookings/mine'),
@@ -708,10 +713,10 @@ index 0000000..0f428cb
 +}
 diff --git a/repository_after/client/src/pages/RoomBookings.jsx b/repository_after/client/src/pages/RoomBookings.jsx
 new file mode 100644
-index 0000000..dcb4132
+index 0000000..eb77033
 --- /dev/null
 +++ b/repository_after/client/src/pages/RoomBookings.jsx
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,280 @@
 +import { useState, useEffect } from 'react';
 +import { useParams, useNavigate } from 'react-router-dom';
 +import { api } from '../api/client';
@@ -799,8 +804,11 @@ index 0000000..dcb4132
 +    setSubmitting(true);
 +
 +    try {
-+      const startTime = `${selectedDate}T${bookingStart}:00`;
-+      const endTime = `${selectedDate}T${bookingEnd}:00`;
++      // Create Date objects in local time and convert to ISO (UTC) for the API
++      const startDate = new Date(`${selectedDate}T${bookingStart}:00`);
++      const endDate = new Date(`${selectedDate}T${bookingEnd}:00`);
++      const startTime = startDate.toISOString();
++      const endTime = endDate.toISOString();
 +
 +      await api.createBooking(parseInt(id), startTime, endTime);
 +      setBookingSuccess('Booking confirmed!');
@@ -1394,10 +1402,10 @@ index 0000000..c8275a7
 +export default router;
 diff --git a/repository_after/server/routes/bookings.js b/repository_after/server/routes/bookings.js
 new file mode 100644
-index 0000000..1ba44ed
+index 0000000..606d332
 --- /dev/null
 +++ b/repository_after/server/routes/bookings.js
-@@ -0,0 +1,261 @@
+@@ -0,0 +1,257 @@
 +import { Router } from "express";
 +import pool from "../db.js";
 +import { authenticate } from "../middleware/auth.js";
@@ -1407,24 +1415,16 @@ index 0000000..1ba44ed
 +const OPERATING_HOURS = { start: 9, end: 18 }; // 9 AM - 6 PM
 +const MIN_DURATION_MINUTES = 15;
 +const MAX_DURATION_HOURS = 4;
-+const TIMEZONE_OFFSET = parseInt(process.env.TIMEZONE_OFFSET || '0'); // Hours offset from UTC
 +
-+function toLocalDate(date) {
-+  if (TIMEZONE_OFFSET === 0) return date;
-+  const utcTime = date.getTime();
-+  const offsetMs = TIMEZONE_OFFSET * 60 * 60 * 1000;
-+  return new Date(utcTime + offsetMs);
-+}
-+
-+function isWeekday(date) {
-+  const localDate = toLocalDate(date);
-+  const day = localDate.getUTCDay();
++function isWeekday(date, timezoneOffset) {
++  const localTime = date.getTime() - timezoneOffset * 60000;
++  const day = new Date(localTime).getUTCDay();
 +  return day >= 1 && day <= 5;
 +}
 +
-+function isWithinOperatingHours(startTime, endTime) {
-+  const localStart = toLocalDate(startTime);
-+  const localEnd = toLocalDate(endTime);
++function isWithinOperatingHours(startTime, endTime, timezoneOffset) {
++  const localStart = new Date(startTime.getTime() - timezoneOffset * 60000);
++  const localEnd = new Date(endTime.getTime() - timezoneOffset * 60000);
 +  const startHour = localStart.getUTCHours() + localStart.getUTCMinutes() / 60;
 +  const endHour = localEnd.getUTCHours() + localEnd.getUTCMinutes() / 60;
 +
@@ -1439,9 +1439,9 @@ index 0000000..1ba44ed
 +  return startHour >= OPERATING_HOURS.start && endHour <= OPERATING_HOURS.end;
 +}
 +
-+function isSameDay(date1, date2) {
-+  const local1 = toLocalDate(date1);
-+  const local2 = toLocalDate(date2);
++function isSameDay(date1, date2, timezoneOffset) {
++  const local1 = new Date(date1.getTime() - timezoneOffset * 60000);
++  const local2 = new Date(date2.getTime() - timezoneOffset * 60000);
 +  return (
 +    local1.getUTCFullYear() === local2.getUTCFullYear() &&
 +    local1.getUTCMonth() === local2.getUTCMonth() &&
@@ -1453,8 +1453,12 @@ index 0000000..1ba44ed
 +  const client = await pool.connect();
 +
 +  try {
-+    const { roomId, startTime, endTime } = req.body;
++    const { roomId, startTime, endTime, timezoneOffset } = req.body;
 +    const userId = req.user.id;
++
++    if (timezoneOffset === undefined) {
++      return res.status(400).json({ error: "timezoneOffset is required" });
++    }
 +
 +    if (!roomId || !startTime || !endTime) {
 +      return res
@@ -1480,17 +1484,17 @@ index 0000000..1ba44ed
 +        .json({ error: "End time must be after start time" });
 +    }
 +
-+    if (!isSameDay(start, end)) {
++    if (!isSameDay(start, end, timezoneOffset)) {
 +      return res.status(400).json({ error: "Bookings cannot cross midnight" });
 +    }
 +
-+    if (!isWeekday(start)) {
++    if (!isWeekday(start, timezoneOffset)) {
 +      return res
 +        .status(400)
 +        .json({ error: "Bookings are only allowed Monday through Friday" });
 +    }
 +
-+    if (!isWithinOperatingHours(start, end)) {
++    if (!isWithinOperatingHours(start, end, timezoneOffset)) {
 +      return res.status(400).json({
 +        error: "Bookings must be within operating hours (9:00 AM - 6:00 PM)",
 +      });

@@ -160,9 +160,9 @@ POST /api/bookings:
 
 - **Counter**: The requirement explicitly specifies PostgreSQL. Temporal features (tsrange, GIST) are PostgreSQL's competitive advantage. Alternative databases would require different approaches (e.g., MySQL's application-level locking).
 
-**Objection 3**: "UTC validation doesn't match local business hours."
+**Objection 3**: "Server-side timezone assumptions don't match client reality."
 
-- **Counter**: Timezone handling is now configurable via `TIMEZONE_OFFSET` environment variable. Tests use UTC (offset=0) for consistency, production uses local timezone (Ethiopia=+3). This prevents misclassification of bookings based on deployment location.
+- **Counter**: Timezone handling is now client-driven. The frontend sends `timezoneOffset` (from `new Date().getTimezoneOffset()`) with each booking request. The server uses this dynamic offset for all time-based validations (operating hours, weekday checks, midnight crossing). This eliminates hard-coded timezone assumptions and ensures correct validation regardless of client or server location.
 
 **Objection 4**: "Complex validation logic in routes makes testing harder."
 
@@ -228,26 +228,31 @@ POST /api/bookings:
    await client.query('COMMIT');
    ```
 
-3. **Timezone-Aware Validation**:
+3. **Client-Driven Timezone Validation**:
    ```javascript
-   const TIMEZONE_OFFSET = parseInt(process.env.TIMEZONE_OFFSET || '0');
+   // Client sends timezone offset with each request
+   createBooking: (roomId, startTime, endTime) =>
+     request('/bookings', {
+       method: 'POST',
+       body: JSON.stringify({ 
+         roomId, startTime, endTime, 
+         timezoneOffset: new Date().getTimezoneOffset() 
+       }),
+     }),
    
-   function toLocalDate(date) {
-     if (TIMEZONE_OFFSET === 0) return date;
-     return new Date(date.getTime() + TIMEZONE_OFFSET * 60 * 60 * 1000);
-   }
-   
-   function isWithinOperatingHours(startTime, endTime) {
-     const localStart = toLocalDate(startTime);
-     const localEnd = toLocalDate(endTime);
+   // Server validates using client's timezone
+   function isWithinOperatingHours(startTime, endTime, timezoneOffset) {
+     const localStart = new Date(startTime.getTime() - timezoneOffset * 60000);
+     const localEnd = new Date(endTime.getTime() - timezoneOffset * 60000);
      const startHour = localStart.getUTCHours() + localStart.getUTCMinutes() / 60;
      const endHour = localEnd.getUTCHours() + localEnd.getUTCMinutes() / 60;
      return startHour >= 9 && endHour <= 18;
    }
    ```
-   - Configurable timezone offset (default UTC, Ethiopia uses +3)
-   - Validates business hours in local time, not UTC
-   - Prevents misclassification based on deployment timezone
+   - Client dynamically captures timezone offset at booking time
+   - Server validates business hours in client's local time
+   - Eliminates hard-coded timezone assumptions
+   - Note: `getTimezoneOffset()` returns positive for UTC-behind zones, hence subtraction
 
 4. **15-Minute Granularity UI**:
    ```javascript

@@ -55,7 +55,12 @@ export const api = {
   createBooking: (roomId, startTime, endTime) =>
     request('/bookings', {
       method: 'POST',
-      body: JSON.stringify({ roomId, startTime, endTime }),
+      body: JSON.stringify({ 
+        roomId, 
+        startTime, 
+        endTime, 
+        timezoneOffset: new Date().getTimezoneOffset() 
+      }),
     }),
 
   getMyBookings: () => request('/bookings/mine'),
