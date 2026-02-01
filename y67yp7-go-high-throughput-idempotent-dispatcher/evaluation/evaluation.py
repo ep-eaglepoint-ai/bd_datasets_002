@@ -294,6 +294,7 @@ def main():
     metrics["overall_status"] = "passed" if all_passed else "failed"
     
     print("\n[4/4] Writing metrics to file...")
+    evaluation_dir.mkdir(parents=True, exist_ok=True)
     metrics_file = evaluation_dir / "report.json"
     with open(metrics_file, "w") as f:
         json.dump(metrics, f, indent=2)
