@@ -38,23 +38,23 @@ ENV PORT=3000
 CMD ["npm", "run", "start"]
 
 # Test stage - for running Playwright tests
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy AS tester
+FROM mcr.microsoft.com/playwright:v1.41.0-jammy AS tester
 
 WORKDIR /app
 
-# Copy Python requirements and install
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy package files
+COPY package.json package-lock.json ./
 
-# Install Playwright browsers
-RUN playwright install chromium
+# Install dependencies
+RUN npm ci
 
-# Copy test files
+# Copy configuration and tests
+COPY tsconfig.json playwright.config.ts ./
 COPY tests/ ./tests/
 COPY evaluation/ ./evaluation/
 
 # Set environment variable for app URL
-ENV APP_URL=http://localhost:3000
+ENV APP_URL=http://bulk-import-app:3000
 
 # Run tests
-CMD ["python", "evaluation/evaluation.py"]
+CMD ["npm", "run", "evaluate"]

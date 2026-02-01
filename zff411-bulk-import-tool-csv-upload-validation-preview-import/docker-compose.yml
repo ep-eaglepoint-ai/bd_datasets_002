@@ -9,7 +9,7 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
 
-  # Test runner service (optional - for running tests)
+  # Test runner service
   test-runner:
     build:
       context: .
@@ -21,5 +21,3 @@ services:
       - APP_URL=http://bulk-import-app:3000
     volumes:
       - ./evaluation:/app/evaluation
-    profiles:
-      - test
