@@ -2,6 +2,541 @@ import compromise from 'compromise';
 import { tokenizeText } from './textAnalysis';
 import { Document, AnalyticsResult, ProductivityMetrics, TopicAnalysis, StylisticFingerprint, StylisticEvolution } from './types';
 
+// Domain-specific vocabulary lists for enhanced domain detection
+const DOMAIN_LEXICONS = {
+  academic: [
+    'analysis', 'research', 'methodology', 'hypothesis', 'empirical',
+    'theoretical', 'conceptual', 'paradigm', 'discourse', 'scholarly',
+    'citation', 'peer-reviewed', 'literature', 'findings', 'conclusion'
+  ],
+  technical: [
+    'algorithm', 'protocol', 'interface', 'implementation', 'deployment',
+    'architecture', 'framework', 'optimization', 'scalability', 'reliability',
+    'database', 'server', 'client', 'encryption', 'authentication'
+  ],
+  literary: [
+    'narrative', 'protagonist', 'antagonist', 'metaphor', 'symbolism',
+    'foreshadowing', 'imagery', 'theme', 'motif', 'allegory',
+    'characterization', 'plot', 'setting', 'dialogue', 'prose'
+  ],
+  business: [
+    'strategy', 'revenue', 'stakeholder', 'leverage', 'benchmark',
+    'sustainable', 'innovation', 'disruption', 'scalable', 'ecosystem',
+    'market', 'investment', 'ROI', 'metrics', 'quarterly'
+  ],
+  scientific: [
+    'experiment', 'observation', 'data', 'control', 'variable',
+    'hypothesis', 'theory', 'evidence', 'conclusion', 'method',
+    'sample', 'population', 'statistics', 'significant', 'correlation'
+  ]
+};
+
+// ============================================================================
+// COMPREHENSIVE TOPIC ANALYSIS FUNCTIONS
+// ============================================================================
+
+// Enhanced Topic Analysis with multiple techniques
+export function analyzeTopicsComprehensive(text: string, keywords: string[] = []): any {
+  const words = tokenizeText(text).words;
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  
+  // 1. Keyword Extraction with TF-IDF weighting
+  const enhancedKeywords = extractKeywordsWithTFIDF(text);
+  
+  // 2. Named Entity Recognition
+  const entities = extractNamedEntities(text);
+  
+  // 3. Topic Clustering with semantic grouping
+  const topics = clusterTopicsComprehensive(words, sentences, enhancedKeywords, entities);
+  
+  // 4. Thematic Analysis
+  const thematicAnalysis = analyzeThemesComprehensive(text, topics);
+  
+  // 5. Domain Detection
+  const domain = detectDomainComprehensive(text);
+  
+  // 6. Topic Coherence Score
+  const coherenceScore = calculateTopicCoherence(topics, text);
+  
+  // 7. Keep original format for backward compatibility
+  const dominantTopics = topics.slice(0, 5).map(topic => ({
+    topic: topic.name,
+    weight: topic.weight / 100, // Normalize for compatibility
+    keywords: topic.keywords || [topic.name]
+  }));
+  
+  // 8. Extract n-grams (compatible with existing format)
+  const nGrams = extractNGramsAdvanced(words, 2, 15);
+  
+  return {
+    dominantTopics: dominantTopics,
+    nGrams: nGrams,
+    keywords: enhancedKeywords.map(k => k.word),
+    enhancedKeywords: enhancedKeywords, // Full objects with TF-IDF
+    entities,
+    topics,
+    thematicAnalysis,
+    domain,
+    coherenceScore,
+    summary: generateTopicSummary(topics, thematicAnalysis)
+  };
+}
+
+// TF-IDF Keyword Extraction
+function extractKeywordsWithTFIDF(text: string, corpus: string[] = []): Array<{word: string, tfidf: number, frequency: number}> {
+  const words = text.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
+  const termFreq = new Map<string, number>();
+  const docFreq = new Map<string, number>();
+  
+  // Calculate term frequency
+  words.forEach(word => {
+    termFreq.set(word, (termFreq.get(word) || 0) + 1);
+  });
+  
+  // Calculate TF-IDF (simplified without full corpus)
+  const totalWords = words.length || 1;
+  const keywords = Array.from(termFreq.entries())
+    .map(([word, tf]) => {
+      const idf = Math.log((corpus.length + 1) / (1 + (docFreq.get(word) || 0)));
+      const tfidf = (tf / totalWords) * idf;
+      return { word, tfidf, frequency: tf };
+    })
+    .sort((a, b) => b.tfidf - a.tfidf)
+    .slice(0, 25);
+  
+  return keywords;
+}
+
+// Named Entity Recognition using compromise
+function extractNamedEntities(text: string): any {
+  const doc = compromise(text as any);
+  
+  const people = doc.people().out('array');
+  const places = doc.places().out('array');
+  const organizations = doc.organizations().out('array');
+  const dates = doc.dates().out('array');
+  
+  // Custom entity extraction
+  const concepts = extractConcepts(text);
+  const technicalTerms = extractTechnicalTerms(text);
+  
+  return {
+    people: groupAndCount(people),
+    places: groupAndCount(places),
+    organizations: groupAndCount(organizations),
+    dates: groupAndCount(dates),
+    concepts: groupAndCount(concepts),
+    technicalTerms: groupAndCount(technicalTerms),
+    totalCount: people.length + places.length + organizations.length + 
+                dates.length + concepts.length + technicalTerms.length
+  };
+}
+
+function extractConcepts(text: string): string[] {
+  const doc = compromise(text as any);
+  const nouns = doc.nouns().out('array');
+  const adjectives = doc.adjectives().out('array');
+  
+  // Filter for abstract concepts
+  const abstractNouns = nouns.filter((word: string) => 
+    word.length > 5 && 
+    !Object.values(DOMAIN_LEXICONS).flat().includes(word)
+  );
+  
+  return [...abstractNouns, ...adjectives];
+}
+
+function extractTechnicalTerms(text: string): string[] {
+  const words = text.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
+  const technicalTerms: string[] = [];
+  
+  // Check against domain lexicons
+  Object.values(DOMAIN_LEXICONS).forEach(lexicon => {
+    words.forEach(word => {
+      if (lexicon.includes(word) && !technicalTerms.includes(word)) {
+        technicalTerms.push(word);
+      }
+    });
+  });
+  
+  return technicalTerms;
+}
+
+function groupAndCount(items: string[]): Array<{item: string, count: number}> {
+  const counts = new Map<string, number>();
+  items.forEach(item => {
+    const key = item.toLowerCase();
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  
+  return Array.from(counts.entries())
+    .map(([item, count]) => ({ item, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// Advanced Topic Clustering
+function clusterTopicsComprehensive(words: string[], sentences: string[], keywords: any[], entities: any): any[] {
+  const clusters = [];
+  
+  // Cluster by semantic similarity
+  const semanticClusters = clusterBySemanticSimilarity(keywords);
+  
+  // Entity-based clusters
+  const entityClusters = clusterByEntities(entities);
+  
+  // Theme-based clusters
+  const themeClusters = identifyThematicClusters(sentences);
+  
+  // Combine clusters
+  clusters.push(...semanticClusters, ...entityClusters, ...themeClusters);
+  
+  // Deduplicate and rank clusters
+  const mergedClusters = mergeClusters(clusters);
+  
+  return mergedClusters.sort((a: any, b: any) => b.weight - a.weight).slice(0, 10);
+}
+
+function clusterBySemanticSimilarity(keywords: any[]): any[] {
+  const clusters = [];
+  const usedWords = new Set<string>();
+  
+  keywords.forEach((kw, i) => {
+    if (usedWords.has(kw.word)) return;
+    
+    const cluster = {
+      type: 'semantic',
+      name: kw.word,
+      keywords: [kw.word],
+      weight: kw.tfidf * 100, // Scale for consistency
+      members: [] as string[],
+      relatedConcepts: [] as string[]
+    };
+    
+    // Find similar keywords
+    keywords.slice(i + 1).forEach(otherKw => {
+      if (areWordsRelated(kw.word, otherKw.word)) {
+        cluster.keywords.push(otherKw.word);
+        cluster.weight += otherKw.tfidf * 100;
+        usedWords.add(otherKw.word);
+      }
+    });
+    
+    if (cluster.keywords.length > 1) {
+      clusters.push(cluster);
+    }
+  });
+  
+  return clusters;
+}
+
+function areWordsRelated(word1: string, word2: string): boolean {
+  if (word1.length < 4 || word2.length < 4) return false;
+  
+  // Check for common prefixes/suffixes
+  const commonPrefix = word1.substring(0, Math.min(4, word1.length, word2.length));
+  const commonSuffix = word1.substring(Math.max(0, word1.length - 4));
+  
+  return word2.startsWith(commonPrefix) || 
+         word2.endsWith(commonSuffix) ||
+         word1.includes(word2.substring(0, 3)) || 
+         word2.includes(word1.substring(0, 3));
+}
+
+function clusterByEntities(entities: any): any[] {
+  const clusters = [];
+  
+  Object.entries(entities).forEach(([type, items]: [string, any]) => {
+    if (type !== 'totalCount' && Array.isArray(items) && items.length > 0) {
+      const cluster = {
+        type: 'entity',
+        name: `${type} (${items.length})`,
+        entities: items.slice(0, 5),
+        weight: items.reduce((sum: number, item: any) => sum + item.count, 0) * 10,
+        metadata: { entityType: type }
+      };
+      clusters.push(cluster);
+    }
+  });
+  
+  return clusters;
+}
+
+function identifyThematicClusters(sentences: string[]): any[] {
+  const themes = new Map<string, number>();
+  
+  sentences.forEach(sentence => {
+    const doc = compromise(sentence as any);
+    const verbs = doc.verbs().out('array');
+    const nouns = doc.nouns().out('array');
+    
+    // Simple theme detection based on verb-noun pairs
+    verbs.forEach((verb: string) => {
+      nouns.forEach((noun: string) => {
+        const theme = `${verb} ${noun}`;
+        themes.set(theme, (themes.get(theme) || 0) + 1);
+      });
+    });
+  });
+  
+  return Array.from(themes.entries())
+    .filter(([, count]) => count >= 2)
+    .map(([theme, count]) => ({
+      type: 'thematic',
+      name: theme,
+      frequency: count,
+      weight: count * 20, // Thematic clusters get higher weight
+      examples: sentences.filter(s => s.includes(theme.split(' ')[0])).slice(0, 2)
+    }));
+}
+
+function mergeClusters(clusters: any[]): any[] {
+  const merged = [];
+  const seen = new Set<string>();
+  
+  clusters.forEach(cluster => {
+    const key = cluster.name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      
+      // Find similar clusters to merge
+      const similarClusters = clusters.filter(c => 
+        c !== cluster && 
+        (c.name.toLowerCase().includes(key) || key.includes(c.name.toLowerCase()))
+      );
+      
+      if (similarClusters.length > 0) {
+        // Merge with first similar cluster
+        const mergedCluster = {
+          ...cluster,
+          subclusters: similarClusters.map(c => c.name),
+          weight: cluster.weight + similarClusters.reduce((sum: number, c: any) => sum + c.weight, 0)
+        };
+        merged.push(mergedCluster);
+        similarClusters.forEach(c => seen.add(c.name.toLowerCase()));
+      } else {
+        merged.push(cluster);
+      }
+    }
+  });
+  
+  return merged;
+}
+
+// Thematic Analysis
+function analyzeThemesComprehensive(text: string, topics: any[]): any {
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  
+  const themes = {
+    dominantThemes: [] as any[],
+    themeDistribution: {} as Record<string, number>,
+    themeCohesion: 0,
+    themeDevelopment: [] as any[]
+  };
+  
+  // Analyze each sentence for themes
+  sentences.forEach((sentence, index) => {
+    const sentenceThemes = extractSentenceThemes(sentence);
+    themes.themeDevelopment.push({
+      sentenceIndex: index,
+      themes: sentenceThemes,
+      position: index / Math.max(sentences.length - 1, 1)
+    });
+    
+    sentenceThemes.forEach(theme => {
+      themes.themeDistribution[theme] = (themes.themeDistribution[theme] || 0) + 1;
+    });
+  });
+  
+  // Determine dominant themes
+  themes.dominantThemes = Object.entries(themes.themeDistribution)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([theme, count]) => ({
+      theme,
+      frequency: count,
+      percentage: (count / sentences.length) * 100
+    }));
+  
+  // Calculate theme cohesion
+  themes.themeCohesion = calculateThemeCohesion(themes.themeDevelopment);
+  
+  return themes;
+}
+
+function extractSentenceThemes(sentence: string): string[] {
+  const doc = compromise(sentence as any);
+  const themes = [];
+  
+  // Extract action themes
+  const verbs = doc.verbs().out('array');
+  verbs.forEach((verb: string) => {
+    if (verb.length > 3 && !['is', 'are', 'was', 'were', 'have', 'has'].includes(verb)) {
+      themes.push(`action:${verb}`);
+    }
+  });
+  
+  // Extract subject themes
+  const subjects = doc.match('#Noun').out('array');
+  subjects.forEach((subject: string) => {
+    if (subject.length > 3) {
+      themes.push(`subject:${subject}`);
+    }
+  });
+  
+  // Extract emotional themes
+  const emotions = extractEmotionalThemes(sentence);
+  themes.push(...emotions.map(e => `emotion:${e}`));
+  
+  return themes;
+}
+
+function extractEmotionalThemes(sentence: string): string[] {
+  const emotionalWords = {
+    joy: ['happy', 'joy', 'delight', 'pleasure', 'excited'],
+    sadness: ['sad', 'unhappy', 'grief', 'sorrow', 'melancholy'],
+    anger: ['angry', 'furious', 'outraged', 'irritated', 'annoyed'],
+    fear: ['afraid', 'scared', 'frightened', 'terrified', 'anxious']
+  };
+  
+  const themes: string[] = [];
+  Object.entries(emotionalWords).forEach(([emotion, words]) => {
+    if (words.some(word => sentence.toLowerCase().includes(word))) {
+      themes.push(emotion);
+    }
+  });
+  
+  return themes;
+}
+
+function calculateThemeCohesion(themeDevelopment: any[]): number {
+  if (themeDevelopment.length < 2) return 1;
+  
+  let transitions = 0;
+  let themeChanges = 0;
+  
+  for (let i = 1; i < themeDevelopment.length; i++) {
+    const prevThemes = themeDevelopment[i - 1].themes;
+    const currThemes = themeDevelopment[i].themes;
+    
+    transitions++;
+    if (JSON.stringify(prevThemes) !== JSON.stringify(currThemes)) {
+      themeChanges++;
+    }
+  }
+  
+  return 1 - (themeChanges / transitions);
+}
+
+// Domain Detection
+function detectDomainComprehensive(text: string): any {
+  const words = text.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
+  const scores: Record<string, {score: number, confidence: number}> = {};
+  
+  Object.entries(DOMAIN_LEXICONS).forEach(([domain, lexicon]) => {
+    let score = 0;
+    words.forEach(word => {
+      if (lexicon.includes(word)) {
+        score++;
+      }
+    });
+    scores[domain] = {
+      score,
+      confidence: score / Math.max(words.length, 1)
+    };
+  });
+  
+  const sortedDomains = Object.entries(scores)
+    .sort((a, b) => b[1].score - a[1].score);
+  
+  return {
+    primaryDomain: sortedDomains[0]?.[0] || 'general',
+    scores,
+    confidence: sortedDomains[0]?.[1]?.confidence || 0
+  };
+}
+
+// Topic Coherence Calculation
+function calculateTopicCoherence(topics: any[], text: string): number {
+  if (topics.length === 0) return 0;
+  
+  let totalCoherence = 0;
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  
+  topics.forEach(topic => {
+    const topicWords = topic.keywords || [];
+    let topicCoherence = 0;
+    
+    // Check if topic words appear together in sentences
+    sentences.forEach(sentence => {
+      const sentenceLower = sentence.toLowerCase();
+      const wordsInSentence = topicWords.filter((word: string) => 
+        sentenceLower.includes(word.toLowerCase())
+      );
+      
+      if (wordsInSentence.length > 1) {
+        topicCoherence += wordsInSentence.length;
+      }
+    });
+    
+    totalCoherence += topicCoherence / Math.max(sentences.length, 1);
+  });
+  
+  return totalCoherence / topics.length;
+}
+
+// Generate Topic Summary
+function generateTopicSummary(topics: any[], thematicAnalysis: any): any {
+  const dominantTopics = topics.slice(0, 3);
+  const dominantThemes = thematicAnalysis.dominantThemes.slice(0, 3);
+  
+  return {
+    overview: `Analysis reveals ${topics.length} distinct topics with ${thematicAnalysis.dominantThemes.length} major themes.`,
+    keyTopics: dominantTopics.map(t => t.name).join(', '),
+    thematicFocus: dominantThemes.map(t => t.theme).join(', '),
+    complexity: topics.length > 5 ? 'high' : topics.length > 2 ? 'medium' : 'low',
+    coherence: thematicAnalysis.themeCohesion > 0.7 ? 'high' : 
+               thematicAnalysis.themeCohesion > 0.4 ? 'medium' : 'low'
+  };
+}
+
+// ============================================================================
+// ORIGINAL FUNCTIONS (Preserved with backward compatibility)
+// ============================================================================
+
+// Original analyzeTopics function (enhanced to use comprehensive analysis)
+export function analyzeTopics(text: string, keywords: string[]): {
+  dominantTopics: Array<{ topic: string; weight: number; keywords: string[] }>;
+  nGrams: Array<{ phrase: string; count: number }>;
+} {
+  // Use comprehensive analysis but return original format
+  const comprehensive = analyzeTopicsComprehensive(text, keywords);
+  
+  return {
+    dominantTopics: comprehensive.dominantTopics,
+    nGrams: comprehensive.nGrams
+  };
+}
+
+// Export comprehensive topic detection for worker
+export function detectTopicsInText(content: string, keywords: string[] = []) {
+  return analyzeTopicsComprehensive(content, keywords);
+}
+
+// Helper to integrate comprehensive analysis with existing store
+export function integrateTopicAnalysisWithStore(analyticsResult: AnalyticsResult, comprehensiveTopics: any): AnalyticsResult {
+  return {
+    ...analyticsResult,
+    topicAnalysis: {
+      ...analyticsResult.topicAnalysis,
+      comprehensive: comprehensiveTopics.comprehensive,
+      enhancedKeywords: comprehensiveTopics.keywords,
+      entityAnalysis: comprehensiveTopics.entities,
+      domainAnalysis: comprehensiveTopics.domain,
+      thematicAnalysis: comprehensiveTopics.thematicAnalysis,
+      coherenceScore: comprehensiveTopics.coherenceScore
+    }
+  };
+}
 // ============================================================================
 // REQUIREMENT #3: Productivity Tracking (Streaks, Consistency, Volume Growth)
 // ============================================================================
@@ -363,35 +898,6 @@ function detectMoodPatterns(sentenceScores: Array<{ polarity: string }>): string
 // REQUIREMENT #9: Topic Extraction & Drift Detection
 // ============================================================================
 
-export function analyzeTopics(text: string, keywords: string[]): {
-  dominantTopics: Array<{ topic: string; weight: number; keywords: string[] }>;
-  nGrams: Array<{ phrase: string; count: number }>;
-} {
-  const doc = compromise(text);
-  const { words } = tokenizeText(text);
-
-  // Extract nouns as potential topics
-  const nouns = doc.nouns().out('array') as string[];
-  const nounFrequency = new Map<string, number>();
-  
-  nouns.forEach(noun => {
-    const normalized = noun.toLowerCase().trim();
-    if (normalized.length > 2) {
-      nounFrequency.set(normalized, (nounFrequency.get(normalized) || 0) + 1);
-    }
-  });
-
-  // Cluster nouns into topics
-  const topicClusters = clusterIntoTopics(nounFrequency, keywords);
-
-  // Extract n-grams
-  const nGrams = extractNGramsAdvanced(words, 2, 15);
-
-  return {
-    dominantTopics: topicClusters,
-    nGrams,
-  };
-}
 
 function clusterIntoTopics(
   nounFrequency: Map<string, number>,

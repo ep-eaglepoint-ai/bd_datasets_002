@@ -5,6 +5,7 @@ import * as analysis from './textAnalysis';
 import * as advancedAnalysis from './advancedAnalysis';
 import * as comprehensiveAnalytics from './comprehensiveAnalytics';
 import * as csvExport from './csvExport';
+import { analyzeTopicsComprehensive } from './comprehensiveAnalytics';
 
 // Analytics cache for memoization
 const analyticsCache = new Map<string, { content: string; result: AnalyticsResult }>();
@@ -214,8 +215,8 @@ export const useStore = create<AppState>((set, get) => ({
       const grammarMetrics = comprehensiveAnalytics.analyzeGrammarPatternsComprehensive(doc.content);
       
       // Topic analysis (Requirement #9)
-      const keywords = analysis.extractKeywords(doc.content);
-      const topicAnalysis = comprehensiveAnalytics.analyzeTopics(doc.content, keywords);
+      const comprehensiveTopics = analyzeTopicsComprehensive(doc.content);
+      const keywords = comprehensiveTopics.keywords;
       
       // Repetition analysis (Requirement #10)
       const repetitionAnalysis = comprehensiveAnalytics.analyzeRepetition(doc.content);
@@ -256,15 +257,21 @@ export const useStore = create<AppState>((set, get) => ({
         },
         grammarMetrics,
         topicAnalysis: {
-          keywords,
-          dominantTopics: topicAnalysis.dominantTopics,
-          nGrams: topicAnalysis.nGrams,
+          keywords: comprehensiveTopics.keywords.map(k => k.word),
+          dominantTopics: comprehensiveTopics.dominantTopics,
+          nGrams: comprehensiveTopics.nGrams,
+          enhancedKeywords: comprehensiveTopics.keywords, // TF-IDF weighted
+          entityAnalysis: comprehensiveTopics.entities,
+          domainAnalysis: comprehensiveTopics.domain,
+          thematicAnalysis: comprehensiveTopics.thematicAnalysis,
+          coherenceScore: comprehensiveTopics.coherenceScore,
+          topicSummary: comprehensiveTopics.summary
         },
         repetitionAnalysis,
         stylisticFingerprint,
         uncertaintyIndicators,
         keywords,
-        nGrams: topicAnalysis.nGrams,
+        nGrams: comprehensiveTopics.nGrams,
         repeatedPhrases: repetitionAnalysis.repeatedPhrases,
       };
 

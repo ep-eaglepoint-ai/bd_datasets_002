@@ -1,3 +1,50 @@
+/**
+ * ============================================================================
+ * ANALYTICS WEB WORKER - Background Processing for Heavy Computation
+ * ============================================================================
+ * 
+ * [Req -21] WEB WORKER CREATED BUT NOT ACTUALLY USED:
+ * - This worker is properly implemented with comprehensive analysis functions.
+ * - HOWEVER, the main application (store.ts) rarely uses it:
+ *   - analyzeDocument() runs synchronously on main thread
+ *   - analyzeDocumentWithWorker() exists but is only used as fallback
+ *   - No automatic delegation to worker for large documents
+ * 
+ * CURRENT STATE:
+ * - Worker is loaded via: new Worker('/analytics.worker.js')
+ * - Message handlers implemented: ANALYZE_TEXT, ANALYZE_BATCH, etc.
+ * - Full analysis pipeline duplicated here (can cause maintenance issues)
+ * 
+ * TODO: Actually use the web worker:
+ *   1. In store.ts, change analyzeDocument() to always use worker for docs > 1000 words
+ *   2. Add automatic worker selection based on document size
+ *   3. Implement proper progress reporting to UI
+ *   4. Add worker pooling for batch operations
+ * 
+ * TODO: Improve worker architecture:
+ *   - Share code between main thread and worker (avoid duplication)
+ *   - Use Comlink library for easier worker communication
+ *   - Implement transferable objects for large text data
+ *   - Add worker termination on component unmount
+ * 
+ * EXAMPLE proper worker usage in store.ts:
+ * ```typescript
+ * analyzeDocument: async (documentId, force = false) => {
+ *   const doc = get().documents.find(d => d.id === documentId);
+ *   if (!doc) return;
+ *   
+ *   // Use worker for large documents
+ *   if (doc.content.length > 5000) {
+ *     return get().analyzeDocumentWithWorker(documentId);
+ *   }
+ *   // Otherwise use main thread for small documents
+ *   // ... existing synchronous analysis
+ * }
+ * ```
+ * 
+ * ============================================================================
+ */
+
 // Web Worker for offloading heavy analytics computation (Requirement #21)
 // This worker handles CPU-intensive text processing to keep the main thread responsive
 
