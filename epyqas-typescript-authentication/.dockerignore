@@ -1,6 +1,0 @@
-node_modules
-.next
-repository_after/.next
-.git
-dist
-coverage
