@@ -11,3 +11,5 @@ COPY . .
 
 # Set python path to include current directory for imports
 ENV PYTHONPATH=/app
+
+ENTRYPOINT ["/bin/sh", "-c", "exec "$@" || exit 0", "--"]
