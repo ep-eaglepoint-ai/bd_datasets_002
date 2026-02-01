@@ -1,0 +1,5 @@
+{"text": "Python is a high-level programming language known for its readability and simplicity.", "source": "docs/python.md", "chunk_id": 1}
+{"text": "Machine learning is a subset of artificial intelligence that enables systems to learn from data.", "source": "docs/ml.md", "chunk_id": 2}
+{"text": "FAISS is a library for efficient similarity search and clustering of dense vectors.", "source": "docs/faiss.md", "chunk_id": 3}
+{"text": "Docker containers provide a consistent environment for running applications across different systems.", "source": "docs/docker.md", "chunk_id": 4}
+{"text": "Sentence transformers are pre-trained models that produce dense vector embeddings for sentences.", "source": "docs/embeddings.md", "chunk_id": 5}
