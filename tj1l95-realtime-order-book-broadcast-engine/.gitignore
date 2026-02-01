@@ -1,0 +1,13 @@
+# Go
+/bin/
+/pkg/
+*.test
+*.out
+
+# Evaluation
+/evaluation/*/
+
+# IDE
+.idea/
+.vscode/
+
