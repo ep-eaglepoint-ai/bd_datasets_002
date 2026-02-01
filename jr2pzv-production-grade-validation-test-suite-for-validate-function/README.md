@@ -1,34 +1,16 @@
-# Production Grade Validation Test Suite for Validate Function
+# 🚀 Go Validation Suite
 
-This repository contains a test suite for validating Go functions with a focus on production-grade standards.
-
-## 🐳 Docker Commands
-
-The Docker setup is **multi-platform compatible** and works on Linux, macOS, and Windows.
-
-### 🚀 Using Docker Compose (Recommended)
-This is the easiest way to build and run everything in one go:
+### 1️⃣ Repository Before (Baseline)
 ```bash
-# Build and run evaluation
-docker-compose up --build
+docker build -t validator-app . && docker run --rm validator-app go test -v ./repository_before/...
 ```
 
-### 🛠️ Manual Docker Commands
-If you prefer to run Docker commands manually:
-
+### 2️⃣ Repository After (Enhanced)
 ```bash
-# Build image
-docker build -t jr2pzv-validation-app .
-
-# Run evaluation (creates report.json)
-docker run --rm -v "$(pwd):/app" jr2pzv-validation-app
-
-# Run tests directly
-docker run --rm jr2pzv-validation-app go test -v ./repository_after/...
+docker build -t validator-app . && docker run --rm validator-app go test -v ./repository_after/...
 ```
 
-## 📂 Project Structure
-- `repository_before/`: Baseline state of the repository.
-- `repository_after/`: Repository state after validation logic implementation.
-- `evaluation/`: Python-based evaluation and reporting suite.
-- `tests/`: Additional test cases and validation infrastructure.
+### 3️⃣ Complete Evaluation
+```bash
+docker build -t validator-app . && docker run --rm validator-app
+```
