@@ -11,9 +11,11 @@ function App() {
     setLoading(true);
     setError(null);
     setData(null);
+    // Call backend directly on port 4000 (backend runs on 4000; frontend on 3000)
+    const apiUrl = 'http://localhost:4000/api/generate';
 
     try {
-      const response = await fetch('http://localhost:3000/api/generate', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,7 +32,13 @@ function App() {
       // Backend returns base64-only string; convert to data URI for display
       setData({ ...result, qrCode: `data:image/png;base64,${result.qrCode}` });
     } catch (err) {
-      setError(err.message);
+      // Normalize a common jsdom/XHR error into a user-friendly message
+      const msg = err && err.message ? err.message : String(err);
+      if (msg.includes('did not match the expected pattern')) {
+        setError('Network request failed (invalid URL or environment)');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

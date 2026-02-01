@@ -6,7 +6,7 @@ const routes = require('./routes');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // Only allow requests from the frontend running on localhost:3000
 app.use(cors({ origin: 'http://localhost:3000' }));
