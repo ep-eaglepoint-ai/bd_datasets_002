@@ -1,5 +1,5 @@
--- CreateTable
-CREATE TABLE "top_up_transactions" (
+-- CreateTable (no schema changes from original - uses existing table structure)
+CREATE TABLE IF NOT EXISTS "TopUpTransaction" (
     "id" SERIAL NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "status" TEXT,
@@ -7,8 +7,7 @@ CREATE TABLE "top_up_transactions" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "top_up_transactions_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "TopUpTransaction_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "top_up_transactions_id_createdAt_idx" ON "top_up_transactions"("id", "createdAt");
+-- Note: No additional indexes added - cursor pagination works with existing primary key index

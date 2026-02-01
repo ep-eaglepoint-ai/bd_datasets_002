@@ -16,7 +16,4 @@ model TopUpTransaction {
   userId    Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([id, createdAt])
-  @@map("top_up_transactions")
 }

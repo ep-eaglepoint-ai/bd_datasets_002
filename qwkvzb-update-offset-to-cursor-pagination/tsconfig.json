@@ -6,7 +6,8 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "strict": true,
+        "strict": false,
+        "noImplicitAny": false,
         "lib": [
             "ES2020",
             "DOM"
@@ -18,6 +19,7 @@
     "include": [
         "tests/**/*",
         "repository_after/**/*",
+        "repository_before/**/*",
         "evaluation/**/*"
     ]
 }

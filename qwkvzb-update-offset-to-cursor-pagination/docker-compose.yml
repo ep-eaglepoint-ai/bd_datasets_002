@@ -31,7 +31,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma migrate deploy --schema=./repository_after/prisma/schema.prisma || true && npx ts-node evaluation/evaluation.ts --target=repository_before --no-report"
+    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma db push --schema=./repository_after/prisma/schema.prisma --accept-data-loss && npx ts-node evaluation/evaluation.ts --target=repository_before --no-report"
 
   # Run all tests against repository_after (expected to pass)
   test-after:
@@ -50,7 +50,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma migrate deploy --schema=./repository_after/prisma/schema.prisma || true && npx ts-node repository_after/prisma/seed.ts && npx ts-node evaluation/evaluation.ts --target=repository_after --no-report"
+    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma db push --schema=./repository_after/prisma/schema.prisma --accept-data-loss && npx ts-node repository_after/prisma/seed.ts && npx ts-node evaluation/evaluation.ts --target=repository_after --no-report"
 
   # Run evaluation script (tests both repositories and generates report)
   evaluation:
@@ -68,4 +68,4 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma migrate deploy --schema=./repository_after/prisma/schema.prisma || true && npx ts-node repository_after/prisma/seed.ts && npx ts-node evaluation/evaluation.ts"
+    command: sh -c "socat TCP-LISTEN:5432,fork TCP:db:5432 & npx prisma db push --schema=./repository_after/prisma/schema.prisma --accept-data-loss && npx ts-node repository_after/prisma/seed.ts && npx ts-node evaluation/evaluation.ts"
