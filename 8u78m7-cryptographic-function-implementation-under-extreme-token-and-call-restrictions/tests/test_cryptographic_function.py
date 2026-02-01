@@ -58,7 +58,7 @@ def test_no_side_effects():
 def test_constraint_no_forbidden_sequences():
     """Verify the source code does not contain 'import' or 'hashlib'."""
     import os
-    file_path = "repository_after/__init__.py"
+    file_path = "repository_after/implementation.py"
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
     
@@ -68,7 +68,7 @@ def test_constraint_no_forbidden_sequences():
 def test_constraint_no_sha_hash_calls():
     """Verify no function/method with 'sha' or 'hash' in the name is called."""
     import os
-    file_path = "repository_after/__init__.py"
+    file_path = "repository_after/implementation.py"
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
     
@@ -87,7 +87,7 @@ def test_constraint_no_sha_hash_calls():
 def test_no_external_dependencies_or_dynamic_exec():
     """Verify no exec, eval, or reflection is used."""
     import os
-    file_path = "repository_after/__init__.py"
+    file_path = "repository_after/implementation.py"
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
     
