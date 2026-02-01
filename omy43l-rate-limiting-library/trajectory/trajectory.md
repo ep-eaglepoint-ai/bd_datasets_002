@@ -13,7 +13,7 @@ The goal is to build a production-grade Python rate-limiting library supporting 
 
 ### Thread Safety Pattern
 - **Decision**: Avoid a global lock to prevent bottlenecks.
-- **Implementation**: Used per-client locking. A master lock protects the creation of individual locks in a dictionary. This ensures that concurrent requests from *different* clients don't block each other, while requests from the *same* client are serialized correctly.
+- **Implementation**: Used lock sharding. Client IDs are hashed to one of N (default 1024) pre-allocated locks. This avoids the overhead of managing a lock per client and prevents global lock contention, ensuring scalable concurrency.
 
 ### Decision Latency & Performance
 - Used `time.monotonic()` for Token Bucket and Sliding Window Log to ensure accuracy regardless of system clock shifts.
@@ -67,7 +67,7 @@ The goal is to build a production-grade Python rate-limiting library supporting 
 
 **Memory Exhaustion**: Tracking $100,000+$ clients requires pruning. The use of $O(1)$ deque removal is the right optimization to prevent the process from running out of RAM as history grows.
 
-**Lock Contention**: A single global lock would bottle-deck the entire API. The per-client locking strategy used is the industry standard for minimizing latency under high load.
+**Lock Contention**: A single global lock would bottle-deck the entire API. The lock sharding strategy used is the industry standard for minimizing latency under high load.
 
 ### References
 1. https://stripe.com/blog/rate-limiters
