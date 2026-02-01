@@ -1,4 +1,5 @@
-/app/repository_after/src/test/java/com/example/sessions/SessionAnalyticsControllerTest.java
-/app/repository_after/src/test/java/com/example/sessions/SessionAnalyticsControllerIntegrationTest.java
-/app/repository_after/src/test/java/com/example/sessions/ApiExceptionHandlerTest.java
-/app/repository_after/src/test/java/com/example/sessions/AdditionalRequirementsTest.java
+/app/tests/com/example/sessions/SessionAnalyticsControllerIntegrationTest.java
+/app/tests/com/example/sessions/SessionAnalyticsControllerTest.java
+/app/tests/com/example/sessions/ApiExceptionHandlerTest.java
+/app/tests/com/example/sessions/AdditionalRequirementsTest.java
+/app/tests/BeforeSpec.java

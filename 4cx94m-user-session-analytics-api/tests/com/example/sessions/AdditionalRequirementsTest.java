@@ -33,7 +33,6 @@ public class AdditionalRequirementsTest {
     void apiExceptionHandlerReturnsStableStructure() {
         ApiExceptionHandler handler = new ApiExceptionHandler();
 
-        // Create a tiny ConstraintViolation implementation to include in the exception
         class SimpleViolation implements ConstraintViolation<Session> {
             private final String message;
             SimpleViolation(String message) { this.message = message; }
@@ -77,7 +76,6 @@ public class AdditionalRequirementsTest {
         org.springframework.web.bind.annotation.PostMapping pm = analyze.getAnnotation(org.springframework.web.bind.annotation.PostMapping.class);
         assertArrayEquals(new String[]{"/analyze"}, pm.value());
 
-        // Verify response keys
         Object ctrlInst = ctrl.getDeclaredConstructor().newInstance();
         List<Session> sessions = Arrays.asList(new Session(0L, 10L));
         @SuppressWarnings("unchecked")
@@ -89,7 +87,6 @@ public class AdditionalRequirementsTest {
 
     @Test
     void repositoryAfterContainsNoMutableCacheOrNestedLoops() throws Exception {
-        // locate the source file anywhere under the current working directory
         Path start = Path.of(System.getProperty("user.dir"));
         Optional<Path> found = Files.walk(start)
             .filter(p -> p.getFileName().toString().equals("SessionAnalyticsController.java"))
@@ -98,7 +95,6 @@ public class AdditionalRequirementsTest {
         assertTrue(found.isPresent(), "Could not locate SessionAnalyticsController.java under project workspace");
         String src = Files.readString(found.get());
         assertFalse(src.contains("cachedSessions"), "repository_after must not introduce shared mutable cache");
-        // ensure there is only one explicit loop over the sessions collection (single pass)
         int forCount = 0;
         int idx = 0;
         while ((idx = src.indexOf("for (", idx)) >= 0) { forCount++; idx += 4; }
@@ -108,15 +104,12 @@ public class AdditionalRequirementsTest {
     @Test
     void controllerIsStatelessAndValidatorIsStaticFinal() throws Exception {
         Class<?> ctrl = Class.forName("com.example.sessions.SessionAnalyticsController");
-        // controller must not declare any instance or static fields (stateless)
         Field[] fields = ctrl.getDeclaredFields();
         assertEquals(0, fields.length, "Controller must not declare fields");
-        // explicit check: there must be no 'validator' field
         try {
             ctrl.getDeclaredField("validator");
             fail("Controller must not declare a 'validator' field");
         } catch (NoSuchFieldException e) {
-            // expected
         }
     }
 }

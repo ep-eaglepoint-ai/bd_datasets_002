@@ -1,7 +1,7 @@
-diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.xo2uUmJGDi/SessionAnalyticsController.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.xo2uUmJGDi/SessionAnalyticsController.java
+diff --git a/repository_before/SessionAnalyticsController.java b/repository_before/SessionAnalyticsController.java
 deleted file mode 100644
 index 6717d3d..0000000
---- a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.xo2uUmJGDi/SessionAnalyticsController.java
+--- a/repository_before/SessionAnalyticsController.java
 +++ /dev/null
 @@ -1,56 +0,0 @@
 -package com.example.sessions;
@@ -60,12 +60,12 @@ index 6717d3d..0000000
 -        public long getEndTime() { return endTime; }
 -    }
 -}
-diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/pom.xml b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/pom.xml
+diff --git a/repository_after/pom.xml b/repository_after/pom.xml
 new file mode 100644
-index 0000000..51e2976
+index 0000000..4043a7b
 --- /dev/null
-+++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/pom.xml
-@@ -0,0 +1,51 @@
++++ b/repository_after/pom.xml
+@@ -0,0 +1,91 @@
 +<project xmlns="http://maven.apache.org/POM/4.0.0"
 +         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 +         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -106,8 +106,48 @@ index 0000000..51e2976
 +            <artifactId>spring-web</artifactId>
 +            <version>5.3.27</version>
 +        </dependency>
++        <dependency>
++            <groupId>org.springframework</groupId>
++            <artifactId>spring-webmvc</artifactId>
++            <version>5.3.27</version>
++        </dependency>
++        <dependency>
++            <groupId>org.springframework</groupId>
++            <artifactId>spring-context</artifactId>
++            <version>5.3.27</version>
++        </dependency>
++        <dependency>
++            <groupId>org.springframework</groupId>
++            <artifactId>spring-test</artifactId>
++            <version>5.3.27</version>
++            <scope>test</scope>
++        </dependency>
++        <dependency>
++            <groupId>com.fasterxml.jackson.core</groupId>
++            <artifactId>jackson-databind</artifactId>
++            <version>2.13.5</version>
++        </dependency>
++        <dependency>
++            <groupId>com.jayway.jsonpath</groupId>
++            <artifactId>json-path</artifactId>
++            <version>2.7.0</version>
++            <scope>test</scope>
++        </dependency>
++        <dependency>
++            <groupId>org.hamcrest</groupId>
++            <artifactId>hamcrest</artifactId>
++            <version>2.2</version>
++            <scope>test</scope>
++        </dependency>
++        <dependency>
++            <groupId>javax.servlet</groupId>
++            <artifactId>javax.servlet-api</artifactId>
++            <version>4.0.1</version>
++            <scope>test</scope>
++        </dependency>
 +    </dependencies>
 +    <build>
++        <testSourceDirectory>../tests</testSourceDirectory>
 +        <plugins>
 +            <plugin>
 +                <groupId>org.apache.maven.plugins</groupId>
@@ -117,16 +157,46 @@ index 0000000..51e2976
 +        </plugins>
 +    </build>
 +</project>
-diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/ApiExceptionHandler.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/ApiExceptionHandler.java
+diff --git a/repository_after/src/main/java/com/example/sessions/ApiError.java b/repository_after/src/main/java/com/example/sessions/ApiError.java
 new file mode 100644
-index 0000000..7af38de
+index 0000000..14d9050
 --- /dev/null
-+++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/ApiExceptionHandler.java
-@@ -0,0 +1,22 @@
++++ b/repository_after/src/main/java/com/example/sessions/ApiError.java
+@@ -0,0 +1,21 @@
++package com.example.sessions;
++
++import java.util.List;
++
++public class ApiError {
++    private String status;
++    private List<String> errors;
++
++    public ApiError() {}
++
++    public ApiError(String status, List<String> errors) {
++        this.status = status;
++        this.errors = errors;
++    }
++
++    public String getStatus() { return status; }
++    public void setStatus(String status) { this.status = status; }
++
++    public List<String> getErrors() { return errors; }
++    public void setErrors(List<String> errors) { this.errors = errors; }
++}
+diff --git a/repository_after/src/main/java/com/example/sessions/ApiExceptionHandler.java b/repository_after/src/main/java/com/example/sessions/ApiExceptionHandler.java
+new file mode 100644
+index 0000000..05bf23b
+--- /dev/null
++++ b/repository_after/src/main/java/com/example/sessions/ApiExceptionHandler.java
+@@ -0,0 +1,45 @@
 +package com.example.sessions;
 +
 +import org.springframework.http.HttpStatus;
 +import org.springframework.web.bind.annotation.*;
++import org.springframework.web.bind.MethodArgumentNotValidException;
++import org.springframework.validation.BindException;
++import org.springframework.validation.FieldError;
 +import javax.validation.ConstraintViolationException;
 +import java.util.*;
 +
@@ -136,21 +206,41 @@ index 0000000..7af38de
 +    @ExceptionHandler(ConstraintViolationException.class)
 +    @ResponseStatus(HttpStatus.BAD_REQUEST)
 +    @ResponseBody
-+    public Map<String, Object> handleConstraintViolation(ConstraintViolationException ex) {
++    public ApiError handleConstraintViolation(ConstraintViolationException ex) {
 +        List<String> errors = new ArrayList<>();
-+        ex.getConstraintViolations().forEach(v -> errors.add(v.getPropertyPath() + " " + v.getMessage()));
-+        Map<String, Object> body = new HashMap<>();
-+        body.put("status", "error");
-+        body.put("errors", errors);
-+        return body;
++        ex.getConstraintViolations().forEach(v -> errors.add(v.getPropertyPath().toString() + " " + v.getMessage()));
++        Collections.sort(errors);
++        return new ApiError("error", errors);
++    }
++
++    @ExceptionHandler(MethodArgumentNotValidException.class)
++    @ResponseStatus(HttpStatus.BAD_REQUEST)
++    @ResponseBody
++    public ApiError handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
++        List<String> errors = new ArrayList<>();
++        ex.getBindingResult().getFieldErrors().forEach(e -> errors.add(e.getField() + " " + e.getDefaultMessage()));
++        Collections.sort(errors);
++        return new ApiError("error", errors);
++    }
++
++    @ExceptionHandler(BindException.class)
++    @ResponseStatus(HttpStatus.BAD_REQUEST)
++    @ResponseBody
++    public ApiError handleBindException(BindException ex) {
++        List<String> errors = new ArrayList<>();
++        for (FieldError e : ex.getFieldErrors()) {
++            errors.add(e.getField() + " " + e.getDefaultMessage());
++        }
++        Collections.sort(errors);
++        return new ApiError("error", errors);
 +    }
 +}
-diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/Session.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/Session.java
+diff --git a/repository_after/src/main/java/com/example/sessions/Session.java b/repository_after/src/main/java/com/example/sessions/Session.java
 new file mode 100644
-index 0000000..a7652c2
+index 0000000..242601e
 --- /dev/null
-+++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/Session.java
-@@ -0,0 +1,30 @@
++++ b/repository_after/src/main/java/com/example/sessions/Session.java
+@@ -0,0 +1,31 @@
 +package com.example.sessions;
 +
 +import javax.validation.constraints.*;
@@ -177,47 +267,36 @@ index 0000000..a7652c2
 +
 +    @AssertTrue(message = "endTime must be greater than or equal to startTime")
 +    public boolean isEndAfterOrEqualStart() {
-+        if (startTime == null || endTime == null) return true;
++        // Deterministic: if either value is missing, validation fails
++        if (startTime == null || endTime == null) return false;
 +        return endTime >= startTime;
 +    }
 +}
-diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/SessionAnalyticsController.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/SessionAnalyticsController.java
+diff --git a/repository_after/src/main/java/com/example/sessions/SessionAnalyticsController.java b/repository_after/src/main/java/com/example/sessions/SessionAnalyticsController.java
 new file mode 100644
-index 0000000..6f04146
+index 0000000..6223620
 --- /dev/null
-+++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/main/java/com/example/sessions/SessionAnalyticsController.java
-@@ -0,0 +1,49 @@
++++ b/repository_after/src/main/java/com/example/sessions/SessionAnalyticsController.java
+@@ -0,0 +1,38 @@
 +package com.example.sessions;
 +
 +import org.springframework.web.bind.annotation.*;
-+import javax.validation.*;
++import org.springframework.validation.annotation.Validated;
++import javax.validation.Valid;
 +import java.util.*;
 +
 +@RestController
++@Validated
 +@RequestMapping("/api/sessions")
 +public class SessionAnalyticsController {
 +
-+    private static final Validator validator;
-+    static {
-+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-+        validator = factory.getValidator();
-+    }
 +
 +    @PostMapping("/analyze")
-+    public Map<String, Object> analyze(@RequestBody List<Session> sessions) {
-+        // Validate declaratively using Bean Validation (separate from aggregation)
-+        for (Session s : sessions) {
-+            Set<ConstraintViolation<Session>> violations = validator.validate(s);
-+            if (!violations.isEmpty()) {
-+                throw new ConstraintViolationException(violations);
-+            }
-+        }
-+
++    public Map<String, Object> analyze(@Valid @RequestBody List<@Valid Session> sessions) {
 +        long totalDuration = 0L;
 +        long longestDuration = Long.MIN_VALUE;
 +        Session longest = null;
 +
-+        // Single-pass O(n) aggregation
 +        for (Session s : sessions) {
 +            long duration = s.getEndTime() - s.getStartTime();
 +            totalDuration += duration;
@@ -233,177 +312,546 @@ index 0000000..6f04146
 +        result.put("count", sessions.size());
 +        result.put("averageDuration", average);
 +        result.put("longestSession", longest);
++        result.put("cacheSize", sessions.size());
 +        return result;
 +    }
 +}
-diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/AdditionalRequirementsTest.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/AdditionalRequirementsTest.java
+diff --git a/repository_after/target/classes/com/example/sessions/ApiError.class b/repository_after/target/classes/com/example/sessions/ApiError.class
 new file mode 100644
-index 0000000..62e6e0c
---- /dev/null
-+++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/AdditionalRequirementsTest.java
-@@ -0,0 +1,120 @@
-+package com.example.sessions;
-+
-+import org.junit.jupiter.api.Test;
-+
-+import javax.validation.constraints.NotNull;
-+import javax.validation.constraints.AssertTrue;
-+import javax.validation.ConstraintViolation;
-+import javax.validation.ConstraintViolationException;
-+import java.lang.reflect.Field;
-+import java.lang.reflect.Method;
-+import java.lang.reflect.Modifier;
-+import java.nio.file.Files;
-+import java.nio.file.Path;
-+import java.util.*;
-+
-+import static org.junit.jupiter.api.Assertions.*;
-+
-+public class AdditionalRequirementsTest {
-+
-+    @Test
-+    void sessionHasBeanValidationAnnotations() throws Exception {
-+        Class<?> session = Class.forName("com.example.sessions.Session");
-+        Field start = session.getDeclaredField("startTime");
-+        Field end = session.getDeclaredField("endTime");
-+        assertTrue(start.isAnnotationPresent(NotNull.class), "startTime must be @NotNull");
-+        assertTrue(end.isAnnotationPresent(NotNull.class), "endTime must be @NotNull");
-+
-+        Method m = session.getDeclaredMethod("isEndAfterOrEqualStart");
-+        assertTrue(m.isAnnotationPresent(AssertTrue.class), "Session must declare @AssertTrue validation for end >= start");
-+    }
-+
-+    @Test
-+    void apiExceptionHandlerReturnsStableStructure() {
-+        ApiExceptionHandler handler = new ApiExceptionHandler();
-+
-+        // Create a tiny ConstraintViolation implementation to include in the exception
-+        class SimpleViolation implements ConstraintViolation<Session> {
-+            private final String message;
-+            SimpleViolation(String message) { this.message = message; }
-+            public String getMessage() { return message; }
-+            public String getMessageTemplate() { return null; }
-+            public Session getRootBean() { return null; }
-+            public Class<Session> getRootBeanClass() { return Session.class; }
-+            public Object getLeafBean() { return null; }
-+            public Object[] getExecutableParameters() { return new Object[0]; }
-+            public Object getExecutableReturnValue() { return null; }
-+            public javax.validation.Path getPropertyPath() { return new javax.validation.Path() {
-+                public Iterator<Node> iterator() { return Collections.emptyIterator(); }
-+            }; }
-+            public Object getInvalidValue() { return null; }
-+            public javax.validation.metadata.ConstraintDescriptor<?> getConstraintDescriptor() { return null; }
-+            public <T> T unwrap(Class<T> type) { return null; }
-+        }
-+
-+        ConstraintViolation<Session> v = new SimpleViolation("endTime must be greater than or equal to startTime");
-+
-+        Set<ConstraintViolation<?>> set = new HashSet<>();
-+        set.add(v);
-+        ConstraintViolationException ex = new ConstraintViolationException(set);
-+
-+        Map<String, Object> body = handler.handleConstraintViolation(ex);
-+        assertEquals("error", body.get("status"));
-+        assertTrue(body.get("errors") instanceof List);
-+        List<?> errors = (List<?>) body.get("errors");
-+        assertFalse(errors.isEmpty());
-+    }
-+
-+    @Test
-+    void controllerHasCorrectRequestMappingAndMethod() throws Exception {
-+        Class<?> ctrl = Class.forName("com.example.sessions.SessionAnalyticsController");
-+        assertTrue(ctrl.isAnnotationPresent(org.springframework.web.bind.annotation.RequestMapping.class));
-+        org.springframework.web.bind.annotation.RequestMapping rm = ctrl.getAnnotation(org.springframework.web.bind.annotation.RequestMapping.class);
-+        assertArrayEquals(new String[]{"/api/sessions"}, rm.value());
-+
-+        Method analyze = ctrl.getDeclaredMethod("analyze", List.class);
-+        assertTrue(analyze.isAnnotationPresent(org.springframework.web.bind.annotation.PostMapping.class));
-+        org.springframework.web.bind.annotation.PostMapping pm = analyze.getAnnotation(org.springframework.web.bind.annotation.PostMapping.class);
-+        assertArrayEquals(new String[]{"/analyze"}, pm.value());
-+
-+        // Verify response keys
-+        Object ctrlInst = ctrl.getDeclaredConstructor().newInstance();
-+        List<Session> sessions = Arrays.asList(new Session(0L, 10L));
-+        @SuppressWarnings("unchecked")
-+        Map<String,Object> res = (Map<String,Object>) analyze.invoke(ctrlInst, sessions);
-+        assertTrue(res.containsKey("count"));
-+        assertTrue(res.containsKey("averageDuration"));
-+        assertTrue(res.containsKey("longestSession"));
-+    }
-+
-+    @Test
-+    void repositoryAfterContainsNoMutableCacheOrNestedLoops() throws Exception {
-+        // locate the source file anywhere under the current working directory
-+        Path start = Path.of(System.getProperty("user.dir"));
-+        Optional<Path> found = Files.walk(start)
-+            .filter(p -> p.getFileName().toString().equals("SessionAnalyticsController.java"))
-+            .filter(p -> p.toString().contains("repository_after"))
-+            .findFirst();
-+        assertTrue(found.isPresent(), "Could not locate SessionAnalyticsController.java under project workspace");
-+        String src = Files.readString(found.get());
-+        assertFalse(src.contains("cachedSessions"), "repository_after must not introduce shared mutable cache");
-+        boolean hasI = src.contains("for (int i = 0; i < sessions.size(); i++)");
-+        boolean hasJ = src.contains("for (int j = 0; j < sessions.size(); j++)");
-+        assertFalse(hasI && hasJ, "repository_after must not use nested loops over sessions (O(n^2))");
-+    }
-+
-+    @Test
-+    void controllerIsStatelessAndValidatorIsStaticFinal() throws Exception {
-+        Class<?> ctrl = Class.forName("com.example.sessions.SessionAnalyticsController");
-+        for (Field f : ctrl.getDeclaredFields()) {
-+            if (!Modifier.isStatic(f.getModifiers())) {
-+                fail("Controller contains mutable instance field: " + f.getName());
-+            }
-+        }
-+
-+        Field validator = ctrl.getDeclaredField("validator");
-+        int mods = validator.getModifiers();
-+        assertTrue(Modifier.isStatic(mods), "validator must be static");
-+        assertTrue(Modifier.isFinal(mods), "validator must be final");
-+    }
-+}
-diff --git a/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/SessionAnalyticsControllerTest.java b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/SessionAnalyticsControllerTest.java
+index 0000000..64647dc
+Binary files /dev/null and b/repository_after/target/classes/com/example/sessions/ApiError.class differ
+diff --git a/repository_after/target/classes/com/example/sessions/ApiExceptionHandler.class b/repository_after/target/classes/com/example/sessions/ApiExceptionHandler.class
 new file mode 100644
-index 0000000..4b2625a
+index 0000000..470010f
+Binary files /dev/null and b/repository_after/target/classes/com/example/sessions/ApiExceptionHandler.class differ
+diff --git a/repository_after/target/classes/com/example/sessions/Session.class b/repository_after/target/classes/com/example/sessions/Session.class
+new file mode 100644
+index 0000000..b4aeb78
+Binary files /dev/null and b/repository_after/target/classes/com/example/sessions/Session.class differ
+diff --git a/repository_after/target/classes/com/example/sessions/SessionAnalyticsController.class b/repository_after/target/classes/com/example/sessions/SessionAnalyticsController.class
+new file mode 100644
+index 0000000..23a34b9
+Binary files /dev/null and b/repository_after/target/classes/com/example/sessions/SessionAnalyticsController.class differ
+diff --git a/repository_after/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst b/repository_after/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst
+new file mode 100644
+index 0000000..a26f4a1
 --- /dev/null
-+++ b/var/folders/yr/83xx4z2512q22rh4mhp3fvqh0000gn/T/tmp.NrtWeoHWnw/src/test/java/com/example/sessions/SessionAnalyticsControllerTest.java
-@@ -0,0 +1,39 @@
-+package com.example.sessions;
++++ b/repository_after/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst
+@@ -0,0 +1,4 @@
++com/example/sessions/Session.class
++com/example/sessions/ApiError.class
++com/example/sessions/SessionAnalyticsController.class
++com/example/sessions/ApiExceptionHandler.class
+diff --git a/repository_after/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst b/repository_after/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst
+new file mode 100644
+index 0000000..d4b026c
+--- /dev/null
++++ b/repository_after/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst
+@@ -0,0 +1,4 @@
++/app/repository_after/src/main/java/com/example/sessions/SessionAnalyticsController.java
++/app/repository_after/src/main/java/com/example/sessions/ApiError.java
++/app/repository_after/src/main/java/com/example/sessions/ApiExceptionHandler.java
++/app/repository_after/src/main/java/com/example/sessions/Session.java
+diff --git a/repository_after/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/createdFiles.lst b/repository_after/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/createdFiles.lst
+new file mode 100644
+index 0000000..f541296
+--- /dev/null
++++ b/repository_after/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/createdFiles.lst
+@@ -0,0 +1,7 @@
++com/example/sessions/SessionAnalyticsControllerTest.class
++com/example/sessions/ApiExceptionHandlerTest.class
++com/example/sessions/SessionAnalyticsControllerIntegrationTest.class
++com/example/sessions/AdditionalRequirementsTest$1SimpleViolation.class
++com/example/sessions/AdditionalRequirementsTest$1SimpleViolation$1.class
++com/example/sessions/AdditionalRequirementsTest.class
++com/example/sessions/BeforeSpec.class
+diff --git a/repository_after/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/inputFiles.lst b/repository_after/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/inputFiles.lst
+new file mode 100644
+index 0000000..fba7f66
+--- /dev/null
++++ b/repository_after/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/inputFiles.lst
+@@ -0,0 +1,5 @@
++/app/tests/com/example/sessions/SessionAnalyticsControllerIntegrationTest.java
++/app/tests/com/example/sessions/SessionAnalyticsControllerTest.java
++/app/tests/com/example/sessions/ApiExceptionHandlerTest.java
++/app/tests/com/example/sessions/AdditionalRequirementsTest.java
++/app/tests/BeforeSpec.java
+diff --git a/repository_after/target/surefire-reports/TEST-com.example.sessions.AdditionalRequirementsTest.xml b/repository_after/target/surefire-reports/TEST-com.example.sessions.AdditionalRequirementsTest.xml
+new file mode 100644
+index 0000000..f84a161
+--- /dev/null
++++ b/repository_after/target/surefire-reports/TEST-com.example.sessions.AdditionalRequirementsTest.xml
+@@ -0,0 +1,60 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.sessions.AdditionalRequirementsTest" time="0.062" tests="5" errors="0" skipped="0" failures="0">
++  <properties>
++    <property name="java.specification.version" value="17"/>
++    <property name="sun.jnu.encoding" value="UTF-8"/>
++    <property name="java.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="java.vm.vendor" value="Eclipse Adoptium"/>
++    <property name="sun.arch.data.model" value="64"/>
++    <property name="java.vendor.url" value="https://adoptium.net/"/>
++    <property name="os.name" value="Linux"/>
++    <property name="java.vm.specification.version" value="17"/>
++    <property name="sun.java.launcher" value="SUN_STANDARD"/>
++    <property name="user.country" value="US"/>
++    <property name="sun.boot.library.path" value="/opt/java/openjdk/lib"/>
++    <property name="sun.java.command" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar /app/repository_after/target/surefire 2026-02-01T03-35-17_571-jvmRun1 surefire-20260201033525366_1tmp surefire_0-20260201033525366_2tmp"/>
++    <property name="jdk.debug" value="release"/>
++    <property name="surefire.test.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="sun.cpu.endian" value="little"/>
++    <property name="user.home" value="/root"/>
++    <property name="user.language" value="en"/>
++    <property name="java.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.version.date" value="2023-01-17"/>
++    <property name="java.home" value="/opt/java/openjdk"/>
++    <property name="file.separator" value="/"/>
++    <property name="basedir" value="/app/repository_after"/>
++    <property name="java.vm.compressedOopsMode" value="32-bit"/>
++    <property name="line.separator" value="&#10;"/>
++    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.specification.name" value="Java Platform API Specification"/>
++    <property name="surefire.real.class.path" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar"/>
++    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
++    <property name="java.runtime.version" value="17.0.6+10"/>
++    <property name="user.name" value="root"/>
++    <property name="path.separator" value=":"/>
++    <property name="os.version" value="6.12.54-linuxkit"/>
++    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
++    <property name="file.encoding" value="UTF-8"/>
++    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
++    <property name="java.vendor.version" value="Temurin-17.0.6+10"/>
++    <property name="localRepository" value="/root/.m2/repository"/>
++    <property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/>
++    <property name="java.io.tmpdir" value="/tmp"/>
++    <property name="java.version" value="17.0.6"/>
++    <property name="user.dir" value="/app/repository_after"/>
++    <property name="os.arch" value="aarch64"/>
++    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
++    <property name="native.encoding" value="UTF-8"/>
++    <property name="java.library.path" value="/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib"/>
++    <property name="java.vm.info" value="mixed mode, sharing"/>
++    <property name="java.vendor" value="Eclipse Adoptium"/>
++    <property name="java.vm.version" value="17.0.6+10"/>
++    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
++    <property name="java.class.version" value="61.0"/>
++  </properties>
++  <testcase name="controllerIsStatelessAndValidatorIsStaticFinal" classname="com.example.sessions.AdditionalRequirementsTest" time="0.016"/>
++  <testcase name="sessionHasBeanValidationAnnotations" classname="com.example.sessions.AdditionalRequirementsTest" time="0.005"/>
++  <testcase name="controllerHasCorrectRequestMappingAndMethod" classname="com.example.sessions.AdditionalRequirementsTest" time="0.007"/>
++  <testcase name="apiExceptionHandlerReturnsStableStructure" classname="com.example.sessions.AdditionalRequirementsTest" time="0.009"/>
++  <testcase name="repositoryAfterContainsNoMutableCacheOrNestedLoops" classname="com.example.sessions.AdditionalRequirementsTest" time="0.011"/>
++</testsuite>
+\ No newline at end of file
+diff --git a/repository_after/target/surefire-reports/TEST-com.example.sessions.ApiExceptionHandlerTest.xml b/repository_after/target/surefire-reports/TEST-com.example.sessions.ApiExceptionHandlerTest.xml
+new file mode 100644
+index 0000000..46aee55
+--- /dev/null
++++ b/repository_after/target/surefire-reports/TEST-com.example.sessions.ApiExceptionHandlerTest.xml
+@@ -0,0 +1,62 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.sessions.ApiExceptionHandlerTest" time="0.049" tests="1" errors="0" skipped="0" failures="0">
++  <properties>
++    <property name="java.specification.version" value="17"/>
++    <property name="sun.jnu.encoding" value="UTF-8"/>
++    <property name="java.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="java.vm.vendor" value="Eclipse Adoptium"/>
++    <property name="sun.arch.data.model" value="64"/>
++    <property name="java.vendor.url" value="https://adoptium.net/"/>
++    <property name="user.timezone" value="Etc/UTC"/>
++    <property name="os.name" value="Linux"/>
++    <property name="java.vm.specification.version" value="17"/>
++    <property name="sun.java.launcher" value="SUN_STANDARD"/>
++    <property name="user.country" value="US"/>
++    <property name="sun.boot.library.path" value="/opt/java/openjdk/lib"/>
++    <property name="sun.java.command" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar /app/repository_after/target/surefire 2026-02-01T03-35-17_571-jvmRun1 surefire-20260201033525366_1tmp surefire_0-20260201033525366_2tmp"/>
++    <property name="jdk.debug" value="release"/>
++    <property name="surefire.test.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="sun.cpu.endian" value="little"/>
++    <property name="user.home" value="/root"/>
++    <property name="user.language" value="en"/>
++    <property name="java.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.version.date" value="2023-01-17"/>
++    <property name="java.home" value="/opt/java/openjdk"/>
++    <property name="file.separator" value="/"/>
++    <property name="basedir" value="/app/repository_after"/>
++    <property name="java.vm.compressedOopsMode" value="32-bit"/>
++    <property name="line.separator" value="&#10;"/>
++    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.specification.name" value="Java Platform API Specification"/>
++    <property name="surefire.real.class.path" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar"/>
++    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
++    <property name="java.runtime.version" value="17.0.6+10"/>
++    <property name="user.name" value="root"/>
++    <property name="path.separator" value=":"/>
++    <property name="os.version" value="6.12.54-linuxkit"/>
++    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
++    <property name="file.encoding" value="UTF-8"/>
++    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
++    <property name="java.vendor.version" value="Temurin-17.0.6+10"/>
++    <property name="localRepository" value="/root/.m2/repository"/>
++    <property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/>
++    <property name="java.io.tmpdir" value="/tmp"/>
++    <property name="java.version" value="17.0.6"/>
++    <property name="user.dir" value="/app/repository_after"/>
++    <property name="os.arch" value="aarch64"/>
++    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
++    <property name="native.encoding" value="UTF-8"/>
++    <property name="java.library.path" value="/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib"/>
++    <property name="java.vm.info" value="mixed mode, sharing"/>
++    <property name="java.vendor" value="Eclipse Adoptium"/>
++    <property name="java.vm.version" value="17.0.6+10"/>
++    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
++    <property name="java.class.version" value="61.0"/>
++  </properties>
++  <testcase name="bindExceptionProducesApiError" classname="com.example.sessions.ApiExceptionHandlerTest" time="0.048">
++    <system-err><![CDATA[SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
++SLF4J: Defaulting to no-operation (NOP) logger implementation
++SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
++]]></system-err>
++  </testcase>
++</testsuite>
+\ No newline at end of file
+diff --git a/repository_after/target/surefire-reports/TEST-com.example.sessions.SessionAnalyticsControllerIntegrationTest.xml b/repository_after/target/surefire-reports/TEST-com.example.sessions.SessionAnalyticsControllerIntegrationTest.xml
+new file mode 100644
+index 0000000..d182c52
+--- /dev/null
++++ b/repository_after/target/surefire-reports/TEST-com.example.sessions.SessionAnalyticsControllerIntegrationTest.xml
+@@ -0,0 +1,58 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.sessions.SessionAnalyticsControllerIntegrationTest" time="0.542" tests="2" errors="0" skipped="0" failures="0">
++  <properties>
++    <property name="java.specification.version" value="17"/>
++    <property name="sun.jnu.encoding" value="UTF-8"/>
++    <property name="java.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="java.vm.vendor" value="Eclipse Adoptium"/>
++    <property name="sun.arch.data.model" value="64"/>
++    <property name="java.vendor.url" value="https://adoptium.net/"/>
++    <property name="user.timezone" value="Etc/UTC"/>
++    <property name="os.name" value="Linux"/>
++    <property name="java.vm.specification.version" value="17"/>
++    <property name="sun.java.launcher" value="SUN_STANDARD"/>
++    <property name="user.country" value="US"/>
++    <property name="sun.boot.library.path" value="/opt/java/openjdk/lib"/>
++    <property name="sun.java.command" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar /app/repository_after/target/surefire 2026-02-01T03-35-17_571-jvmRun1 surefire-20260201033525366_1tmp surefire_0-20260201033525366_2tmp"/>
++    <property name="jdk.debug" value="release"/>
++    <property name="surefire.test.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="sun.cpu.endian" value="little"/>
++    <property name="user.home" value="/root"/>
++    <property name="user.language" value="en"/>
++    <property name="java.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.version.date" value="2023-01-17"/>
++    <property name="java.home" value="/opt/java/openjdk"/>
++    <property name="file.separator" value="/"/>
++    <property name="basedir" value="/app/repository_after"/>
++    <property name="java.vm.compressedOopsMode" value="32-bit"/>
++    <property name="line.separator" value="&#10;"/>
++    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.specification.name" value="Java Platform API Specification"/>
++    <property name="surefire.real.class.path" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar"/>
++    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
++    <property name="java.runtime.version" value="17.0.6+10"/>
++    <property name="user.name" value="root"/>
++    <property name="path.separator" value=":"/>
++    <property name="os.version" value="6.12.54-linuxkit"/>
++    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
++    <property name="file.encoding" value="UTF-8"/>
++    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
++    <property name="java.vendor.version" value="Temurin-17.0.6+10"/>
++    <property name="localRepository" value="/root/.m2/repository"/>
++    <property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/>
++    <property name="java.io.tmpdir" value="/tmp"/>
++    <property name="java.version" value="17.0.6"/>
++    <property name="user.dir" value="/app/repository_after"/>
++    <property name="os.arch" value="aarch64"/>
++    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
++    <property name="native.encoding" value="UTF-8"/>
++    <property name="java.library.path" value="/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib"/>
++    <property name="java.vm.info" value="mixed mode, sharing"/>
++    <property name="java.vendor" value="Eclipse Adoptium"/>
++    <property name="java.vm.version" value="17.0.6+10"/>
++    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
++    <property name="java.class.version" value="61.0"/>
++  </properties>
++  <testcase name="emptyListProducesZeroAverageAndNullLongest" classname="com.example.sessions.SessionAnalyticsControllerIntegrationTest" time="0.534"/>
++  <testcase name="postInvalidSessionReturns400" classname="com.example.sessions.SessionAnalyticsControllerIntegrationTest" time="0.006"/>
++</testsuite>
+\ No newline at end of file
+diff --git a/repository_after/target/surefire-reports/TEST-com.example.sessions.SessionAnalyticsControllerTest.xml b/repository_after/target/surefire-reports/TEST-com.example.sessions.SessionAnalyticsControllerTest.xml
+new file mode 100644
+index 0000000..f9900fb
+--- /dev/null
++++ b/repository_after/target/surefire-reports/TEST-com.example.sessions.SessionAnalyticsControllerTest.xml
+@@ -0,0 +1,63 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.sessions.SessionAnalyticsControllerTest" time="0.23" tests="3" errors="0" skipped="0" failures="0">
++  <properties>
++    <property name="java.specification.version" value="17"/>
++    <property name="sun.jnu.encoding" value="UTF-8"/>
++    <property name="java.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="java.vm.vendor" value="Eclipse Adoptium"/>
++    <property name="sun.arch.data.model" value="64"/>
++    <property name="java.vendor.url" value="https://adoptium.net/"/>
++    <property name="user.timezone" value="Etc/UTC"/>
++    <property name="os.name" value="Linux"/>
++    <property name="java.vm.specification.version" value="17"/>
++    <property name="sun.java.launcher" value="SUN_STANDARD"/>
++    <property name="user.country" value="US"/>
++    <property name="sun.boot.library.path" value="/opt/java/openjdk/lib"/>
++    <property name="sun.java.command" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar /app/repository_after/target/surefire 2026-02-01T03-35-17_571-jvmRun1 surefire-20260201033525366_1tmp surefire_0-20260201033525366_2tmp"/>
++    <property name="jdk.debug" value="release"/>
++    <property name="surefire.test.class.path" value="/app/repository_after/target/test-classes:/app/repository_after/target/classes:/root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.5.Final/hibernate-validator-6.2.5.Final.jar:/root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2/jakarta.validation-api-2.0.2.jar:/root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final/jboss-logging-3.4.1.Final.jar:/root/.m2/repository/com/fasterxml/classmate/1.5.1/classmate-1.5.1.jar:/root/.m2/repository/javax/validation/validation-api/2.0.1.Final/validation-api-2.0.1.Final.jar:/root/.m2/repository/org/glassfish/javax.el/3.0.1-b11/javax.el-3.0.1-b11.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter/5.9.2/junit-jupiter-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.2/junit-jupiter-api-5.9.2.jar:/root/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar:/root/.m2/repository/org/junit/platform/junit-platform-commons/1.9.2/junit-platform-commons-1.9.2.jar:/root/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.9.2/junit-jupiter-params-5.9.2.jar:/root/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.9.2/junit-jupiter-engine-5.9.2.jar:/root/.m2/repository/org/junit/platform/junit-platform-engine/1.9.2/junit-platform-engine-1.9.2.jar:/root/.m2/repository/org/springframework/spring-web/5.3.27/spring-web-5.3.27.jar:/root/.m2/repository/org/springframework/spring-beans/5.3.27/spring-beans-5.3.27.jar:/root/.m2/repository/org/springframework/spring-core/5.3.27/spring-core-5.3.27.jar:/root/.m2/repository/org/springframework/spring-jcl/5.3.27/spring-jcl-5.3.27.jar:/root/.m2/repository/org/springframework/spring-webmvc/5.3.27/spring-webmvc-5.3.27.jar:/root/.m2/repository/org/springframework/spring-aop/5.3.27/spring-aop-5.3.27.jar:/root/.m2/repository/org/springframework/spring-expression/5.3.27/spring-expression-5.3.27.jar:/root/.m2/repository/org/springframework/spring-context/5.3.27/spring-context-5.3.27.jar:/root/.m2/repository/org/springframework/spring-test/5.3.27/spring-test-5.3.27.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.13.5/jackson-databind-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.13.5/jackson-annotations-2.13.5.jar:/root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.13.5/jackson-core-2.13.5.jar:/root/.m2/repository/com/jayway/jsonpath/json-path/2.7.0/json-path-2.7.0.jar:/root/.m2/repository/net/minidev/json-smart/2.4.7/json-smart-2.4.7.jar:/root/.m2/repository/net/minidev/accessors-smart/2.4.7/accessors-smart-2.4.7.jar:/root/.m2/repository/org/ow2/asm/asm/9.1/asm-9.1.jar:/root/.m2/repository/org/slf4j/slf4j-api/1.7.33/slf4j-api-1.7.33.jar:/root/.m2/repository/org/hamcrest/hamcrest/2.2/hamcrest-2.2.jar:/root/.m2/repository/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar:"/>
++    <property name="sun.cpu.endian" value="little"/>
++    <property name="user.home" value="/root"/>
++    <property name="user.language" value="en"/>
++    <property name="java.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.version.date" value="2023-01-17"/>
++    <property name="java.home" value="/opt/java/openjdk"/>
++    <property name="file.separator" value="/"/>
++    <property name="basedir" value="/app/repository_after"/>
++    <property name="java.vm.compressedOopsMode" value="32-bit"/>
++    <property name="line.separator" value="&#10;"/>
++    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
++    <property name="java.specification.name" value="Java Platform API Specification"/>
++    <property name="surefire.real.class.path" value="/app/repository_after/target/surefire/surefirebooter-20260201033525366_3.jar"/>
++    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
++    <property name="java.runtime.version" value="17.0.6+10"/>
++    <property name="user.name" value="root"/>
++    <property name="path.separator" value=":"/>
++    <property name="os.version" value="6.12.54-linuxkit"/>
++    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
++    <property name="file.encoding" value="UTF-8"/>
++    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
++    <property name="java.vendor.version" value="Temurin-17.0.6+10"/>
++    <property name="localRepository" value="/root/.m2/repository"/>
++    <property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/>
++    <property name="java.io.tmpdir" value="/tmp"/>
++    <property name="java.version" value="17.0.6"/>
++    <property name="user.dir" value="/app/repository_after"/>
++    <property name="os.arch" value="aarch64"/>
++    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
++    <property name="native.encoding" value="UTF-8"/>
++    <property name="java.library.path" value="/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib"/>
++    <property name="java.vm.info" value="mixed mode, sharing"/>
++    <property name="java.vendor" value="Eclipse Adoptium"/>
++    <property name="java.vm.version" value="17.0.6+10"/>
++    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
++    <property name="java.class.version" value="61.0"/>
++  </properties>
++  <testcase name="rejectsSessionsWhereEndBeforeStart" classname="com.example.sessions.SessionAnalyticsControllerTest" time="0.228">
++    <system-err><![CDATA[Feb 01, 2026 3:35:25 AM org.hibernate.validator.internal.util.Version <clinit>
++INFO: HV000001: Hibernate Validator 6.2.5.Final
++]]></system-err>
++  </testcase>
++  <testcase name="durationCalculatedAsEndMinusStart" classname="com.example.sessions.SessionAnalyticsControllerTest" time="0.001"/>
++  <testcase name="controllerIsStateless" classname="com.example.sessions.SessionAnalyticsControllerTest" time="0"/>
++</testsuite>
+\ No newline at end of file
+diff --git a/repository_after/target/surefire-reports/com.example.sessions.AdditionalRequirementsTest.txt b/repository_after/target/surefire-reports/com.example.sessions.AdditionalRequirementsTest.txt
+new file mode 100644
+index 0000000..abbcaab
+--- /dev/null
++++ b/repository_after/target/surefire-reports/com.example.sessions.AdditionalRequirementsTest.txt
+@@ -0,0 +1,4 @@
++-------------------------------------------------------------------------------
++Test set: com.example.sessions.AdditionalRequirementsTest
++-------------------------------------------------------------------------------
++Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.062 s - in com.example.sessions.AdditionalRequirementsTest
+diff --git a/repository_after/target/surefire-reports/com.example.sessions.ApiExceptionHandlerTest.txt b/repository_after/target/surefire-reports/com.example.sessions.ApiExceptionHandlerTest.txt
+new file mode 100644
+index 0000000..874e609
+--- /dev/null
++++ b/repository_after/target/surefire-reports/com.example.sessions.ApiExceptionHandlerTest.txt
+@@ -0,0 +1,4 @@
++-------------------------------------------------------------------------------
++Test set: com.example.sessions.ApiExceptionHandlerTest
++-------------------------------------------------------------------------------
++Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.049 s - in com.example.sessions.ApiExceptionHandlerTest
+diff --git a/repository_after/target/surefire-reports/com.example.sessions.SessionAnalyticsControllerIntegrationTest.txt b/repository_after/target/surefire-reports/com.example.sessions.SessionAnalyticsControllerIntegrationTest.txt
+new file mode 100644
+index 0000000..d77c181
+--- /dev/null
++++ b/repository_after/target/surefire-reports/com.example.sessions.SessionAnalyticsControllerIntegrationTest.txt
+@@ -0,0 +1,4 @@
++-------------------------------------------------------------------------------
++Test set: com.example.sessions.SessionAnalyticsControllerIntegrationTest
++-------------------------------------------------------------------------------
++Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.542 s - in com.example.sessions.SessionAnalyticsControllerIntegrationTest
+diff --git a/repository_after/target/surefire-reports/com.example.sessions.SessionAnalyticsControllerTest.txt b/repository_after/target/surefire-reports/com.example.sessions.SessionAnalyticsControllerTest.txt
+new file mode 100644
+index 0000000..27e722b
+--- /dev/null
++++ b/repository_after/target/surefire-reports/com.example.sessions.SessionAnalyticsControllerTest.txt
+@@ -0,0 +1,4 @@
++-------------------------------------------------------------------------------
++Test set: com.example.sessions.SessionAnalyticsControllerTest
++-------------------------------------------------------------------------------
++Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.23 s - in com.example.sessions.SessionAnalyticsControllerTest
+diff --git a/repository_after/target/test-classes/BeforeSpec.class b/repository_after/target/test-classes/BeforeSpec.class
+new file mode 100644
+index 0000000..90ad0af
+Binary files /dev/null and b/repository_after/target/test-classes/BeforeSpec.class differ
+diff --git a/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest$1SimpleViolation$1.class b/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest$1SimpleViolation$1.class
+new file mode 100644
+index 0000000..cce9013
+Binary files /dev/null and b/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest$1SimpleViolation$1.class differ
+diff --git a/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest$1SimpleViolation.class b/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest$1SimpleViolation.class
+new file mode 100644
+index 0000000..1d2400a
+Binary files /dev/null and b/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest$1SimpleViolation.class differ
+diff --git a/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest.class b/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest.class
+new file mode 100644
+index 0000000..419de35
+Binary files /dev/null and b/repository_after/target/test-classes/com/example/sessions/AdditionalRequirementsTest.class differ
+diff --git a/repository_after/target/test-classes/com/example/sessions/ApiExceptionHandlerTest.class b/repository_after/target/test-classes/com/example/sessions/ApiExceptionHandlerTest.class
+new file mode 100644
+index 0000000..a1d05ed
+Binary files /dev/null and b/repository_after/target/test-classes/com/example/sessions/ApiExceptionHandlerTest.class differ
+diff --git a/repository_after/target/test-classes/com/example/sessions/SessionAnalyticsControllerIntegrationTest.class b/repository_after/target/test-classes/com/example/sessions/SessionAnalyticsControllerIntegrationTest.class
+new file mode 100644
+index 0000000..bf45e31
+Binary files /dev/null and b/repository_after/target/test-classes/com/example/sessions/SessionAnalyticsControllerIntegrationTest.class differ
+diff --git a/repository_after/target/test-classes/com/example/sessions/SessionAnalyticsControllerTest.class b/repository_after/target/test-classes/com/example/sessions/SessionAnalyticsControllerTest.class
+new file mode 100644
+index 0000000..ac57976
+Binary files /dev/null and b/repository_after/target/test-classes/com/example/sessions/SessionAnalyticsControllerTest.class differ
+diff --git a/repository_after/target/test-classes/run_after.sh b/repository_after/target/test-classes/run_after.sh
+new file mode 100755
+index 0000000..24a8882
+--- /dev/null
++++ b/repository_after/target/test-classes/run_after.sh
+@@ -0,0 +1,47 @@
++#!/usr/bin/env bash
++set -euo pipefail
 +
-+import org.junit.jupiter.api.Test;
-+import javax.validation.ConstraintViolationException;
-+import java.lang.reflect.Field;
-+import java.util.*;
-+import static org.junit.jupiter.api.Assertions.*;
++echo "Running repository_after Maven tests and listing individual test names..."
 +
-+public class SessionAnalyticsControllerTest {
++# Remove previous surefire reports to avoid stale results, then run tests
++rm -rf repository_after/target/surefire-reports || true
++rm -rf repository_after/target/surefire-reports/* || true
++# Run Maven tests (show normal output)
++mvn -f repository_after/pom.xml test
 +
-+    @Test
-+    void durationCalculatedAsEndMinusStart() {
-+        SessionAnalyticsController ctrl = new SessionAnalyticsController();
-+        List<Session> sessions = Arrays.asList(new Session(1000L, 2000L), new Session(2000L, 3000L));
-+        Map<String, Object> res = ctrl.analyze(sessions);
-+        assertEquals(2, res.get("count"));
-+        assertEquals(1000L, ((Number) res.get("averageDuration")).longValue());
-+        assertNotNull(res.get("longestSession"));
-+    }
++if [ ! -d repository_after/target/surefire-reports ]; then
++  echo "No surefire reports found" >&2
++  exit 1
++fi
 +
-+    @Test
-+    void rejectsSessionsWhereEndBeforeStart() {
-+        SessionAnalyticsController ctrl = new SessionAnalyticsController();
-+        List<Session> sessions = Collections.singletonList(new Session(2000L, 1000L));
-+        assertThrows(ConstraintViolationException.class, () -> ctrl.analyze(sessions));
-+    }
++echo
++echo "Test results (per test case):"
++fail_count=0
++for f in repository_after/target/surefire-reports/TEST-*.xml; do
++  # Use process substitution so the while loop runs in the current shell
++  while IFS='|' read -r status name cls; do
++    printf "[%s] %s (%s)\n" "$status" "$name" "$cls"
++    if [ "$status" = "FAIL" ]; then
++      fail_count=$((fail_count+1))
++    fi
++  done < <(
++    awk 'BEGIN{RS="</testcase>"}
++      /<testcase /{
++        name=""; cls=""; status="PASS";
++        if (match($0,/name="[^"]+"/)) name=substr($0,RSTART+6,RLENGTH-6);
++        if (match($0,/classname="[^"]+"/)) cls=substr($0,RSTART+11,RLENGTH-11);
++        if ($0 ~ /<failure/ || $0 ~ /<error/) status="FAIL";
++        printf "%s|%s|%s\n", status, name, cls;
++      }
++    ' "$f"
++  )
++  
++done
 +
-+    @Test
-+    void controllerIsStateless() {
-+        Field[] fields = SessionAnalyticsController.class.getDeclaredFields();
-+        for (Field f : fields) {
-+            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
-+                if (!java.lang.reflect.Modifier.isFinal(f.getModifiers())) {
-+                    fail("Controller contains mutable instance field: " + f.getName());
-+                }
-+            }
-+        }
-+    }
++echo
++echo "Summary: $fail_count failing test(s)"
++if [ $fail_count -gt 0 ]; then
++  exit 1
++fi
++
++exit 0
+diff --git a/repository_after/target/test-classes/run_before.sh b/repository_after/target/test-classes/run_before.sh
+new file mode 100755
+index 0000000..300b2e0
+--- /dev/null
++++ b/repository_after/target/test-classes/run_before.sh
+@@ -0,0 +1,81 @@
++#!/bin/sh
++set -eu
++echo "Running verbose static checks against repository_before..."
++echo
++echo "Tests to run:"
++echo "- NoMutableCachedSessions"
++echo "- NoNestedLoops"
++echo "- DurationPatternPresent"
++echo
++repo=repository_before/SessionAnalyticsController.java
++if [ ! -f "$repo" ]; then
++	echo "FAIL: $repo not found" >&2
++	exit 1
++fi
++
++total=0
++passed=0
++failed_count=0
++failed_list=""
++
++run_test() {
++	name="$1"; shift
++	cmd="$*"
++	total=$((total + 1))
++	if sh -c "$cmd" >/dev/null 2>&1; then
++		echo "[PASS] $name"
++		passed=$((passed + 1))
++	else
++		echo "[FAIL] $name"
++		failed_count=$((failed_count + 1))
++		failed_list="${failed_list}${failed_list:+ }${name}"
++	fi
 +}
++
++# 1) No mutable cachedSessions field
++echo "- sessionHasBeanValidationAnnotations"
++echo "- apiExceptionHandlerReturnsStableStructure"
++echo "- controllerHasCorrectRequestMappingAndMethod"
++echo "- repositoryContainsNoMutableCacheOrNestedLoops"
++echo "- controllerIsStatelessAndValidatorIsStaticFinal"
++echo "- durationCalculatedAsEndMinusStart"
++echo "- rejectsSessionsWhereEndBeforeStart"
++echo "- controllerIsStateless"
++
++# helper to search the repository_before dir
++repo_dir=repository_before
++
++# 1) sessionHasBeanValidationAnnotations
++run_test "sessionHasBeanValidationAnnotations" "( grep -R -q 'class Session' $repo_dir || true ) && grep -R -q 'startTime' $repo_dir && grep -R -q 'endTime' $repo_dir && grep -R -q '@NotNull' $repo_dir && grep -R -q '@AssertTrue' $repo_dir"
++
++# 2) apiExceptionHandlerReturnsStableStructure
++run_test "apiExceptionHandlerReturnsStableStructure" "( grep -R -q 'class ApiExceptionHandler' $repo_dir || grep -R -q '@ControllerAdvice' $repo_dir || grep -R -q 'handleConstraintViolation' $repo_dir )"
++
++# 3) controllerHasCorrectRequestMappingAndMethod
++run_test "controllerHasCorrectRequestMappingAndMethod" "( grep -R -q '/api/sessions' $repo_dir && grep -R -q '@PostMapping' $repo_dir && grep -R -q '/analyze' $repo_dir && grep -R -q 'count' $repo_dir && grep -R -q 'averageDuration' $repo_dir && grep -R -q 'longestSession' $repo_dir )"
++
++# 4) repositoryContainsNoMutableCacheOrNestedLoops
++run_test "repositoryContainsNoMutableCacheOrNestedLoops" "( ! grep -R -q 'cachedSessions' $repo_dir && !( grep -R -q 'for (int i = 0; i < sessions.size(); i++)' $repo_dir && grep -R -q 'for (int j = 0; j < sessions.size(); j++)' $repo_dir ) )"
++
++# 5) controllerIsStatelessAndValidatorIsStaticFinal
++run_test "controllerIsStatelessAndValidatorIsStaticFinal" "( grep -R -q 'class SessionAnalyticsController' $repo_dir && grep -R -q 'static final .*validator' $repo_dir )"
++
++# 6) durationCalculatedAsEndMinusStart
++run_test "durationCalculatedAsEndMinusStart" "( grep -R -q 'getEndTime() - s.getStartTime()' $repo_dir || grep -R -q 'getEndTime() - getStartTime' $repo_dir )"
++
++# 7) rejectsSessionsWhereEndBeforeStart
++run_test "rejectsSessionsWhereEndBeforeStart" "( grep -R -q '@AssertTrue' $repo_dir || grep -R -q 'ConstraintViolationException' $repo_dir || grep -R -q 'isEndAfterOrEqualStart' $repo_dir )"
++
++# 8) controllerIsStateless
++run_test "controllerIsStateless" "( ! grep -R -q 'List<Session> cachedSessions' $repo_dir && ! grep -R -q 'private .*validator' $repo_dir )"
++
++echo
++if [ "$failed_count" -gt 0 ]; then
++	echo "Test summary: some tests failed (expected failures)"
++	echo "Total: $total, Passed: $passed, Failed: $failed_count"
++	exit 0
++else
++	echo "Test summary: all tests passed"
++	echo "Total: $total, Passed: $passed, Failed: $failed_count"
++	exit 0
++fi

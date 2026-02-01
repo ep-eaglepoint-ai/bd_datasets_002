@@ -13,3 +13,6 @@ node_modules/
 # evaluation reports (timestamped directories)
 evaluation/[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]/
 evaluation/*/*/report.json
+
+# Ignore build outputs in repository_after
+repository_after/target/

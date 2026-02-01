@@ -13,15 +13,16 @@ public class BeforeSpec {
             }
         }
 
-        // Create a session where end < start using the inner Session class from repository_before
-        Class<?> sessionClass = Class.forName("com.example.sessions.SessionAnalyticsController$Session");
+        // Create a session where end < start using the Session bean
+        Class<?> sessionClass = Class.forName("com.example.sessions.Session");
         Object s = sessionClass.getDeclaredConstructor().newInstance();
         java.lang.reflect.Field start = sessionClass.getDeclaredField("startTime");
         java.lang.reflect.Field end = sessionClass.getDeclaredField("endTime");
         start.setAccessible(true); end.setAccessible(true);
         start.setLong(s, 2000L); end.setLong(s, 1000L);
 
-        java.util.List<Object> list = java.util.Arrays.asList(s);
+        @SuppressWarnings({"rawtypes","unchecked"})
+        java.util.List list = java.util.Arrays.asList(s);
 
         try {
             Object res = ctrl.analyze(list);
