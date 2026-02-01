@@ -5,28 +5,13 @@ import os
 from datetime import datetime, timedelta, timezone
 
 # Add the source directory to the path so we can import 'aml'
-# Assuming structure: repository_after/tests/test_aml_monitoring.py
-#                     repository_after/Anti–Money/aml/
+# Structure: repository_after/tests/test_aml_monitoring.py
+#            repository_after/Anti–Money/aml/
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# We might be running from /app/repository_X (CWD) or /app/tests
-# The 'aml' package is inside "Anti–Money" folder in the repository root.
-# We check CWD first.
-cwd = os.getcwd()
-potential_paths = [
-    os.path.join(cwd, "Anti–Money"),
-    os.path.join(current_dir, "..", "Anti–Money"), # Fallback if in repo_after/tests
-    os.path.join(current_dir, "..", "repository_after", "Anti–Money"), # Fallback if in root tests and repo_after exists
-    os.path.join(current_dir, "..", "repository_before", "Anti–Money"), # Fallback
-]
-
-added = False
-for p in potential_paths:
-    if os.path.exists(p):
-        if p not in sys.path:
-            sys.path.append(p)
-            added = True
-            break
-
+# Navigate up to repository_after root, then into Anti–Money
+src_path = os.path.join(current_dir, "..", "Anti–Money")
+if os.path.exists(src_path) and src_path not in sys.path:
+    sys.path.append(src_path)
 
 try:
     from aml.config import MonitoringConfig

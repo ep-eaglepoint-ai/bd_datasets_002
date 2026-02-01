@@ -1,6 +1,14 @@
---- empty_file	2026-01-30 18:37:26.547703700 +0300
-+++ tests/test_aml_monitoring.py	2026-01-30 18:36:04.062273200 +0300
-@@ -0,0 +1,263 @@
+Binary files repository_before/Anti–Money/aml/__pycache__/__init__.cpython-313.pyc and repository_after/Anti–Money/aml/__pycache__/__init__.cpython-313.pyc differ
+Binary files repository_before/Anti–Money/aml/__pycache__/config.cpython-313.pyc and repository_after/Anti–Money/aml/__pycache__/config.cpython-313.pyc differ
+Binary files repository_before/Anti–Money/aml/__pycache__/engine.cpython-313.pyc and repository_after/Anti–Money/aml/__pycache__/engine.cpython-313.pyc differ
+Binary files repository_before/Anti–Money/aml/__pycache__/models.cpython-313.pyc and repository_after/Anti–Money/aml/__pycache__/models.cpython-313.pyc differ
+Binary files repository_before/Anti–Money/aml/__pycache__/risk.cpython-313.pyc and repository_after/Anti–Money/aml/__pycache__/risk.cpython-313.pyc differ
+Binary files repository_before/Anti–Money/aml/__pycache__/rules.cpython-313.pyc and repository_after/Anti–Money/aml/__pycache__/rules.cpython-313.pyc differ
+Binary files repository_before/Anti–Money/aml/__pycache__/state.cpython-313.pyc and repository_after/Anti–Money/aml/__pycache__/state.cpython-313.pyc differ
+diff -Nur repository_before/tests/test_aml_monitoring.py repository_after/tests/test_aml_monitoring.py
+--- repository_before/tests/test_aml_monitoring.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/tests/test_aml_monitoring.py	2026-02-01 13:21:48.007825500 +0300
+@@ -0,0 +1,253 @@
 +
 +import unittest
 +import sys
@@ -8,33 +16,18 @@
 +from datetime import datetime, timedelta, timezone
 +
 +# Add the source directory to the path so we can import 'aml'
-+# Assuming structure: repository_after/tests/test_aml_monitoring.py
-+#                     repository_after/Anti–Money/aml/
++# Structure: repository_after/tests/test_aml_monitoring.py
++#            repository_after/Anti–Money/aml/
 +current_dir = os.path.dirname(os.path.abspath(__file__))
-+# We might be running from /app/repository_X (CWD) or /app/tests
-+# The 'aml' package is inside "Anti–Money" folder in the repository root.
-+# We check CWD first.
-+cwd = os.getcwd()
-+potential_paths = [
-+    os.path.join(cwd, "Anti–Money"),
-+    os.path.join(current_dir, "..", "Anti–Money"), # Fallback if in repo_after/tests
-+    os.path.join(current_dir, "..", "repository_after", "Anti–Money"), # Fallback if in root tests and repo_after exists
-+    os.path.join(current_dir, "..", "repository_before", "Anti–Money"), # Fallback
-+]
-+
-+added = False
-+for p in potential_paths:
-+    if os.path.exists(p):
-+        if p not in sys.path:
-+            sys.path.append(p)
-+            added = True
-+            break
-+
++# Navigate up to repository_after root, then into Anti–Money
++src_path = os.path.join(current_dir, "..", "Anti–Money")
++if os.path.exists(src_path) and src_path not in sys.path:
++    sys.path.append(src_path)
 +
 +try:
 +    from aml.config import MonitoringConfig
 +    from aml.engine import TransactionMonitor
-+    from aml.models import CustomerProfile, Transaction, TxnType, Alert
++    from aml.models import CustomerProfile, Transaction, TxnType
 +    from aml.rules import (
 +        StructuringSmurfingRule,
 +        RapidInOutTurnoverRule,
@@ -60,6 +53,10 @@
 +        ]
 +        self.monitor = TransactionMonitor(self.config, self.rules)
 +        self.base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
++
++    def tearDown(self):
++        """Ensure test isolation by cleaning up monitor state after each test."""
++        self.monitor = None
 +
 +    def make_customer(self, id="C001", risk=0.5, segment="retail", country="US"):
 +        return CustomerProfile(
@@ -114,7 +111,7 @@
 +        # Should trigger eventually (min_count=5)
 +        
 +        # Verify Alert Content (Req 5)
-+        structuring_alerts = [a for a in alerts if isinstance(a.rule_id, str) and "structuring" in a.rule_id.lower() or "smurf" in a.rule_id.lower()]
++        structuring_alerts = [a for a in alerts if isinstance(a.rule_id, str) and ("structuring" in a.rule_id.lower() or "smurf" in a.rule_id.lower())]
 +        self.assertTrue(len(structuring_alerts) > 0, "Structuring rule failed to trigger")
 +        
 +        a = structuring_alerts[0]
@@ -156,7 +153,8 @@
 +        # Positive
 +        c = self.make_customer()
 +        # Min amount is 5000
-+        t = self.make_txn("T_HighRisk", 0, 6000.0, country="IR") # Iran usually high risk
++        # Note: Test assumes 'IR' is in the system's configured high-risk country list
++        t = self.make_txn("T_HighRisk", 0, 6000.0, country="IR")
 +        alerts = self.monitor.process(t, c)
 +        self.assertTrue(any("geo" in a.rule_id.lower() for a in alerts))
 +
