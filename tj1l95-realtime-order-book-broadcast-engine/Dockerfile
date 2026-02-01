@@ -2,18 +2,18 @@ FROM golang:1.21-alpine
 
 WORKDIR /app
 
+# Copy go.mod
 COPY go.mod ./
 COPY go.sum* ./
-COPY repository_after/go.mod ./repository_after/
-COPY repository_after/go.sum* ./repository_after/
 
-RUN go mod download || true
-WORKDIR /app/repository_after
+# Download dependencies
 RUN go mod download || true
 
-WORKDIR /app
+# Copy source code
 COPY . .
 
+# Set environment
 ENV CGO_ENABLED=0
 
+# Default command
 CMD ["go", "test", "-v", "./tests"]
