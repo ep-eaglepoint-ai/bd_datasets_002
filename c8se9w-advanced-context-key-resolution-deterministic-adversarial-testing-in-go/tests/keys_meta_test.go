@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -280,6 +281,7 @@ func requireSuiteFails(t *testing.T, name string, res goTestSummary) {
 	}
 	// Prefer asserting real test failures (Action=="fail") for broken implementations.
 	if res.failed == 0 {
+		fmt.Printf("DEBUG FAILURE OUTPUT:\n%s\n%s\n", res.stdout, res.stderr)
 		t.Fatalf("expected inner suite to report at least one failing test for %s; got exit=%d failed=%d errors=%d (passed=%d skipped=%d)\nstdout:\n%s\nstderr:\n%s",
 			name, res.exitCode, res.failed, res.errors, res.passed, res.skipped, res.stdout, res.stderr)
 	}
@@ -297,6 +299,7 @@ func requireSuitePasses(t *testing.T, name string, res goTestSummary) {
 			name, res.stdout, res.stderr)
 	}
 	if res.exitCode != 0 || res.failed != 0 || res.errors != 0 {
+		fmt.Printf("DEBUG FAILURE OUTPUT (PASS CHECK):\n%s\n%s\n", res.stdout, res.stderr)
 		t.Fatalf("expected inner suite to pass for %s; got exit=%d failed=%d errors=%d (passed=%d skipped=%d)\nstdout:\n%s\nstderr:\n%s",
 			name, res.exitCode, res.failed, res.errors, res.passed, res.skipped, res.stdout, res.stderr)
 	}
@@ -489,6 +492,26 @@ func TestMeta_KeysSuite_Requirements(t *testing.T) {
 	t.Run("suite_accepts_correct_impl", func(t *testing.T) {
 		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "correct.go"))
 		requireSuitePasses(t, "correct.go", res)
+	})
+
+	t.Run("suite_detects_adversarial_normalization", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_adversarial_normalization.go"))
+		requireSuiteFails(t, "broken_adversarial_normalization.go", res)
+	})
+
+	t.Run("suite_detects_adversarial_parsing", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_adversarial_parsing.go"))
+		requireSuiteFails(t, "broken_adversarial_parsing.go", res)
+	})
+
+	t.Run("suite_detects_matchscore_imprecision", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_matchscore_prefix.go"))
+		requireSuiteFails(t, "broken_matchscore_prefix.go", res)
+	})
+
+	t.Run("suite_detects_lru_torture_failure", func(t *testing.T) {
+		res := runKeysSuiteWithFixture(t, keysDir, keysGoPath, filepath.Join(fixturesDir, "broken_lru_offbyone.go"))
+		requireSuiteFails(t, "broken_lru_offbyone.go", res)
 	})
 
 	t.Run("suite_accepts_correct_impl_under_race", func(t *testing.T) {

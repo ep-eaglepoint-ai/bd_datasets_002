@@ -6,7 +6,7 @@ WORKDIR /app
 RUN echo '#!/bin/sh\n\
 REPO_PATH=$1\n\
 cd /app/tests\n\
-go mod edit -replace gocode=$REPO_PATH\n\
+go mod edit -replace gocode="$REPO_PATH"\n\
 go mod tidy\n\
 go test -race -v .\n\
 ' > /usr/local/bin/run-tests.sh && \
