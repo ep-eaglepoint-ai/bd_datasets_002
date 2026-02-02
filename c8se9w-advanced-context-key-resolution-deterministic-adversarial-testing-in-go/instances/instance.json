@@ -23,6 +23,10 @@
                 "TestMeta_KeysSuite_Requirements/suite_detects_lru_promotion",
                 "TestMeta_KeysSuite_Requirements/suite_detects_cachehit_flag",
                 "TestMeta_KeysSuite_Requirements/suite_accepts_correct_impl",
+                "TestMeta_KeysSuite_Requirements/suite_detects_adversarial_normalization",
+                "TestMeta_KeysSuite_Requirements/suite_detects_adversarial_parsing",
+                "TestMeta_KeysSuite_Requirements/suite_detects_matchscore_imprecision",
+                "TestMeta_KeysSuite_Requirements/suite_detects_lru_torture_failure",
                 "TestMeta_KeysSuite_Requirements/suite_accepts_correct_impl_under_race"
             ],
             "PASS_TO_PASS": []
