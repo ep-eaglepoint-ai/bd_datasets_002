@@ -1,0 +1,15 @@
+{
+  "name": "gtmtd9-restaurantsplitbilltestgrid",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --reporter=verbose",
+    "test:impl": "vitest run repository_after/ --reporter=verbose --coverage",
+    "test:meta": "vitest run tests/ --reporter=verbose",
+    "evaluate": "node evaluation/evaluation.js"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
+  }
+}

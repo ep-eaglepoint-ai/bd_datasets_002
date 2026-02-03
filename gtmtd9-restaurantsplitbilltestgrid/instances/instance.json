@@ -1,0 +1,19 @@
+{
+    "instance_id": "GTMTD9",
+    "problem_statement": "Develop a rigorous unit testing suite for a restaurant bill-splitting utility in JavaScript. The objective is to verify mathematical accuracy down to the cent, ensuring the system handles floating-point rounding errors and remains perfectly accountable for taxes and tips across uneven party sizes.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/gtmtd9-restaurantsplitbilltestgrid",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": [
+        "req1_penny_perfect_reconciliation",
+        "req2_remainder_allocation",
+        "req3_percentage_boundary",
+        "req4_invalid_input_resilience",
+        "req5_floating_point_prevention",
+        "req6_happy_path",
+        "req7_lead_payer_logic",
+        "req8_code_coverage"
+    ]
+}
