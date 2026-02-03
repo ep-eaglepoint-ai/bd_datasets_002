@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  tests:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd /app/tests && go test -v -race -timeout 120s ./..."
+
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd /app/evaluation && go run evaluation.go"
