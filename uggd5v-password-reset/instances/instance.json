@@ -1,0 +1,11 @@
+{
+            "instance_id": "UGGD5V",
+            "problem_statement": "In modern applications, securely handling user password resets is critical to both user experience and system security. Writing a PostgreSQL function to initiate password resets ensures that the process is handled atomically and consistently at the database level, preventing race conditions, duplicate requests, and unauthorized token generation. Such a function allows validation of user status, enforces idempotency through unique request identifiers, manages token expiration, and logs all actions for auditability. By centralizing this logic in the database using PL/pgSQL, the system guarantees transactional integrity, robust error handling with standardized error codes, and safe handling of untrusted input—essential safeguards for maintaining security and reliability in a production environment.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/uggd5v-password-reset",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
