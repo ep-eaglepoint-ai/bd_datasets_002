@@ -1,0 +1,1390 @@
+diff -ruN repository_before/backend/database.py repository_after/backend/database.py
+--- repository_before/backend/database.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/backend/database.py	2026-01-31 10:46:33.425057354 +0300
+@@ -0,0 +1,54 @@
++"""Database configuration and session management."""
++import asyncio
++from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
++from sqlalchemy.orm import declarative_base
++from sqlalchemy.pool import StaticPool
++
++DATABASE_URL = "sqlite+aiosqlite:///./voltsafe.db"
++
++engine = create_async_engine(
++    DATABASE_URL,
++    echo=False,
++    connect_args={"check_same_thread": False},
++    poolclass=StaticPool,
++)
++
++AsyncSessionLocal = async_sessionmaker(
++    engine,
++    class_=AsyncSession,
++    expire_on_commit=False,
++    autoflush=False,
++    autocommit=False
++)
++
++Base = declarative_base()
++
++# Global lock for atomic operations
++_power_lock = asyncio.Lock()
++
++
++async def get_power_lock():
++    """Get the global power lock for atomic operations."""
++    return _power_lock
++
++
++async def get_db():
++    """Dependency to get database session."""
++    async with AsyncSessionLocal() as session:
++        try:
++            yield session
++        finally:
++            await session.close()
++
++
++async def init_db():
++    """Initialize the database tables."""
++    async with engine.begin() as conn:
++        await conn.run_sync(Base.metadata.create_all)
++
++
++async def reset_db():
++    """Reset the database (for testing)."""
++    async with engine.begin() as conn:
++        await conn.run_sync(Base.metadata.drop_all)
++        await conn.run_sync(Base.metadata.create_all)
+\ No newline at end of file
+diff -ruN repository_before/backend/__init__.py repository_after/backend/__init__.py
+--- repository_before/backend/__init__.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/backend/__init__.py	2026-01-31 10:27:16.296304577 +0300
+@@ -0,0 +1 @@
++"""VoltSafe Backend Package."""
+\ No newline at end of file
+diff -ruN repository_before/backend/main.py repository_after/backend/main.py
+--- repository_before/backend/main.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/backend/main.py	2026-01-31 19:34:24.294875876 +0300
+@@ -0,0 +1,313 @@
++"""FastAPI backend for VoltSafe Home Load Balancer."""
++import asyncio
++from contextlib import asynccontextmanager
++from typing import List
++from fastapi import FastAPI, HTTPException, Depends, status
++from fastapi.middleware.cors import CORSMiddleware
++from sqlalchemy.ext.asyncio import AsyncSession
++from sqlalchemy import select, func
++
++from database import get_db, init_db, reset_db, AsyncSessionLocal
++from models import Appliance
++from schemas import (
++    ApplianceCreate, ApplianceResponse, ApplianceUpdate,
++    ToggleRequest, ToggleResponse, LoadStatusResponse
++)
++
++# Safety ceiling constant
++MAX_LOAD_WATTS = 5000.0
++
++# Global lock for atomic power operations
++power_lock = asyncio.Lock()
++
++
++@asynccontextmanager
++async def lifespan(app: FastAPI):
++    """Lifespan context manager for startup/shutdown."""
++    await init_db()
++    # Seed default appliances if database is empty
++    async with AsyncSessionLocal() as session:
++        result = await session.execute(select(func.count(Appliance.id)))
++        count = result.scalar()
++        if count == 0:
++            default_appliances = [
++                Appliance(name="Living Room Heater", wattage=1500.0, is_on=False),
++                Appliance(name="EV Charger", wattage=3000.0, is_on=False),
++                Appliance(name="Kitchen Oven", wattage=2000.0, is_on=False),
++                Appliance(name="Water Heater", wattage=1500.0, is_on=False),
++                Appliance(name="Air Conditioner", wattage=2500.0, is_on=False),
++            ]
++            session.add_all(default_appliances)
++            await session.commit()
++    yield
++
++
++app = FastAPI(
++    title="VoltSafe Load Balancer API",
++    description="API for managing home appliance loads with safety interlocks",
++    version="1.0.0",
++    lifespan=lifespan
++)
++
++# CORS configuration
++app.add_middleware(
++    CORSMiddleware,
++    allow_origins=["*"],
++    allow_credentials=True,
++    allow_methods=["*"],
++    allow_headers=["*"],
++)
++
++
++async def calculate_current_load(session: AsyncSession, exclude_id: int = None) -> float:
++    """Calculate the current total load of all active appliances."""
++    query = select(func.coalesce(func.sum(Appliance.wattage), 0.0)).where(Appliance.is_on == True)
++    if exclude_id is not None:
++        query = query.where(Appliance.id != exclude_id)
++    result = await session.execute(query)
++    return float(result.scalar() or 0.0)
++
++
++def create_power_limit_error(appliance_name: str, current_load: float, 
++                              requested_wattage: float, new_total: float) -> dict:
++    """
++    Create a structured error response for power limit exceeded.
++    
++    The response contains:
++    - 'message': A user-friendly, non-technical message suitable for UI display
++    - 'user_message': Same as message, explicitly named for clarity
++    - 'technical_details': Technical information for debugging/logging (optional use)
++    
++    Design Note: The frontend extracts only the 'message' field for display,
++    ensuring end users see clear, non-technical error messages.
++    """
++    exceeded_by = round(new_total - MAX_LOAD_WATTS, 2)
++    
++    # User-friendly message - no technical jargon
++    user_message = (
++        f"Unable to turn on {appliance_name}. "
++        f"This would exceed the home's safe power limit. "
++        f"Please turn off another appliance first."
++    )
++    
++    return {
++        # Primary user-facing message (used by frontend)
++        "message": user_message,
++        "user_message": user_message,
++        "error_type": "POWER_LIMIT_EXCEEDED",
++        # Technical details for debugging/testing - not shown to users
++        "technical_details": {
++            "current_load": current_load,
++            "requested_additional": requested_wattage,
++            "would_be_total": new_total,
++            "max_allowed": MAX_LOAD_WATTS,
++            "exceeded_by": exceeded_by
++        }
++    }
++
++
++@app.get("/api/health")
++async def health_check():
++    """Health check endpoint."""
++    return {"status": "healthy", "max_load": MAX_LOAD_WATTS}
++
++
++@app.get("/api/appliances", response_model=List[ApplianceResponse])
++async def get_appliances(db: AsyncSession = Depends(get_db)):
++    """Get all appliances."""
++    result = await db.execute(select(Appliance).order_by(Appliance.id))
++    appliances = result.scalars().all()
++    return appliances
++
++
++@app.get("/api/appliances/{appliance_id}", response_model=ApplianceResponse)
++async def get_appliance(appliance_id: int, db: AsyncSession = Depends(get_db)):
++    """Get a specific appliance by ID."""
++    result = await db.execute(select(Appliance).where(Appliance.id == appliance_id))
++    appliance = result.scalar_one_or_none()
++    if not appliance:
++        raise HTTPException(status_code=404, detail="Appliance not found")
++    return appliance
++
++
++@app.post("/api/appliances", response_model=ApplianceResponse, status_code=201)
++async def create_appliance(appliance: ApplianceCreate, db: AsyncSession = Depends(get_db)):
++    """Create a new appliance."""
++    db_appliance = Appliance(
++        name=appliance.name,
++        wattage=appliance.wattage,
++        is_on=False
++    )
++    db.add(db_appliance)
++    await db.commit()
++    await db.refresh(db_appliance)
++    return db_appliance
++
++
++@app.put("/api/appliances/{appliance_id}", response_model=ApplianceResponse)
++async def update_appliance(
++    appliance_id: int,
++    appliance: ApplianceUpdate,
++    db: AsyncSession = Depends(get_db)
++):
++    """Update an appliance."""
++    result = await db.execute(select(Appliance).where(Appliance.id == appliance_id))
++    db_appliance = result.scalar_one_or_none()
++    if not db_appliance:
++        raise HTTPException(status_code=404, detail="Appliance not found")
++    
++    if appliance.name is not None:
++        db_appliance.name = appliance.name
++    if appliance.wattage is not None:
++        db_appliance.wattage = appliance.wattage
++    
++    await db.commit()
++    await db.refresh(db_appliance)
++    return db_appliance
++
++
++@app.delete("/api/appliances/{appliance_id}", status_code=204)
++async def delete_appliance(appliance_id: int, db: AsyncSession = Depends(get_db)):
++    """Delete an appliance."""
++    result = await db.execute(select(Appliance).where(Appliance.id == appliance_id))
++    db_appliance = result.scalar_one_or_none()
++    if not db_appliance:
++        raise HTTPException(status_code=404, detail="Appliance not found")
++    
++    await db.delete(db_appliance)
++    await db.commit()
++
++
++@app.post("/api/appliances/{appliance_id}/toggle", response_model=ToggleResponse)
++async def toggle_appliance(
++    appliance_id: int,
++    toggle: ToggleRequest,
++    db: AsyncSession = Depends(get_db)
++):
++    """
++    Toggle an appliance on/off with atomic capacity validation.
++    
++    This endpoint implements the Safety Interlock Mechanism:
++    - Uses a global lock to prevent race conditions
++    - Performs atomic capacity check before state transition
++    - Ensures idempotent behavior for repeated requests
++    
++    Error Response Design:
++    - Returns user-friendly 'message' field for UI display
++    - Includes 'technical_details' for debugging (not shown to users)
++    """
++    global power_lock
++    
++    # Acquire lock for atomic operation
++    async with power_lock:
++        # Get appliance within locked section
++        result = await db.execute(
++            select(Appliance).where(Appliance.id == appliance_id)
++        )
++        appliance = result.scalar_one_or_none()
++        
++        if not appliance:
++            raise HTTPException(status_code=404, detail="Appliance not found")
++        
++        # Idempotent check: if already in desired state, return success
++        if appliance.is_on == toggle.is_on:
++            current_load = await calculate_current_load(db)
++            return ToggleResponse(
++                success=True,
++                appliance=ApplianceResponse(
++                    id=appliance.id,
++                    name=appliance.name,
++                    wattage=appliance.wattage,
++                    is_on=appliance.is_on
++                ),
++                current_total_load=current_load,
++                message=f"Appliance already {'ON' if appliance.is_on else 'OFF'}"
++            )
++        
++        # If turning ON, check capacity
++        if toggle.is_on:
++            current_load = await calculate_current_load(db, exclude_id=appliance.id)
++            new_total = current_load + appliance.wattage
++            
++            # Precision check: reject if exceeds limit even by 0.01W
++            if new_total > MAX_LOAD_WATTS:
++                error_response = create_power_limit_error(
++                    appliance.name, current_load, appliance.wattage, new_total
++                )
++                raise HTTPException(
++                    status_code=status.HTTP_403_FORBIDDEN,
++                    detail=error_response
++                )
++            
++            # Safe to turn on
++            appliance.is_on = True
++            await db.commit()
++            await db.refresh(appliance)
++            
++            return ToggleResponse(
++                success=True,
++                appliance=ApplianceResponse(
++                    id=appliance.id,
++                    name=appliance.name,
++                    wattage=appliance.wattage,
++                    is_on=appliance.is_on
++                ),
++                current_total_load=new_total,
++                message=f"{appliance.name} activated successfully"
++            )
++        else:
++            # Turning OFF - always allowed
++            appliance.is_on = False
++            await db.commit()
++            await db.refresh(appliance)
++            
++            current_load = await calculate_current_load(db)
++            
++            return ToggleResponse(
++                success=True,
++                appliance=ApplianceResponse(
++                    id=appliance.id,
++                    name=appliance.name,
++                    wattage=appliance.wattage,
++                    is_on=appliance.is_on
++                ),
++                current_total_load=current_load,
++                message=f"{appliance.name} deactivated successfully"
++            )
++
++
++@app.get("/api/load-status", response_model=LoadStatusResponse)
++async def get_load_status(db: AsyncSession = Depends(get_db)):
++    """Get the current load status of the system."""
++    current_load = await calculate_current_load(db)
++    available = MAX_LOAD_WATTS - current_load
++    utilization = (current_load / MAX_LOAD_WATTS) * 100
++    
++    # Determine status
++    if utilization >= 90:
++        load_status = "critical"
++    elif utilization >= 70:
++        load_status = "warning"
++    else:
++        load_status = "safe"
++    
++    return LoadStatusResponse(
++        current_load=round(current_load, 2),
++        max_load=MAX_LOAD_WATTS,
++        available_capacity=round(available, 2),
++        utilization_percent=round(utilization, 2),
++        status=load_status
++    )
++
++
++@app.post("/api/reset", status_code=200)
++async def reset_system():
++    """Reset the system (for testing purposes)."""
++    await reset_db()
++    await init_db()
++    return {"message": "System reset successfully"}
++
++
++if __name__ == "__main__":
++    import uvicorn
++    uvicorn.run(app, host="0.0.0.0", port=8000)
+\ No newline at end of file
+diff -ruN repository_before/backend/models.py repository_after/backend/models.py
+--- repository_before/backend/models.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/backend/models.py	2026-01-31 10:46:49.161825285 +0300
+@@ -0,0 +1,16 @@
++"""SQLAlchemy models for the VoltSafe application."""
++from sqlalchemy import Column, Integer, String, Boolean, Float
++from database import Base
++
++
++class Appliance(Base):
++    """Appliance model representing an IoT-enabled device."""
++    __tablename__ = "appliances"
++
++    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
++    name = Column(String(100), nullable=False)
++    wattage = Column(Float, nullable=False)
++    is_on = Column(Boolean, default=False, nullable=False)
++
++    def __repr__(self):
++        return f"<Appliance(id={self.id}, name='{self.name}', wattage={self.wattage}, is_on={self.is_on})>"
+\ No newline at end of file
+diff -ruN repository_before/backend/schemas.py repository_after/backend/schemas.py
+--- repository_before/backend/schemas.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/backend/schemas.py	2026-01-31 19:18:57.633758628 +0300
+@@ -0,0 +1,57 @@
++"""Pydantic schemas for request/response validation."""
++from pydantic import BaseModel, Field, ConfigDict
++from typing import Optional, List
++
++
++class ApplianceBase(BaseModel):
++    """Base schema for appliance data."""
++    name: str = Field(..., min_length=1, max_length=100)
++    wattage: float = Field(..., gt=0)
++
++
++class ApplianceCreate(ApplianceBase):
++    """Schema for creating a new appliance."""
++    pass
++
++
++class ApplianceUpdate(BaseModel):
++    """Schema for updating an appliance."""
++    name: Optional[str] = Field(None, min_length=1, max_length=100)
++    wattage: Optional[float] = Field(None, gt=0)
++
++
++class ApplianceResponse(ApplianceBase):
++    """Schema for appliance response."""
++    id: int
++    is_on: bool
++
++    model_config = ConfigDict(from_attributes=True)
++
++
++class ToggleRequest(BaseModel):
++    """Schema for toggle request."""
++    is_on: bool
++
++
++class ToggleResponse(BaseModel):
++    """Schema for toggle response."""
++    success: bool
++    appliance: ApplianceResponse
++    current_total_load: float
++    message: str
++
++
++class LoadStatusResponse(BaseModel):
++    """Schema for load status response."""
++    current_load: float
++    max_load: float
++    available_capacity: float
++    utilization_percent: float
++    status: str  # 'safe', 'warning', 'critical'
++
++
++class ErrorResponse(BaseModel):
++    """Schema for error responses."""
++    detail: str
++    current_load: Optional[float] = None
++    requested_load: Optional[float] = None
+\ No newline at end of file
+diff -ruN repository_before/frontend/index.html repository_after/frontend/index.html
+--- repository_before/frontend/index.html	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/index.html	2026-01-31 16:01:03.035078933 +0300
+@@ -0,0 +1,30 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++  <meta charset="UTF-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1.0">
++  <title>VoltSafe - Home Load Balancer</title>
++  <style>
++    * {
++      box-sizing: border-box;
++    }
++    
++    body {
++      margin: 0;
++      padding: 0;
++      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
++      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
++      min-height: 100vh;
++      color: #fff;
++    }
++    
++    #app {
++      min-height: 100vh;
++    }
++  </style>
++</head>
++<body>
++  <div id="app"></div>
++  <script type="module" src="/src/main.js"></script>
++</body>
++</html>
+\ No newline at end of file
+diff -ruN repository_before/frontend/package.json repository_after/frontend/package.json
+--- repository_before/frontend/package.json	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/package.json	2026-01-31 19:18:57.634758649 +0300
+@@ -0,0 +1,24 @@
++{
++    "name": "voltsafe-frontend",
++    "version": "1.0.0",
++    "private": true,
++    "scripts": {
++        "dev": "vite",
++        "build": "vite build",
++        "preview": "vite preview",
++        "test": "vitest",
++        "test:ui": "vitest --ui"
++    },
++    "dependencies": {
++        "vue": "^3.3.8",
++        "axios": "^1.6.2",
++        "pinia": "^2.1.7"
++    },
++    "devDependencies": {
++        "@vitejs/plugin-vue": "^4.5.0",
++        "vite": "^5.0.0",
++        "vitest": "^1.0.0",
++        "@vue/test-utils": "^2.4.3",
++        "jsdom": "^23.0.0"
++    }
++}
+\ No newline at end of file
+diff -ruN repository_before/frontend/src/App.vue repository_after/frontend/src/App.vue
+--- repository_before/frontend/src/App.vue	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/src/App.vue	2026-01-31 10:29:52.849583371 +0300
+@@ -0,0 +1,133 @@
++<template>
++  <div class="app">
++    <header class="header">
++      <h1>⚡ VoltSafe</h1>
++      <p class="subtitle">Home Load Balancer</p>
++    </header>
++
++    <main class="main">
++      <LoadMeter 
++        :current-load="store.currentLoad"
++        :max-load="store.maxLoad"
++        :status="store.systemStatus"
++      />
++
++      <div v-if="store.error" class="error-banner">
++        <span>⚠️ {{ store.error }}</span>
++        <button @click="store.clearError" class="dismiss-btn">×</button>
++      </div>
++
++      <div v-if="store.loading" class="loading">
++        Loading appliances...
++      </div>
++
++      <div v-else class="appliances-grid">
++        <ApplianceCard
++          v-for="appliance in store.appliances"
++          :key="appliance.id"
++          :appliance="appliance"
++          :is-toggling="store.isToggling(appliance.id)"
++          @toggle="handleToggle"
++        />
++      </div>
++    </main>
++
++    <footer class="footer">
++      <p>Safety Limit: {{ store.maxLoad }}W | Available: {{ store.availableCapacity.toFixed(1) }}W</p>
++    </footer>
++  </div>
++</template>
++
++<script setup>
++import { onMounted } from 'vue'
++import { useApplianceStore } from './stores/applianceStore'
++import LoadMeter from './components/LoadMeter.vue'
++import ApplianceCard from './components/ApplianceCard.vue'
++
++const store = useApplianceStore()
++
++onMounted(async () => {
++  await Promise.all([
++    store.fetchAppliances(),
++    store.fetchLoadStatus()
++  ])
++})
++
++const handleToggle = async ({ id, isOn }) => {
++  await store.toggleAppliance(id, isOn)
++}
++</script>
++
++<style scoped>
++.app {
++  max-width: 1200px;
++  margin: 0 auto;
++  padding: 20px;
++  min-height: 100vh;
++  display: flex;
++  flex-direction: column;
++}
++
++.header {
++  text-align: center;
++  padding: 30px 0;
++}
++
++.header h1 {
++  font-size: 2.5rem;
++  background: linear-gradient(90deg, #00d4ff, #00ff88);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++  margin-bottom: 10px;
++}
++
++.subtitle {
++  color: #888;
++  font-size: 1.1rem;
++}
++
++.main {
++  flex: 1;
++}
++
++.error-banner {
++  background: rgba(255, 100, 100, 0.2);
++  border: 1px solid #ff6464;
++  border-radius: 8px;
++  padding: 15px 20px;
++  margin: 20px 0;
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  color: #ff9999;
++}
++
++.dismiss-btn {
++  background: none;
++  border: none;
++  color: #ff9999;
++  font-size: 1.5rem;
++  cursor: pointer;
++}
++
++.loading {
++  text-align: center;
++  padding: 50px;
++  color: #888;
++}
++
++.appliances-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
++  gap: 20px;
++  margin-top: 30px;
++}
++
++.footer {
++  text-align: center;
++  padding: 30px 0;
++  color: #666;
++  border-top: 1px solid #333;
++  margin-top: 40px;
++}
++</style>
+\ No newline at end of file
+diff -ruN repository_before/frontend/src/components/ApplianceCard.vue repository_after/frontend/src/components/ApplianceCard.vue
+--- repository_before/frontend/src/components/ApplianceCard.vue	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/src/components/ApplianceCard.vue	2026-01-31 16:00:45.499301840 +0300
+@@ -0,0 +1,254 @@
++<template>
++  <div :class="['appliance-card', { 'is-on': appliance.is_on, 'is-toggling': isToggling }]">
++    <div class="card-header">
++      <div class="appliance-icon">
++        {{ getApplianceIcon(appliance.name) }}
++      </div>
++      <div class="appliance-info">
++        <h3 class="appliance-name">{{ appliance.name }}</h3>
++        <span class="appliance-wattage">{{ appliance.wattage }}W</span>
++      </div>
++    </div>
++
++    <div class="card-body">
++      <div class="status-indicator">
++        <span :class="['status-dot', appliance.is_on ? 'on' : 'off']"></span>
++        <span class="status-text">{{ appliance.is_on ? 'Active' : 'Standby' }}</span>
++      </div>
++
++      <div v-if="appliance.is_on" class="power-consumption">
++        <span class="consumption-label">Drawing</span>
++        <span class="consumption-value">{{ appliance.wattage }}W</span>
++      </div>
++    </div>
++
++    <div class="card-footer">
++      <button
++        @click="handleToggle"
++        :disabled="isToggling"
++        :class="['toggle-btn', appliance.is_on ? 'turn-off' : 'turn-on']"
++      >
++        <span v-if="isToggling" class="spinner"></span>
++        <span v-else>
++          {{ appliance.is_on ? 'Turn OFF' : 'Turn ON' }}
++        </span>
++      </button>
++    </div>
++  </div>
++</template>
++
++<script setup>
++const props = defineProps({
++  appliance: {
++    type: Object,
++    required: true
++  },
++  isToggling: {
++    type: Boolean,
++    default: false
++  }
++})
++
++const emit = defineEmits(['toggle'])
++
++const handleToggle = () => {
++  if (!props.isToggling) {
++    emit('toggle', { 
++      id: props.appliance.id, 
++      isOn: !props.appliance.is_on 
++    })
++  }
++}
++
++const getApplianceIcon = (name) => {
++  const nameLower = name.toLowerCase()
++  if (nameLower.includes('heater')) return '🔥'
++  if (nameLower.includes('ev') || nameLower.includes('charger')) return '🔌'
++  if (nameLower.includes('oven')) return '🍳'
++  if (nameLower.includes('water')) return '💧'
++  if (nameLower.includes('air') || nameLower.includes('ac')) return '❄️'
++  if (nameLower.includes('washer') || nameLower.includes('dryer')) return '👕'
++  if (nameLower.includes('fridge') || nameLower.includes('refrigerator')) return '🧊'
++  if (nameLower.includes('tv') || nameLower.includes('television')) return '📺'
++  if (nameLower.includes('light')) return '💡'
++  return '⚡'
++}
++</script>
++
++<style scoped>
++.appliance-card {
++  background: linear-gradient(145deg, #1a1a2e, #16213e);
++  border-radius: 16px;
++  padding: 20px;
++  border: 1px solid rgba(255, 255, 255, 0.1);
++  transition: all 0.3s ease;
++  display: flex;
++  flex-direction: column;
++  gap: 16px;
++}
++
++.appliance-card:hover {
++  transform: translateY(-2px);
++  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
++}
++
++.appliance-card.is-on {
++  border-color: rgba(0, 255, 136, 0.3);
++  box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
++}
++
++.appliance-card.is-toggling {
++  opacity: 0.8;
++  pointer-events: none;
++}
++
++.card-header {
++  display: flex;
++  align-items: center;
++  gap: 14px;
++}
++
++.appliance-icon {
++  font-size: 2rem;
++  width: 50px;
++  height: 50px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  background: rgba(255, 255, 255, 0.05);
++  border-radius: 12px;
++}
++
++.appliance-info {
++  flex: 1;
++}
++
++.appliance-name {
++  font-size: 1.1rem;
++  color: #fff;
++  margin: 0 0 4px 0;
++  font-weight: 600;
++}
++
++.appliance-wattage {
++  font-size: 0.9rem;
++  color: #00d4ff;
++  font-weight: 500;
++}
++
++.card-body {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  padding: 12px 0;
++  border-top: 1px solid rgba(255, 255, 255, 0.05);
++  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
++}
++
++.status-indicator {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++}
++
++.status-dot {
++  width: 10px;
++  height: 10px;
++  border-radius: 50%;
++  transition: all 0.3s ease;
++}
++
++.status-dot.on {
++  background: #00ff88;
++  box-shadow: 0 0 10px #00ff88;
++  animation: glow 2s infinite;
++}
++
++.status-dot.off {
++  background: #555;
++}
++
++@keyframes glow {
++  0%, 100% { box-shadow: 0 0 10px #00ff88; }
++  50% { box-shadow: 0 0 20px #00ff88; }
++}
++
++.status-text {
++  font-size: 0.9rem;
++  color: #888;
++}
++
++.power-consumption {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-end;
++}
++
++.consumption-label {
++  font-size: 0.75rem;
++  color: #666;
++}
++
++.consumption-value {
++  font-size: 1rem;
++  color: #00ff88;
++  font-weight: 600;
++}
++
++.card-footer {
++  margin-top: auto;
++}
++
++.toggle-btn {
++  width: 100%;
++  padding: 12px 20px;
++  border: none;
++  border-radius: 10px;
++  font-size: 1rem;
++  font-weight: 600;
++  cursor: pointer;
++  transition: all 0.3s ease;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: 8px;
++}
++
++.toggle-btn.turn-on {
++  background: linear-gradient(135deg, #00d4ff, #00ff88);
++  color: #000;
++}
++
++.toggle-btn.turn-on:hover:not(:disabled) {
++  transform: scale(1.02);
++  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
++}
++
++.toggle-btn.turn-off {
++  background: rgba(255, 100, 100, 0.2);
++  color: #ff9999;
++  border: 1px solid rgba(255, 100, 100, 0.3);
++}
++
++.toggle-btn.turn-off:hover:not(:disabled) {
++  background: rgba(255, 100, 100, 0.3);
++}
++
++.toggle-btn:disabled {
++  cursor: not-allowed;
++  opacity: 0.7;
++}
++
++.spinner {
++  width: 18px;
++  height: 18px;
++  border: 2px solid transparent;
++  border-top-color: currentColor;
++  border-radius: 50%;
++  animation: spin 0.8s linear infinite;
++}
++
++@keyframes spin {
++  to { transform: rotate(360deg); }
++}
++</style>
+\ No newline at end of file
+diff -ruN repository_before/frontend/src/components/LoadMeter.vue repository_after/frontend/src/components/LoadMeter.vue
+--- repository_before/frontend/src/components/LoadMeter.vue	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/src/components/LoadMeter.vue	2026-01-31 16:00:28.287751572 +0300
+@@ -0,0 +1,268 @@
++<template>
++  <div class="load-meter">
++    <div class="meter-header">
++      <h2>⚡ Current Consumption</h2>
++      <span :class="['status-badge', status]">{{ statusLabel }}</span>
++    </div>
++    
++    <div class="meter-display">
++      <div class="meter-value">
++        <span class="current">{{ currentLoad.toFixed(1) }}</span>
++        <span class="separator">/</span>
++        <span class="max">{{ maxLoad }}</span>
++        <span class="unit">W</span>
++      </div>
++      
++      <div class="meter-bar-container">
++        <div 
++          class="meter-bar" 
++          :style="{ width: percentage + '%' }"
++          :class="status"
++        >
++          <div class="meter-glow"></div>
++        </div>
++        <div class="meter-markers">
++          <span class="marker" style="left: 70%">70%</span>
++          <span class="marker" style="left: 90%">90%</span>
++        </div>
++      </div>
++      
++      <div class="meter-percentage">
++        {{ percentage.toFixed(1) }}% utilized
++      </div>
++    </div>
++
++    <div class="meter-info">
++      <div class="info-item">
++        <span class="label">Available Capacity:</span>
++        <span class="value">{{ availableCapacity.toFixed(1) }}W</span>
++      </div>
++      <div class="info-item">
++        <span class="label">Safety Limit:</span>
++        <span class="value">{{ maxLoad }}W</span>
++      </div>
++    </div>
++  </div>
++</template>
++
++<script setup>
++import { computed } from 'vue'
++
++const props = defineProps({
++  currentLoad: {
++    type: Number,
++    required: true,
++    default: 0
++  },
++  maxLoad: {
++    type: Number,
++    required: true,
++    default: 5000
++  },
++  status: {
++    type: String,
++    required: true,
++    default: 'safe'
++  }
++})
++
++const percentage = computed(() => {
++  return Math.min((props.currentLoad / props.maxLoad) * 100, 100)
++})
++
++const availableCapacity = computed(() => {
++  return Math.max(props.maxLoad - props.currentLoad, 0)
++})
++
++const statusLabel = computed(() => {
++  switch (props.status) {
++    case 'critical':
++      return '🔴 CRITICAL'
++    case 'warning':
++      return '🟡 WARNING'
++    default:
++      return '🟢 SAFE'
++  }
++})
++</script>
++
++<style scoped>
++.load-meter {
++  background: linear-gradient(145deg, #1a1a2e, #16213e);
++  border-radius: 16px;
++  padding: 24px;
++  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
++  border: 1px solid rgba(255, 255, 255, 0.1);
++}
++
++.meter-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  margin-bottom: 20px;
++}
++
++.meter-header h2 {
++  font-size: 1.3rem;
++  color: #fff;
++  margin: 0;
++}
++
++.status-badge {
++  padding: 6px 14px;
++  border-radius: 20px;
++  font-size: 0.85rem;
++  font-weight: 600;
++  text-transform: uppercase;
++  letter-spacing: 0.5px;
++}
++
++.status-badge.safe {
++  background: rgba(0, 255, 136, 0.2);
++  color: #00ff88;
++  border: 1px solid rgba(0, 255, 136, 0.3);
++}
++
++.status-badge.warning {
++  background: rgba(255, 200, 0, 0.2);
++  color: #ffc800;
++  border: 1px solid rgba(255, 200, 0, 0.3);
++}
++
++.status-badge.critical {
++  background: rgba(255, 100, 100, 0.2);
++  color: #ff6464;
++  border: 1px solid rgba(255, 100, 100, 0.3);
++  animation: pulse 1s infinite;
++}
++
++@keyframes pulse {
++  0%, 100% { opacity: 1; }
++  50% { opacity: 0.7; }
++}
++
++.meter-display {
++  margin-bottom: 20px;
++}
++
++.meter-value {
++  text-align: center;
++  margin-bottom: 16px;
++}
++
++.meter-value .current {
++  font-size: 3rem;
++  font-weight: 700;
++  background: linear-gradient(90deg, #00d4ff, #00ff88);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++}
++
++.meter-value .separator {
++  color: #555;
++  font-size: 2rem;
++  margin: 0 8px;
++}
++
++.meter-value .max {
++  font-size: 1.5rem;
++  color: #888;
++}
++
++.meter-value .unit {
++  font-size: 1.2rem;
++  color: #666;
++  margin-left: 4px;
++}
++
++.meter-bar-container {
++  position: relative;
++  height: 24px;
++  background: rgba(255, 255, 255, 0.1);
++  border-radius: 12px;
++  overflow: hidden;
++  margin-bottom: 8px;
++}
++
++.meter-bar {
++  height: 100%;
++  border-radius: 12px;
++  transition: width 0.5s ease, background 0.3s ease;
++  position: relative;
++  overflow: hidden;
++}
++
++.meter-bar.safe {
++  background: linear-gradient(90deg, #00ff88, #00d4ff);
++}
++
++.meter-bar.warning {
++  background: linear-gradient(90deg, #ffc800, #ff9500);
++}
++
++.meter-bar.critical {
++  background: linear-gradient(90deg, #ff6464, #ff3333);
++}
++
++.meter-glow {
++  position: absolute;
++  top: 0;
++  left: 0;
++  right: 0;
++  height: 50%;
++  background: linear-gradient(180deg, rgba(255,255,255,0.3), transparent);
++  border-radius: 12px 12px 0 0;
++}
++
++.meter-markers {
++  position: absolute;
++  top: 0;
++  left: 0;
++  right: 0;
++  height: 100%;
++  pointer-events: none;
++}
++
++.meter-markers .marker {
++  position: absolute;
++  top: 50%;
++  transform: translate(-50%, -50%);
++  font-size: 0.65rem;
++  color: rgba(255, 255, 255, 0.4);
++  border-left: 1px dashed rgba(255, 255, 255, 0.3);
++  padding-left: 4px;
++  height: 100%;
++  display: flex;
++  align-items: center;
++}
++
++.meter-percentage {
++  text-align: center;
++  color: #888;
++  font-size: 0.9rem;
++}
++
++.meter-info {
++  display: flex;
++  justify-content: space-between;
++  padding-top: 16px;
++  border-top: 1px solid rgba(255, 255, 255, 0.1);
++}
++
++.info-item {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++}
++
++.info-item .label {
++  font-size: 0.8rem;
++  color: #666;
++}
++
++.info-item .value {
++  font-size: 1.1rem;
++  color: #00d4ff;
++  font-weight: 600;
++}
++</style>
+\ No newline at end of file
+diff -ruN repository_before/frontend/src/main.js repository_after/frontend/src/main.js
+--- repository_before/frontend/src/main.js	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/src/main.js	2026-01-31 10:28:33.352996319 +0300
+@@ -0,0 +1,7 @@
++import { createApp } from 'vue'
++import { createPinia } from 'pinia'
++import App from './App.vue'
++
++const app = createApp(App)
++app.use(createPinia())
++app.mount('#app')
+\ No newline at end of file
+diff -ruN repository_before/frontend/src/stores/applianceStore.js repository_after/frontend/src/stores/applianceStore.js
+--- repository_before/frontend/src/stores/applianceStore.js	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/src/stores/applianceStore.js	2026-01-31 19:34:41.990360039 +0300
+@@ -0,0 +1,144 @@
++import { defineStore } from 'pinia'
++import axios from 'axios'
++
++const API_BASE = '/api'
++
++/**
++ * Extracts a user-friendly error message from API error response.
++ * The API returns structured errors with:
++ * - 'message' or 'user_message': User-friendly text for display
++ * - 'technical_details': Technical info (not shown to users)
++ * 
++ * This function ensures only non-technical messages are displayed.
++ */
++function extractUserFriendlyMessage(errorDetail) {
++  if (!errorDetail) {
++    return 'An unexpected error occurred. Please try again.'
++  }
++  
++  // If it's a string, return as-is
++  if (typeof errorDetail === 'string') {
++    return errorDetail
++  }
++  
++  // If it's an object, extract the user-friendly message
++  if (typeof errorDetail === 'object') {
++    // Prefer 'user_message', then 'message'
++    if (errorDetail.user_message) {
++      return errorDetail.user_message
++    }
++    if (errorDetail.message) {
++      return errorDetail.message
++    }
++    // Fallback for legacy format
++    if (errorDetail.error) {
++      return errorDetail.error
++    }
++  }
++  
++  return 'Unable to complete the request. Please try again.'
++}
++
++export const useApplianceStore = defineStore('appliance', {
++  state: () => ({
++    appliances: [],
++    loadStatus: {
++      current_load: 0,
++      max_load: 5000,
++      available_capacity: 5000,
++      utilization_percent: 0,
++      status: 'safe'
++    },
++    loading: false,
++    error: null,
++    togglingIds: new Set()
++  }),
++
++  getters: {
++    currentLoad: (state) => state.loadStatus.current_load,
++    maxLoad: (state) => state.loadStatus.max_load,
++    availableCapacity: (state) => state.loadStatus.available_capacity,
++    utilizationPercent: (state) => state.loadStatus.utilization_percent,
++    systemStatus: (state) => state.loadStatus.status,
++    isNearLimit: (state) => state.loadStatus.utilization_percent >= 70,
++    isCritical: (state) => state.loadStatus.utilization_percent >= 90,
++    activeAppliances: (state) => state.appliances.filter(a => a.is_on),
++    isToggling: (state) => (id) => state.togglingIds.has(id)
++  },
++
++  actions: {
++    async fetchAppliances() {
++      this.loading = true
++      this.error = null
++      try {
++        const response = await axios.get(`${API_BASE}/appliances`)
++        this.appliances = response.data
++      } catch (err) {
++        this.error = 'Failed to load appliances'
++        console.error(err)
++      } finally {
++        this.loading = false
++      }
++    },
++
++    async fetchLoadStatus() {
++      try {
++        const response = await axios.get(`${API_BASE}/load-status`)
++        this.loadStatus = response.data
++      } catch (err) {
++        console.error('Failed to fetch load status:', err)
++      }
++    },
++
++    async toggleAppliance(id, isOn) {
++      if (this.togglingIds.has(id)) return
++
++      this.togglingIds.add(id)
++      this.error = null
++
++      try {
++        const response = await axios.post(`${API_BASE}/appliances/${id}/toggle`, {
++          is_on: isOn
++        })
++
++        // Update local state
++        const index = this.appliances.findIndex(a => a.id === id)
++        if (index !== -1) {
++          this.appliances[index] = response.data.appliance
++        }
++
++        // Update load status
++        this.loadStatus.current_load = response.data.current_total_load
++        this.loadStatus.utilization_percent = (response.data.current_total_load / this.loadStatus.max_load) * 100
++        this.loadStatus.available_capacity = this.loadStatus.max_load - response.data.current_total_load
++
++        // Update status
++        if (this.loadStatus.utilization_percent >= 90) {
++          this.loadStatus.status = 'critical'
++        } else if (this.loadStatus.utilization_percent >= 70) {
++          this.loadStatus.status = 'warning'
++        } else {
++          this.loadStatus.status = 'safe'
++        }
++
++        return { success: true, message: response.data.message }
++      } catch (err) {
++        // Extract user-friendly message only - no technical details
++        const errorDetail = err.response?.data?.detail
++        const errorMessage = extractUserFriendlyMessage(errorDetail)
++        
++        this.error = errorMessage
++        return { success: false, message: errorMessage }
++      } finally {
++        this.togglingIds.delete(id)
++      }
++    },
++
++    clearError() {
++      this.error = null
++    }
++  }
++})
++
++// Export for testing
++export { extractUserFriendlyMessage }
+\ No newline at end of file
+diff -ruN repository_before/frontend/vite.config.js repository_after/frontend/vite.config.js
+--- repository_before/frontend/vite.config.js	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/frontend/vite.config.js	2026-01-31 19:18:57.635758670 +0300
+@@ -0,0 +1,18 @@
++import { defineConfig } from 'vite'
++import vue from '@vitejs/plugin-vue'
++
++export default defineConfig({
++  plugins: [vue()],
++  server: {
++    proxy: {
++      '/api': {
++        target: 'http://localhost:8000',
++        changeOrigin: true
++      }
++    }
++  },
++  test: {
++    globals: true,
++    environment: 'jsdom'
++  }
++})
+\ No newline at end of file
+diff -ruN repository_before/__init__.py repository_after/__init__.py
+--- repository_before/__init__.py	1970-01-01 03:00:00.000000000 +0300
++++ repository_after/__init__.py	2026-01-31 10:46:25.219373460 +0300
+@@ -0,0 +1 @@
++"""VoltSafe Backend Package."""
+\ No newline at end of file

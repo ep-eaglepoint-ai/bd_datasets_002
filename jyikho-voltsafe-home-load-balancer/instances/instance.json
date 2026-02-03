@@ -1,0 +1,17 @@
+{
+    "instance_id": "JYIKHO",
+    "problem_statement": "Develop a real-time energy management system using Vue.js and FastAPI to prevent residential circuit overloads. The core challenge involves implementing an atomic 'power reservation' logic that ensures the aggregate wattage of active smart-appliances never exceeds a 5000W safety threshold.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/jyikho-voltsafe-home-load-balancer",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "req1_atomic_validation",
+        "req2_reactive_visualization",
+        "req3_idempotent_transitions",
+        "req4_persistence_integrity",
+        "req5_collision_testing",
+        "req6_precision_testing"
+    ],
+    "PASS_TO_PASS": []
+}

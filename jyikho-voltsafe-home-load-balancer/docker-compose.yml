@@ -1,0 +1,25 @@
+services:
+  app:
+    build: .
+    working_dir: /app
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+
+  test:
+    build: .
+    working_dir: /app
+    command: python -m pytest tests/ -v --tb=short
+
+  evaluate:
+    build: .
+    working_dir: /app
+    command: python evaluation/evaluation.py
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+
+  backend:
+    build: .
+    working_dir: /app/repository_after/backend
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
