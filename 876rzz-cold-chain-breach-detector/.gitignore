@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+
+# Go
+pkg/
+*.log
+*.mod
+*.sum
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Evaluation reports (keep directory structure)
+evaluation/reports/**/*.json
+!evaluation/reports/.gitkeep
+
+# Module files
+module/

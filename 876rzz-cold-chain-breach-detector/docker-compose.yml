@@ -1,0 +1,14 @@
+services:
+  test-after:
+    build: .
+    command: sh -c "if [ ! -f /app/go.mod ]; then cd /app && go mod init cold-chain-breach-detector && go mod tidy; fi && cd /app && go test -v ./tests"
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  evaluation:
+    build: .
+    command: sh -c "if [ ! -f /app/go.mod ]; then cd /app && go mod init cold-chain-breach-detector && go mod tidy; fi && cd /app && go run evaluation/evaluation.go"
+    volumes:
+      - .:/app
+    working_dir: /app
