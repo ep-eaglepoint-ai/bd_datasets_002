@@ -1,0 +1,23 @@
+services:
+  test-before:
+    image: alpine:3.18
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["sh","-lc","chmod +x tests/run_before.sh && sh tests/run_before.sh"]
+
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: session-analytics-test-after:latest
+    working_dir: /app
+    # no volume mount here so the image-embedded build and dependencies are used
+    command: ["bash","-lc","chmod +x tests/run_after.sh && tests/run_after.sh"]
+
+  evaluate:
+    image: maven:3.8.7-eclipse-temurin-17
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["bash","-lc","javac -d /tmp evaluation/EvaluationMain.java && java -cp /tmp EvaluationMain"]

@@ -1,0 +1,11 @@
+{
+            "instance_id": "4CX94M",
+            "problem_statement": "The existing session analytics API computes basic metrics such as total sessions, average session duration, and the longest session, but it suffers from performance inefficiencies, unsafe shared state, and fragile validation logic that make it unsuitable for production use under concurrent or high-volume traffic. The current implementation uses unnecessary nested loops, maintains mutable controller state, and mixes validation with aggregation logic, leading to scalability issues, correctness risks, and unpredictable behavior. A refactor is required to optimize performance, enforce deterministic validation, ensure thread safety, and make the API stateless and horizontally scalable while preserving its externally observable behavior.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/4cx94m-user-session-analytics-api",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
