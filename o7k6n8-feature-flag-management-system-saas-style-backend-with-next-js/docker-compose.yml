@@ -1,0 +1,65 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/feature_flags
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./repository_after:/app/repository_after
+      - next_cache:/app/repository_after/.next
+      - /app/node_modules
+    command: sh -c "npx prisma generate --schema=repository_after/prisma/schema.prisma && npx prisma db push --schema=repository_after/prisma/schema.prisma && npx tsx repository_after/prisma/seed.ts && cd repository_after && npm run dev"
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=feature_flags
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/feature_flags_test
+      - JWT_SECRET=test-jwt-secret
+      - DOCKER=1
+    depends_on:
+      app:
+        condition: service_started
+    volumes:
+      - ./tests:/app/tests
+      - ./evaluation:/app/evaluation
+      - /app/node_modules
+    working_dir: /app
+    command: >
+      sh -c "npm install && npx prisma generate --schema=repository_after/prisma/schema.prisma && npx prisma db push --schema=repository_after/prisma/schema.prisma && (cd repository_after && npm run dev &) && 
+      for i in {1..60}; do 
+        if curl -s http://app:3000/api/health > /dev/null 2>&1; then 
+          echo 'Server is ready!'; 
+          break; 
+        fi; 
+        echo 'Waiting for server... ($i/60)';
+        sleep 2; 
+      done && 
+      npx tsx -e \"process.env.DATABASE_URL='postgresql://postgres:password@db:5432/feature_flags_test'; require('./repository_after/prisma/seed.ts').main()\" 2>/dev/null || 
+      npx prisma db seed 2>/dev/null ||
+      echo 'Seed skipped - using test credentials' &&
+      npm test -- --config package.json --testTimeout=60000"
+
+volumes:
+  postgres_data:
+  next_cache:

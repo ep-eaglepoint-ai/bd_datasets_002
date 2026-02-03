@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  overrides UserOverride[]
+  auditLogs AuditLog[]
+
+  @@map("users")
+  @@index([email])
+}
+
+model FeatureFlag {
+  id                String   @id @default(cuid())
+  key               String   @unique
+  description       String
+  enabled           Boolean  @default(false)
+  rolloutPercentage Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  overrides UserOverride[]
+  auditLogs AuditLog[]
+
+  @@map("feature_flags")
+  @@index([key])
+  @@index([enabled])
+}
+
+model UserOverride {
+  id        String      @id @default(cuid())
+  userId    String
+  flagId    String
+  enabled   Boolean
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // Relations
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, flagId])
+  @@map("user_overrides")
+  @@index([userId])
+  @@index([flagId])
+  @@index([userId, flagId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  flagId    String
+  action    String   // 'CREATE', 'UPDATE', 'DELETE', 'OVERRIDE_CREATE', 'OVERRIDE_DELETE'
+  oldValue  Json?    // Store old flag/override data as JSON
+  newValue  Json?    // Store new flag/override data as JSON
+  timestamp DateTime @default(now())
+
+  // Relations
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([flagId])
+  @@index([timestamp])
+  @@index([action])
+}
+
+enum Role {
+  ADMIN
+  USER
+}
