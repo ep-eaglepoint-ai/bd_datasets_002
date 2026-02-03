@@ -1,0 +1,9 @@
+{
+  "instance_id": "XH01TO",
+  "problem_statement": "Noticed critical race conditions when testing the product search feature in an e-commerce React application. QA reported that typing \"laptop\" quickly sometimes shows results for \"lap\" instead, or displays results from a previous search term entirely.\n\nProduction logs show memory warnings about setState calls on unmounted components occurring 15-20 times per hour during peak traffic. Performance monitoring reveals memory growing from 2MB to 45MB after 50 searches without refresh, indicating a leak. Users report that rapidly clicking \"refresh\" triggers duplicate API calls and the loading spinner never stops.\n\nThe pagination feature has a bug where clicking \"next page\" sometimes loads page 1 again due to stale closures. React StrictMode causes completely different behavior than production, making debugging difficult. The search functionality must handle high-frequency input changes, cancel in-flight requests cleanly, and maintain predictable state without memory leaks or race conditions.",
+  "base_commit": "repository_before",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/xh01to-react-product-search-hook-race-condition-fix/xh01to-react-product-search-hook-race-condition-fix",
+  "environment_setup": "Dockerfile"
+}
+        
