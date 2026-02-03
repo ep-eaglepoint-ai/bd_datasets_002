@@ -1,0 +1,21 @@
+services:
+  test-before:
+    build: .
+    command: npx jest tests/legacy.test.js tests/integration.test.js
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  test-after:
+    build: .
+    command: npx jest tests/refactored.test.js tests/isolation.test.js tests/tax.test.js
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  evaluate:
+    build: .
+    command: node evaluation/evaluation.js
+    volumes:
+      - .:/app
+      - /app/node_modules

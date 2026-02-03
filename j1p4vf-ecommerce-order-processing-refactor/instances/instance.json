@@ -1,0 +1,31 @@
+{
+            "instance_id": "J1P4VF",
+            "problem_statement": "Refactor a monolithic, synchronous order processing function into a decoupled, service-oriented architecture. The legacy implementation violates the Single Responsibility Principle by mixing payment validation, inventory management, and tax calculation into a single high-risk transaction block.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/j1p4vf-ecommerce-order-processing-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": [
+                "tests/refactored.test.js should process a valid order successfully",
+                "tests/refactored.test.js should return same data shape as legacy processor",
+                "tests/refactored.test.js should fail when order has no items",
+                "tests/refactored.test.js should fail when item is out of stock",
+                "tests/refactored.test.js should fail when payment is declined",
+                "tests/refactored.test.js TaxService should be independently testable",
+                "tests/refactored.test.js InventoryService should be independently testable",
+                "tests/refactored.test.js PaymentService should be independently testable",
+                "tests/refactored.test.js should have specific error classes",
+                "tests/isolation.test.js Requirement 7: Payment failure should NOT call inventory reservation",
+                "tests/isolation.test.js Requirement 4: Inventory should only be reserved after successful payment",
+                "tests/isolation.test.js Should execute pipeline steps in correct order",
+                "tests/tax.test.js Requirement 8: California order should use 9.25% tax rate",
+                "tests/tax.test.js Texas order should use 8.25% tax rate",
+                "tests/tax.test.js Unknown state should use default 8.25% rate",
+                "tests/tax.test.js No state provided should use default rate",
+                "tests/tax.test.js Should calculate correct total for California order",
+                "tests/tax.test.js Should calculate correct total for Texas order",
+                "tests/tax.test.js Should support dynamic tax rate configuration"
+            ]
+        }
+        
