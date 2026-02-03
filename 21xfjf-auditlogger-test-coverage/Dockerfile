@@ -1,0 +1,12 @@
+FROM golang:1.21
+
+WORKDIR /app
+
+COPY . .
+
+# Initialize go modules
+RUN cd /app/repository_before && go mod download || true
+RUN cd /app/repository_after && go mod download || true
+RUN cd /app/tests && go mod download || true
+
+CMD ["go", "run", "/app/evaluation/evaluation.go"]
