@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payment_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test-before:
+    build: .
+    command: pytest -v tests
+    environment:
+      TARGET_REPO: repository_before
+      DB_HOST: db
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  test-after:
+    build: .
+    command: pytest -v tests
+    environment:
+      TARGET_REPO: repository_after
+      DB_HOST: db
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    environment:
+      DB_HOST: db
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy

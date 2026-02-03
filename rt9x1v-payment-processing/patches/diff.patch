@@ -1,0 +1,97 @@
+diff --git a/repository_after/process_payment.sql b/repository_after/process_payment.sql
+new file mode 100644
+index 00000000..e91af1f8
+--- /dev/null
++++ b/repository_after/process_payment.sql
+@@ -0,0 +1,57 @@
++DROP TYPE IF EXISTS payment_result CASCADE;
++CREATE TYPE payment_result AS (
++    status TEXT,
++    message TEXT
++);
++
++CREATE OR REPLACE FUNCTION process_payment(
++    p_order_id INTEGER,
++    p_amount DECIMAL,
++    p_method TEXT,
++    p_timestamp TIMESTAMP,
++    p_request_id TEXT
++) RETURNS payment_result AS $$
++DECLARE
++    v_order_record orders%ROWTYPE;
++    v_payment_id INTEGER;
++    v_existing_payment_id INTEGER;
++BEGIN
++    SELECT id INTO v_existing_payment_id FROM payments WHERE request_id = p_request_id;
++    
++    IF v_existing_payment_id IS NOT NULL THEN
++        RETURN ROW('OK', 'Payment already processed')::payment_result;
++    END IF;
++
++    SELECT * INTO v_order_record FROM orders WHERE id = p_order_id FOR UPDATE;
++    
++    IF NOT FOUND THEN
++        RETURN ROW('ORDER_NOT_FOUND', 'Order not found')::payment_result;
++    END IF;
++
++    IF v_order_record.status != 'pending' THEN
++        RETURN ROW('ORDER_NOT_PENDING', 'Order is not pending')::payment_result;
++    END IF;
++
++    IF p_amount <> v_order_record.total_amount THEN
++        RETURN ROW('PAYMENT_AMOUNT_MISMATCH', 'Payment amount mismatch')::payment_result;
++    END IF;
++
++    BEGIN
++        INSERT INTO payments (order_id, amount, method, payment_timestamp, request_id)
++        VALUES (p_order_id, p_amount, p_method, p_timestamp, p_request_id)
++        RETURNING id INTO v_payment_id;
++    EXCEPTION WHEN unique_violation THEN
++        RETURN ROW('OK', 'Payment already processed')::payment_result;
++    END;
++
++    UPDATE orders SET status = 'paid' WHERE id = p_order_id;
++
++    INSERT INTO payment_audit_log (order_id, payment_id, action, log_timestamp)
++    VALUES (p_order_id, v_payment_id, 'PAYMENT_PROCESSED', CURRENT_TIMESTAMP);
++
++    RETURN ROW('OK', 'Payment processed successfully')::payment_result;
++
++EXCEPTION WHEN OTHERS THEN
++    RETURN ROW('ERROR', SQLERRM)::payment_result;
++END;
++$$ LANGUAGE plpgsql;
+diff --git a/repository_after/schema.sql b/repository_after/schema.sql
+new file mode 100644
+index 00000000..0371627c
+--- /dev/null
++++ b/repository_after/schema.sql
+@@ -0,0 +1,28 @@
++DROP TABLE IF EXISTS payment_audit_log CASCADE;
++DROP TABLE IF EXISTS payments CASCADE;
++DROP TABLE IF EXISTS orders CASCADE;
++
++CREATE TABLE orders (
++    id SERIAL PRIMARY KEY,
++    total_amount DECIMAL(10, 2) NOT NULL CHECK (total_amount >= 0),
++    status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'cancelled')) DEFAULT 'pending',
++    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++);
++
++CREATE TABLE payments (
++    id SERIAL PRIMARY KEY,
++    order_id INTEGER NOT NULL REFERENCES orders(id),
++    amount DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
++    method TEXT NOT NULL,
++    payment_timestamp TIMESTAMP NOT NULL,
++    request_id TEXT NOT NULL UNIQUE,
++    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++);
++
++CREATE TABLE payment_audit_log (
++    id SERIAL PRIMARY KEY,
++    order_id INTEGER REFERENCES orders(id),
++    payment_id INTEGER REFERENCES payments(id),
++    action TEXT NOT NULL,
++    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++);
