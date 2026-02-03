@@ -1,0 +1,11 @@
+{
+            "instance_id": "C37VUU",
+            "problem_statement": "The objective is to author a high-rigor, full-coverage test suite for a Python-based Sliding Window Rate Limiter. The service is designed to limit API requests within a rolling temporal window (e.g., 60 seconds). Your task is to verify that the limiter correctly handles high-frequency bursts, ensures that old data is purged to prevent memory leaks, and remains accurate under complex, non-linear request patterns. The test suite must utilize property-based testing to prove that the 'sliding' property holds true for any arbitrary sequence of timestamps, ensuring no more than the allowed threshold of requests ever occurs within any 60-second slice.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/c37vuu-slidingwindowratelimiterresiliencesuite",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
