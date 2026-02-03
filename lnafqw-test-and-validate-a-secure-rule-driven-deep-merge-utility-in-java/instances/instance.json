@@ -1,0 +1,26 @@
+{
+  "instance_id": "LNAFQW",
+  "problem_statement": "You are given a Java utility called DeepMerge that performs deep merging of complex object graphs with support for maps, collections, arrays, cycle detection, configurable merge policies, security-related key filtering, and path-based rules. Your task is to create a comprehensive and reliable test suite that validates the correctness, safety, and robustness of the merge behavior across all supported features and edge cases.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/lnafqw-test-and-validate-a-secure-rule-driven-deep-merge-utility-in-java",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "requirement_1_junit5",
+    "requirement_2_single_file",
+    "requirement_3_deterministic",
+    "requirement_4_no_placeholders",
+    "requirement_5_invariant_comments",
+    "requirement_6_deep_merge_collections",
+    "requirement_7_null_handling",
+    "requirement_8_target_preservation",
+    "requirement_9_global_blocked_keys",
+    "requirement_10_deep_blocked_keys",
+    "requirement_11_path_blocked_keys",
+    "requirement_12_protect_keys_toggle",
+    "requirement_13_non_string_keys",
+    "requirement_14_rule_precedence",
+    "requirement_15_blocked_keys_union"
+  ],
+  "PASS_TO_PASS": []
+}

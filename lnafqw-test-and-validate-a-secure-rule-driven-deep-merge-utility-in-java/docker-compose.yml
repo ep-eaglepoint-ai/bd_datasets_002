@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  test-impl:
+    build: .
+    working_dir: /app/repository_after/deepmerge
+    command: mvn test
+
+  test-meta:
+    build: .
+    working_dir: /app/tests
+    command: mvn test
+
+  evaluate:
+    build: .
+    working_dir: /app
+    command: java evaluation/evaluation.java
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
