@@ -1,0 +1,21 @@
+services:
+  test-before:
+    build: .
+    profiles: ["test-before"]
+    command: ["true"]
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    profiles: ["test-after"]
+    command: python -m unittest tests.test -v
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    profiles: ["evaluation"]
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app

@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Generated reports
+evaluation/reports/
+
+# Git
+.git/
+.gitignore
+
+# IDE / OS
+.cursor/
+.DS_Store
+
+# Build
+dist/
+build/
