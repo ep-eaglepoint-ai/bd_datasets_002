@@ -1,0 +1,138 @@
+from typing import Dict, List, Tuple
+from collections import Counter, defaultdict
+import re
+
+
+class WordCounter:
+    def __init__(self, filepath: str):
+        self.filepath = filepath
+
+        # Statistics
+        self.character_count = 0
+        self.line_count = 1  # Legacy: starts at 1
+        self.word_count = 0
+        
+        # Alpha-only stats for legacy frequency/length consistency
+        self.alpha_word_count = 0
+        self.alpha_total_length = 0
+
+        # Data structures
+        self.word_frequencies = Counter()
+        self.word_positions = defaultdict(list)
+
+        # Internal state
+        self._processed = False
+
+    def _process_file(self):
+        """Read the file ONCE and compute all statistics."""
+        if self._processed:
+            return
+
+        # Read file content for str.find() based position searching
+        with open(self.filepath, 'r', encoding='utf-8', errors='replace') as file:
+            self._full_text = file.read()
+        
+        # Count characters and lines
+        for char in self._full_text:
+            self.character_count += 1
+            if char == '\n':
+                self.line_count += 1
+        
+        # Extract unique words and count frequencies
+        text_lower = self._full_text.lower()
+        self._extract_words_and_frequencies(self._full_text, text_lower)
+        
+        # Build positions index using str.find() in a loop
+        self._build_positions_with_find(text_lower)
+        
+        self._processed = True
+
+    def _extract_words_and_frequencies(self, text: str, text_lower: str):
+        """Extract words and count frequencies."""
+        i = 0
+        n = len(text)
+        
+        while i < n:
+            if not text[i].isalnum():
+                i += 1
+                continue
+            
+            start = i
+            while i < n and text[i].isalnum():
+                i += 1
+            
+            token = text[start:i]
+            lower_token = token.lower()
+            
+            self.word_count += 1
+            
+            if token.isalpha():
+                self.word_frequencies[lower_token] += 1
+                self.alpha_word_count += 1
+                self.alpha_total_length += len(token)
+
+    def _build_positions_with_find(self, text_lower: str):
+        """Build word positions using str.find() in a loop as per spec."""
+        # For each unique word, use str.find() in a loop to find all positions
+        for word in self.word_frequencies.keys():
+            pos = 0
+            while True:
+                # Use str.find() to locate the word
+                idx = text_lower.find(word, pos)
+                if idx == -1:
+                    break
+                
+                # Verify word boundaries (not part of larger word)
+                before_ok = (idx == 0 or not text_lower[idx - 1].isalnum())
+                after_ok = (idx + len(word) >= len(text_lower) or 
+                           not text_lower[idx + len(word)].isalnum())
+                
+                if before_ok and after_ok:
+                    self.word_positions[word].append(idx)
+                
+                pos = idx + 1
+
+
+    # ------------------ Public API ------------------
+
+    def count_characters(self) -> int:
+        self._process_file()
+        return self.character_count
+
+    def count_lines(self) -> int:
+        self._process_file()
+        return self.line_count
+
+    def count_words(self) -> int:
+        self._process_file()
+        return self.word_count
+
+    def get_word_frequencies(self) -> Dict[str, int]:
+        self._process_file()
+        return dict(self.word_frequencies)
+
+    def get_top_words(self, n: int) -> List[Tuple[str, int]]:
+        self._process_file()
+        return self.word_frequencies.most_common(n)
+
+    def find_word_positions(self, word: str) -> List[int]:
+        self._process_file()
+        # Defaultdict returns [] if not found, which is correct
+        return self.word_positions[word.lower()]
+
+    def get_average_word_length(self) -> float:
+        self._process_file()
+        # Legacy behavior: computed on alpha words only (from re.findall(r'\b[a-zA-Z]+\b'))
+        if self.alpha_word_count == 0:
+            return 0.0
+        return self.alpha_total_length / self.alpha_word_count
+
+    def get_statistics(self) -> Dict[str, any]:
+        self._process_file()
+        return {
+            'characters': self.character_count,
+            'words': self.word_count,
+            'lines': self.line_count,
+            'average_word_length': round(self.get_average_word_length(), 2),
+            'unique_words': len(self.word_frequencies)
+        }
