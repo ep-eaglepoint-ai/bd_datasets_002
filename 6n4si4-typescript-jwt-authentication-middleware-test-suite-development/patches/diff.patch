@@ -1,0 +1,357 @@
+﻿diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29b..00000000
+diff --git a/repository_before/package.json b/repository_before/package.json
+deleted file mode 100644
+index 22ae97e2..00000000
+--- a/repository_before/package.json
++++ /dev/null
+@@ -1,26 +0,0 @@
+-{
+-  "name": "jwt-auth-middleware",
+-  "version": "1.0.0",
+-  "description": "JWT Authentication Middleware for Express.js",
+-  "main": "dist/index.js",
+-  "scripts": {
+-    "build": "tsc",
+-    "test": "jest",
+-    "test:coverage": "jest --coverage"
+-  },
+-  "dependencies": {
+-    "express": "^4.18.2",
+-    "jsonwebtoken": "^9.0.2"
+-  },
+-  "devDependencies": {
+-    "@types/express": "^4.17.21",
+-    "@types/jest": "^29.5.11",
+-    "@types/jsonwebtoken": "^9.0.5",
+-    "@types/node": "^20.10.6",
+-    "@types/supertest": "^6.0.2",
+-    "jest": "^29.7.0",
+-    "supertest": "^6.3.3",
+-    "ts-jest": "^29.1.1",
+-    "typescript": "^5.3.3"
+-  }
+-}
+diff --git a/repository_after/tests/middleware.test.ts b/repository_after/tests/middleware.test.ts
+new file mode 100644
+index 00000000..66b30852
+--- /dev/null
++++ b/repository_after/tests/middleware.test.ts
+@@ -0,0 +1,316 @@
++import { Request, Response, NextFunction } from 'express';
++import jwt from 'jsonwebtoken';
++import { authenticate, requireRoles, AuthenticatedRequest } from '../middleware';
++import { 
++  generateTokenPair, 
++  verifyRefreshToken, 
++  rotateRefreshToken, 
++  revokeToken, 
++  clearTokenStores 
++} from '../token';
++import { UserPayload } from '../types';
++
++// Mock Express objects
++const mockRequest = () => {
++  return {
++    headers: {},
++  } as unknown as AuthenticatedRequest;
++};
++
++const mockResponse = () => {
++  const res: Partial<Response> = {};
++  res.status = jest.fn().mockReturnValue(res);
++  res.json = jest.fn().mockReturnValue(res);
++  return res as Response;
++};
++
++const mockNext = jest.fn() as NextFunction;
++
++describe('JWT Middleware & Token Management', () => {
++  const user: UserPayload = {
++    userId: 'user-123',
++    email: 'test@example.com',
++    roles: ['user']
++  };
++
++  beforeEach(() => {
++    jest.useFakeTimers();
++    clearTokenStores();
++    jest.clearAllMocks();
++  });
++
++  afterEach(() => {
++    jest.useRealTimers();
++  });
++
++  describe('Authentication Middleware', () => {
++    it('should call next() for valid access token', () => {
++      const { accessToken } = generateTokenPair(user);
++      const req = mockRequest();
++      const res = mockResponse();
++      req.headers.authorization = `Bearer ${accessToken}`;
++
++      authenticate(req, res, mockNext);
++
++      expect(mockNext).toHaveBeenCalled();
++      expect(req.user).toBeDefined();
++      expect(req.user?.userId).toBe(user.userId);
++    });
++
++    it('should return 401 for missing header', () => {
++      const req = mockRequest();
++      const res = mockResponse();
++
++      authenticate(req, res, mockNext);
++
++      expect(res.status).toHaveBeenCalledWith(401);
++      expect(res.json).toHaveBeenCalledWith({ error: 'Missing authorization header' });
++    });
++
++    it('should return 401 for invalid format', () => {
++      const { accessToken } = generateTokenPair(user);
++      const req = mockRequest();
++      const res = mockResponse();
++      req.headers.authorization = `Token ${accessToken}`; // Wrong prefix
++
++      authenticate(req, res, mockNext);
++
++      expect(res.status).toHaveBeenCalledWith(401);
++      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid authorization format' });
++    });
++
++    it('should return 401 for invalid signature', () => {
++      // Sign with different secret
++      const token = jwt.sign(user, 'wrong-secret', { expiresIn: '15m' });
++      const req = mockRequest();
++      const res = mockResponse();
++      req.headers.authorization = `Bearer ${token}`;
++
++      authenticate(req, res, mockNext);
++
++      expect(res.status).toHaveBeenCalledWith(401);
++      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid token' });
++    });
++
++    it('should return 401 for expired token (considering clock tolerance)', () => {
++      const { accessToken } = generateTokenPair(user);
++      const req = mockRequest();
++      const res = mockResponse();
++      req.headers.authorization = `Bearer ${accessToken}`;
++
++      // Advance time beyond 15m + 30s tolerance
++      // 15 * 60 = 900s. 900 + 30 = 930s.
++      // Let's go to 1000s
++      jest.advanceTimersByTime(1000 * 1000); 
++
++      authenticate(req, res, mockNext);
++
++      expect(res.status).toHaveBeenCalledWith(401);
++      expect(res.json).toHaveBeenCalledWith({ error: 'Token expired' });
++    });
++
++    it('should return 401 for malformed token', () => {
++      const req = mockRequest();
++      const res = mockResponse();
++      req.headers.authorization = `Bearer not.a.valid.token`;
++
++      authenticate(req, res, mockNext);
++
++      expect(res.status).toHaveBeenCalledWith(401);
++      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid token' });
++    });
++
++    it('should return 401 for revoked token', () => {
++      const { accessToken } = generateTokenPair(user);
++      revokeToken(accessToken); // Blacklist it
++
++      const req = mockRequest();
++      const res = mockResponse();
++      req.headers.authorization = `Bearer ${accessToken}`;
++
++      authenticate(req, res, mockNext);
++
++      expect(res.status).toHaveBeenCalledWith(401);
++      expect(res.json).toHaveBeenCalledWith({ error: 'Token has been revoked' });
++    });
++    
++    it('should reject algorithm "none" attack', () => {
++       // Create a token with 'none' algorithm
++       // Note: jsonwebtoken library by default blocks 'none' unless explicitly allowed, 
++       // but we verify our config handles it or the lib does.
++       const token = jwt.sign(user, 'secret', { algorithm: 'none' });
++       // We'll skip the signature part manually to create a truly unsecured token if needed,
++       // but jwt.sign with 'none' creates "header.payload." which is standard.
++       
++       const req = mockRequest();
++       const res = mockResponse();
++       req.headers.authorization = `Bearer ${token}`;
++       
++       authenticate(req, res, mockNext);
++       
++       // Should fail because verify settings enforce algorithms
++       expect(res.status).toHaveBeenCalledWith(401);
++    });
++
++    it('should ACCEPT tokens expired by up to 30 seconds (clock skew)', () => {
++      const { accessToken } = generateTokenPair(user);
++      const req = mockRequest();
++      const res = mockResponse();
++      req.headers.authorization = `Bearer ${accessToken}`;
++
++      // Advance time: 15 minutes + 15 seconds (within 30s tolerance)
++      jest.advanceTimersByTime((15 * 60 + 15) * 1000);
++
++      authenticate(req, res, mockNext);
++
++      expect(mockNext).toHaveBeenCalled();
++      expect(req.user).toBeDefined();
++    });
++
++    it('should return 401 for token with future not-before (nbf) claim', () => {
++       const futureTime = Math.floor(Date.now() / 1000) + 3600; // 1h future
++       const secret = process.env.JWT_SECRET || 'access-secret-key';
++       const token = jwt.sign(user, secret, { notBefore: futureTime });
++       
++       const req = mockRequest();
++       const res = mockResponse();
++       req.headers.authorization = `Bearer ${token}`;
++       
++       authenticate(req, res, mockNext);
++       
++       expect(res.status).toHaveBeenCalledWith(401);
++       // Matches catch-all or specific error
++       expect(res.json).toHaveBeenCalled();
++    });
++  });
++
++  describe('Refresh Token Logic', () => {
++    it('should verify and decode valid refresh token', () => {
++      const { refreshToken } = generateTokenPair(user);
++      const decoded = verifyRefreshToken(refreshToken);
++      expect(decoded.userId).toBe(user.userId);
++      expect(decoded.jti).toBeDefined();
++    });
++
++    it('should rotate refresh tokens correctly', () => {
++      const { refreshToken: oldRefreshToken } = generateTokenPair(user);
++      
++      const { accessToken, refreshToken: newRefreshToken } = rotateRefreshToken(oldRefreshToken, user);
++      
++      expect(accessToken).toBeDefined();
++      expect(newRefreshToken).toBeDefined();
++      expect(newRefreshToken).not.toBe(oldRefreshToken);
++    });
++
++    it('should prevent reuse of old refresh token (Replay Attack)', () => {
++      const { refreshToken } = generateTokenPair(user);
++      
++      // Use it once
++      rotateRefreshToken(refreshToken, user);
++      
++      // Try to use it again
++      expect(() => {
++        rotateRefreshToken(refreshToken, user);
++      }).toThrow('Refresh token has already been used');
++    });
++
++    it('should fail if refresh token does not have jti', () => {
++       // Manually create token without jti
++       const token = jwt.sign({ ...user }, process.env.JWT_REFRESH_SECRET || 'refresh-secret-key');
++       
++       expect(() => {
++         verifyRefreshToken(token);
++       }).toThrow('Invalid refresh token: missing jti');
++    });
++
++    it('should handle concurrent refresh attempts (only one succeeds)', async () => {
++       const { refreshToken } = generateTokenPair(user);
++       
++       const results = await Promise.all(
++         Array(5).fill(0).map(async () => {
++           try {
++             rotateRefreshToken(refreshToken, user);
++             return 'success';
++           } catch(e) {
++             return 'fail';
++           }
++         })
++       );
++       
++       const successCount = results.filter(r => r === 'success').length;
++       const failCount = results.filter(r => r === 'fail').length;
++       
++       expect(successCount).toBe(1);
++       expect(failCount).toBe(4);
++    });
++  });
++
++  describe('RBAC Middleware', () => {
++    const adminUser = { ...user, roles: ['admin'] };
++    const normalUser = { ...user, roles: ['user'] };
++
++    it('should allow access if user has required role', () => {
++      const req = mockRequest();
++      req.user = { 
++        ...adminUser, 
++        iat: Date.now(), 
++        exp: Date.now() + 3600 
++      };
++      
++      const res = mockResponse();
++      const middleware = requireRoles('admin');
++      
++      middleware(req, res, mockNext);
++      
++      expect(mockNext).toHaveBeenCalled();
++    });
++
++    it('should deny access if user does not have required role', () => {
++      const req = mockRequest();
++      req.user = { 
++        ...normalUser, 
++        iat: Date.now(), 
++        exp: Date.now() + 3600 
++      };
++      
++      const res = mockResponse();
++      const middleware = requireRoles('admin');
++      
++      middleware(req, res, mockNext);
++      
++      expect(res.status).toHaveBeenCalledWith(403);
++      expect(res.json).toHaveBeenCalledWith({ error: 'Insufficient permissions' });
++      expect(mockNext).not.toHaveBeenCalled();
++    });
++    
++    it('should return 401 if user is not authenticated (req.user missing)', () => {
++        const req = mockRequest();
++        // req.user is undefined
++        
++        const res = mockResponse();
++        const middleware = requireRoles('admin');
++        
++        middleware(req, res, mockNext);
++        
++        expect(res.status).toHaveBeenCalledWith(401);
++        expect(res.json).toHaveBeenCalledWith({ error: 'Not authenticated' });
++    });
++    
++    it('should allow access if user has one of multiple allowed roles', () => {
++        const req = mockRequest();
++        req.user = { 
++          ...adminUser, // has 'admin'
++          iat: Date.now(), 
++          exp: Date.now() + 3600 
++        };
++        
++        const res = mockResponse();
++        // Requires 'editor' OR 'admin'
++        const middleware = requireRoles('editor', 'admin');
++        
++        middleware(req, res, mockNext);
++        
++        expect(mockNext).toHaveBeenCalled();
++    });
++  });
++});
