@@ -1,0 +1,11 @@
+{
+            "instance_id": "YX64KS",
+            "problem_statement": "Modern subscription systems must reliably handle concurrent requests, retries, and evolving business rules while preserving data integrity and auditability. Writing a robust PostgreSQL function to create or update user subscriptions is significant because it centralizes critical subscription logic at the database layer, enforces consistency across services, prevents duplicate or invalid operations, and ensures accurate historical and operational records. Such a function must safely handle untrusted input, support idempotent request processing, manage complex state transitions, and provide deterministic error reporting suitable for integration with application layers and external systems.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/yx64ks-subscription-management",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
