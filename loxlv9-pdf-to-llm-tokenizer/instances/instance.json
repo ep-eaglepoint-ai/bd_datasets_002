@@ -1,0 +1,57 @@
+{
+    "instance_id": "LOXLV9",
+    "problem_statement": "Build a deterministic Python utility that accurately converts PDF documents into true LLM tokens, reports the exact document token count, and produces standardized, token-bounded chunks suitable for downstream LLM workflows.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/loxlv9-pdf-to-llm-tokenizer",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": [
+        "test_req1_is_python",
+        "test_req2_modularity",
+        "test_req5_req8_multi_page_extraction",
+        "test_req6_empty_pages",
+        "test_req7_corrupted_pdf",
+        "test_req9_normalize_whitespace",
+        "test_req12_req13_true_tokenization",
+        "test_req14_req16_authoritative_count",
+        "test_req17_req18_chunking_limits",
+        "test_req19_chunk_overlap",
+        "test_req20_sequential_chunks"
+    ],
+    "requirements": {
+        "req1": "Implementation is written entirely in Python",
+        "req2": "Code is modular (separate functions)",
+        "req3": "Can be used as an importable function",
+        "req4": "Can be executed as a CLI tool",
+        "req5": "Successfully reads multi-page PDFs",
+        "req6": "Gracefully handles empty pages",
+        "req7": "Does not crash on malformed PDFs",
+        "req8": "Preserves page order",
+        "req9": "Normalizes excessive whitespace",
+        "req10": "Does not alter semantic content",
+        "req11": "Produces identical output for identical input",
+        "req12": "Uses true LLM tokenization",
+        "req13": "Uses a supported encoding",
+        "req14": "Token count derived from encoding entire text",
+        "req15": "No heuristic token counts",
+        "req16": "Reports single authoritative token count",
+        "req17": "Chunks created strictly by token count",
+        "req18": "Maximum tokens per chunk is configurable",
+        "req19": "Token overlap is configurable",
+        "req20": "Chunks are sequential and non-reordered"
+    },
+    "test_summary": {
+        "before_repository": {
+            "passed": 0,
+            "failed": 0,
+            "total": 0
+        },
+        "after_repository": {
+            "passed": 11,
+            "failed": 0,
+            "total": 11
+        },
+        "improvement": 11
+    }
+}

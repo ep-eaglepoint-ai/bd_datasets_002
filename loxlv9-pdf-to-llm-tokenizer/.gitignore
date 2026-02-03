@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+test_report.json
+
+# Ignore all reports
+evaluation/reports/
+# But allow report.json if someone manually tries to add it (though usually reports are artifacts)
+!evaluation/reports/**/report.json
