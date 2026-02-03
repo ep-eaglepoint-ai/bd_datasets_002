@@ -1,0 +1,35 @@
+services:
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./repository_after:/app/repository_after
+      - ./tests:/app/tests
+    working_dir: /app
+    command: >
+      sh -c "
+      cd /app/tests &&
+      go test -v -run . 
+      -coverpkg=flight-dynamics-test/repository_after
+      ."
+    environment:
+      - CGO_ENABLED=0
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./repository_before:/app/mnt/repository_before:ro
+      - ./repository_after:/app/mnt/repository_after:ro
+      - ./tests:/app/mnt/tests:ro
+      - ./go.mod:/app/mnt/go.mod:ro
+      - ./evaluation:/app/evaluation:rw
+    working_dir: /app
+    command: >
+      sh -c "
+      go run evaluation/evaluation.go
+      "
+    environment:
+      - CGO_ENABLED=0
