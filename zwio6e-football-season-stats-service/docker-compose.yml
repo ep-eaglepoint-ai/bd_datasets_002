@@ -1,0 +1,31 @@
+volumes:
+  maven_data:
+
+services:
+  test-before:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./repository_before:/app/src/main/java/com/example/gamestats
+      - ./tests/FootballSeasonStatsTest.java:/app/src/test/java/com/example/gamestats/FootballSeasonStatsTest.java
+      - /app/target
+    command: mvn test -Dmaven.test.failure.ignore=true
+
+  test-after:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./repository_after:/app/src/main/java/com/example/gamestats
+      - ./tests/FootballSeasonStatsTest.java:/app/src/test/java/com/example/gamestats/FootballSeasonStatsTest.java
+      - /app/target
+    command: mvn test
+
+  evaluation:
+    build: .
+    volumes:
+      - maven_data:/root/.m2
+      - ./.git:/app/.git
+      - .:/app
+      - /app/src
+      - /app/target
+    command: python3 evaluation/evaluation.py
