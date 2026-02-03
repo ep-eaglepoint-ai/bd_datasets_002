@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    volumes:
+      - ./repository_before:/app/repository_before:ro
+      - ./repository_after:/app/repository_after:ro
+      - ./src:/app/src
+      - ./tests:/app/tests:ro
+      - ./evaluation:/app/evaluation:ro
+
+  evaluation:
+    build: .
+    volumes:
+      - ./repository_before:/app/repository_before:ro
+      - ./repository_after:/app/repository_after:ro
+      - ./src:/app/src
+      - ./tests:/app/tests:ro
+      - ./evaluation:/app/evaluation:rw
+    entrypoint: ["/bin/bash", "-c"]
+    command: ["mkdir -p /app/src/main/java/com/eaglepoint/chat && cp /app/repository_after/src/main/java/com/eaglepoint/chat/ChatAnalyticsController.java /app/src/main/java/com/eaglepoint/chat/ && mkdir -p /tmp/eval && cp /app/evaluation/*.java /tmp/eval/ && cd /tmp/eval && javac evaluation.java && java -Duser.dir=/app -cp /tmp/eval evaluation"]

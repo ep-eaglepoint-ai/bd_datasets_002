@@ -1,0 +1,9 @@
+# java
+
+target/
+
+#Task Specific
+reports/
+
+# OS
+.DS_Store
