@@ -1,0 +1,6 @@
+/app/tests/src/test/java/com/example/studentapi/controller/StudentAggregationControllerTest.java
+/app/tests/src/test/java/com/example/studentapi/controller/StudentAggregationControllerValidationTest.java
+/app/tests/src/test/java/com/example/studentapi/service/StudentAggregationServiceThreadSafetyTest.java
+/app/tests/src/test/java/com/example/studentapi/PytestStyleListener.java
+/app/tests/src/test/java/com/example/studentapi/service/StudentAggregationServicePerformanceTest.java
+/app/tests/src/test/java/com/example/studentapi/service/StudentAggregationServiceTest.java

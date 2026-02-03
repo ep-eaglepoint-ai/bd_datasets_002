@@ -1,0 +1,6 @@
+-------------------------------------------------------------------------------
+Test set: com.example.studentapi.service.StudentAggregationServiceThreadSafetyTest
+-------------------------------------------------------------------------------
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.037 s -- in com.example.studentapi.service.StudentAggregationServiceThreadSafetyTest
+com.example.studentapi.service.StudentAggregationServiceThreadSafetyTest.aggregateStudents_ConcurrentExecution_ProducesConsistentResults -- Time elapsed: 0.032 s
+com.example.studentapi.service.StudentAggregationServiceThreadSafetyTest.aggregateStudents_NoSharedState_IndependentResults -- Time elapsed: 0.001 s

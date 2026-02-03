@@ -1,0 +1,9 @@
+-------------------------------------------------------------------------------
+Test set: com.example.studentapi.service.StudentAggregationServicePerformanceTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.200 s -- in com.example.studentapi.service.StudentAggregationServicePerformanceTest
+com.example.studentapi.service.StudentAggregationServicePerformanceTest.aggregateStudents_WithSpecialCharactersInNames_SortsCorrectly -- Time elapsed: 0.049 s
+com.example.studentapi.service.StudentAggregationServicePerformanceTest.aggregateStudents_WithMaxIntegerScore_HandlesCorrectly -- Time elapsed: 0.002 s
+com.example.studentapi.service.StudentAggregationServicePerformanceTest.aggregateStudents_WithZeroScores_HandlesCorrectly -- Time elapsed: 0.009 s
+com.example.studentapi.service.StudentAggregationServicePerformanceTest.aggregateStudents_WithLargeDataset_CompletesInReasonableTime -- Time elapsed: 0.121 s
+com.example.studentapi.service.StudentAggregationServicePerformanceTest.aggregateStudents_WithDuplicateNames_HandlesProperly -- Time elapsed: 0.002 s

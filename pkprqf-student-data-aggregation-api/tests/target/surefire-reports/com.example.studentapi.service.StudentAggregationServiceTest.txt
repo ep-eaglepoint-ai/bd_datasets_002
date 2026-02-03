@@ -1,0 +1,10 @@
+-------------------------------------------------------------------------------
+Test set: com.example.studentapi.service.StudentAggregationServiceTest
+-------------------------------------------------------------------------------
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.050 s -- in com.example.studentapi.service.StudentAggregationServiceTest
+com.example.studentapi.service.StudentAggregationServiceTest.aggregateStudents_WithNegativeScores_FiltersOutNegativeScores -- Time elapsed: 0.002 s
+com.example.studentapi.service.StudentAggregationServiceTest.aggregateStudents_WithSingleStudent_ReturnsCorrectResult -- Time elapsed: 0.010 s
+com.example.studentapi.service.StudentAggregationServiceTest.aggregateStudents_WithEmptyList_ReturnsEmptyResult -- Time elapsed: 0.009 s
+com.example.studentapi.service.StudentAggregationServiceTest.aggregateStudents_WithValidStudents_ReturnsCorrectAggregation -- Time elapsed: 0.005 s
+com.example.studentapi.service.StudentAggregationServiceTest.aggregateStudents_WithNullList_ReturnsEmptyResult -- Time elapsed: 0.004 s
+com.example.studentapi.service.StudentAggregationServiceTest.aggregateStudents_WithAllNegativeScores_ReturnsZeroAverageAndNullTopStudent -- Time elapsed: 0.011 s
