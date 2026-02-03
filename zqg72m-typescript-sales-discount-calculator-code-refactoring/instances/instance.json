@@ -1,0 +1,11 @@
+{
+            "instance_id": "ZQG72M",
+            "problem_statement": "Noticed severe code quality issues during code review of the sales discount calculation module. The processAllSales function in discountCalculator.ts has 28 code smells reported by static analysis: 15 any-type usages, cyclomatic complexity of 24, nested loops 3 levels deep, and callback patterns conflicting with team async/await standards. Developer onboarding surveys show new team members take 3x longer to understand this module. Two production bugs last quarter traced to modifications here due to unclear variable scoping and lookup logic confusion. Must refactor to proper TypeScript with clean function separation while producing identical output for all test cases including edge cases with missing lookups and type variations in input data.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/zqg72m-typescript-sales-discount-calculator-code-refactoring",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
