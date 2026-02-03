@@ -1,0 +1,29 @@
+services:
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=test
+      - FORCE_COLOR=1
+    working_dir: /app
+    # Run tests using the root script
+    command: npm test
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+      - FORCE_COLOR=1
+    working_dir: /app
+    # Run the full evaluation script
+    command: npx tsx evaluation/evaluation.ts

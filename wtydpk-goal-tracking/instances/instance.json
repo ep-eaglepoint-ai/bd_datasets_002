@@ -1,0 +1,11 @@
+{
+            "instance_id": "WTYDPK",
+            "problem_statement": "Build an offline-first goal tracking web application using Next.js and TailwindCSS that lets users define goals, break them into milestones, log progress, and analyze performance trends through interactive dashboards—all running client-side with IndexedDB persistence and Zod validation. Implement state management with Zustand/Redux and performance optimizations like virtualization and memoized computations to ensure responsiveness with long-term data. The system must robustly handle incomplete plans, shifting priorities, and historical edits while providing explainable analytics and reliable offline operation.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wtydpk-goal-tracking",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
