@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+.env
+
+# Specific
+reports/
+
+# OS
+.DS_Store

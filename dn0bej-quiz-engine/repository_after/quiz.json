@@ -1,0 +1,17 @@
+[
+    {
+        "prompt": "What is the capital of France?",
+        "choices": ["London", "Berlin", "Paris", "Madrid"],
+        "answer_index": 2
+    },
+    {
+        "prompt": "Which planet is known as the Red Planet?",
+        "choices": ["Venus", "Mars", "Jupiter", "Saturn"],
+        "answer_index": 1
+    },
+    {
+        "prompt": "What is 2 + 2?",
+        "choices": ["3", "4", "5", "6"],
+        "answer_index": 1
+    }
+]

@@ -1,0 +1,11 @@
+{
+            "instance_id": "DN0BEJ",
+            "problem_statement": "Build a single-file Python quiz engine that loads multiple-choice questions from a JSON file, presents them interactively in the terminal, and scores user responses while gracefully handling invalid inputs, malformed data, and missing fields. The program must track correct/incorrect answers, provide per-question feedback, and display a final score report with percentages and missed question reviews. The implementation must demonstrate robust file I/O, data validation, and terminal interaction in a fully offline, testable, and extensible format.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/dn0bej-quiz-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
