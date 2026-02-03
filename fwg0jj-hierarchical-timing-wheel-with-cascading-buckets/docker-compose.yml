@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  repository-after:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd /app/tests && go test -v ./..."
+
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    working_dir: /app/evaluation
+    command: sh -c "go run evaluation.go"
+
+  all-tests:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: sh -c "cd /app/tests && go test -v ./..."

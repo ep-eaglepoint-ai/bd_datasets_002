@@ -1,0 +1,56 @@
+{
+    "instance_id": "FWG0JJ",
+    "problem_statement": "Standard priority queues (Min-Heaps) used for timers operate in O(log N). For systems with millions of ephemeral timers (like TCP retransmission timeouts), this is too slow. The solution is the \"Hierarchical Timing Wheel\" (used in the Linux Kernel and Netty). The challenge is managing \"Time Layers.\" A task scheduled for 1 hour from now sits in the \"Hour\" wheel. When 1 hour passes, it doesn't execute; it moves to the \"Minute\" wheel. Implementing this \"Cascading\" logic requires precise pointer arithmetic and modulo operations.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/fwg0jj-hierarchical-timing-wheel-with-cascading-buckets",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": [
+        "TestAfterVersion_Requirement1_MultipleWheelLevels",
+        "TestAfterVersion_Requirement2_CascadingNotExecuting",
+        "TestAfterVersion_Requirement3_VirtualTimeOnly",
+        "TestAfterVersion_Requirement4_OverflowHandling",
+        "TestAfterVersion_Requirement5_Cancellation",
+        "TestAfterVersion_Requirement6_CascadeUsesRemainingTime",
+        "TestAfterVersion_Requirement7_RoundUpDelay",
+        "TestAfterVersion_MultipleTasksAtDifferentLevels",
+        "TestAfterVersion_PendingTaskCount",
+        "TestAfterVersion_ZeroDelayExecution",
+        "TestAfterVersion_CurrentTimeTracking",
+        "TestAfterVersion_DefaultConfig",
+        "TestAfterVersion_ExactTickBoundary",
+        "TestAfterVersion_NegativeDelay"
+    ],
+    "requirements": {
+        "requirement_1": "The solution must use multiple arrays/slices (wheels) representing different time granularities (e.g., Level 1: 0-100ms, Level 2: 100ms-10s, etc.)",
+        "requirement_2": "When Advance() ticks the clock and an index wraps around on a lower wheel, the code must look at the next slot in the higher wheel, remove those tasks, and re-add them to the lower wheel. If the code simply executes them, it is wrong.",
+        "requirement_3": "The code must not use time.Sleep or time.NewTicker. It relies entirely on the Advance(delta) argument to update its internal currentTime state",
+        "requirement_4": "If a task delay is larger than the sum of all wheels (e.g., delay = 10 years), it must be put in a special overflow list or the largest wheel's special bucket, and checked only when the largest wheel wraps",
+        "requirement_5": "Schedule returns an ID or function. Calling it must remove the task from whichever bucket it currently resides in (O(1) removal, usually via a Doubly Linked List inside the bucket)",
+        "requirement_6": "When a task cascades from Level N down to Level N-1, the system must calculate its new slot based on the remaining time (deadline - current_time), not the original delay",
+        "requirement_7": "If the lowest-level wheel has a tick resolution of 10ms, and a user schedules a task for 15ms, the logic must strictly round up to 20ms (2 ticks). Firing early (at 10ms) is a critical timing violation"
+    },
+    "test_summary": {
+        "before_repository": {
+            "passed": 0,
+            "failed": 0,
+            "total": 0
+        },
+        "after_repository": {
+            "passed": 14,
+            "failed": 0,
+            "total": 14
+        },
+        "improvement": 14
+    },
+    "compliance_check": {
+        "multiple_wheel_levels": true,
+        "cascading_fixed": true,
+        "virtual_time_only": true,
+        "overflow_handling_fixed": true,
+        "cancellation_working": true,
+        "remaining_time_calculation": true,
+        "round_up_delay_fixed": true
+    }
+}
