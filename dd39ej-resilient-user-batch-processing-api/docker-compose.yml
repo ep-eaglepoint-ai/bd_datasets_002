@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  repository-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - MODE=before
+
+  repository-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - MODE=after
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - MODE=evaluation
+    volumes:
+      - ./evaluation/reports:/app/reports

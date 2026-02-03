@@ -1,0 +1,38 @@
+{
+  "instance_id": "DD39EJ",
+  "problem_statement": "The user batch processing API fails to meet business requirements because it aborts the entire batch when encountering a single invalid user record, preventing valid users from being processed, obscuring error visibility, and reducing system reliability when handling mixed-quality input data.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/dd39ej-resilient-user-batch-processing-api",
+  "environment_setup": "Dockerfile",
+
+  "FAIL_TO_PASS": [
+    "testR1_RejectNullId",
+    "testR1_RejectEmptyId",
+    "testR2_ReportInvalidEmailNoFail",
+    "testR2_ReportNullIdNoFail",
+    "testR2_PreserveOrder",
+    "testR3_DuplicateInvalidOnce",
+    "testR3_ProcessValidWithSameId",
+    "testR4_ValidUserCount",
+    "testR5_ValidUserIds",
+    "testR6_InvalidUserCount",
+    "testR7_InvalidDetailsEmailReason",
+    "testR7_InvalidDetailsIdReason",
+    "testR8_NoExceptions",
+    "testR8_ProcessMixedData",
+    "testR9_ContinueAfterInvalid",
+    "testR9_ProcessAfterMultipleFailures",
+    "testR10_NoStreams",
+    "testR11_SeparatedValidation",
+    "testR12_DetectDuplicates",
+    "testEdge_EmptyList",
+    "testIntegration_ComplexMixed"
+  ],
+
+  "PASS_TO_PASS": [
+    "testR1_ProcessValidUsers",
+    "testEdge_AllValid",
+    "testEdge_AllInvalid"
+  ]
+}
