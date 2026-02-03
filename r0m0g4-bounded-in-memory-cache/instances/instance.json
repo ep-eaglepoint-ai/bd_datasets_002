@@ -1,0 +1,11 @@
+{
+            "instance_id": "R0M0G4",
+            "problem_statement": "In high-performance Java services, frequent access to data can create significant latency if every request requires recomputation or retrieval from slower storage. To maintain efficiency, an in-memory cache is needed that stores a bounded number of entries while ensuring that recently used data remains accessible and stale or expired entries are never returned. The cache must operate correctly under concurrent access, provide constant-time retrieval and updates, and enforce strict capacity limits with deterministic eviction behavior, without relying on background cleanup threads, external libraries, or global locks.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/r0m0g4-bounded-in-memory-cache",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

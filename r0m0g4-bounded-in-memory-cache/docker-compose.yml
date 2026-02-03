@@ -1,0 +1,13 @@
+services:
+  cache:
+    build: .
+
+  tests:
+    build: .
+    command: [ "java", "-cp", "/app/classes", "com.example.cache.BoundedCacheTest" ]
+
+  evaluation:
+    build: .
+    command: [ "java", "-cp", "/app/classes", "evaluation.Evaluation" ]
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
