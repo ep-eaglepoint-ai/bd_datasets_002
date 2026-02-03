@@ -1,0 +1,26 @@
+services:
+  redis:
+    image: redis:alpine
+
+  test-after:
+    build: .
+    command: npm run test:after
+    environment:
+      - TARGET_REPO=repository_after
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+
+  evaluation:
+    build: .
+    command: npm run evaluation
+    environment:
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - redis
