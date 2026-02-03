@@ -1,0 +1,22 @@
+{
+    "instance_id": "X5HTLV",
+    "problem_statement": "Interfacing with low-level operating system input hooks via Python presents a significant concurrency challenge due to the Global Interpreter Lock (GIL) and the synchronous nature of event propagation. The OS kernel typically waits for the registered hook callback to return before releasing the input event to the rest of the system. Consequently, any latency introduced within this critical path whether through I/O operations, string manipulation, or subprocess spawning results in immediate, perceptible system-wide input lag (cursor stuttering). The engineering requirement is to maintain a constant O(1) execution time within the callback by strictly offloading all state logic and payload execution to a secondary thread context.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/x5htlv-latency-critical-input-hooks-with-state-management",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [],
+    "PASS_TO_PASS": [
+        "req1_pynput_usage",
+        "req2_no_keylogging",
+        "req3_non_blocking_callback",
+        "req4_queue_usage",
+        "req5_consumer_thread",
+        "req6_modifier_state_tracking",
+        "req7_release_event_handling",
+        "req8_signal_handling",
+        "req9_explicit_listener_stop",
+        "req10_non_suppressing",
+        "req11_non_busy_wait"
+    ]
+}
