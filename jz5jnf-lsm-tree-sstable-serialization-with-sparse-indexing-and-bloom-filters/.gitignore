@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+
+# Go build artifacts
+bin/
+pkg/
+*.exe
+*.out
+*.test
+
+# Go modules (auto-generated in Docker)
+go.mod
+go.sum
+
+# Logs and temp files
+*.log
+logs/
+*.tmp
+*.swp
+
+# Generic build artifacts
+dist/
+build/
+coverage.*
+
+# Ignore evaluation reports JSON files, but keep directory structure
+evaluation/reports/
+report.json
+
+
