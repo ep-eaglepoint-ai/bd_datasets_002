@@ -1,0 +1,1919 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29b..00000000
+diff --git a/repository_after/index.html b/repository_after/index.html
+new file mode 100644
+index 00000000..2e917c50
+--- /dev/null
++++ b/repository_after/index.html
+@@ -0,0 +1,13 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>mil_task_2</title>
++  </head>
++  <body>
++    <div id="app"></div>
++    <script type="module" src="/src/main.ts"></script>
++  </body>
++</html>
+diff --git a/repository_after/package.json b/repository_after/package.json
+new file mode 100644
+index 00000000..35bad6c5
+--- /dev/null
++++ b/repository_after/package.json
+@@ -0,0 +1,22 @@
++{
++  "name": "mil_task_2",
++  "private": true,
++  "version": "0.0.0",
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "vue-tsc -b && vite build",
++    "preview": "vite preview"
++  },
++  "dependencies": {
++    "vue": "^3.5.24"
++  },
++  "devDependencies": {
++    "@types/node": "^24.10.1",
++    "@vitejs/plugin-vue": "^6.0.1",
++    "@vue/tsconfig": "^0.8.1",
++    "typescript": "~5.9.3",
++    "vite": "^7.2.4",
++    "vue-tsc": "^3.1.4"
++  }
++}
+diff --git a/repository_after/public/vite.svg b/repository_after/public/vite.svg
+new file mode 100644
+index 00000000..e7b8dfb1
+--- /dev/null
++++ b/repository_after/public/vite.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+\ No newline at end of file
+diff --git a/repository_after/src/App.vue b/repository_after/src/App.vue
+new file mode 100644
+index 00000000..ecea4ae9
+--- /dev/null
++++ b/repository_after/src/App.vue
+@@ -0,0 +1,261 @@
++<script setup lang="ts">
++import { ref, computed, onMounted } from 'vue'
++import { useBmiCalculator } from './composables/useBmiCalculator'
++import { useLocalStorage } from './composables/useLocalStorage'
++import FormInputs from './components/FormInputs.vue'
++import ResultCard from './components/ResultCard.vue'
++import HistoryList from './components/HistoryList.vue'
++import ThemeToggle from './components/ThemeToggle.vue'
++import type { BmiResult } from './composables/useBmiCalculator'
++
++// Theme management
++const theme = useLocalStorage<'light' | 'dark'>('bmi_theme', 'light')
++
++// BMI Calculator
++const calculator = useBmiCalculator()
++
++// Current result
++const currentResult = useLocalStorage<BmiResult | null>('bmi_current_result', null)
++
++// History management
++interface HistoryEntry extends BmiResult {
++  height: string
++  weight: string
++  unit: 'metric' | 'imperial'
++}
++
++const history = useLocalStorage<HistoryEntry[]>('bmi_history', [])
++
++// Persist inputs
++const savedInputs = useLocalStorage<{
++  unitSystem: 'metric' | 'imperial'
++  height: number | null
++  weight: number | null
++  heightFeet: number | null
++  heightInches: number | null
++}>('bmi_inputs', {
++  unitSystem: 'metric',
++  height: null,
++  weight: null,
++  heightFeet: null,
++  heightInches: null
++})
++
++// Restore saved inputs on mount
++onMounted(() => {
++  calculator.unitSystem.value = savedInputs.value.unitSystem
++  calculator.height.value = savedInputs.value.height
++  calculator.weight.value = savedInputs.value.weight
++  calculator.heightFeet.value = savedInputs.value.heightFeet
++  calculator.heightInches.value = savedInputs.value.heightInches
++  
++  // Apply theme
++  document.documentElement.setAttribute('data-theme', theme.value)
++})
++
++// Save inputs whenever they change
++const saveInputs = () => {
++  savedInputs.value = {
++    unitSystem: calculator.unitSystem.value,
++    height: calculator.height.value,
++    weight: calculator.weight.value,
++    heightFeet: calculator.heightFeet.value,
++    heightInches: calculator.heightInches.value
++  }
++}
++
++const handleCalculate = () => {
++  const result = calculator.calculateBmi()
++  if (result) {
++    currentResult.value = result
++    
++    // Add to history
++    const heightStr = calculator.unitSystem.value === 'metric'
++      ? `${calculator.height.value} cm`
++      : `${calculator.heightFeet.value}' ${calculator.heightInches.value}"`
++    
++    const weightStr = calculator.unitSystem.value === 'metric'
++      ? `${calculator.weight.value} kg`
++      : `${calculator.weight.value} lbs`
++    
++    const entry: HistoryEntry = {
++      ...result,
++      height: heightStr,
++      weight: weightStr,
++      unit: calculator.unitSystem.value
++    }
++    
++    // Keep only last 10 entries
++    history.value = [entry, ...history.value].slice(0, 10)
++  }
++}
++
++const handleToggleUnit = () => {
++  calculator.toggleUnit()
++  saveInputs()
++}
++
++const handleDeleteEntry = (index: number) => {
++  history.value = history.value.filter((_, i) => i !== index)
++}
++
++const handleClearHistory = () => {
++  if (confirm('Are you sure you want to clear all history?')) {
++    history.value = []
++    currentResult.value = null
++  }
++}
++
++const handleThemeChange = (newTheme: 'light' | 'dark') => {
++  theme.value = newTheme
++  document.documentElement.setAttribute('data-theme', newTheme)
++}
++</script>
++
++<template>
++  <div class="app">
++    <ThemeToggle :theme="theme" @update:theme="handleThemeChange" />
++    
++    <div class="container">
++      <header class="header">
++        <h1 class="title">BMI Calculator</h1>
++        <p class="subtitle">Track your Body Mass Index with precision</p>
++      </header>
++
++      <div class="content">
++        <div class="main-section">
++          <FormInputs
++            :unit-system="calculator.unitSystem.value"
++            :height="calculator.height.value"
++            :weight="calculator.weight.value"
++            :height-feet="calculator.heightFeet.value"
++            :height-inches="calculator.heightInches.value"
++            :errors="calculator.errors.value"
++            :is-valid="calculator.isValid.value"
++            @update:height="(v) => { calculator.height.value = v; saveInputs() }"
++            @update:weight="(v) => { calculator.weight.value = v; saveInputs() }"
++            @update:height-feet="(v) => { calculator.heightFeet.value = v; saveInputs() }"
++            @update:height-inches="(v) => { calculator.heightInches.value = v; saveInputs() }"
++            @toggle-unit="handleToggleUnit"
++            @calculate="handleCalculate"
++          />
++
++          <ResultCard
++            v-if="currentResult"
++            :result="currentResult"
++            :unit-system="calculator.unitSystem.value"
++          />
++        </div>
++
++        <aside class="sidebar">
++          <HistoryList
++            :history="history"
++            @delete-entry="handleDeleteEntry"
++            @clear-all="handleClearHistory"
++          />
++        </aside>
++      </div>
++
++      <footer class="footer">
++        <p>BMI categories are based on WHO standards. Consult a healthcare professional for personalized advice.</p>
++      </footer>
++    </div>
++  </div>
++</template>
++
++<style scoped>
++.app {
++  min-height: 100vh;
++  padding: 2rem 1rem;
++}
++
++.container {
++  max-width: 1200px;
++  margin: 0 auto;
++}
++
++.header {
++  text-align: center;
++  margin-bottom: 3rem;
++}
++
++.title {
++  font-size: 3rem;
++  font-weight: 800;
++  background: var(--primary-gradient);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++  background-clip: text;
++  margin-bottom: 0.5rem;
++  letter-spacing: -0.02em;
++}
++
++.subtitle {
++  font-size: 1.1rem;
++  color: var(--text-secondary);
++  font-weight: 400;
++}
++
++.content {
++  display: grid;
++  grid-template-columns: 1fr 1fr;
++  gap: 2rem;
++  margin-bottom: 3rem;
++}
++
++.main-section {
++  display: flex;
++  flex-direction: column;
++  gap: 2rem;
++}
++
++.sidebar {
++  display: flex;
++  flex-direction: column;
++}
++
++.footer {
++  text-align: center;
++  padding: 2rem 1rem;
++  color: var(--text-tertiary);
++  font-size: 0.9rem;
++  border-top: 1px solid var(--border-color);
++}
++
++.footer p {
++  margin: 0;
++}
++
++@media (max-width: 968px) {
++  .content {
++    grid-template-columns: 1fr;
++  }
++  
++  .sidebar {
++    order: 2;
++  }
++}
++
++@media (max-width: 640px) {
++  .app {
++    padding: 1rem 0.75rem;
++  }
++
++  .title {
++    font-size: 2rem;
++  }
++
++  .subtitle {
++    font-size: 1rem;
++  }
++
++  .header {
++    margin-bottom: 2rem;
++  }
++
++  .content {
++    gap: 1.5rem;
++    margin-bottom: 2rem;
++  }
++}
++</style>
+diff --git a/repository_after/src/assets/vue.svg b/repository_after/src/assets/vue.svg
+new file mode 100644
+index 00000000..770e9d33
+--- /dev/null
++++ b/repository_after/src/assets/vue.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="37.07" height="36" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 198"><path fill="#41B883" d="M204.8 0H256L128 220.8L0 0h97.92L128 51.2L157.44 0h47.36Z"></path><path fill="#41B883" d="m0 0l128 220.8L256 0h-51.2L128 132.48L50.56 0H0Z"></path><path fill="#35495E" d="M50.56 0L128 133.12L204.8 0h-47.36L128 51.2L97.92 0H50.56Z"></path></svg>
+\ No newline at end of file
+diff --git a/repository_after/src/components/FormInputs.vue b/repository_after/src/components/FormInputs.vue
+new file mode 100644
+index 00000000..704ef103
+--- /dev/null
++++ b/repository_after/src/components/FormInputs.vue
+@@ -0,0 +1,300 @@
++<script setup lang="ts">
++import { computed } from 'vue'
++import type { UnitSystem, ValidationError } from '../composables/useBmiCalculator'
++
++const props = defineProps<{
++  unitSystem: UnitSystem
++  height: number | null
++  weight: number | null
++  heightFeet: number | null
++  heightInches: number | null
++  errors: ValidationError
++  isValid: boolean
++}>()
++
++const emit = defineEmits<{
++  'update:height': [value: number | null]
++  'update:weight': [value: number | null]
++  'update:heightFeet': [value: number | null]
++  'update:heightInches': [value: number | null]
++  'toggle-unit': []
++  'calculate': []
++}>()
++
++const handleNumberInput = (event: Event, field: string) => {
++  const target = event.target as HTMLInputElement
++  const value = target.value === '' ? null : parseFloat(target.value)
++  emit(`update:${field}` as any, value)
++}
++</script>
++
++<template>
++  <div class="form-inputs">
++    <div class="unit-toggle">
++      <button 
++        type="button"
++        :class="['unit-btn', { active: unitSystem === 'metric' }]"
++        @click="emit('toggle-unit')"
++        aria-label="Switch to metric units"
++      >
++        Metric (cm/kg)
++      </button>
++      <button 
++        type="button"
++        :class="['unit-btn', { active: unitSystem === 'imperial' }]"
++        @click="emit('toggle-unit')"
++        aria-label="Switch to imperial units"
++      >
++        Imperial (ft/in/lb)
++      </button>
++    </div>
++
++    <div class="input-group">
++      <label for="height" class="input-label">
++        Height
++        <span class="unit-hint">{{ unitSystem === 'metric' ? '(cm)' : '(ft/in)' }}</span>
++      </label>
++      
++      <div v-if="unitSystem === 'metric'" class="input-wrapper">
++        <input
++          id="height"
++          type="number"
++          :value="height ?? ''"
++          @input="handleNumberInput($event, 'height')"
++          placeholder="170"
++          min="50"
++          max="300"
++          step="1"
++          class="input-field"
++          :class="{ error: errors.height }"
++          aria-describedby="height-error"
++        />
++        <span class="input-suffix">cm</span>
++      </div>
++
++      <div v-else class="imperial-height">
++        <div class="input-wrapper">
++          <input
++            id="height-feet"
++            type="number"
++            :value="heightFeet ?? ''"
++            @input="handleNumberInput($event, 'heightFeet')"
++            placeholder="5"
++            min="1"
++            max="10"
++            step="1"
++            class="input-field"
++            :class="{ error: errors.height }"
++            aria-label="Height in feet"
++          />
++          <span class="input-suffix">ft</span>
++        </div>
++        <div class="input-wrapper">
++          <input
++            id="height-inches"
++            type="number"
++            :value="heightInches ?? ''"
++            @input="handleNumberInput($event, 'heightInches')"
++            placeholder="9"
++            min="0"
++            max="11"
++            step="1"
++            class="input-field"
++            :class="{ error: errors.height }"
++            aria-label="Height in inches"
++          />
++          <span class="input-suffix">in</span>
++        </div>
++      </div>
++
++      <span v-if="errors.height" id="height-error" class="error-message">
++        {{ errors.height }}
++      </span>
++    </div>
++
++    <div class="input-group">
++      <label for="weight" class="input-label">
++        Weight
++        <span class="unit-hint">{{ unitSystem === 'metric' ? '(kg)' : '(lbs)' }}</span>
++      </label>
++      
++      <div class="input-wrapper">
++        <input
++          id="weight"
++          type="number"
++          :value="weight ?? ''"
++          @input="handleNumberInput($event, 'weight')"
++          :placeholder="unitSystem === 'metric' ? '70' : '154'"
++          :min="unitSystem === 'metric' ? 2 : 4"
++          :max="unitSystem === 'metric' ? 600 : 1300"
++          step="0.1"
++          class="input-field"
++          :class="{ error: errors.weight }"
++          aria-describedby="weight-error"
++        />
++        <span class="input-suffix">{{ unitSystem === 'metric' ? 'kg' : 'lbs' }}</span>
++      </div>
++
++      <span v-if="errors.weight" id="weight-error" class="error-message">
++        {{ errors.weight }}
++      </span>
++    </div>
++
++    <button
++      type="button"
++      class="calculate-btn"
++      :disabled="!isValid"
++      @click="emit('calculate')"
++    >
++      Calculate BMI
++    </button>
++  </div>
++</template>
++
++<style scoped>
++.form-inputs {
++  display: flex;
++  flex-direction: column;
++  gap: 1.5rem;
++}
++
++.unit-toggle {
++  display: flex;
++  gap: 0.5rem;
++  padding: 0.25rem;
++  background: var(--surface-secondary);
++  border-radius: 12px;
++  border: 1px solid var(--border-color);
++}
++
++.unit-btn {
++  flex: 1;
++  padding: 0.75rem 1rem;
++  border: none;
++  background: transparent;
++  color: var(--text-secondary);
++  font-size: 0.9rem;
++  font-weight: 500;
++  border-radius: 8px;
++  cursor: pointer;
++  transition: all 0.3s ease;
++}
++
++.unit-btn:hover {
++  background: var(--surface-hover);
++  color: var(--text-primary);
++}
++
++.unit-btn.active {
++  background: var(--primary-gradient);
++  color: white;
++  box-shadow: 0 2px 8px var(--shadow-color);
++}
++
++.input-group {
++  display: flex;
++  flex-direction: column;
++  gap: 0.5rem;
++}
++
++.input-label {
++  font-size: 0.95rem;
++  font-weight: 600;
++  color: var(--text-primary);
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++}
++
++.unit-hint {
++  font-size: 0.85rem;
++  font-weight: 400;
++  color: var(--text-secondary);
++}
++
++.input-wrapper {
++  position: relative;
++  display: flex;
++  align-items: center;
++}
++
++.imperial-height {
++  display: flex;
++  gap: 0.75rem;
++}
++
++.input-field {
++  width: 100%;
++  padding: 0.875rem 3rem 0.875rem 1rem;
++  font-size: 1rem;
++  border: 2px solid var(--border-color);
++  border-radius: 10px;
++  background: var(--surface-primary);
++  color: var(--text-primary);
++  transition: all 0.3s ease;
++}
++
++.input-field:focus {
++  outline: none;
++  border-color: var(--primary-color);
++  box-shadow: 0 0 0 3px var(--primary-glow);
++}
++
++.input-field.error {
++  border-color: var(--error-color);
++}
++
++.input-field::placeholder {
++  color: var(--text-tertiary);
++}
++
++.input-suffix {
++  position: absolute;
++  right: 1rem;
++  font-size: 0.9rem;
++  font-weight: 600;
++  color: var(--text-secondary);
++  pointer-events: none;
++}
++
++.error-message {
++  font-size: 0.85rem;
++  color: var(--error-color);
++  margin-top: -0.25rem;
++}
++
++.calculate-btn {
++  margin-top: 0.5rem;
++  padding: 1rem 2rem;
++  font-size: 1.05rem;
++  font-weight: 600;
++  border: none;
++  border-radius: 12px;
++  background: var(--primary-gradient);
++  color: white;
++  cursor: pointer;
++  transition: all 0.3s ease;
++  box-shadow: 0 4px 12px var(--shadow-color);
++}
++
++.calculate-btn:hover:not(:disabled) {
++  transform: translateY(-2px);
++  box-shadow: 0 6px 20px var(--shadow-color);
++}
++
++.calculate-btn:active:not(:disabled) {
++  transform: translateY(0);
++}
++
++.calculate-btn:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++@media (max-width: 640px) {
++  .unit-btn {
++    font-size: 0.85rem;
++    padding: 0.625rem 0.75rem;
++  }
++}
++</style>
+diff --git a/repository_after/src/components/GaugeBar.vue b/repository_after/src/components/GaugeBar.vue
+new file mode 100644
+index 00000000..3c2cce71
+--- /dev/null
++++ b/repository_after/src/components/GaugeBar.vue
+@@ -0,0 +1,158 @@
++<script setup lang="ts">
++import type { BmiCategory } from '../composables/useBmiCalculator'
++
++const props = defineProps<{
++  bmi: number
++  position: number // 0-100 percentage
++}>()
++
++const getCategoryColor = (position: number): string => {
++  if (position < 25) return 'var(--underweight-color)'
++  if (position < 50) return 'var(--normal-color)'
++  if (position < 75) return 'var(--overweight-color)'
++  return 'var(--obese-color)'
++}
++</script>
++
++<template>
++  <div class="gauge-bar">
++    <div class="gauge-track">
++      <div class="gauge-segment underweight">
++        <span class="segment-label">Under</span>
++      </div>
++      <div class="gauge-segment normal">
++        <span class="segment-label">Normal</span>
++      </div>
++      <div class="gauge-segment overweight">
++        <span class="segment-label">Over</span>
++      </div>
++      <div class="gauge-segment obese">
++        <span class="segment-label">Obese</span>
++      </div>
++      
++      <div 
++        class="gauge-marker" 
++        :style="{ left: `${position}%`, borderColor: getCategoryColor(position) }"
++        role="img"
++        :aria-label="`Your BMI is ${bmi}, positioned at ${Math.round(position)}% on the scale`"
++      >
++        <div class="marker-value">{{ bmi }}</div>
++      </div>
++    </div>
++    
++    <div class="gauge-labels">
++      <span>15</span>
++      <span>18.5</span>
++      <span>25</span>
++      <span>30</span>
++      <span>40</span>
++    </div>
++  </div>
++</template>
++
++<style scoped>
++.gauge-bar {
++  width: 100%;
++  margin: 1.5rem 0;
++}
++
++.gauge-track {
++  position: relative;
++  display: flex;
++  height: 50px;
++  border-radius: 25px;
++  overflow: hidden;
++  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
++}
++
++.gauge-segment {
++  flex: 1;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  position: relative;
++  transition: all 0.3s ease;
++}
++
++.gauge-segment:hover {
++  filter: brightness(1.1);
++}
++
++.gauge-segment.underweight {
++  background: var(--underweight-color);
++}
++
++.gauge-segment.normal {
++  background: var(--normal-color);
++}
++
++.gauge-segment.overweight {
++  background: var(--overweight-color);
++}
++
++.gauge-segment.obese {
++  background: var(--obese-color);
++}
++
++.segment-label {
++  font-size: 0.8rem;
++  font-weight: 600;
++  color: rgba(255, 255, 255, 0.9);
++  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
++}
++
++.gauge-marker {
++  position: absolute;
++  top: -8px;
++  transform: translateX(-50%);
++  width: 0;
++  height: 0;
++  border-left: 12px solid transparent;
++  border-right: 12px solid transparent;
++  border-top: 16px solid;
++  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
++  transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
++  z-index: 10;
++}
++
++.marker-value {
++  position: absolute;
++  top: -32px;
++  left: 50%;
++  transform: translateX(-50%);
++  background: var(--surface-primary);
++  color: var(--text-primary);
++  padding: 0.375rem 0.75rem;
++  border-radius: 8px;
++  font-size: 0.95rem;
++  font-weight: 700;
++  white-space: nowrap;
++  box-shadow: 0 2px 8px var(--shadow-color);
++  border: 2px solid var(--border-color);
++}
++
++.gauge-labels {
++  display: flex;
++  justify-content: space-between;
++  margin-top: 0.5rem;
++  padding: 0 0.25rem;
++  font-size: 0.8rem;
++  color: var(--text-secondary);
++  font-weight: 500;
++}
++
++@media (max-width: 640px) {
++  .gauge-track {
++    height: 40px;
++  }
++  
++  .segment-label {
++    font-size: 0.7rem;
++  }
++  
++  .marker-value {
++    font-size: 0.85rem;
++    padding: 0.25rem 0.5rem;
++  }
++}
++</style>
+diff --git a/repository_after/src/components/HelloWorld.vue b/repository_after/src/components/HelloWorld.vue
+new file mode 100644
+index 00000000..b58e52b9
+--- /dev/null
++++ b/repository_after/src/components/HelloWorld.vue
+@@ -0,0 +1,41 @@
++<script setup lang="ts">
++import { ref } from 'vue'
++
++defineProps<{ msg: string }>()
++
++const count = ref(0)
++</script>
++
++<template>
++  <h1>{{ msg }}</h1>
++
++  <div class="card">
++    <button type="button" @click="count++">count is {{ count }}</button>
++    <p>
++      Edit
++      <code>components/HelloWorld.vue</code> to test HMR
++    </p>
++  </div>
++
++  <p>
++    Check out
++    <a href="https://vuejs.org/guide/quick-start.html#local" target="_blank"
++      >create-vue</a
++    >, the official Vue + Vite starter
++  </p>
++  <p>
++    Learn more about IDE Support for Vue in the
++    <a
++      href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support"
++      target="_blank"
++      >Vue Docs Scaling up Guide</a
++    >.
++  </p>
++  <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p>
++</template>
++
++<style scoped>
++.read-the-docs {
++  color: #888;
++}
++</style>
+diff --git a/repository_after/src/components/HistoryList.vue b/repository_after/src/components/HistoryList.vue
+new file mode 100644
+index 00000000..038fef33
+--- /dev/null
++++ b/repository_after/src/components/HistoryList.vue
+@@ -0,0 +1,313 @@
++<script setup lang="ts">
++import type { BmiResult, UnitSystem } from '../composables/useBmiCalculator'
++
++interface HistoryEntry extends BmiResult {
++  height: string
++  weight: string
++  unit: UnitSystem
++}
++
++const props = defineProps<{
++  history: HistoryEntry[]
++}>()
++
++const emit = defineEmits<{
++  'delete-entry': [index: number]
++  'clear-all': []
++}>()
++
++const formatDate = (timestamp: string): string => {
++  const date = new Date(timestamp)
++  return date.toLocaleDateString('en-US', { 
++    month: 'short', 
++    day: 'numeric',
++    hour: '2-digit',
++    minute: '2-digit'
++  })
++}
++
++const getCategoryClass = (category: string): string => {
++  return category.toLowerCase()
++}
++</script>
++
++<template>
++  <div class="history-list">
++    <div class="history-header">
++      <h3 class="history-title">Calculation History</h3>
++      <button 
++        v-if="history.length > 0"
++        class="clear-btn"
++        @click="emit('clear-all')"
++        aria-label="Clear all history"
++      >
++        Clear All
++      </button>
++    </div>
++
++    <div v-if="history.length === 0" class="empty-state">
++      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
++        <path d="M9 11H15M9 15H15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
++      </svg>
++      <p class="empty-text">No calculations yet</p>
++    </div>
++
++    <div v-else class="history-items">
++      <div 
++        v-for="(entry, index) in history" 
++        :key="index"
++        class="history-item"
++      >
++        <div class="item-main">
++          <div class="item-bmi">
++            <span class="bmi-number">{{ entry.bmi }}</span>
++            <span :class="['category-tag', getCategoryClass(entry.category)]">
++              {{ entry.category }}
++            </span>
++          </div>
++          <div class="item-details">
++            <span class="detail-text">{{ entry.height }} × {{ entry.weight }}</span>
++            <span class="detail-unit">({{ entry.unit }})</span>
++          </div>
++          <div class="item-date">{{ formatDate(entry.timestamp) }}</div>
++        </div>
++        <button 
++          class="delete-btn"
++          @click="emit('delete-entry', index)"
++          aria-label="Delete this entry"
++        >
++          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
++            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
++          </svg>
++        </button>
++      </div>
++    </div>
++  </div>
++</template>
++
++<style scoped>
++.history-list {
++  background: var(--surface-primary);
++  border: 2px solid var(--border-color);
++  border-radius: 20px;
++  padding: 1.5rem;
++  box-shadow: 0 4px 12px var(--shadow-color);
++}
++
++.history-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  margin-bottom: 1rem;
++}
++
++.history-title {
++  font-size: 1.25rem;
++  font-weight: 700;
++  color: var(--text-primary);
++  margin: 0;
++}
++
++.clear-btn {
++  padding: 0.5rem 1rem;
++  font-size: 0.85rem;
++  font-weight: 600;
++  border: 1px solid var(--border-color);
++  background: var(--surface-secondary);
++  color: var(--text-secondary);
++  border-radius: 8px;
++  cursor: pointer;
++  transition: all 0.2s ease;
++}
++
++.clear-btn:hover {
++  background: var(--error-color);
++  color: white;
++  border-color: var(--error-color);
++}
++
++.empty-state {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  padding: 3rem 1rem;
++  gap: 1rem;
++}
++
++.empty-icon {
++  width: 64px;
++  height: 64px;
++  color: var(--text-tertiary);
++  opacity: 0.5;
++}
++
++.empty-text {
++  margin: 0;
++  color: var(--text-secondary);
++  font-size: 0.95rem;
++}
++
++.history-items {
++  display: flex;
++  flex-direction: column;
++  gap: 0.75rem;
++  max-height: 400px;
++  overflow-y: auto;
++  padding-right: 0.5rem;
++}
++
++.history-items::-webkit-scrollbar {
++  width: 6px;
++}
++
++.history-items::-webkit-scrollbar-track {
++  background: var(--surface-secondary);
++  border-radius: 3px;
++}
++
++.history-items::-webkit-scrollbar-thumb {
++  background: var(--border-color);
++  border-radius: 3px;
++}
++
++.history-items::-webkit-scrollbar-thumb:hover {
++  background: var(--text-tertiary);
++}
++
++.history-item {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  padding: 1rem;
++  background: var(--surface-secondary);
++  border-radius: 12px;
++  border: 1px solid var(--border-color);
++  transition: all 0.2s ease;
++  animation: fadeIn 0.3s ease-out;
++}
++
++@keyframes fadeIn {
++  from {
++    opacity: 0;
++    transform: translateX(-10px);
++  }
++  to {
++    opacity: 1;
++    transform: translateX(0);
++  }
++}
++
++.history-item:hover {
++  border-color: var(--primary-color);
++  box-shadow: 0 2px 8px var(--shadow-color);
++}
++
++.item-main {
++  display: flex;
++  flex-direction: column;
++  gap: 0.5rem;
++  flex: 1;
++}
++
++.item-bmi {
++  display: flex;
++  align-items: center;
++  gap: 0.75rem;
++}
++
++.bmi-number {
++  font-size: 1.5rem;
++  font-weight: 700;
++  color: var(--text-primary);
++}
++
++.category-tag {
++  padding: 0.25rem 0.75rem;
++  border-radius: 12px;
++  font-size: 0.75rem;
++  font-weight: 600;
++  text-transform: uppercase;
++}
++
++.category-tag.underweight {
++  background: var(--underweight-color);
++  color: white;
++}
++
++.category-tag.normal {
++  background: var(--normal-color);
++  color: white;
++}
++
++.category-tag.overweight {
++  background: var(--overweight-color);
++  color: white;
++}
++
++.category-tag.obese {
++  background: var(--obese-color);
++  color: white;
++}
++
++.item-details {
++  display: flex;
++  gap: 0.5rem;
++  font-size: 0.9rem;
++  color: var(--text-secondary);
++}
++
++.detail-text {
++  font-weight: 500;
++}
++
++.detail-unit {
++  font-weight: 400;
++}
++
++.item-date {
++  font-size: 0.8rem;
++  color: var(--text-tertiary);
++}
++
++.delete-btn {
++  padding: 0.5rem;
++  border: none;
++  background: transparent;
++  color: var(--text-tertiary);
++  cursor: pointer;
++  border-radius: 6px;
++  transition: all 0.2s ease;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++}
++
++.delete-btn svg {
++  width: 20px;
++  height: 20px;
++}
++
++.delete-btn:hover {
++  background: var(--error-color);
++  color: white;
++}
++
++@media (max-width: 640px) {
++  .history-list {
++    padding: 1rem;
++  }
++
++  .history-title {
++    font-size: 1.1rem;
++  }
++
++  .bmi-number {
++    font-size: 1.25rem;
++  }
++
++  .item-details {
++    flex-direction: column;
++    gap: 0.25rem;
++  }
++}
++</style>
+diff --git a/repository_after/src/components/ResultCard.vue b/repository_after/src/components/ResultCard.vue
+new file mode 100644
+index 00000000..fdab7887
+--- /dev/null
++++ b/repository_after/src/components/ResultCard.vue
+@@ -0,0 +1,218 @@
++<script setup lang="ts">
++import { computed } from 'vue'
++import type { BmiResult, UnitSystem } from '../composables/useBmiCalculator'
++import GaugeBar from './GaugeBar.vue'
++
++const props = defineProps<{
++  result: BmiResult
++  unitSystem: UnitSystem
++}>()
++
++const gaugePosition = computed(() => {
++  const bmi = props.result.bmi
++  // Map BMI to 0-100 scale (15-40 BMI range)
++  const minBmi = 15
++  const maxBmi = 40
++  const position = ((bmi - minBmi) / (maxBmi - minBmi)) * 100
++  return Math.max(0, Math.min(100, position))
++})
++
++const categoryClass = computed(() => {
++  return props.result.category.toLowerCase()
++})
++
++const weightUnit = computed(() => props.unitSystem === 'metric' ? 'kg' : 'lbs')
++</script>
++
++<template>
++  <div class="result-card">
++    <div class="result-header">
++      <h2 class="result-title">Your BMI Result</h2>
++      <div :class="['category-badge', categoryClass]">
++        {{ result.category }}
++      </div>
++    </div>
++
++    <div class="bmi-display">
++      <span class="bmi-value">{{ result.bmi }}</span>
++      <span class="bmi-label">BMI</span>
++    </div>
++
++    <GaugeBar :bmi="result.bmi" :position="gaugePosition" />
++
++    <div class="guidance-section">
++      <p class="guidance-text">{{ result.guidance }}</p>
++    </div>
++
++    <div class="healthy-range">
++      <h3 class="range-title">Healthy Weight Range</h3>
++      <p class="range-values">
++        {{ result.healthyWeightRange.min }} - {{ result.healthyWeightRange.max }} {{ weightUnit }}
++      </p>
++      
++      <p v-if="result.weightDifference" class="weight-suggestion">
++        To reach a normal BMI, consider 
++        <strong>{{ result.weightDifference.direction === 'gain' ? 'gaining' : 'losing' }}</strong>
++        approximately 
++        <strong>{{ Math.abs(result.weightDifference.amount) }} {{ weightUnit }}</strong>
++      </p>
++    </div>
++  </div>
++</template>
++
++<style scoped>
++.result-card {
++  background: var(--surface-primary);
++  border: 2px solid var(--border-color);
++  border-radius: 20px;
++  padding: 2rem;
++  box-shadow: 0 8px 24px var(--shadow-color);
++  animation: slideIn 0.5s ease-out;
++}
++
++@keyframes slideIn {
++  from {
++    opacity: 0;
++    transform: translateY(20px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++.result-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  margin-bottom: 1.5rem;
++}
++
++.result-title {
++  font-size: 1.5rem;
++  font-weight: 700;
++  color: var(--text-primary);
++  margin: 0;
++}
++
++.category-badge {
++  padding: 0.5rem 1rem;
++  border-radius: 20px;
++  font-size: 0.9rem;
++  font-weight: 600;
++  text-transform: uppercase;
++  letter-spacing: 0.5px;
++}
++
++.category-badge.underweight {
++  background: var(--underweight-color);
++  color: white;
++}
++
++.category-badge.normal {
++  background: var(--normal-color);
++  color: white;
++}
++
++.category-badge.overweight {
++  background: var(--overweight-color);
++  color: white;
++}
++
++.category-badge.obese {
++  background: var(--obese-color);
++  color: white;
++}
++
++.bmi-display {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: 0.5rem;
++  margin: 1.5rem 0;
++}
++
++.bmi-value {
++  font-size: 4rem;
++  font-weight: 800;
++  background: var(--primary-gradient);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++  background-clip: text;
++  line-height: 1;
++}
++
++.bmi-label {
++  font-size: 1rem;
++  color: var(--text-secondary);
++  font-weight: 500;
++}
++
++.guidance-section {
++  margin: 1.5rem 0;
++  padding: 1.25rem;
++  background: var(--surface-secondary);
++  border-radius: 12px;
++  border-left: 4px solid var(--primary-color);
++}
++
++.guidance-text {
++  margin: 0;
++  color: var(--text-primary);
++  line-height: 1.6;
++  font-size: 0.95rem;
++}
++
++.healthy-range {
++  margin-top: 1.5rem;
++  padding-top: 1.5rem;
++  border-top: 1px solid var(--border-color);
++}
++
++.range-title {
++  font-size: 1.1rem;
++  font-weight: 600;
++  color: var(--text-primary);
++  margin: 0 0 0.75rem 0;
++}
++
++.range-values {
++  font-size: 1.25rem;
++  font-weight: 700;
++  color: var(--primary-color);
++  margin: 0 0 1rem 0;
++}
++
++.weight-suggestion {
++  margin: 0;
++  padding: 1rem;
++  background: var(--surface-tertiary);
++  border-radius: 10px;
++  color: var(--text-primary);
++  font-size: 0.9rem;
++  line-height: 1.5;
++}
++
++.weight-suggestion strong {
++  color: var(--primary-color);
++}
++
++@media (max-width: 640px) {
++  .result-card {
++    padding: 1.5rem;
++  }
++
++  .result-title {
++    font-size: 1.25rem;
++  }
++
++  .bmi-value {
++    font-size: 3rem;
++  }
++
++  .category-badge {
++    font-size: 0.75rem;
++    padding: 0.375rem 0.75rem;
++  }
++}
++</style>
+diff --git a/repository_after/src/components/ThemeToggle.vue b/repository_after/src/components/ThemeToggle.vue
+new file mode 100644
+index 00000000..c69145be
+--- /dev/null
++++ b/repository_after/src/components/ThemeToggle.vue
+@@ -0,0 +1,81 @@
++<script setup lang="ts">
++import { ref, watch } from 'vue'
++
++const props = defineProps<{
++  theme: 'light' | 'dark'
++}>()
++
++const emit = defineEmits<{
++  'update:theme': [theme: 'light' | 'dark']
++}>()
++
++const toggleTheme = () => {
++  emit('update:theme', props.theme === 'light' ? 'dark' : 'light')
++}
++</script>
++
++<template>
++  <button 
++    class="theme-toggle"
++    @click="toggleTheme"
++    :aria-label="`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`"
++  >
++    <svg v-if="theme === 'light'" class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
++      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
++    </svg>
++    <svg v-else class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
++      <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/>
++      <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
++    </svg>
++  </button>
++</template>
++
++<style scoped>
++.theme-toggle {
++  position: fixed;
++  top: 1.5rem;
++  right: 1.5rem;
++  width: 48px;
++  height: 48px;
++  border: 2px solid var(--border-color);
++  background: var(--surface-primary);
++  border-radius: 50%;
++  cursor: pointer;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  transition: all 0.3s ease;
++  box-shadow: 0 2px 8px var(--shadow-color);
++  z-index: 100;
++}
++
++.theme-toggle:hover {
++  transform: rotate(20deg) scale(1.05);
++  border-color: var(--primary-color);
++}
++
++.theme-toggle:active {
++  transform: rotate(20deg) scale(0.95);
++}
++
++.icon {
++  width: 24px;
++  height: 24px;
++  color: var(--text-primary);
++  transition: all 0.3s ease;
++}
++
++@media (max-width: 640px) {
++  .theme-toggle {
++    top: 1rem;
++    right: 1rem;
++    width: 40px;
++    height: 40px;
++  }
++
++  .icon {
++    width: 20px;
++    height: 20px;
++  }
++}
++</style>
+diff --git a/repository_after/src/composables/useBmiCalculator.ts b/repository_after/src/composables/useBmiCalculator.ts
+new file mode 100644
+index 00000000..a0f13e1d
+--- /dev/null
++++ b/repository_after/src/composables/useBmiCalculator.ts
+@@ -0,0 +1,208 @@
++import { ref, computed } from 'vue'
++
++export type UnitSystem = 'metric' | 'imperial'
++export type BmiCategory = 'Underweight' | 'Normal' | 'Overweight' | 'Obese'
++
++export interface BmiResult {
++  bmi: number
++  category: BmiCategory
++  healthyWeightRange: { min: number; max: number }
++  weightDifference?: { amount: number; direction: 'gain' | 'lose' }
++  guidance: string
++  timestamp: string
++}
++
++export interface ValidationError {
++  height?: string
++  weight?: string
++}
++
++export function useBmiCalculator() {
++  const unitSystem = ref<UnitSystem>('metric')
++  const height = ref<number | null>(null)
++  const weight = ref<number | null>(null)
++  const heightFeet = ref<number | null>(null)
++  const heightInches = ref<number | null>(null)
++  const errors = ref<ValidationError>({})
++
++  // Validation
++  const validateInputs = (): boolean => {
++    errors.value = {}
++    
++    if (unitSystem.value === 'metric') {
++      if (!height.value) {
++        errors.value.height = 'Height is required'
++      } else if (height.value < 50 || height.value > 300) {
++        errors.value.height = 'Height must be between 50-300 cm'
++      }
++      
++      if (!weight.value) {
++        errors.value.weight = 'Weight is required'
++      } else if (weight.value < 2 || weight.value > 600) {
++        errors.value.weight = 'Weight must be between 2-600 kg'
++      }
++    } else {
++      const totalInches = (heightFeet.value || 0) * 12 + (heightInches.value || 0)
++      if (!heightFeet.value && !heightInches.value) {
++        errors.value.height = 'Height is required'
++      } else if (totalInches < 20 || totalInches > 120) {
++        errors.value.height = 'Height must be between 1ft 8in - 10ft'
++      }
++      
++      if (!weight.value) {
++        errors.value.weight = 'Weight is required'
++      } else if (weight.value < 4 || weight.value > 1300) {
++        errors.value.weight = 'Weight must be between 4-1300 lbs'
++      }
++    }
++    
++    return Object.keys(errors.value).length === 0
++  }
++
++  const isValid = computed(() => {
++    if (unitSystem.value === 'metric') {
++      return height.value !== null && weight.value !== null && 
++             height.value > 0 && weight.value > 0 &&
++             height.value >= 50 && height.value <= 300 &&
++             weight.value >= 2 && weight.value <= 600
++    } else {
++      const totalInches = (heightFeet.value || 0) * 12 + (heightInches.value || 0)
++      return totalInches > 0 && weight.value !== null && weight.value > 0 &&
++             totalInches >= 20 && totalInches <= 120 &&
++             weight.value >= 4 && weight.value <= 1300
++    }
++  })
++
++  // Unit conversion
++  const cmToInches = (cm: number): number => cm / 2.54
++  const inchesToCm = (inches: number): number => inches * 2.54
++  const kgToLbs = (kg: number): number => kg * 2.20462
++  const lbsToKg = (lbs: number): number => lbs / 2.20462
++
++  const toggleUnit = () => {
++    if (unitSystem.value === 'metric') {
++      // Convert to imperial
++      if (height.value) {
++        const totalInches = cmToInches(height.value)
++        heightFeet.value = Math.floor(totalInches / 12)
++        heightInches.value = Math.round(totalInches % 12)
++      }
++      if (weight.value) {
++        weight.value = Math.round(kgToLbs(weight.value) * 10) / 10
++      }
++      unitSystem.value = 'imperial'
++    } else {
++      // Convert to metric
++      const totalInches = (heightFeet.value || 0) * 12 + (heightInches.value || 0)
++      if (totalInches > 0) {
++        height.value = Math.round(inchesToCm(totalInches))
++      }
++      if (weight.value) {
++        weight.value = Math.round(lbsToKg(weight.value) * 10) / 10
++      }
++      unitSystem.value = 'metric'
++    }
++  }
++
++  // BMI calculation
++  const calculateBmi = (): BmiResult | null => {
++    if (!validateInputs()) return null
++
++    let heightInMeters: number
++    let weightInKg: number
++
++    if (unitSystem.value === 'metric') {
++      heightInMeters = (height.value || 0) / 100
++      weightInKg = weight.value || 0
++    } else {
++      const totalInches = (heightFeet.value || 0) * 12 + (heightInches.value || 0)
++      heightInMeters = inchesToCm(totalInches) / 100
++      weightInKg = lbsToKg(weight.value || 0)
++    }
++
++    const bmi = weightInKg / (heightInMeters * heightInMeters)
++    const category = getBmiCategory(bmi)
++    const healthyWeightRange = getHealthyWeightRange(heightInMeters)
++    const weightDifference = getWeightDifference(weightInKg, healthyWeightRange, category)
++    const guidance = getGuidance(category)
++
++    return {
++      bmi: Math.round(bmi * 10) / 10,
++      category,
++      healthyWeightRange,
++      weightDifference,
++      guidance,
++      timestamp: new Date().toISOString()
++    }
++  }
++
++  const getBmiCategory = (bmi: number): BmiCategory => {
++    if (bmi < 18.5) return 'Underweight'
++    if (bmi < 25) return 'Normal'
++    if (bmi < 30) return 'Overweight'
++    return 'Obese'
++  }
++
++  const getHealthyWeightRange = (heightInMeters: number) => {
++    const minWeight = 18.5 * heightInMeters * heightInMeters
++    const maxWeight = 24.9 * heightInMeters * heightInMeters
++    
++    if (unitSystem.value === 'metric') {
++      return {
++        min: Math.round(minWeight * 10) / 10,
++        max: Math.round(maxWeight * 10) / 10
++      }
++    } else {
++      return {
++        min: Math.round(kgToLbs(minWeight) * 10) / 10,
++        max: Math.round(kgToLbs(maxWeight) * 10) / 10
++      }
++    }
++  }
++
++  const getWeightDifference = (
++    currentWeight: number,
++    healthyRange: { min: number; max: number },
++    category: BmiCategory
++  ) => {
++    if (category === 'Normal') return undefined
++
++    const weightInCurrentUnit = unitSystem.value === 'metric' 
++      ? currentWeight 
++      : kgToLbs(currentWeight)
++
++    if (category === 'Underweight') {
++      return {
++        amount: Math.round((healthyRange.min - weightInCurrentUnit) * 10) / 10,
++        direction: 'gain' as const
++      }
++    } else {
++      return {
++        amount: Math.round((weightInCurrentUnit - healthyRange.max) * 10) / 10,
++        direction: 'lose' as const
++      }
++    }
++  }
++
++  const getGuidance = (category: BmiCategory): string => {
++    const messages = {
++      Underweight: 'Consider consulting a healthcare provider about healthy weight gain strategies.',
++      Normal: 'Great! You\'re in a healthy weight range. Maintain a balanced diet and regular exercise.',
++      Overweight: 'Consider adopting a healthier lifestyle with balanced nutrition and regular physical activity.',
++      Obese: 'Consult with a healthcare professional for personalized advice on achieving a healthier weight.'
++    }
++    return messages[category]
++  }
++
++  return {
++    unitSystem,
++    height,
++    weight,
++    heightFeet,
++    heightInches,
++    errors,
++    isValid,
++    toggleUnit,
++    calculateBmi
++  }
++}
+diff --git a/repository_after/src/composables/useLocalStorage.ts b/repository_after/src/composables/useLocalStorage.ts
+new file mode 100644
+index 00000000..2c7c47ae
+--- /dev/null
++++ b/repository_after/src/composables/useLocalStorage.ts
+@@ -0,0 +1,16 @@
++import { ref, watch } from 'vue'
++
++export function useLocalStorage<T>(key: string, defaultValue: T) {
++  const storedValue = localStorage.getItem(key)
++  const data = ref<T>(storedValue ? JSON.parse(storedValue) : defaultValue)
++
++  watch(
++    data,
++    (newValue) => {
++      localStorage.setItem(key, JSON.stringify(newValue))
++    },
++    { deep: true }
++  )
++
++  return data
++}
+diff --git a/repository_after/src/main.ts b/repository_after/src/main.ts
+new file mode 100644
+index 00000000..2425c0f7
+--- /dev/null
++++ b/repository_after/src/main.ts
+@@ -0,0 +1,5 @@
++import { createApp } from 'vue'
++import './style.css'
++import App from './App.vue'
++
++createApp(App).mount('#app')
+diff --git a/repository_after/src/style.css b/repository_after/src/style.css
+new file mode 100644
+index 00000000..ca714f8f
+--- /dev/null
++++ b/repository_after/src/style.css
+@@ -0,0 +1,106 @@
++:root {
++  /* Light theme colors */
++  --bg-primary: #f8fafc;
++  --bg-secondary: #ffffff;
++  --surface-primary: #ffffff;
++  --surface-secondary: #f1f5f9;
++  --surface-tertiary: #e2e8f0;
++  --surface-hover: rgba(100, 116, 139, 0.1);
++  
++  --text-primary: #0f172a;
++  --text-secondary: #475569;
++  --text-tertiary: #94a3b8;
++  
++  --border-color: #e2e8f0;
++  --shadow-color: rgba(15, 23, 42, 0.08);
++  
++  --primary-color: #3b82f6;
++  --primary-glow: rgba(59, 130, 246, 0.15);
++  --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
++  
++  --underweight-color: #60a5fa;
++  --normal-color: #10b981;
++  --overweight-color: #f59e0b;
++  --obese-color: #ef4444;
++  
++  --error-color: #ef4444;
++}
++
++[data-theme="dark"] {
++  /* Dark theme colors */
++  --bg-primary: #0f172a;
++  --bg-secondary: #1e293b;
++  --surface-primary: #1e293b;
++  --surface-secondary: #334155;
++  --surface-tertiary: #475569;
++  --surface-hover: rgba(148, 163, 184, 0.1);
++  
++  --text-primary: #f1f5f9;
++  --text-secondary: #cbd5e1;
++  --text-tertiary: #64748b;
++  
++  --border-color: #334155;
++  --shadow-color: rgba(0, 0, 0, 0.3);
++  
++  --primary-color: #60a5fa;
++  --primary-glow: rgba(96, 165, 250, 0.2);
++  --primary-gradient: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
++  
++  --underweight-color: #3b82f6;
++  --normal-color: #059669;
++  --overweight-color: #d97706;
++  --obese-color: #dc2626;
++  
++  --error-color: #f87171;
++}
++
++/* CSS Reset & Base Styles */
++*, *::before, *::after {
++  box-sizing: border-box;
++  margin: 0;
++  padding: 0;
++}
++
++html {
++  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++}
++
++body {
++  background: var(--bg-primary);
++  color: var(--text-primary);
++  line-height: 1.6;
++  min-height: 100vh;
++  transition: background-color 0.3s ease, color 0.3s ease;
++}
++
++#app {
++  min-height: 100vh;
++}
++
++/* Smooth transitions for theme changes */
++* {
++  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
++}
++
++/* Remove spinner from number inputs */
++input[type="number"]::-webkit-inner-spin-button,
++input[type="number"]::-webkit-outer-spin-button {
++  -webkit-appearance: none;
++  margin: 0;
++}
++
++input[type="number"] {
++  -moz-appearance: textfield;
++}
++
++/* Focus visible for accessibility */
++:focus-visible {
++  outline: 2px solid var(--primary-color);
++  outline-offset: 2px;
++}
++
++button {
++  font-family: inherit;
++}
+diff --git a/repository_after/tsconfig.app.json b/repository_after/tsconfig.app.json
+new file mode 100644
+index 00000000..8d16e425
+--- /dev/null
++++ b/repository_after/tsconfig.app.json
+@@ -0,0 +1,16 @@
++{
++  "extends": "@vue/tsconfig/tsconfig.dom.json",
++  "compilerOptions": {
++    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
++    "types": ["vite/client"],
++
++    /* Linting */
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "erasableSyntaxOnly": true,
++    "noFallthroughCasesInSwitch": true,
++    "noUncheckedSideEffectImports": true
++  },
++  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
++}
+diff --git a/repository_after/tsconfig.json b/repository_after/tsconfig.json
+new file mode 100644
+index 00000000..1ffef600
+--- /dev/null
++++ b/repository_after/tsconfig.json
+@@ -0,0 +1,7 @@
++{
++  "files": [],
++  "references": [
++    { "path": "./tsconfig.app.json" },
++    { "path": "./tsconfig.node.json" }
++  ]
++}
+diff --git a/repository_after/tsconfig.node.json b/repository_after/tsconfig.node.json
+new file mode 100644
+index 00000000..8a67f62f
+--- /dev/null
++++ b/repository_after/tsconfig.node.json
+@@ -0,0 +1,26 @@
++{
++  "compilerOptions": {
++    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
++    "target": "ES2023",
++    "lib": ["ES2023"],
++    "module": "ESNext",
++    "types": ["node"],
++    "skipLibCheck": true,
++
++    /* Bundler mode */
++    "moduleResolution": "bundler",
++    "allowImportingTsExtensions": true,
++    "verbatimModuleSyntax": true,
++    "moduleDetection": "force",
++    "noEmit": true,
++
++    /* Linting */
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "erasableSyntaxOnly": true,
++    "noFallthroughCasesInSwitch": true,
++    "noUncheckedSideEffectImports": true
++  },
++  "include": ["vite.config.ts"]
++}
+diff --git a/repository_after/vite.config.ts b/repository_after/vite.config.ts
+new file mode 100644
+index 00000000..bbcf80cc
+--- /dev/null
++++ b/repository_after/vite.config.ts
+@@ -0,0 +1,7 @@
++import { defineConfig } from 'vite'
++import vue from '@vitejs/plugin-vue'
++
++// https://vite.dev/config/
++export default defineConfig({
++  plugins: [vue()],
++})

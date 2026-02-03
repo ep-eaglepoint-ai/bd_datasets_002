@@ -1,0 +1,22 @@
+{
+    "name": "bmi-calculator-root",
+    "type": "module",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "test": "vitest run",
+        "evaluate": "tsx evaluation/evaluation.ts"
+    },
+    "devDependencies": {
+        "@testing-library/jest-dom": "6.6.3",
+        "@testing-library/vue": "^8.1.0",
+        "@types/node": "^20",
+        "@vitejs/plugin-vue": "^6.0.1",
+        "@vue/test-utils": "^2.4.6",
+        "jsdom": "25.0.1",
+        "tsx": "^4.19.2",
+        "typescript": "^5",
+        "vitest": "2.1.8",
+        "vue": "^3.5.24"
+    }
+}
