@@ -1,0 +1,20 @@
+{
+  "instance_id": "0SEXU2",
+  "problem_statement": "The existing TypeScript PDF merger is broken, causing file corruption and memory exhaustion. The task is to refactor the class to handle binary-safe PDF merging, implement a non-blocking async flow, add specific features like page-range extraction and watermarking, and ensure memory references are properly garbage collected.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/0sexu2-advancedpdfbufferorchestrator",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "tests/test_requirements.ts::testRequirement1_TypeSafety",
+    "tests/test_requirements.ts::testRequirement2_BinaryIntegrity",
+    "tests/test_requirements.ts::testRequirement3_MemoryManagement",
+    "tests/test_requirements.ts::testRequirement4_PageRangeLogic",
+    "tests/test_requirements.ts::testRequirement5_NonBlockingIO",
+    "tests/test_requirements.ts::testRequirement6_WatermarkInjection",
+    "tests/test_requirements.ts::testRequirement7_ValidationTesting",
+    "tests/test_requirements.ts::testRequirement8_MemoryTesting",
+    "tests/test_requirements.ts::testRequirement9_FunctionalTesting"
+  ],
+  "PASS_TO_PASS": []
+}
