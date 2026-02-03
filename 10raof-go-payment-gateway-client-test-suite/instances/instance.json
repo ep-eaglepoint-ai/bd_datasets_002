@@ -1,0 +1,13 @@
+{
+            "instance_id": "10RAOF",
+            "problem_statement": "Noticed reliability concerns when reviewing a Go payment gateway client library that handles credit card processing, refunds, and webhook verification. The library has zero test coverage and production logs show three recurring incidents over the past month: customers being charged twice for the same order, refund requests completing without errors but money never returning to customers, and webhook notifications from the payment provider being accepted without proper signature validation.
+
+ The client library in payment/client.go uses idempotency keys for charge deduplication, implements retry logic with exponential backoff, and validates webhook signatures using HMAC-SHA256. The system needs comprehensive test coverage that would have caught these production bugs before deployment, validates all error paths propagate correctly, and ensures the webhook signature check cannot be bypassed with crafted payloads.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/10raof-go-payment-gateway-client-test-suite",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
