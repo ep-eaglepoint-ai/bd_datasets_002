@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+__pycache__/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+.DS_Store?
+*/.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Evaluation reports
+evaluation/*/
+!evaluation/.gitkeep
+!evaluation/evaluation.py
+
+# Keep repository_before with gitkeep
+!repository_before/.gitkeep

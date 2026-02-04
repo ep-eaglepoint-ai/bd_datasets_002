@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLE Telemetry Pipeline</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .matrix-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Custom RLE Compressed Telemetry Pipeline</h1>
+    
+    <div class="matrix-info">
+        <h3>Matrix Information</h3>
+        <p>Size: 100x100 (10,000 elements)</p>
+        <p>Value Range: 0-255 (unsigned 8-bit integers)</p>
+        <p>Compression: Custom Run-Length Encoding (RLE)</p>
+    </div>
+
+    <button id="generateBtn" onclick="generateAndSend()">Generate Matrix and Send</button>
+    <button id="testBtn" onclick="testCompression()">Test RLE Algorithm</button>
+    
+    <div id="status"></div>
+
+    <script>
+        function compressRLE(data) {
+            if (data.length === 0) return new Uint8Array();
+            
+            // Validate input: ensure all values are 0-255
+            for (let i = 0; i < data.length; i++) {
+                if (data[i] < 0 || data[i] > 255) {
+                    throw new Error(`Invalid sensor value at position ${i}: ${data[i]} (must be 0-255)`);
+                }
+            }
+            
+            const compressed = [];
+            let current = data[0];
+            let count = 1;
+            
+            for (let i = 1; i < data.length; i++) {
+                if (data[i] === current && count < 255) {
+                    count++;
+                } else {
+                    // Validate count before adding
+                    if (count > 255) {
+                        throw new Error(`RLE count exceeds 255: ${count}`);
+                    }
+                    compressed.push(count, current);
+                    current = data[i];
+                    count = 1;
+                }
+            }
+            
+            // Add the last run with validation
+            if (count > 255) {
+                throw new Error(`RLE count exceeds 255: ${count}`);
+            }
+            compressed.push(count, current);
+            
+            return new Uint8Array(compressed);
+        }
+
+        function decompressRLE(compressedData) {
+            if (compressedData.length % 2 !== 0) {
+                throw new Error("Invalid RLE stream: odd number of bytes");
+            }
+            
+            const decompressed = [];
+            
+            for (let i = 0; i < compressedData.length; i += 2) {
+                const count = compressedData[i];
+                const value = compressedData[i + 1];
+                
+                // Validation: count must be 1-255, value must be 0-255
+                if (count > 255) {
+                    throw new Error(`RLE count exceeds 255: ${count}`);
+                }
+                if (value > 255) {
+                    throw new Error(`RLE value exceeds 255: ${value}`);
+                }
+                
+                if (count === 0) {
+                    continue;
+                }
+                
+                for (let j = 0; j < count; j++) {
+                    decompressed.push(value);
+                }
+            }
+            
+            return decompressed;
+        }
+
+        function generateMatrix() {
+            const size = 100 * 100;
+            const matrix = new Uint8Array(size);
+            for (let i = 0; i < size; i++) {
+                matrix[i] = Math.floor(Math.random() * 256);
+            }
+            return matrix;
+        }
+
+        async function sendCompressedData(compressedData) {
+            try {
+                const blob = new Blob([compressedData], { type: 'application/octet-stream' });
+                
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/octet-stream'
+                    },
+                    body: blob
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Error sending data:', error);
+                throw error;
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        async function generateAndSend() {
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = true;
+            
+            try {
+                updateStatus('Generating 100x100 matrix...', 'info');
+                
+                const matrix = generateMatrix();
+                updateStatus(`Matrix generated. Original size: ${matrix.length} bytes`, 'info');
+                
+                const compressed = compressRLE(matrix);
+                const compressionRatio = ((matrix.length - compressed.length) / matrix.length * 100).toFixed(2);
+                updateStatus(`RLE compression complete. Compressed size: ${compressed.length} bytes (${compressionRatio}% reduction)`, 'info');
+                
+                updateStatus('Sending compressed data to server...', 'info');
+                const result = await sendCompressedData(compressed);
+                
+                updateStatus(`Success! Server calculated average: ${result.average}`, 'success');
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                generateBtn.disabled = false;
+            }
+        }
+
+        // Test RLE compression/decompression
+        async function testCompression() {
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            
+            try {
+                updateStatus('Testing RLE algorithm...', 'info');
+                
+                // Create test data with known patterns including edge cases
+                const testData = new Uint8Array([
+                    5, 5, 5, 5, 5, 5,  // 6 repetitions of 5
+                    10,                // 1 repetition of 10
+                    20, 20, 20,       // 3 repetitions of 20
+                    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, // 10 repetitions of 255
+                    0                  // 1 repetition of 0
+                ]);
+                
+                const compressed = compressRLE(testData);
+                const decompressed = decompressRLE(compressed);
+                
+                // Verify roundtrip
+                let roundtripSuccess = true;
+                if (testData.length !== decompressed.length) {
+                    roundtripSuccess = false;
+                } else {
+                    for (let i = 0; i < testData.length; i++) {
+                        if (testData[i] !== decompressed[i]) {
+                            roundtripSuccess = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!roundtripSuccess) {
+                    throw new Error('RLE roundtrip test failed');
+                }
+                
+                updateStatus(`Test data: [${testData.join(', ')}]`, 'info');
+                updateStatus(`Compressed: [${compressed.join(', ')}]`, 'info');
+                updateStatus(`Decompressed: [${decompressed.join(', ')}]`, 'info');
+                updateStatus('RLE algorithm test completed successfully!', 'success');
+                
+                // Test server-side RLE
+                const response = await fetch('/test-rle');
+                const serverResult = await response.json();
+                updateStatus(`Server test - Average: ${serverResult.average}, Compression: ${serverResult.compression_ratio}%`, 'success');
+                
+            } catch (error) {
+                updateStatus(`Test error: ${error.message}`, 'error');
+            } finally {
+                testBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

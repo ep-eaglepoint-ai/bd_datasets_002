@@ -1,0 +1,22 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    command: python repository_after/server.py
+  
+  test:
+    build: .
+    command: pytest tests/test_rle.py tests/test_compressor.py tests/test_integration_simple.py -v --tb=short --durations=0
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+  
+  evaluate:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - ./evaluation:/app/evaluation
+    environment:
+      - PYTHONPATH=/app
