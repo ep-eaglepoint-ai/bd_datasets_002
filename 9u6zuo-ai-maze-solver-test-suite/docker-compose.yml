@@ -1,0 +1,25 @@
+services:
+  # Build the base image
+  app:
+    build: .
+    working_dir: /app
+
+  # Test BEFORE: repository_after tests against repository_before
+  test-before:
+    build: .
+    working_dir: /app
+    command: npm run test:before
+
+  # Test AFTER: meta-tests verifying test quality
+  test-after:
+    build: .
+    working_dir: /app
+    command: npm run test:after
+
+  # Run full evaluation
+  evaluate:
+    build: .
+    working_dir: /app
+    command: npm run evaluate
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
