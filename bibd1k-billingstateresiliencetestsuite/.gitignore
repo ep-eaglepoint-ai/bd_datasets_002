@@ -1,0 +1,9 @@
+# Deno cache
+/deno.lock
+
+# Evaluation
+/evaluation/*/
+
+# OS
+.DS_Store
+Thumbs.db
