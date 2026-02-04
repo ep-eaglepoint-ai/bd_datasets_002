@@ -1,0 +1,19 @@
+{
+  "name": "tests",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Use test:before, test:after, or verify\"",
+    "test:before": "cd .. && node evaluation/evaluation.js --target before",
+    "test:after": "cd .. && node evaluation/evaluation.js --target after"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "jest": "^30.2.0",
+    "puppeteer": "21.5.0",
+    "kill-port": "^2.0.1"
+  }
+}
