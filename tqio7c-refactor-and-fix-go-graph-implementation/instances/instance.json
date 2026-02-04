@@ -1,0 +1,24 @@
+{
+  "instance_id": "tqio7c-refactor-and-fix-go-graph-implementation",
+  "problem_statement": "You are a senior Go engineer tasked with refactoring and fixing an existing graph implementation written in Go. The code currently contains runtime panics, incorrect traversal logic, and algorithmic bugs. Your responsibility is to correct the implementation, improve code quality, and guarantee algorithm correctness while strictly following Go best practices. Fix all issues in: Breadth-First Search (BFS), Depth-First Search (DFS), Shortest Path algorithm, Graph construction and internal data structures.",
+  "base_commit": "repository_before/",
+  "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/tqio7c-refactor-and-fix-go-graph-implementation",
+  "FAIL_TO_PASS": [
+    "test_graph_initialization_weights_map",
+    "test_bfs_nil_visited_map",
+    "test_bfs_infinite_loop_condition",
+    "test_bfs_out_of_bounds",
+    "test_bfs_empty_graph",
+    "test_bfs_disconnected_node",
+    "test_bfs_correct_traversal",
+    "test_dfs_path_construction",
+    "test_dfs_unreachable_target",
+    "test_dfs_invalid_start",
+    "test_dfs_correct_path",
+    "test_shortest_path_visited_logic",
+    "test_shortest_path_unreachable_infinite_loop",
+    "test_shortest_path_self_loop",
+    "test_add_edge_nil_weights"
+  ],
+  "PASS_TO_PASS": []
+}
