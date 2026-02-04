@@ -1,0 +1,24 @@
+services:
+  test-before:
+    build: .
+    environment:
+      - REPO_PATH=repository_before
+      - PYTHONPATH=/app
+    command: pytest -v tests --tb=short
+    volumes:
+      - .:/app
+
+  test-after:
+    build: .
+    environment:
+      - REPO_PATH=repository_after
+      - PYTHONPATH=/app
+    command: pytest -v tests --tb=short
+    volumes:
+      - .:/app
+
+  evaluate:
+    build: .
+    command: python3 evaluation/evaluation.py
+    volumes:
+      - .:/app

@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*/__pycache__/
+*.pyc
+.pytest_cache/
+
+# Evaluation reports
+evaluation/*
+!evaluation/evaluation.py
+
+.venv/
+.env
+
+# Node
+node_modules/
+
+# OS
+.DS_Store

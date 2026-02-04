@@ -1,0 +1,11 @@
+{
+            "instance_id": "T29JV2",
+            "problem_statement": "The existing recursive hierarchy traversal implementation fails under production loads due to stack overflow errors, lack of cycle detection in legacy data, and exponential time complexity ($O(2^n)$) caused by redundant processing of shared sub-nodes in Directed Acyclic Graph (DAG) structures. The objective is to refactor the service into a thread-safe, iterative implementation that operates within a strict 128MB memory ceiling, utilizes a custom generational caching strategy, and provides atomic invalidation for targeted path updates without full cache purges.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/t29jv2-atomichierarchytraversalrefactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
