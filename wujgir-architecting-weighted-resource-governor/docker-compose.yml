@@ -1,0 +1,15 @@
+services:
+  test-after:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: go test -v ./tests/...
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    # Run the evaluation script
+    command: go run evaluation/evaluation.go
