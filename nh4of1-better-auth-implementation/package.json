@@ -1,0 +1,11 @@
+{
+    "name": "better-auth-implementation-root",
+    "version": "1.0.0",
+    "type": "module",
+    "private": true,
+    "dependencies": {
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.3",
+        "@types/node": "^20.11.5"
+    }
+}
