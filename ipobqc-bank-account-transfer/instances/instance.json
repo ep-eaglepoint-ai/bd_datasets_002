@@ -1,0 +1,28 @@
+{
+            "instance_id": "IPOBQC",
+            "problem_statement": "Financial transfers must guarantee consistency, prevent double spending, and maintain a clear audit trail even under concurrent access and partial failures. A PostgreSQL function centralizes validation, balance updates, and error handling to ensure money is moved safely and predictably in real-world banking systems.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/ipobqc-bank-account-transfer",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [
+                "test_successful_transfer",
+                "test_idempotent_transfer",
+                "test_source_account_not_exist",
+                "test_dest_account_not_exist",
+                "test_source_account_inactive",
+                "test_dest_account_inactive",
+                "test_negative_amount",
+                "test_zero_amount",
+                "test_insufficient_balance",
+                "test_same_account",
+                "test_null_source_id",
+                "test_null_dest_id",
+                "test_null_amount",
+                "test_null_transfer_ts",
+                "test_null_request_id",
+                "test_empty_request_id",
+                "test_whitespace_request_id"
+            ],
+            "PASS_TO_PASS": []
+        }
