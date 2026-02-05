@@ -1,0 +1,19 @@
+{
+    "name": "expense-tracker-meta",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "Meta package for tests and evaluation of the Personal Expense Tracker",
+    "scripts": {
+        "test": "npx tsx tests/test-runner.ts npx vitest run --config tests/vitest.config.ts",
+        "test:raw": "vitest run --config tests/vitest.config.ts",
+        "test:watch": "vitest --config tests/vitest.config.ts",
+        "verify:raw": "npx tsx tests/verify-criteria.ts",
+        "evaluate": "npx tsx evaluation/evaluation.ts"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "tsx": "^4.0.0",
+        "typescript": "^5.0.0",
+        "vitest": "^1.0.0"
+    }
+}
