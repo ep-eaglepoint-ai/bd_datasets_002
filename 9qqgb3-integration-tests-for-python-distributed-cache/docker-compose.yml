@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  repo_before_test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: repo_before_test
+    command: >
+      sh -c "
+        echo '=== Testing repository_before implementation with integration tests ===' &&
+        cd /app &&
+        PYTHONPATH=/app/repository_before:/app/repository_after:/app \
+        python -m pytest repository_after/tests/ --impl=before -v --tb=short || true
+      "
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app/repository_before:/app/repository_after:/app
+    networks:
+      - test-network
+
+  metatest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: metatest
+    command: >
+      sh -c "
+        echo '=== Running Metatests ===' &&
+        cd /app &&
+        PYTHONPATH=/app/repository_after:/app \
+        python -m pytest tests/metatest/ -v --tb=short
+      "
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app/repository_after:/app
+    networks:
+      - test-network
+    depends_on:
+      - repo_before_test
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: evaluation
+    command: >
+      sh -c "
+        echo '=== Running Evaluation ===' &&
+        cd /app &&
+        PYTHONPATH=/app/repository_before:/app/repository_after:/app \
+        python evaluation/evaluation.py
+      "
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app/repository_before:/app/repository_after:/app
+    networks:
+      - test-network
+    depends_on:
+      - repo_before_test
+      - metatest
+
+networks:
+  test-network:
+    driver: bridge
