@@ -1,0 +1,10 @@
+services:
+  before:
+    build: .
+    command: npm run test:before
+  after:
+    build: .
+    command: npm run test:after
+  evaluate:
+    build: .
+    command: npm run evaluate
