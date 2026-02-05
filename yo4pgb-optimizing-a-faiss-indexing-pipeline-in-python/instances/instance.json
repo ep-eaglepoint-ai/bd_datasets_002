@@ -1,0 +1,40 @@
+{
+  "instances": [
+    {
+      "instance_id": "yo4pgb-faiss-optimization-001",
+      "problem_statement": "You are given a Python script that builds a FAISS vector index from a JSONL file containing text data. The script is functionally correct but intentionally inefficient, containing redundant computations, unnecessary memory allocations, excessive I/O operations, and suboptimal use of libraries. Your task is to optimize the code to improve runtime performance, memory efficiency, and code clarity while preserving its external behavior, input/output formats, and correctness.",
+      "repo": "yo4pgb-optimizing-a-faiss-indexing-pipeline-in-python",
+      "base_commit": "repository_before",
+      "patch": "patches/diff.patch",
+      "test_patch": "",
+      "version": "1.0",
+      "FAIL_TO_PASS": [
+        "tests/comprehensive/test_performance.py::test_performance_large_batch"
+      ],
+      "PASS_TO_PASS": [
+        "tests/comprehensive/test_integration.py::test_full_pipeline_success",
+        "tests/comprehensive/test_integration.py::test_pipeline_empty_input",
+        "tests/comprehensive/test_unit.py::test_stringify",
+        "tests/comprehensive/test_unit.py::test_parse_json",
+        "tests/comprehensive/test_unit.py::test_validate_record",
+        "tests/comprehensive/test_unit.py::test_extract_text",
+        "tests/comprehensive/test_unit.py::test_embeddings_to_numpy",
+        "tests/comprehensive/test_unit.py::test_embeddings_to_numpy_mismatch"
+      ],
+      "category": "code_quality_reliability",
+      "bucket_tag": "performance_optimization",
+      "priority": 1,
+      "constraints": [
+        "Must accept the same command-line arguments",
+        "Must preserve functional equivalence of FAISS index output",
+        "Must maintain valid JSONL metadata format",
+        "Must not change embedding model semantics",
+        "Must reduce runtime compared to original implementation",
+        "Must minimize unnecessary memory usage",
+        "Must handle invalid input gracefully with preserved error messages",
+        "Must remain runnable as standalone script",
+        "Code must be deterministic (no network, randomness, or time dependencies)"
+      ]
+    }
+  ]
+}
