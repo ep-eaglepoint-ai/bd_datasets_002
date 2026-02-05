@@ -1,0 +1,17 @@
+# Node modules
+node_modules/
+
+# Evaluation reports (generated at runtime)
+evaluation/????-??-??/
+
+# Build artifacts
+*.log
+*.tmp
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Test coverage
+coverage/

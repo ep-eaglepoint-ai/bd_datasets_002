@@ -1,0 +1,20 @@
+{
+  "name": "category-form-tests",
+  "version": "1.0.0",
+  "description": "Static analysis tests for CategoryForm",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --verbose",
+    "evaluate": "ts-node evaluation/evaluation.ts"
+  },
+  "dependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "ts-node": "^10.9.1"
+  }
+}
