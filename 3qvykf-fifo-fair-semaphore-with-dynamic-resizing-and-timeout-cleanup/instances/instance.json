@@ -1,0 +1,20 @@
+{
+    "instance_id": "3QVYKF",
+    "problem_statement": "The core problem is the \"Thundering Herd\" or \"Unfair Wakeup\" issue inherent in standard concurrency primitives where the operating system decides which waiting thread to wake up, leading to potential starvation of older requests. The task requires manually implementing a \"Fairness\" policy where threads are strictly served in arrival order. This complicates the logic significantly when combined with timeouts, as removing a specific thread from the middle of a waiting queue (upon timeout) while other threads are aggressively adding/removing from the head/tail creates a high risk of list corruption and race conditions. Furthermore, the requirement to dynamically resize the pool limits introduces a secondary state synchronization challenge that often leads to deadlocks in mid-tier models.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/3qvykf-fifo-fair-semaphore-with-dynamic-resizing-and-timeout-cleanup",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "test_fifo_order_strict",
+        "test_single_wakeup_only",
+        "test_timeout_removes_waiter",
+        "test_timeout_release_race_safe",
+        "test_release_overflow_protection",
+        "test_resize_increase_unblocks",
+        "test_resize_down_throttles",
+        "test_average_wait_time_ring_buffer",
+        "test_stress_no_deadlock"
+    ],
+    "PASS_TO_PASS": []
+}

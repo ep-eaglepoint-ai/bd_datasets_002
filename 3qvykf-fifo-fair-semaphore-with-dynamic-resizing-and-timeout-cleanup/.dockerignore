@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+.env
+node_modules/
+.DS_Store
+evaluation/reports/
+.pytest_cache/
+.dockerignore
+.gitignore
+README.md

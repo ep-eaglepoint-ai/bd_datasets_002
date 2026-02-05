@@ -1,0 +1,14 @@
+services:
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    command: python evaluation/evaluation.py
+
+  tests:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=repository_after
+    command: pytest tests/test_strict_fair_semaphore_test.py
