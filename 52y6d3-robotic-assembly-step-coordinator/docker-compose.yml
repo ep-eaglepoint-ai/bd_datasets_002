@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    command: go test -v ./...
+    volumes:
+      - "./repository_after:/app"
+      - "./tests:/app/tests"
+      - "./evaluation:/app/evaluation"

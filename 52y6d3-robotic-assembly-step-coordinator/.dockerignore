@@ -1,0 +1,7 @@
+# Standard ignore list
+.git
+.gitignore
+patches/
+trajectory/
+eval_log.txt
+*.md
