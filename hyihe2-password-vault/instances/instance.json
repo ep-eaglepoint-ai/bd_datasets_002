@@ -1,0 +1,11 @@
+{
+            "instance_id": "HYIHE2",
+            "problem_statement": "Build a secure, offline-first password vault web app using Next.js and TailwindCSS that locally stores and encrypts credentials via the Web Crypto API, with all operations—generation, breach checks, backups—running client-side in IndexedDB. Implement robust encryption flows, Zod validation, and Zustand state management to guarantee data integrity, prevent plaintext exposure, and handle corrupted vaults or lost master passwords gracefully. The vault must feel like a professional security tool, offering credential organization, strength audits, and deterministic security state transitions without any external APIs.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hyihe2-password-vault",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
