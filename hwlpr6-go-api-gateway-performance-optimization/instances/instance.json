@@ -1,0 +1,11 @@
+{
+            "instance_id": "HWLPR6",
+            "problem_statement": "Load testing revealed the API gateway is a bottleneck under high traffic. Response times spike from 5ms to 800ms+ at 1000 concurrent requests. Memory usage grows unbounded during sustained load, and CPU utilization hits 100% on request parsing. The gateway handles authentication, rate limiting, request logging, and proxying to backend services. Core logic is in middleware.go and handler.go.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hwlpr6-go-api-gateway-performance-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": ["TestRequestBodyOver10MBReturns413"],
+            "PASS_TO_PASS": ["TestHealthReturns200AndJSON", "TestMetricsReturns200AndJSON", "TestLogsReturns200AndArray", "TestClearLogsReturns200", "TestHealthAndMetricsSkipAuth", "TestLogsRequiresAuth", "TestNoGoroutineLeakUnderLoad", "TestProxyForwardsToBackend"]
+        }
+        
