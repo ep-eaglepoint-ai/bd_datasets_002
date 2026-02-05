@@ -1,0 +1,381 @@
+const { EventEmitter } = require('events');
+
+/**
+ * Iterative Ballistic Intercept Calculator with Latency Compensation
+ * Solves the circular dependency between Time-to-Target and Target Position at Time T
+ */
+class BallisticInterceptCalculator extends EventEmitter {
+    constructor(config = {}) {
+        super();
+        
+        // Turret and shell configuration
+        this.shellSpeed = config.shellSpeed || 800; // meters per second
+        this.turretDegreesPerSecond = config.turretDegreesPerSecond || 45; // degrees per second
+        this.maxIterations = config.maxIterations || 100;
+        this.convergenceThreshold = config.convergenceThreshold || 0.001; // meters
+        
+        // Current turret state
+        this.currentAzimuth = config.initialAzimuth || 0; // degrees
+        this.currentElevation = config.initialElevation || 0; // degrees
+        
+        // Turret position (origin)
+        this.turretPosition = config.turretPosition || { x: 0, y: 0, z: 0 };
+    }
+
+    /**
+     * Validates input data for nulls and NaNs
+     * @param {Object} packet - Radar data packet
+     * @returns {Object} - { valid: boolean, error: string|null }
+     */
+    validateInput(packet) {
+        if (!packet) {
+            return { valid: false, error: 'Packet is null or undefined' };
+        }
+
+        if (packet.timestamp === null || packet.timestamp === undefined || isNaN(packet.timestamp)) {
+            return { valid: false, error: 'Invalid timestamp: null or NaN' };
+        }
+
+        if (!packet.target) {
+            return { valid: false, error: 'Target data is missing' };
+        }
+
+        const { position, velocity } = packet.target;
+
+        if (!position) {
+            return { valid: false, error: 'Target position is missing' };
+        }
+
+        // Check position coordinates
+        if (position.x === null || position.x === undefined || isNaN(position.x)) {
+            return { valid: false, error: 'Invalid position.x: null or NaN' };
+        }
+        if (position.y === null || position.y === undefined || isNaN(position.y)) {
+            return { valid: false, error: 'Invalid position.y: null or NaN' };
+        }
+        if (position.z === null || position.z === undefined || isNaN(position.z)) {
+            return { valid: false, error: 'Invalid position.z: null or NaN' };
+        }
+
+        if (!velocity) {
+            return { valid: false, error: 'Target velocity is missing' };
+        }
+
+        // Check velocity components
+        if (velocity.x === null || velocity.x === undefined || isNaN(velocity.x)) {
+            return { valid: false, error: 'Invalid velocity.x: null or NaN' };
+        }
+        if (velocity.y === null || velocity.y === undefined || isNaN(velocity.y)) {
+            return { valid: false, error: 'Invalid velocity.y: null or NaN' };
+        }
+        if (velocity.z === null || velocity.z === undefined || isNaN(velocity.z)) {
+            return { valid: false, error: 'Invalid velocity.z: null or NaN' };
+        }
+
+        return { valid: true, error: null };
+    }
+
+    /**
+     * Calculate Euclidean distance between two 3D points
+     * Manual implementation - no external libraries
+     */
+    calculateDistance(p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dz = p2.z - p1.z;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
+     * Calculate velocity magnitude (speed)
+     * Manual implementation of vector magnitude
+     */
+    calculateSpeed(velocity) {
+        return Math.sqrt(
+            velocity.x * velocity.x + 
+            velocity.y * velocity.y + 
+            velocity.z * velocity.z
+        );
+    }
+
+    /**
+     * Extrapolate target position based on velocity and time
+     */
+    extrapolatePosition(position, velocity, deltaTime) {
+        return {
+            x: position.x + velocity.x * deltaTime,
+            y: position.y + velocity.y * deltaTime,
+            z: position.z + velocity.z * deltaTime
+        };
+    }
+
+    /**
+     * Calculate azimuth angle to target (in degrees)
+     */
+    calculateAzimuth(targetPosition) {
+        const dx = targetPosition.x - this.turretPosition.x;
+        const dy = targetPosition.y - this.turretPosition.y;
+        let azimuth = Math.atan2(dy, dx) * (180 / Math.PI);
+        if (azimuth < 0) azimuth += 360;
+        return azimuth;
+    }
+
+    /**
+     * Calculate elevation angle to target (in degrees)
+     */
+    calculateElevation(targetPosition) {
+        const dx = targetPosition.x - this.turretPosition.x;
+        const dy = targetPosition.y - this.turretPosition.y;
+        const dz = targetPosition.z - this.turretPosition.z;
+        const horizontalDistance = Math.sqrt(dx * dx + dy * dy);
+        return Math.atan2(dz, horizontalDistance) * (180 / Math.PI);
+    }
+
+    /**
+     * Calculate angular difference (handles wraparound)
+     */
+    calculateAngularDifference(from, to) {
+        let diff = to - from;
+        while (diff > 180) diff -= 360;
+        while (diff < -180) diff += 360;
+        return Math.abs(diff);
+    }
+
+    /**
+     * Iterative intercept solver
+     * Solves the circular dependency: Time-to-Target depends on Target Position,
+     * which depends on Time-to-Target
+     */
+    solveIntercept(currentPosition, velocity, latencyCompensatedTime) {
+        let predictedPosition = { ...currentPosition };
+        let previousTof = 0;
+        let iterations = 0;
+        let converged = false;
+        let impossibleShot = false;
+
+        // Iterative refinement loop
+        for (iterations = 0; iterations < this.maxIterations; iterations++) {
+            // Calculate distance to predicted intercept point
+            const distance = this.calculateDistance(this.turretPosition, predictedPosition);
+            
+            // Calculate time of flight for shell to reach that distance
+            const timeOfFlight = distance / this.shellSpeed;
+            
+            // Total time = latency compensation + time of flight
+            const totalTime = latencyCompensatedTime + timeOfFlight;
+            
+            // Extrapolate where target will be at totalTime
+            const newPredictedPosition = this.extrapolatePosition(
+                currentPosition,
+                velocity,
+                totalTime
+            );
+            
+            // Check if target is moving away faster than shell can catch
+            const targetSpeed = this.calculateSpeed(velocity);
+            const targetDirection = this.calculateDistance(currentPosition, newPredictedPosition);
+            const shellTravelDistance = timeOfFlight * this.shellSpeed;
+            
+            // If target moves away faster than shell approaches, it's impossible
+            if (iterations > 5 && timeOfFlight > previousTof * 1.5 && targetSpeed > this.shellSpeed * 0.9) {
+                impossibleShot = true;
+                break;
+            }
+            
+            // Check for convergence
+            const positionDelta = this.calculateDistance(predictedPosition, newPredictedPosition);
+            
+            if (positionDelta < this.convergenceThreshold) {
+                converged = true;
+                predictedPosition = newPredictedPosition;
+                break;
+            }
+            
+            previousTof = timeOfFlight;
+            predictedPosition = newPredictedPosition;
+        }
+
+        return {
+            interceptPosition: predictedPosition,
+            iterations: iterations + 1,
+            converged,
+            impossibleShot,
+            timeOfFlight: this.calculateDistance(this.turretPosition, predictedPosition) / this.shellSpeed
+        };
+    }
+
+    /**
+     * Process incoming radar packet
+     * Main entry point - uses EventEmitter pattern
+     */
+    processRadarPacket(packet) {
+        // Validate input
+        const validation = this.validateInput(packet);
+        if (!validation.valid) {
+            this.emit('error', {
+                type: 'validation_error',
+                message: validation.error,
+                packet
+            });
+            return;
+        }
+
+        const now = Date.now();
+        const packetTimestamp = packet.timestamp;
+        
+        // Calculate latency (time since packet was created)
+        const latencyMs = now - packetTimestamp;
+        const latencySec = latencyMs / 1000;
+
+        // Advance target position to compensate for network latency
+        const latencyCompensatedPosition = this.extrapolatePosition(
+            packet.target.position,
+            packet.target.velocity,
+            latencySec
+        );
+
+        // Solve iterative intercept
+        const solution = this.solveIntercept(
+            latencyCompensatedPosition,
+            packet.target.velocity,
+            0 // Additional time already accounted for
+        );
+
+        // Check if shot is impossible
+        if (solution.impossibleShot) {
+            this.emit('result', {
+                type: 'impossible_shot',
+                reason: 'Target moving away faster than shell speed',
+                targetId: packet.target.id,
+                currentPosition: latencyCompensatedPosition,
+                iterations: solution.iterations,
+                timestamp: now
+            });
+            return;
+        }
+
+        // Calculate required turret angles
+        const requiredAzimuth = this.calculateAzimuth(solution.interceptPosition);
+        const requiredElevation = this.calculateElevation(solution.interceptPosition);
+
+        // Calculate angular changes needed
+        const azimuthChange = this.calculateAngularDifference(this.currentAzimuth, requiredAzimuth);
+        const elevationChange = this.calculateAngularDifference(this.currentElevation, requiredElevation);
+
+        // Calculate time to rotate turret
+        const rotationTime = Math.max(azimuthChange, elevationChange) / this.turretDegreesPerSecond;
+
+        // Check if turret can rotate fast enough
+        const canTrack = rotationTime <= solution.timeOfFlight;
+
+        // Emit result
+        this.emit('result', {
+            type: 'intercept_solution',
+            targetId: packet.target.id,
+            
+            // Original position (from packet)
+            originalPosition: { ...packet.target.position },
+            
+            // Latency compensated position
+            latencyCompensatedPosition: { ...latencyCompensatedPosition },
+            
+            // Predicted intercept position (different from current!)
+            interceptPosition: { ...solution.interceptPosition },
+            
+            // Timing
+            latencyMs,
+            timeOfFlight: solution.timeOfFlight,
+            rotationTime,
+            
+            // Turret angles
+            requiredAzimuth,
+            requiredElevation,
+            azimuthChange,
+            elevationChange,
+            
+            // Solution metadata
+            iterations: solution.iterations,
+            converged: solution.converged,
+            canTrack,
+            
+            timestamp: now
+        });
+    }
+
+    /**
+     * Create input stream handler
+     * Connects to an EventEmitter source
+     */
+    connectToRadar(radarEmitter) {
+        radarEmitter.on('packet', (packet) => {
+            this.processRadarPacket(packet);
+        });
+
+        radarEmitter.on('error', (error) => {
+            this.emit('error', {
+                type: 'radar_error',
+                message: error.message || 'Unknown radar error'
+            });
+        });
+
+        return this;
+    }
+}
+
+/**
+ * Create a radar simulator for testing
+ */
+class RadarSimulator extends EventEmitter {
+    constructor() {
+        super();
+        this.running = false;
+    }
+
+    /**
+     * Send a single packet
+     */
+    sendPacket(packet) {
+        if (!packet.timestamp) {
+            packet.timestamp = Date.now();
+        }
+        this.emit('packet', packet);
+    }
+
+    /**
+     * Simulate a moving target
+     */
+    simulateTarget(target, intervalMs = 100, count = 10) {
+        let sent = 0;
+        const interval = setInterval(() => {
+            if (sent >= count) {
+                clearInterval(interval);
+                this.emit('complete');
+                return;
+            }
+
+            const elapsedSec = (sent * intervalMs) / 1000;
+            
+            this.sendPacket({
+                timestamp: Date.now(),
+                target: {
+                    id: target.id,
+                    position: {
+                        x: target.startPosition.x + target.velocity.x * elapsedSec,
+                        y: target.startPosition.y + target.velocity.y * elapsedSec,
+                        z: target.startPosition.z + target.velocity.z * elapsedSec
+                    },
+                    velocity: { ...target.velocity }
+                }
+            });
+
+            sent++;
+        }, intervalMs);
+
+        return this;
+    }
+}
+
+module.exports = {
+    BallisticInterceptCalculator,
+    RadarSimulator
+};
