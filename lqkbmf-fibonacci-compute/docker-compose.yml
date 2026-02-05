@@ -1,0 +1,13 @@
+services:
+  test:
+    build: .
+    working_dir: /app
+    environment:
+      - REPO_PATH=${REPO_PATH:-repository_after}
+    command: sh -c "pytest tests/test_main.py -v --tb=no || exit 0"
+  evaluation:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app:z
+    command: python evaluation/evaluation.py

@@ -1,0 +1,12 @@
+{
+            "instance_id": "LQKBMF",
+            "problem_statement": "Optimize Python functions that compute Fibonacci numbers, sequences, and related sums by replacing O(2ⁿ) recursive calculations with memoization or iterative techniques to achieve O(n) or better time complexity while preserving exact output. Ensure the optimized code handles inputs up to n=1000 within one second, maintains precise Fibonacci definitions, and correctly processes all edge cases without altering the original functions' behavior. The solution must eliminate redundant computations entirely, making previously impractical large‑n calculations fast and reliable.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/lqkbmf-fibonacci-compute",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
