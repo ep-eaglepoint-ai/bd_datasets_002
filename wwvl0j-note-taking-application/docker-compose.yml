@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./repository_after/backend:/app/repository_after/backend
+    environment:
+      DATABASE_URL: "sqlite+aiosqlite:///./notes.db"
+      SECRET_KEY: "supersecretkey"
+      ALGORITHM: "HS256"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+    working_dir: /app/repository_after/backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./repository_after/frontend:/app/repository_after/frontend
+      - /app/repository_after/frontend/node_modules
+    environment:
+      VITE_API_URL: "http://localhost:8000"
+    working_dir: /app/repository_after/frontend
+    command: npm run dev -- --host
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./repository_after/backend:/app/repository_after/backend
+      - ./repository_after/frontend:/app/repository_after/frontend
+      - /app/repository_after/frontend/node_modules
+      - ./tests:/app/tests
+      - ./evaluation:/app/evaluation
+      - ./run-frontend-tests.sh:/app/run-frontend-tests.sh
+      - ./pytest.ini:/app/pytest.ini
+    working_dir: /app
+    environment:
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+    command: sh -c "echo '=== Running Frontend Tests ===' && cd /app/repository_after/frontend && npm install && rm -rf node_modules/.vite && npx vitest run && echo '\n=== Running Backend Tests ===' && cd /app && pytest -vv tests"
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./repository_before:/app/repository_before
+      - ./repository_after/backend:/app/repository_after/backend
+      - ./repository_after/frontend:/app/repository_after/frontend
+      - /app/repository_after/frontend/node_modules
+      - ./tests:/app/tests
+      - ./evaluation:/app/evaluation
+    working_dir: /app
+    environment:
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+      PYTHONPATH: "/app"
+    command: python3 evaluation/evaluation.py
