@@ -1,0 +1,19 @@
+{
+    "instance_id": "6FIOQU",
+    "problem_statement": "Act as a Senior Frontend Developer specializing in recursive interface design. You are tasked with constructing a self-contained, recursive Vue 3 component named RecursiveTree.vue capable of rendering a deeply nested file system structure provided via a node prop. This component must implement a robust \"Tri-State\" checkbox selection system (Checked, Unchecked, and Indeterminate) that strictly enforces hierarchical logic: selecting a parent node must recursively select all valid descendants, while deselecting a child node must update its ancestors to an \"Indeterminate\" or \"Unchecked\" state depending on the remaining siblings. You are strictly forbidden from mutating the node prop directly or using external state libraries like Pinia or Vuex. You must adhere to strict unidirectional data flow by emitting an updated tree structure or a specific change event back to the root consumer when a user interacts with a checkbox. The component must handle an arbitrary depth of nesting without performance degradation and must correctly calculate the \"Indeterminate\" visual state (often represented by a dash) for any parent node that has a mix of selected and unselected children. The solution must be implemented using the Composition API (<script setup>) and must include a helper function to traverse and effectively clone/update the data structure to ensure immutability standards are met during the selection updates",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/6fioqu-recursive-tree-view-with-tri-state-logic",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "RecursiveTree.vue > renders the tree structure correctly",
+        "RecursiveTree.vue > checking a parent selects all descendants",
+        "RecursiveTree.vue > unchecking a parent deselects all descendants",
+        "RecursiveTree.vue > checking a child updates parent to indeterminate if not all satisfied",
+        "RecursiveTree.vue > checking all children makes parent checked",
+        "RecursiveTree.vue > correctly calculates indeterminate state for deep nesting",
+        "RecursiveTree.vue > sets the DOM indeterminate property correctly",
+        "RecursiveTree.vue > handles empty folders being selectable without affecting parent if not checked"
+    ],
+    "PASS_TO_PASS": []
+}

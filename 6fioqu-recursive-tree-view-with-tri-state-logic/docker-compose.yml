@@ -1,0 +1,12 @@
+services:
+ 
+  test-after:
+    build: .
+    command: npm test
+
+  evaluation:
+    build: .
+    command: node evaluation/evaluation.js
+    volumes:
+      - .:/app
+      - /app/node_modules
