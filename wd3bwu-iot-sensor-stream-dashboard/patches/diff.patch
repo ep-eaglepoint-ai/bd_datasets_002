@@ -1,0 +1,4024 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29b..00000000
+diff --git a/repository_after/client/index.html b/repository_after/client/index.html
+new file mode 100644
+index 00000000..405f7911
+--- /dev/null
++++ b/repository_after/client/index.html
+@@ -0,0 +1,16 @@
++<!DOCTYPE html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>IoT Sensor Dashboard</title>
++    <meta name="description" content="Real-time IoT sensor monitoring dashboard with high-frequency data visualization" />
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++  </head>
++  <body>
++    <div id="app"></div>
++    <script type="module" src="/src/main.js"></script>
++  </body>
++</html>
+diff --git a/repository_after/client/package.json b/repository_after/client/package.json
+new file mode 100644
+index 00000000..5e6606a1
+--- /dev/null
++++ b/repository_after/client/package.json
+@@ -0,0 +1,24 @@
++{
++  "name": "iot-sensor-client",
++  "version": "1.0.0",
++  "private": true,
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "vite build",
++    "preview": "vite preview",
++    "test": "vitest run",
++    "test:watch": "vitest"
++  },
++  "dependencies": {
++    "pinia": "^2.1.7",
++    "vue": "^3.4.0"
++  },
++  "devDependencies": {
++    "@vitejs/plugin-vue": "^4.5.2",
++    "@vue/test-utils": "^2.4.3",
++    "happy-dom": "^12.10.3",
++    "vite": "^5.0.10",
++    "vitest": "^1.1.3"
++  }
++}
+diff --git a/repository_after/client/src/App.vue b/repository_after/client/src/App.vue
+new file mode 100644
+index 00000000..8f43fbd6
+--- /dev/null
++++ b/repository_after/client/src/App.vue
+@@ -0,0 +1,154 @@
++<template>
++  <div class="dashboard">
++    <!-- Loading State -->
++    <div v-if="loading" class="loading">
++      <div class="loading-spinner"></div>
++      <div>Connecting to sensor network...</div>
++    </div>
++
++    <!-- Dashboard Content -->
++    <template v-else>
++      <!-- Header -->
++      <header class="dashboard-header">
++        <div class="header-content">
++          <h1 class="header-title">IoT Sensor Dashboard</h1>
++          
++          <div class="header-stats">
++            <div class="stat-item">
++              <span class="stat-label">Sensors</span>
++              <span class="stat-value">{{ sensorCount }}</span>
++            </div>
++            
++            <div class="stat-item">
++              <span class="stat-label">Alerts</span>
++              <span class="stat-value" :class="{ critical: alertCount > 0 }">
++                {{ alertCount }}
++              </span>
++            </div>
++            
++            <div class="stat-item">
++              <span class="stat-label">FPS</span>
++              <span class="stat-value" :class="{ warning: fps < 55 }">{{ fps }}</span>
++            </div>
++            
++            <div class="connection-status">
++              <span 
++                class="status-dot" 
++                :class="{ connected: isConnected, disconnected: !isConnected }"
++              ></span>
++              <span>{{ isConnected ? 'Live' : 'Disconnected' }}</span>
++            </div>
++          </div>
++        </div>
++      </header>
++
++      <!-- Playback Controls -->
++      <PlaybackControls />
++
++      <!-- Sensor Grid -->
++      <SensorGrid @visibility-change="handleVisibilityChange" />
++    </template>
++  </div>
++</template>
++
++<script setup>
++import { ref, computed, onMounted, onUnmounted } from 'vue';
++import { useSensorStore } from './stores/sensorStore.js';
++import { useWebSocket } from './composables/useWebSocket.js';
++import SensorGrid from './components/SensorGrid.vue';
++import PlaybackControls from './components/PlaybackControls.vue';
++
++const store = useSensorStore();
++const loading = ref(true);
++const fps = ref(60);
++
++// FPS Monitor
++let frameCount = 0;
++let lastTime = performance.now();
++const fpsInterval = setInterval(() => {
++  const now = performance.now();
++  fps.value = Math.round((frameCount * 1000) / (now - lastTime));
++  frameCount = 0;
++  lastTime = now;
++}, 1000);
++
++const countFrame = () => {
++  frameCount++;
++  requestAnimationFrame(countFrame);
++};
++requestAnimationFrame(countFrame);
++
++onUnmounted(() => {
++  clearInterval(fpsInterval);
++});
++
++// WebSocket connection
++const wsUrl = `ws://${window.location.hostname}:3001/ws`;
++const { 
++  isConnected, 
++  onMessage, 
++  setSubscriptions,
++  debouncedSetSubscriptions 
++} = useWebSocket(wsUrl);
++
++// Computed
++const sensorCount = computed(() => store.sensorCount);
++const alertCount = computed(() => store.alertCount);
++
++// Handle sensor data from WebSocket
++const handleMessage = (message) => {
++  switch (message.type) {
++    case 'sensorData':
++      store.updateSensorData(message.sensorId, message.data);
++      break;
++      
++    case 'sensorDataBatch':
++      if (message.sensors) {
++        store.updateSensorDataBatch(message.sensors);
++      }
++      break;
++  }
++};
++
++// Handle viewport visibility changes
++const handleVisibilityChange = (visibleSensorIds) => {
++  // Update WebSocket subscriptions based on visible sensors
++  // Only if NOT in playback mode (playback handles fetching itself)
++  if (!store.isPlaybackMode) {
++    debouncedSetSubscriptions(visibleSensorIds);
++  }
++};
++
++// Fetch initial sensor list
++const fetchSensors = async () => {
++  try {
++    const apiUrl = `http://${window.location.hostname}:3001/api/sensors`;
++    const response = await fetch(apiUrl);
++    const data = await response.json();
++    store.setSensors(data.sensors);
++    
++    // Subscribe to all sensors initially (will be refined by viewport)
++    const allIds = data.sensors.map(s => s.id);
++    setSubscriptions(allIds);
++  } catch (err) {
++    console.error('Failed to fetch sensors:', err);
++  }
++};
++
++// Update connection status in store
++const updateConnectionStatus = () => {
++  store.setConnectionStatus(isConnected.value);
++};
++
++onMounted(async () => {
++  // Set up message handler
++  const unsubscribe = onMessage(handleMessage);
++  
++  // Fetch sensors
++  await fetchSensors();
++  loading.value = false;
++  
++  // Watch connection status
++  updateConnectionStatus();
++});
++</script>
+diff --git a/repository_after/client/src/components/PlaybackControls.vue b/repository_after/client/src/components/PlaybackControls.vue
+new file mode 100644
+index 00000000..07fbd773
+--- /dev/null
++++ b/repository_after/client/src/components/PlaybackControls.vue
+@@ -0,0 +1,202 @@
++<template>
++  <div class="playback-controls">
++    <!-- Mode Selection -->
++    <div v-if="!store.isPlaybackMode" class="mode-select">
++      <button class="btn btn-primary" @click="showTimePicker = true">
++        Open Historical Playback
++      </button>
++    </div>
++
++    <!-- Playback UI -->
++    <div v-else class="playback-ui">
++      <div class="playback-info">
++        <span class="badg">PLAYBACK MODE</span>
++        <span class="time-display">{{ formattedCurrentTime }}</span>
++      </div>
++
++      <div class="controls-row">
++        <button class="btn btn-icon" @click="store.togglePlayback">
++          {{ store.isPlaying ? '⏸' : '▶' }}
++        </button>
++        
++        <input 
++          type="range" 
++          min="0" 
++          max="100" 
++          step="0.1" 
++          :value="store.playbackProgress"
++          @input="onScrub"
++          class="scrubber"
++        />
++        
++        <select v-model.number="store.playbackSpeed" class="speed-select">
++          <option value="1">1x</option>
++          <option value="2">2x</option>
++          <option value="5">5x</option>
++          <option value="10">10x</option>
++        </select>
++
++        <button class="btn btn-secondary" @click="store.exitPlaybackMode">
++          Exit
++        </button>
++      </div>
++    </div>
++
++    <!-- Time Selection Modal -->
++    <div v-if="showTimePicker" class="modal-overlay">
++      <div class="modal">
++        <h3>Select 10-Minute Window</h3>
++        
++        <div class="form-group">
++          <label>Start Time (ISO)</label>
++          <input type="datetime-local" v-model="startTimeInput" />
++        </div>
++
++        <div class="modal-actions">
++          <button class="btn" @click="showTimePicker = false">Cancel</button>
++          <button class="btn btn-primary" @click="startPlayback" :disabled="!startTimeInput">
++            Load Data
++          </button>
++        </div>
++      </div>
++    </div>
++  </div>
++</template>
++
++<script setup>
++import { ref, computed } from 'vue';
++import { useSensorStore } from '../stores/sensorStore';
++
++const store = useSensorStore();
++const showTimePicker = ref(false);
++const startTimeInput = ref('');
++
++// Helper to format timestamps
++const formattedCurrentTime = computed(() => {
++  return new Date(store.playbackTime).toLocaleTimeString();
++});
++
++const onScrub = (e) => {
++  const percent = parseFloat(e.target.value);
++  const duration = store.playbackEndTime - store.playbackStartTime;
++  const time = store.playbackStartTime + (duration * (percent / 100));
++  store.seekTo(time);
++};
++
++const startPlayback = async () => {
++  if (!startTimeInput.value) return;
++  
++  const start = new Date(startTimeInput.value).getTime();
++  const end = start + 10 * 60 * 1000; // 10 minutes
++  
++  if (isNaN(start)) {
++    alert('Invalid date');
++    return;
++  }
++  
++  try {
++    await store.enterPlaybackMode(start, end);
++    showTimePicker.value = false;
++  } catch (err) {
++    alert('Failed to load data: ' + err.message);
++  }
++};
++</script>
++
++<style scoped>
++.playback-controls {
++  padding: 1rem;
++  background: #f8f9fa;
++  border-bottom: 1px solid #dee2e6;
++}
++
++.mode-select {
++  display: flex;
++  justify-content: center;
++}
++
++.playback-ui {
++  display: flex;
++  flex-direction: column;
++  gap: 0.5rem;
++}
++
++.playback-info {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  font-family: monospace;
++}
++
++.badg {
++  background: #ffc107;
++  padding: 2px 6px;
++  border-radius: 4px;
++  font-size: 0.8rem;
++  font-weight: bold;
++}
++
++.controls-row {
++  display: flex;
++  align-items: center;
++  gap: 1rem;
++}
++
++.scrubber {
++  flex: 1;
++}
++
++.modal-overlay {
++  position: fixed;
++  top: 0; left: 0; right: 0; bottom: 0;
++  background: rgba(0,0,0,0.5);
++  display: flex;
++  justify-content: center;
++  align-items: center;
++  z-index: 1000;
++}
++
++.modal {
++  background: white;
++  padding: 2rem;
++  border-radius: 8px;
++  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
++}
++
++.form-group {
++  margin: 1rem 0;
++}
++
++.btn {
++  padding: 0.5rem 1rem;
++  border: none;
++  border-radius: 4px;
++  cursor: pointer;
++  background: #e9ecef;
++}
++
++.btn-primary {
++  background: #007bff;
++  color: white;
++}
++
++.btn-secondary {
++  background: #6c757d;
++  color: white;
++}
++
++.btn-icon {
++  width: 32px;
++  height: 32px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  border-radius: 50%;
++}
++
++.modal-actions {
++  display: flex;
++  justify-content: flex-end;
++  gap: 1rem;
++}
++</style>
+diff --git a/repository_after/client/src/components/SensorCard.vue b/repository_after/client/src/components/SensorCard.vue
+new file mode 100644
+index 00000000..84b517c6
+--- /dev/null
++++ b/repository_after/client/src/components/SensorCard.vue
+@@ -0,0 +1,118 @@
++<template>
++  <div 
++    ref="cardRef"
++    class="sensor-card"
++    :class="{ critical: isAlert }"
++    :data-sensor-id="sensorId"
++  >
++    <div v-if="isAlert" class="alert-badge">CRITICAL</div>
++    
++    <div class="sensor-header">
++      <span class="sensor-id">{{ sensorId }}</span>
++      <span class="sensor-type">{{ sensorType }}</span>
++    </div>
++    
++    <div 
++      class="sensor-value"
++      :class="valueClass"
++    >
++      {{ formattedValue }}
++      <span class="sensor-unit">{{ unit }}</span>
++    </div>
++    
++    <div class="sensor-threshold">
++      Threshold: {{ threshold }} {{ unit }}
++    </div>
++    
++    <div class="sparkline-container">
++      <Sparkline
++        :data="sparklineData"
++        :threshold="threshold"
++        :is-alert="isAlert"
++        :width="sparklineWidth"
++        :height="60"
++      />
++    </div>
++  </div>
++</template>
++
++<script setup>
++import { ref, computed, onMounted, onUnmounted } from 'vue';
++import { useSensorStore } from '../stores/sensorStore.js';
++import Sparkline from './Sparkline.vue';
++
++const props = defineProps({
++  sensorId: {
++    type: String,
++    required: true
++  }
++});
++
++const emit = defineEmits(['mounted', 'unmounted']);
++
++const store = useSensorStore();
++const cardRef = ref(null);
++const sparklineWidth = ref(250);
++
++// Computed properties
++const sensor = computed(() => store.sensorMap.get(props.sensorId));
++
++const sensorType = computed(() => {
++  return sensor.value?.type || 'unknown';
++});
++
++const threshold = computed(() => {
++  return store.getSensorThreshold(props.sensorId) || 80;
++});
++
++const unit = computed(() => {
++  return sensorType.value === 'vibration' ? 'mm/s' : '°C';
++});
++
++const latestValue = computed(() => {
++  // Access reactive property directly
++  return store.latestValues[props.sensorId];
++});
++
++const formattedValue = computed(() => {
++  if (!latestValue.value) return '--';
++  return latestValue.value.value.toFixed(1);
++});
++
++const isAlert = computed(() => {
++  // Access reactive property directly
++  return store.alertStates[props.sensorId] || false;
++});
++
++const valueClass = computed(() => {
++  if (!latestValue.value) return '';
++  const value = latestValue.value.value;
++  if (value > threshold.value) return 'critical';
++  if (value > threshold.value * 0.9) return 'warning';
++  return 'normal';
++});
++
++const sparklineData = computed(() => {
++  // This will re-compute when updateCounter changes
++  return store.getSensorData(props.sensorId);
++});
++
++// Update sparkline width based on container
++const updateWidth = () => {
++  if (cardRef.value) {
++    const containerWidth = cardRef.value.offsetWidth - 32; // padding
++    sparklineWidth.value = Math.max(100, containerWidth);
++  }
++};
++
++onMounted(() => {
++  updateWidth();
++  window.addEventListener('resize', updateWidth);
++  emit('mounted', cardRef.value);
++});
++
++onUnmounted(() => {
++  window.removeEventListener('resize', updateWidth);
++  emit('unmounted', props.sensorId);
++});
++</script>
+diff --git a/repository_after/client/src/components/SensorGrid.vue b/repository_after/client/src/components/SensorGrid.vue
+new file mode 100644
+index 00000000..d6a57abf
+--- /dev/null
++++ b/repository_after/client/src/components/SensorGrid.vue
+@@ -0,0 +1,91 @@
++<template>
++  <div class="sensor-grid">
++    <SensorCard
++      v-for="sensor in sensors"
++      :key="sensor.id"
++      :sensor-id="sensor.id"
++      @mounted="handleCardMounted"
++      @unmounted="handleCardUnmounted"
++    />
++  </div>
++</template>
++
++<script setup>
++/**
++ * Sensor Grid Component
++ * 
++ * Requirement 3: Viewport-based subscriptions
++ * Uses Intersection Observer to track visible sensors
++ */
++
++import { computed, onMounted, onUnmounted, ref } from 'vue';
++import { useSensorStore } from '../stores/sensorStore.js';
++import SensorCard from './SensorCard.vue';
++
++const emit = defineEmits(['visibilityChange']);
++
++const store = useSensorStore();
++const visibleSensors = ref(new Set());
++let observer = null;
++
++const sensors = computed(() => store.sensors);
++
++const handleCardMounted = (element) => {
++  if (!element || !observer) return;
++  
++  const sensorId = element.dataset?.sensorId;
++  if (sensorId) {
++    observer.observe(element);
++  }
++};
++
++const handleCardUnmounted = (sensorId) => {
++  visibleSensors.value.delete(sensorId);
++  emitVisibilityChange();
++};
++
++const emitVisibilityChange = () => {
++  const visible = Array.from(visibleSensors.value);
++  emit('visibilityChange', visible);
++};
++
++const handleIntersection = (entries) => {
++  let changed = false;
++  
++  for (const entry of entries) {
++    const sensorId = entry.target.dataset?.sensorId;
++    if (!sensorId) continue;
++    
++    if (entry.isIntersecting) {
++      if (!visibleSensors.value.has(sensorId)) {
++        visibleSensors.value.add(sensorId);
++        changed = true;
++      }
++    } else {
++      if (visibleSensors.value.has(sensorId)) {
++        visibleSensors.value.delete(sensorId);
++        changed = true;
++      }
++    }
++  }
++  
++  if (changed) {
++    emitVisibilityChange();
++  }
++};
++
++onMounted(() => {
++  observer = new IntersectionObserver(handleIntersection, {
++    rootMargin: '50px',
++    threshold: 0
++  });
++});
++
++onUnmounted(() => {
++  if (observer) {
++    observer.disconnect();
++    observer = null;
++  }
++  visibleSensors.value.clear();
++});
++</script>
+diff --git a/repository_after/client/src/components/Sparkline.vue b/repository_after/client/src/components/Sparkline.vue
+new file mode 100644
+index 00000000..e4dafbf6
+--- /dev/null
++++ b/repository_after/client/src/components/Sparkline.vue
+@@ -0,0 +1,187 @@
++<template>
++  <canvas 
++    ref="canvasRef" 
++    class="sparkline-canvas"
++    :width="width"
++    :height="height"
++  ></canvas>
++</template>
++
++<script setup>
++/**
++ * High-Performance Sparkline Component
++ * 
++ * Requirement 1: The Vue.js frontend must render 50 concurrent sparklines 
++ * updating at 10Hz without dropping below 60fps.
++ * 
++ * Optimizations:
++ * - Canvas-based rendering (no DOM updates)
++ * - requestAnimationFrame for paint timing
++ * - Minimal reactivity (only props trigger updates)
++ */
++
++import { ref, watch, onMounted, onUnmounted } from 'vue';
++import { rafThrottle } from '../utils/performanceOptimizations.js';
++
++const props = defineProps({
++  data: {
++    type: Array,
++    default: () => []
++  },
++  threshold: {
++    type: Number,
++    default: null
++  },
++  width: {
++    type: Number,
++    default: 250
++  },
++  height: {
++    type: Number,
++    default: 60
++  },
++  lineColor: {
++    type: String,
++    default: '#3b82f6'
++  },
++  alertColor: {
++    type: String,
++    default: '#ef4444'
++  },
++  thresholdColor: {
++    type: String,
++    default: 'rgba(239, 68, 68, 0.4)'
++  },
++  isAlert: {
++    type: Boolean,
++    default: false
++  }
++});
++
++const canvasRef = ref(null);
++let ctx = null;
++let rafDraw = null;
++
++// Calculate min/max for scaling
++const getRange = (data) => {
++  if (!data || data.length === 0) {
++    return { min: 0, max: 100 };
++  }
++  
++  let min = Infinity;
++  let max = -Infinity;
++  
++  for (const point of data) {
++    const value = typeof point === 'object' ? point.value : point;
++    if (value < min) min = value;
++    if (value > max) max = value;
++  }
++  
++  // Add padding
++  const padding = (max - min) * 0.1 || 10;
++  return {
++    min: min - padding,
++    max: max + padding
++  };
++};
++
++// Main draw function
++const draw = () => {
++  if (!ctx || !canvasRef.value) return;
++  
++  const canvas = canvasRef.value;
++  const width = canvas.width;
++  const height = canvas.height;
++  const data = props.data;
++  
++  // Clear canvas
++  ctx.clearRect(0, 0, width, height);
++  
++  if (!data || data.length < 2) {
++    // Draw placeholder line
++    ctx.strokeStyle = '#2d3748';
++    ctx.lineWidth = 1;
++    ctx.beginPath();
++    ctx.moveTo(0, height / 2);
++    ctx.lineTo(width, height / 2);
++    ctx.stroke();
++    return;
++  }
++  
++  const { min, max } = getRange(data);
++  
++  // Draw threshold line if set
++  if (props.threshold !== null) {
++    const thresholdY = height - ((props.threshold - min) / (max - min)) * height;
++    ctx.strokeStyle = props.thresholdColor;
++    ctx.lineWidth = 1;
++    ctx.setLineDash([4, 4]);
++    ctx.beginPath();
++    ctx.moveTo(0, thresholdY);
++    ctx.lineTo(width, thresholdY);
++    ctx.stroke();
++    ctx.setLineDash([]);
++  }
++  
++  // Draw sparkline
++  const stepX = width / (data.length - 1);
++  const color = props.isAlert ? props.alertColor : props.lineColor;
++  
++  ctx.strokeStyle = color;
++  ctx.lineWidth = 2;
++  ctx.lineJoin = 'round';
++  ctx.lineCap = 'round';
++  ctx.beginPath();
++  
++  for (let i = 0; i < data.length; i++) {
++    const point = data[i];
++    const value = typeof point === 'object' ? point.value : point;
++    const x = i * stepX;
++    const y = height - ((value - min) / (max - min)) * height;
++    
++    if (i === 0) {
++      ctx.moveTo(x, y);
++    } else {
++      ctx.lineTo(x, y);
++    }
++  }
++  
++  ctx.stroke();
++  
++  // Draw gradient fill
++  const gradient = ctx.createLinearGradient(0, 0, 0, height);
++  gradient.addColorStop(0, color.replace(')', ', 0.3)').replace('rgb', 'rgba'));
++  gradient.addColorStop(1, color.replace(')', ', 0)').replace('rgb', 'rgba'));
++  
++  ctx.lineTo(width, height);
++  ctx.lineTo(0, height);
++  ctx.closePath();
++  ctx.fillStyle = gradient;
++  ctx.fill();
++};
++
++// RAF-throttled draw
++const throttledDraw = rafThrottle(draw);
++
++// Watch for data changes
++watch(() => props.data, () => {
++  throttledDraw();
++}, { deep: false }); // Shallow watch for performance
++
++watch(() => props.isAlert, () => {
++  throttledDraw();
++});
++
++onMounted(() => {
++  if (canvasRef.value) {
++    ctx = canvasRef.value.getContext('2d');
++    draw();
++  }
++});
++
++onUnmounted(() => {
++  if (throttledDraw.cancel) {
++    throttledDraw.cancel();
++  }
++});
++</script>
+diff --git a/repository_after/client/src/composables/useViewportSubscription.js b/repository_after/client/src/composables/useViewportSubscription.js
+new file mode 100644
+index 00000000..f8de301f
+--- /dev/null
++++ b/repository_after/client/src/composables/useViewportSubscription.js
+@@ -0,0 +1,108 @@
++/**
++ * Viewport Subscription Composable
++ * 
++ * Requirement 3: A client should only receive data for the sensors 
++ * currently visible in the viewport.
++ * 
++ * Uses Intersection Observer to track which sensors are visible
++ * and updates WebSocket subscriptions accordingly.
++ */
++
++import { ref, onMounted, onUnmounted } from 'vue';
++import { debounce } from '../utils/performanceOptimizations.js';
++
++/**
++ * @param {Function} onVisibilityChange - Callback with visible sensor IDs
++ * @param {object} options - IntersectionObserver options
++ */
++export function useViewportSubscription(onVisibilityChange, options = {}) {
++  const {
++    rootMargin = '100px',  // Pre-load sensors slightly outside viewport
++    threshold = 0,
++    debounceMs = 100
++  } = options;
++
++  const visibleSensors = ref(new Set());
++  let observer = null;
++  const sensorElements = new Map(); // sensorId -> element
++
++  // Debounced callback to avoid rapid-fire subscription updates
++  const notifyChange = debounce(() => {
++    const visible = Array.from(visibleSensors.value);
++    onVisibilityChange(visible);
++  }, debounceMs);
++
++  const handleIntersection = (entries) => {
++    let changed = false;
++    
++    for (const entry of entries) {
++      const sensorId = entry.target.dataset.sensorId;
++      if (!sensorId) continue;
++      
++      if (entry.isIntersecting) {
++        if (!visibleSensors.value.has(sensorId)) {
++          visibleSensors.value.add(sensorId);
++          changed = true;
++        }
++      } else {
++        if (visibleSensors.value.has(sensorId)) {
++          visibleSensors.value.delete(sensorId);
++          changed = true;
++        }
++      }
++    }
++    
++    if (changed) {
++      notifyChange();
++    }
++  };
++
++  const observe = (element, sensorId) => {
++    if (!observer) return;
++    
++    element.dataset.sensorId = sensorId;
++    sensorElements.set(sensorId, element);
++    observer.observe(element);
++  };
++
++  const unobserve = (sensorId) => {
++    const element = sensorElements.get(sensorId);
++    if (element && observer) {
++      observer.unobserve(element);
++      sensorElements.delete(sensorId);
++      visibleSensors.value.delete(sensorId);
++    }
++  };
++
++  const initObserver = () => {
++    observer = new IntersectionObserver(handleIntersection, {
++      rootMargin,
++      threshold
++    });
++  };
++
++  const destroyObserver = () => {
++    if (observer) {
++      observer.disconnect();
++      observer = null;
++    }
++    sensorElements.clear();
++    visibleSensors.value.clear();
++  };
++
++  onMounted(() => {
++    initObserver();
++  });
++
++  onUnmounted(() => {
++    notifyChange.cancel();
++    destroyObserver();
++  });
++
++  return {
++    visibleSensors,
++    observe,
++    unobserve,
++    getVisibleCount: () => visibleSensors.value.size
++  };
++}
+diff --git a/repository_after/client/src/composables/useWebSocket.js b/repository_after/client/src/composables/useWebSocket.js
+new file mode 100644
+index 00000000..1fd0048d
+--- /dev/null
++++ b/repository_after/client/src/composables/useWebSocket.js
+@@ -0,0 +1,172 @@
++/**
++ * WebSocket Composable - Manages WebSocket connection with auto-reconnect
++ * 
++ * Requirement 3: WebSocket protocol with subscription support
++ */
++
++import { ref, onMounted, onUnmounted } from 'vue';
++import { debounce } from '../utils/performanceOptimizations.js';
++
++/**
++ * @param {string} url - WebSocket URL
++ * @param {object} options - Configuration options
++ */
++export function useWebSocket(url, options = {}) {
++  const {
++    reconnectDelay = 1000,
++    maxReconnectDelay = 30000,
++    reconnectMultiplier = 1.5
++  } = options;
++
++  const ws = ref(null);
++  const isConnected = ref(false);
++  const clientId = ref(null);
++  const error = ref(null);
++  
++  let messageHandlers = [];
++  let currentReconnectDelay = reconnectDelay;
++  let reconnectTimeout = null;
++  let intentionalClose = false;
++
++  const connect = () => {
++    try {
++      const socket = new WebSocket(url);
++      
++      socket.onopen = () => {
++        console.log('WebSocket connected');
++        isConnected.value = true;
++        error.value = null;
++        currentReconnectDelay = reconnectDelay;
++      };
++
++      socket.onmessage = (event) => {
++        try {
++          const message = JSON.parse(event.data);
++          
++          // Handle connection confirmation
++          if (message.type === 'connected') {
++            clientId.value = message.clientId;
++          }
++          
++          // Dispatch to all handlers
++          messageHandlers.forEach(handler => handler(message));
++        } catch (e) {
++          console.error('Failed to parse WebSocket message:', e);
++        }
++      };
++
++      socket.onclose = () => {
++        console.log('WebSocket disconnected');
++        isConnected.value = false;
++        ws.value = null;
++        
++        if (!intentionalClose) {
++          scheduleReconnect();
++        }
++      };
++
++      socket.onerror = (e) => {
++        console.error('WebSocket error:', e);
++        error.value = 'Connection error';
++      };
++
++      ws.value = socket;
++    } catch (e) {
++      console.error('Failed to create WebSocket:', e);
++      error.value = e.message;
++      scheduleReconnect();
++    }
++  };
++
++  const scheduleReconnect = () => {
++    if (reconnectTimeout) {
++      clearTimeout(reconnectTimeout);
++    }
++    
++    console.log(`Reconnecting in ${currentReconnectDelay}ms...`);
++    reconnectTimeout = setTimeout(() => {
++      connect();
++      currentReconnectDelay = Math.min(
++        currentReconnectDelay * reconnectMultiplier,
++        maxReconnectDelay
++      );
++    }, currentReconnectDelay);
++  };
++
++  const disconnect = () => {
++    intentionalClose = true;
++    
++    if (reconnectTimeout) {
++      clearTimeout(reconnectTimeout);
++      reconnectTimeout = null;
++    }
++    
++    if (ws.value) {
++      ws.value.close();
++      ws.value = null;
++    }
++  };
++
++  const send = (message) => {
++    if (ws.value && ws.value.readyState === WebSocket.OPEN) {
++      ws.value.send(JSON.stringify(message));
++      return true;
++    }
++    return false;
++  };
++
++  const subscribe = (sensorIds) => {
++    return send({
++      type: 'subscribe',
++      sensorIds
++    });
++  };
++
++  const unsubscribe = (sensorIds) => {
++    return send({
++      type: 'unsubscribe',
++      sensorIds
++    });
++  };
++
++  const setSubscriptions = (sensorIds) => {
++    return send({
++      type: 'setSubscriptions',
++      sensorIds
++    });
++  };
++
++  // Debounced subscription update for viewport changes
++  const debouncedSetSubscriptions = debounce((sensorIds) => {
++    setSubscriptions(sensorIds);
++  }, 100);
++
++  const onMessage = (handler) => {
++    messageHandlers.push(handler);
++    return () => {
++      messageHandlers = messageHandlers.filter(h => h !== handler);
++    };
++  };
++
++  onMounted(() => {
++    connect();
++  });
++
++  onUnmounted(() => {
++    disconnect();
++  });
++
++  return {
++    isConnected,
++    clientId,
++    error,
++    send,
++    subscribe,
++    unsubscribe,
++    setSubscriptions,
++    debouncedSetSubscriptions,
++    onMessage,
++    disconnect,
++    reconnect: connect
++  };
++}
+diff --git a/repository_after/client/src/main.js b/repository_after/client/src/main.js
+new file mode 100644
+index 00000000..592df9aa
+--- /dev/null
++++ b/repository_after/client/src/main.js
+@@ -0,0 +1,10 @@
++import { createApp } from 'vue';
++import { createPinia } from 'pinia';
++import App from './App.vue';
++import './styles/main.css';
++
++const app = createApp(App);
++const pinia = createPinia();
++
++app.use(pinia);
++app.mount('#app');
+diff --git a/repository_after/client/src/stores/sensorStore.js b/repository_after/client/src/stores/sensorStore.js
+new file mode 100644
+index 00000000..7857c685
+--- /dev/null
++++ b/repository_after/client/src/stores/sensorStore.js
+@@ -0,0 +1,365 @@
++/**
++ * Sensor Store (Pinia)
++ * 
++ * Central state management for sensor data with performance optimizations.
++ * Uses RAF-throttled updates to prevent Vue reactivity overload.
++ */
++
++import { defineStore } from 'pinia';
++import { ref, computed, reactive } from 'vue';
++import { AlertTracker } from '../utils/alertLogic.js';
++import { RingBuffer, createBatchUpdater } from '../utils/performanceOptimizations.js';
++
++export const useSensorStore = defineStore('sensors', () => {
++  // Sensor list and metadata
++  const sensors = ref([]);
++  const sensorMap = ref(new Map());
++  
++  // Data buffers for sparklines (non-reactive for performance)
++  const sensorDataBuffers = new Map();
++  
++  // Latest values - using reactive object for proper reactivity
++  const latestValues = reactive({});
++  
++  // Alert states - reactive object to track active alerts
++  const alertStates = reactive({});
++  
++  // Alert tracking (internal)
++  const alertTracker = new AlertTracker(3);
++  
++  // Thresholds (from server)
++  const thresholds = ref({
++    vibration: 80,
++    temperature: 85
++  });
++
++  // Connection status
++  const isConnected = ref(false);
++  const lastUpdate = ref(null);
++  
++  // Update counter to force sparkline re-renders
++  const updateCounter = ref(0);
++
++  // Playback state
++  const isPlaybackMode = ref(false);
++  const isPlaying = ref(false);
++  const playbackSpeed = ref(1);
++  const playbackTime = ref(0);
++  const playbackStartTime = ref(0);
++  const playbackEndTime = ref(0);
++  const playbackData = new Map(); // Store full history for playback
++  const playbackCursors = new Map(); // Track current index per sensor for incremental updates
++  const lastPlaybackTime = ref(0); // Track last seek time to detect jumps
++
++  // Computed
++  const sensorCount = computed(() => sensors.value.length);
++  const activeAlerts = computed(() => Object.keys(alertStates).filter(id => alertStates[id]));
++  const alertCount = computed(() => activeAlerts.value.length);
++  const playbackProgress = computed(() => {
++    if (!playbackStartTime.value || !playbackEndTime.value) return 0;
++    return Math.min(100, Math.max(0, ((playbackTime.value - playbackStartTime.value) / (playbackEndTime.value - playbackStartTime.value)) * 100));
++  });
++
++  // Batch updater for high-frequency data
++  const batchUpdater = createBatchUpdater((updates) => {
++    // Process batch of updates
++    for (const { sensorId, data } of updates) {
++      // Update data buffer
++      let buffer = sensorDataBuffers.get(sensorId);
++      if (!buffer) {
++        buffer = new RingBuffer(100); // Keep last 100 points for sparkline
++        sensorDataBuffers.set(sensorId, buffer);
++      }
++      buffer.push(data);
++      
++      // Update latest value (reactive)
++      latestValues[sensorId] = data;
++      
++      // Update alert state
++      const sensor = sensorMap.value.get(sensorId);
++      if (sensor) {
++        const threshold = thresholds.value[sensor.type];
++        const result = alertTracker.update(sensorId, data.value, threshold);
++        // Update reactive alert state
++        alertStates[sensorId] = result.isAlertActive;
++      }
++    }
++    
++    // Increment counter to force sparkline updates
++    updateCounter.value++;
++    lastUpdate.value = Date.now();
++  }, 50); // Batch up to 50 updates
++
++  // Actions
++  function setSensors(sensorList) {
++    sensors.value = sensorList;
++    sensorMap.value = new Map(sensorList.map(s => [s.id, s]));
++    
++    // Initialize data buffers and reactive states
++    for (const sensor of sensorList) {
++      if (!sensorDataBuffers.has(sensor.id)) {
++        sensorDataBuffers.set(sensor.id, new RingBuffer(100));
++      }
++      latestValues[sensor.id] = null;
++      alertStates[sensor.id] = false;
++    }
++  }
++
++  function updateSensorData(sensorId, data) {
++    // Ignore live updates in playback mode
++    if (isPlaybackMode.value) return;
++    batchUpdater.add({ sensorId, data });
++  }
++
++  function updateSensorDataBatch(updates) {
++    if (isPlaybackMode.value) return;
++    for (const { sensorId, data } of updates) {
++      batchUpdater.add({ sensorId, data });
++    }
++  }
++
++  function getSensorData(sensorId) {
++    // Access updateCounter to create dependency
++    const _ = updateCounter.value;
++    const buffer = sensorDataBuffers.get(sensorId);
++    return buffer ? buffer.toArray() : [];
++  }
++
++  function getLatestValue(sensorId) {
++    return latestValues[sensorId];
++  }
++
++  function isAlertActive(sensorId) {
++    return alertStates[sensorId] || false;
++  }
++
++  function getSensorThreshold(sensorId) {
++    const sensor = sensorMap.value.get(sensorId);
++    if (!sensor) return null;
++    return thresholds.value[sensor.type];
++  }
++
++  function setConnectionStatus(connected) {
++    isConnected.value = connected;
++  }
++
++  function setThresholds(newThresholds) {
++    thresholds.value = { ...thresholds.value, ...newThresholds };
++  }
++
++  function clearAllData() {
++    sensorDataBuffers.clear();
++    Object.keys(latestValues).forEach(key => delete latestValues[key]);
++    Object.keys(alertStates).forEach(key => delete alertStates[key]);
++    alertTracker.clearAll();
++    batchUpdater.cancel();
++  }
++
++  // Historical Playback Actions
++  async function enterPlaybackMode(startTime, endTime) {
++    // Stop live updates
++    isPlaybackMode.value = true;
++    isPlaying.value = false;
++    
++    // Clear current buffers to prepare for playback
++    sensorDataBuffers.clear();
++    // Re-init buffers
++    for (const sensor of sensors.value) {
++      sensorDataBuffers.set(sensor.id, new RingBuffer(100));
++    }
++    
++    playbackStartTime.value = startTime;
++    playbackEndTime.value = endTime;
++    playbackTime.value = startTime;
++    
++    // Fetch data
++    try {
++        const sensorIds = sensors.value.map(s => s.id);
++        // Fetch in chunks or all at once? For 10 mins @ 10Hz * 50 sensors = 300k points. Too big for one request?
++        // Let's try batch request. server /batch accepts max 100 sensors.
++        // We have 50. Should be ok? 
++        // 50 sensors * 6000 points = 300,000 points.
++        // JSON size: 300k * ~50 bytes = 15MB. Feasible but heavy.
++        
++        const apiUrl = `http://${window.location.hostname}:3001/api/history/batch`;
++        const response = await fetch(apiUrl, {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({
++                sensorIds,
++                start: startTime,
++                end: endTime
++            })
++        });
++        
++        const result = await response.json();
++        
++        // Populate playbackData
++        playbackData.clear();
++        if (result.sensors) {
++            Object.entries(result.sensors).forEach(([id, data]) => {
++                // Sort just in case
++                data.sort((a, b) => a.timestamp - b.timestamp);
++                playbackData.set(id, data);
++            });
++        }
++        
++        // Initial seek to start
++        seekTo(startTime);
++        
++    } catch (e) {
++        console.error("Failed to load history", e);
++        // Exit playback on error?
++        exitPlaybackMode();
++        throw e;
++    }
++  }
++
++  function exitPlaybackMode() {
++    isPlaybackMode.value = false;
++    stopPlayback();
++    playbackData.clear();
++    
++    // Clear buffers to receive fresh live data
++    sensorDataBuffers.clear();
++    for (const sensor of sensors.value) {
++      sensorDataBuffers.set(sensor.id, new RingBuffer(100));
++    }
++  }
++
++  function togglePlayback() {
++    if (isPlaying.value) stopPlayback();
++    else startPlayback();
++  }
++
++  function startPlayback() {
++    if (isPlaying.value) return;
++    isPlaying.value = true;
++    
++    let lastFrameTime = performance.now();
++    
++    const step = () => {
++        if (!isPlaying.value) return;
++        
++        const now = performance.now();
++        const dt = now - lastFrameTime;
++        lastFrameTime = now;
++        
++        // Advance time
++        const timeIncrement = dt * playbackSpeed.value;
++        const newTime = playbackTime.value + timeIncrement;
++        
++        if (newTime >= playbackEndTime.value) {
++            playbackTime.value = playbackEndTime.value;
++            stopPlayback();
++            return;
++        }
++        
++        seekTo(newTime);
++        
++        requestAnimationFrame(step);
++    };
++    
++    requestAnimationFrame(step);
++  }
++
++  function stopPlayback() {
++    isPlaying.value = false;
++  }
++
++  function seekTo(timestamp) {
++    const previousTime = lastPlaybackTime.value;
++    playbackTime.value = timestamp;
++    lastPlaybackTime.value = timestamp;
++    
++    // Detect if this is a "jump" (arbitrary seek) vs incremental advance
++    // A jump is when we go backwards OR skip forward by more than 500ms
++    const isJump = timestamp < previousTime || (timestamp - previousTime) > 500;
++    
++    for (const [sensorId, data] of playbackData.entries()) {
++        const buffer = sensorDataBuffers.get(sensorId);
++        if (!buffer || data.length === 0) continue;
++        
++        // Find target index via binary search
++        let targetIdx = -1;
++        let low = 0, high = data.length - 1;
++        while (low <= high) {
++            const mid = (low + high) >>> 1;
++            if (data[mid].timestamp <= timestamp) {
++                targetIdx = mid;
++                low = mid + 1;
++            } else {
++                high = mid - 1;
++            }
++        }
++        
++        if (targetIdx === -1) continue;
++        
++        const currentCursor = playbackCursors.get(sensorId) || -1;
++        
++        if (isJump || currentCursor === -1 || targetIdx < currentCursor) {
++            // Full rebuild for jumps, initial load, or backward seeks
++            const startIdx = Math.max(0, targetIdx - 99);
++            buffer.clear();
++            for (let i = startIdx; i <= targetIdx; i++) {
++                buffer.push(data[i]);
++            }
++        } else if (targetIdx > currentCursor) {
++            // Incremental: just push new points since last cursor
++            for (let i = currentCursor + 1; i <= targetIdx; i++) {
++                buffer.push(data[i]);
++            }
++        }
++        // else targetIdx === currentCursor, no update needed
++        
++        playbackCursors.set(sensorId, targetIdx);
++        latestValues[sensorId] = data[targetIdx];
++    }
++    
++    updateCounter.value++;
++  }
++
++  return {
++    // State
++    sensors,
++    sensorMap,
++    latestValues,
++    thresholds,
++    isConnected,
++    lastUpdate,
++    updateCounter,
++    alertStates,
++    
++    // Playback State
++    isPlaybackMode,
++    isPlaying,
++    playbackSpeed,
++    playbackTime,
++    playbackStartTime,
++    playbackEndTime,
++    playbackProgress,
++    
++    // Computed
++    sensorCount,
++    activeAlerts,
++    alertCount,
++    
++    // Actions
++    setSensors,
++    updateSensorData,
++    updateSensorDataBatch,
++    getSensorData,
++    getLatestValue,
++    isAlertActive,
++    getSensorThreshold,
++    setConnectionStatus,
++    setThresholds,
++    clearAllData,
++    
++    // Playback Actions
++    enterPlaybackMode,
++    exitPlaybackMode,
++    togglePlayback,
++    seekTo
++  };
++});
+diff --git a/repository_after/client/src/styles/main.css b/repository_after/client/src/styles/main.css
+new file mode 100644
+index 00000000..31136bf1
+--- /dev/null
++++ b/repository_after/client/src/styles/main.css
+@@ -0,0 +1,332 @@
++/* IoT Sensor Dashboard - Main Styles */
++
++:root {
++  /* Color palette - Dark theme for factory floor monitoring */
++  --color-bg-primary: #0a0e17;
++  --color-bg-secondary: #111827;
++  --color-bg-card: #1a2332;
++  --color-bg-card-hover: #212d42;
++  
++  --color-border: #2d3748;
++  --color-border-subtle: #1e293b;
++  
++  --color-text-primary: #f1f5f9;
++  --color-text-secondary: #94a3b8;
++  --color-text-muted: #64748b;
++  
++  /* Status colors */
++  --color-success: #10b981;
++  --color-success-glow: rgba(16, 185, 129, 0.3);
++  --color-warning: #f59e0b;
++  --color-warning-glow: rgba(245, 158, 11, 0.3);
++  --color-critical: #ef4444;
++  --color-critical-glow: rgba(239, 68, 68, 0.4);
++  
++  /* Accent colors */
++  --color-accent: #3b82f6;
++  --color-accent-glow: rgba(59, 130, 246, 0.3);
++  
++  /* Sparkline colors */
++  --sparkline-normal: #3b82f6;
++  --sparkline-warning: #f59e0b;
++  --sparkline-critical: #ef4444;
++  --sparkline-threshold: rgba(239, 68, 68, 0.5);
++  
++  /* Spacing */
++  --spacing-xs: 4px;
++  --spacing-sm: 8px;
++  --spacing-md: 16px;
++  --spacing-lg: 24px;
++  --spacing-xl: 32px;
++  
++  /* Border radius */
++  --radius-sm: 4px;
++  --radius-md: 8px;
++  --radius-lg: 12px;
++  
++  /* Transitions */
++  --transition-fast: 150ms ease;
++  --transition-normal: 300ms ease;
++  
++  /* Typography */
++  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
++  --font-size-xs: 0.75rem;
++  --font-size-sm: 0.875rem;
++  --font-size-base: 1rem;
++  --font-size-lg: 1.25rem;
++  --font-size-xl: 1.5rem;
++  --font-size-2xl: 2rem;
++}
++
++* {
++  margin: 0;
++  padding: 0;
++  box-sizing: border-box;
++}
++
++body {
++  font-family: var(--font-family);
++  background: var(--color-bg-primary);
++  color: var(--color-text-primary);
++  line-height: 1.5;
++  min-height: 100vh;
++}
++
++/* Header */
++.dashboard-header {
++  background: linear-gradient(180deg, var(--color-bg-secondary) 0%, transparent 100%);
++  border-bottom: 1px solid var(--color-border-subtle);
++  padding: var(--spacing-md) var(--spacing-lg);
++  position: sticky;
++  top: 0;
++  z-index: 100;
++  backdrop-filter: blur(12px);
++}
++
++.header-content {
++  max-width: 1920px;
++  margin: 0 auto;
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++}
++
++.header-title {
++  font-size: var(--font-size-xl);
++  font-weight: 700;
++  background: linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-accent) 100%);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++  background-clip: text;
++}
++
++.header-stats {
++  display: flex;
++  gap: var(--spacing-lg);
++  align-items: center;
++}
++
++.stat-item {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-end;
++}
++
++.stat-label {
++  font-size: var(--font-size-xs);
++  color: var(--color-text-muted);
++  text-transform: uppercase;
++  letter-spacing: 0.05em;
++}
++
++.stat-value {
++  font-size: var(--font-size-lg);
++  font-weight: 600;
++  color: var(--color-text-primary);
++}
++
++.stat-value.critical {
++  color: var(--color-critical);
++}
++
++/* Connection status */
++.connection-status {
++  display: flex;
++  align-items: center;
++  gap: var(--spacing-sm);
++  padding: var(--spacing-xs) var(--spacing-md);
++  background: var(--color-bg-card);
++  border-radius: var(--radius-md);
++  font-size: var(--font-size-sm);
++}
++
++.status-dot {
++  width: 8px;
++  height: 8px;
++  border-radius: 50%;
++  background: var(--color-text-muted);
++}
++
++.status-dot.connected {
++  background: var(--color-success);
++  box-shadow: 0 0 8px var(--color-success-glow);
++  animation: pulse 2s infinite;
++}
++
++.status-dot.disconnected {
++  background: var(--color-critical);
++}
++
++@keyframes pulse {
++  0%, 100% { opacity: 1; }
++  50% { opacity: 0.6; }
++}
++
++/* Sensor Grid */
++.sensor-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
++  gap: var(--spacing-md);
++  padding: var(--spacing-lg);
++  max-width: 1920px;
++  margin: 0 auto;
++}
++
++/* Sensor Card */
++.sensor-card {
++  background: var(--color-bg-card);
++  border: 1px solid var(--color-border);
++  border-radius: var(--radius-lg);
++  padding: var(--spacing-md);
++  transition: all var(--transition-fast);
++  position: relative;
++  overflow: hidden;
++}
++
++.sensor-card:hover {
++  background: var(--color-bg-card-hover);
++  border-color: var(--color-border);
++  transform: translateY(-2px);
++}
++
++.sensor-card.critical {
++  border-color: var(--color-critical);
++  box-shadow: 0 0 20px var(--color-critical-glow);
++  animation: alert-pulse 1s infinite;
++}
++
++@keyframes alert-pulse {
++  0%, 100% { box-shadow: 0 0 20px var(--color-critical-glow); }
++  50% { box-shadow: 0 0 30px var(--color-critical-glow); }
++}
++
++.sensor-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: flex-start;
++  margin-bottom: var(--spacing-sm);
++}
++
++.sensor-id {
++  font-size: var(--font-size-sm);
++  font-weight: 600;
++  color: var(--color-text-secondary);
++  font-family: monospace;
++}
++
++.sensor-type {
++  font-size: var(--font-size-xs);
++  color: var(--color-text-muted);
++  text-transform: uppercase;
++  padding: 2px 6px;
++  background: var(--color-bg-secondary);
++  border-radius: var(--radius-sm);
++}
++
++.sensor-value {
++  font-size: var(--font-size-2xl);
++  font-weight: 700;
++  margin: var(--spacing-sm) 0;
++}
++
++.sensor-value.normal {
++  color: var(--color-success);
++}
++
++.sensor-value.warning {
++  color: var(--color-warning);
++}
++
++.sensor-value.critical {
++  color: var(--color-critical);
++}
++
++.sensor-unit {
++  font-size: var(--font-size-sm);
++  color: var(--color-text-muted);
++  font-weight: 400;
++}
++
++.sensor-threshold {
++  font-size: var(--font-size-xs);
++  color: var(--color-text-muted);
++  margin-top: var(--spacing-xs);
++}
++
++/* Sparkline container */
++.sparkline-container {
++  margin-top: var(--spacing-md);
++  height: 60px;
++  background: var(--color-bg-secondary);
++  border-radius: var(--radius-md);
++  overflow: hidden;
++}
++
++.sparkline-canvas {
++  width: 100%;
++  height: 100%;
++}
++
++/* Alert badge */
++.alert-badge {
++  position: absolute;
++  top: var(--spacing-sm);
++  right: var(--spacing-sm);
++  background: var(--color-critical);
++  color: white;
++  font-size: var(--font-size-xs);
++  font-weight: 600;
++  padding: 2px 8px;
++  border-radius: var(--radius-sm);
++  text-transform: uppercase;
++  animation: badge-flash 0.5s infinite;
++}
++
++@keyframes badge-flash {
++  0%, 100% { opacity: 1; }
++  50% { opacity: 0.8; }
++}
++
++/* Loading state */
++.loading {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  height: 100vh;
++  flex-direction: column;
++  gap: var(--spacing-md);
++}
++
++.loading-spinner {
++  width: 48px;
++  height: 48px;
++  border: 3px solid var(--color-border);
++  border-top-color: var(--color-accent);
++  border-radius: 50%;
++  animation: spin 1s linear infinite;
++}
++
++@keyframes spin {
++  to { transform: rotate(360deg); }
++}
++
++/* Responsive adjustments */
++@media (max-width: 768px) {
++  .dashboard-header {
++    padding: var(--spacing-sm) var(--spacing-md);
++  }
++  
++  .header-content {
++    flex-direction: column;
++    gap: var(--spacing-sm);
++  }
++  
++  .header-stats {
++    gap: var(--spacing-md);
++  }
++  
++  .sensor-grid {
++    padding: var(--spacing-md);
++    gap: var(--spacing-sm);
++  }
++}
+diff --git a/repository_after/client/src/utils/alertLogic.js b/repository_after/client/src/utils/alertLogic.js
+new file mode 100644
+index 00000000..11434e8e
+--- /dev/null
++++ b/repository_after/client/src/utils/alertLogic.js
+@@ -0,0 +1,154 @@
++/**
++ * Alert Logic Utilities
++ * 
++ * Requirement 5: Alert Logic: Trigger a visual state change only if the 
++ * threshold violation is sustained across three consecutive data packets.
++ */
++
++/**
++ * AlertTracker - Tracks consecutive threshold violations per sensor
++ */
++export class AlertTracker {
++  constructor(requiredConsecutive = 3) {
++    this.requiredConsecutive = requiredConsecutive;
++    // Map of sensorId -> { consecutiveViolations, isAlertActive }
++    this.sensorStates = new Map();
++  }
++
++  /**
++   * Check if a value violates the threshold
++   * @param {number} value 
++   * @param {number} threshold 
++   * @returns {boolean}
++   */
++  checkThreshold(value, threshold) {
++    return value > threshold;
++  }
++
++  /**
++   * Update the alert state for a sensor based on new reading
++   * @param {string} sensorId 
++   * @param {number} value 
++   * @param {number} threshold 
++   * @returns {{ isViolation: boolean, isAlertActive: boolean, consecutiveCount: number }}
++   */
++  update(sensorId, value, threshold) {
++    if (!this.sensorStates.has(sensorId)) {
++      this.sensorStates.set(sensorId, {
++        consecutiveViolations: 0,
++        isAlertActive: false
++      });
++    }
++
++    const state = this.sensorStates.get(sensorId);
++    const isViolation = this.checkThreshold(value, threshold);
++
++    if (isViolation) {
++      state.consecutiveViolations++;
++      
++      // Activate alert after required consecutive violations
++      if (state.consecutiveViolations >= this.requiredConsecutive) {
++        state.isAlertActive = true;
++      }
++    } else {
++      // Reset on normal reading
++      state.consecutiveViolations = 0;
++      state.isAlertActive = false;
++    }
++
++    return {
++      isViolation,
++      isAlertActive: state.isAlertActive,
++      consecutiveCount: state.consecutiveViolations
++    };
++  }
++
++  /**
++   * Check if alert is active for a sensor
++   * @param {string} sensorId 
++   * @returns {boolean}
++   */
++  isAlertActive(sensorId) {
++    const state = this.sensorStates.get(sensorId);
++    return state ? state.isAlertActive : false;
++  }
++
++  /**
++   * Get the current consecutive violation count
++   * @param {string} sensorId 
++   * @returns {number}
++   */
++  getConsecutiveCount(sensorId) {
++    const state = this.sensorStates.get(sensorId);
++    return state ? state.consecutiveViolations : 0;
++  }
++
++  /**
++   * Get all sensors with active alerts
++   * @returns {Array<string>}
++   */
++  getActiveSensorAlerts() {
++    const active = [];
++    for (const [sensorId, state] of this.sensorStates) {
++      if (state.isAlertActive) {
++        active.push(sensorId);
++      }
++    }
++    return active;
++  }
++
++  /**
++   * Get count of active alerts
++   * @returns {number}
++   */
++  getActiveAlertCount() {
++    let count = 0;
++    for (const state of this.sensorStates.values()) {
++      if (state.isAlertActive) count++;
++    }
++    return count;
++  }
++
++  /**
++   * Clear state for a sensor
++   * @param {string} sensorId 
++   */
++  clearSensor(sensorId) {
++    this.sensorStates.delete(sensorId);
++  }
++
++  /**
++   * Clear all states
++   */
++  clearAll() {
++    this.sensorStates.clear();
++  }
++
++  /**
++   * Get state snapshot for debugging
++   * @returns {Object}
++   */
++  getSnapshot() {
++    const snapshot = {};
++    for (const [sensorId, state] of this.sensorStates) {
++      snapshot[sensorId] = { ...state };
++    }
++    return snapshot;
++  }
++}
++
++// Export singleton instance for app-wide use
++export const alertTracker = new AlertTracker(3);
++
++// Export utility functions for direct use
++export function checkThreshold(value, threshold) {
++  return value > threshold;
++}
++
++export function updateAlertState(sensorId, value, threshold) {
++  return alertTracker.update(sensorId, value, threshold);
++}
++
++export function isAlertActive(sensorId) {
++  return alertTracker.isAlertActive(sensorId);
++}
+diff --git a/repository_after/client/src/utils/performanceOptimizations.js b/repository_after/client/src/utils/performanceOptimizations.js
+new file mode 100644
+index 00000000..e2b8e039
+--- /dev/null
++++ b/repository_after/client/src/utils/performanceOptimizations.js
+@@ -0,0 +1,265 @@
++/**
++ * Performance Optimization Utilities
++ * 
++ * Requirement 1: The Vue.js frontend must render 50 concurrent sparklines 
++ * updating at 10Hz without dropping below 60fps.
++ * 
++ * Strategies:
++ * 1. requestAnimationFrame-based throttling to batch updates to next frame
++ * 2. Debouncing for non-critical updates
++ * 3. Batch state updates to minimize reactivity triggers
++ */
++
++/**
++ * RAF-based throttle - ensures function runs at most once per animation frame
++ * This prevents overwhelming the main thread with high-frequency updates
++ * 
++ * @param {Function} fn - Function to throttle
++ * @returns {Function} Throttled function
++ */
++export function rafThrottle(fn) {
++  let rafId = null;
++  let lastArgs = null;
++
++  const throttled = (...args) => {
++    lastArgs = args;
++    
++    if (rafId === null) {
++      rafId = requestAnimationFrame(() => {
++        fn(...lastArgs);
++        rafId = null;
++      });
++    }
++  };
++
++  throttled.cancel = () => {
++    if (rafId !== null) {
++      cancelAnimationFrame(rafId);
++      rafId = null;
++    }
++  };
++
++  return throttled;
++}
++
++/**
++ * Traditional debounce - delays execution until after delay ms
++ * 
++ * @param {Function} fn - Function to debounce
++ * @param {number} delay - Delay in milliseconds
++ * @returns {Function} Debounced function
++ */
++export function debounce(fn, delay) {
++  let timeoutId = null;
++
++  const debounced = (...args) => {
++    if (timeoutId !== null) {
++      clearTimeout(timeoutId);
++    }
++    timeoutId = setTimeout(() => {
++      fn(...args);
++      timeoutId = null;
++    }, delay);
++  };
++
++  debounced.cancel = () => {
++    if (timeoutId !== null) {
++      clearTimeout(timeoutId);
++      timeoutId = null;
++    }
++  };
++
++  debounced.flush = () => {
++    if (timeoutId !== null) {
++      clearTimeout(timeoutId);
++      timeoutId = null;
++      fn();
++    }
++  };
++
++  return debounced;
++}
++
++/**
++ * Throttle with guaranteed final call
++ * 
++ * @param {Function} fn - Function to throttle
++ * @param {number} limit - Minimum time between calls in ms
++ * @returns {Function} Throttled function
++ */
++export function throttle(fn, limit) {
++  let lastCall = 0;
++  let timeoutId = null;
++
++  return (...args) => {
++    const now = Date.now();
++    const remaining = limit - (now - lastCall);
++
++    if (remaining <= 0) {
++      if (timeoutId) {
++        clearTimeout(timeoutId);
++        timeoutId = null;
++      }
++      lastCall = now;
++      fn(...args);
++    } else if (!timeoutId) {
++      timeoutId = setTimeout(() => {
++        lastCall = Date.now();
++        timeoutId = null;
++        fn(...args);
++      }, remaining);
++    }
++  };
++}
++
++/**
++ * Batch updates collector - collects updates and processes them together
++ * 
++ * @param {Function} processor - Function to process batched updates
++ * @param {number} maxBatchSize - Max updates before forced flush
++ * @returns {Object} { add, flush }
++ */
++export function createBatchUpdater(processor, maxBatchSize = 100) {
++  let batch = [];
++  let rafId = null;
++
++  const flush = () => {
++    if (batch.length > 0) {
++      const toProcess = batch;
++      batch = [];
++      processor(toProcess);
++    }
++  };
++
++  const scheduleFlush = () => {
++    if (rafId === null) {
++      rafId = requestAnimationFrame(() => {
++        rafId = null;
++        flush();
++      });
++    }
++  };
++
++  return {
++    add: (update) => {
++      batch.push(update);
++      if (batch.length >= maxBatchSize) {
++        flush();
++      } else {
++        scheduleFlush();
++      }
++    },
++    flush,
++    cancel: () => {
++      if (rafId !== null) {
++        cancelAnimationFrame(rafId);
++        rafId = null;
++      }
++      batch = [];
++    },
++    getSize: () => batch.length
++  };
++}
++
++/**
++ * Ring buffer for fixed-size data storage (efficient for sparklines)
++ */
++export class RingBuffer {
++  constructor(capacity) {
++    this.capacity = capacity;
++    this.buffer = new Array(capacity);
++    this.head = 0;
++    this.size = 0;
++  }
++
++  push(item) {
++    this.buffer[this.head] = item;
++    this.head = (this.head + 1) % this.capacity;
++    if (this.size < this.capacity) {
++      this.size++;
++    }
++  }
++
++  toArray() {
++    if (this.size === 0) return [];
++    
++    const result = new Array(this.size);
++    const start = this.size < this.capacity ? 0 : this.head;
++    
++    for (let i = 0; i < this.size; i++) {
++      result[i] = this.buffer[(start + i) % this.capacity];
++    }
++    
++    return result;
++  }
++
++  getLatest() {
++    if (this.size === 0) return null;
++    const idx = (this.head - 1 + this.capacity) % this.capacity;
++    return this.buffer[idx];
++  }
++
++  clear() {
++    this.head = 0;
++    this.size = 0;
++  }
++
++  isFull() {
++    return this.size === this.capacity;
++  }
++}
++
++/**
++ * Performance monitor for debugging
++ */
++export class PerformanceMonitor {
++  constructor(sampleSize = 60) {
++    this.frameTimes = new RingBuffer(sampleSize);
++    this.lastFrameTime = 0;
++    this.rafId = null;
++  }
++
++  start() {
++    const measure = (timestamp) => {
++      if (this.lastFrameTime > 0) {
++        this.frameTimes.push(timestamp - this.lastFrameTime);
++      }
++      this.lastFrameTime = timestamp;
++      this.rafId = requestAnimationFrame(measure);
++    };
++    this.rafId = requestAnimationFrame(measure);
++  }
++
++  stop() {
++    if (this.rafId !== null) {
++      cancelAnimationFrame(this.rafId);
++      this.rafId = null;
++    }
++  }
++
++  getFPS() {
++    const times = this.frameTimes.toArray();
++    if (times.length === 0) return 0;
++    
++    const avgFrameTime = times.reduce((a, b) => a + b, 0) / times.length;
++    return Math.round(1000 / avgFrameTime);
++  }
++
++  getStats() {
++    const times = this.frameTimes.toArray();
++    if (times.length === 0) {
++      return { fps: 0, min: 0, max: 0, avg: 0 };
++    }
++    
++    const avg = times.reduce((a, b) => a + b, 0) / times.length;
++    const min = Math.min(...times);
++    const max = Math.max(...times);
++    
++    return {
++      fps: Math.round(1000 / avg),
++      min: Math.round(1000 / max),
++      max: Math.round(1000 / min),
++      avg: Math.round(avg * 100) / 100
++    };
++  }
++}
+diff --git a/repository_after/client/vite.config.js b/repository_after/client/vite.config.js
+new file mode 100644
+index 00000000..5d59235d
+--- /dev/null
++++ b/repository_after/client/vite.config.js
+@@ -0,0 +1,23 @@
++import { defineConfig } from 'vite';
++import vue from '@vitejs/plugin-vue';
++
++export default defineConfig({
++  plugins: [vue()],
++  server: {
++    port: 3000,
++    proxy: {
++      '/api': {
++        target: 'http://localhost:3001',
++        changeOrigin: true
++      },
++      '/ws': {
++        target: 'ws://localhost:3001',
++        ws: true
++      }
++    }
++  },
++  test: {
++    environment: 'happy-dom',
++    globals: true
++  }
++});
+diff --git a/repository_after/client/vitest.config.js b/repository_after/client/vitest.config.js
+new file mode 100644
+index 00000000..1d62610a
+--- /dev/null
++++ b/repository_after/client/vitest.config.js
+@@ -0,0 +1,16 @@
++import { defineConfig } from 'vitest/config';
++import vue from '@vitejs/plugin-vue';
++
++export default defineConfig({
++  plugins: [vue()],
++  test: {
++    globals: true,
++    environment: 'happy-dom',
++    include: ['../../tests/frontend/**/*.test.js'],
++    coverage: {
++      provider: 'v8',
++      reporter: ['text', 'json', 'html'],
++      include: ['src/**/*.{js,vue}']
++    }
++  }
++});
+diff --git a/repository_after/server/jest.config.js b/repository_after/server/jest.config.js
+new file mode 100644
+index 00000000..b7e67e5d
+--- /dev/null
++++ b/repository_after/server/jest.config.js
+@@ -0,0 +1,7 @@
++module.exports = {
++  testEnvironment: 'node',
++  testMatch: ['**/tests/**/*.test.js'],
++  collectCoverageFrom: ['src/**/*.js'],
++  coverageDirectory: 'coverage',
++  verbose: true
++};
+diff --git a/repository_after/server/package.json b/repository_after/server/package.json
+new file mode 100644
+index 00000000..be524138
+--- /dev/null
++++ b/repository_after/server/package.json
+@@ -0,0 +1,25 @@
++{
++  "name": "iot-sensor-server",
++  "version": "1.0.0",
++  "description": "IoT Sensor Stream Dashboard - Backend Server",
++  "main": "src/index.js",
++  "scripts": {
++    "start": "node src/index.js",
++    "dev": "node --watch src/index.js",
++    "test": "jest --coverage",
++    "test:watch": "jest --watch"
++  },
++  "dependencies": {
++    "cors": "^2.8.5",
++    "express": "^4.18.2",
++    "sqlite3": "^5.1.7",
++    "uuid": "^9.0.0",
++    "ws": "^8.14.2"
++  },
++  "devDependencies": {
++    "jest": "^29.7.0"
++  },
++  "engines": {
++    "node": ">=18.0.0"
++  }
++}
+diff --git a/repository_after/server/src/api/historyRoutes.js b/repository_after/server/src/api/historyRoutes.js
+new file mode 100644
+index 00000000..ef4a0920
+--- /dev/null
++++ b/repository_after/server/src/api/historyRoutes.js
+@@ -0,0 +1,177 @@
++const express = require('express');
++const { RequestCoalescer } = require('../thunderingHerd/RequestCoalescer');
++
++/**
++ * Create history routes for historical data queries
++ * 
++ * Requirement 2: Support immediate 'last 10 minutes' queries
++ * Requirement 4: Handle thundering herd scenario
++ * 
++ * @param {SlidingWindowBuffer} buffer 
++ * @param {Database} db
++ * @returns {express.Router}
++ */
++function createHistoryRoutes(buffer, db) {
++  const router = express.Router();
++  const coalescer = new RequestCoalescer({
++    cacheTTLMs: 1000,   // 1 second cache
++    maxConcurrent: 10   // Max 10 concurrent heavy queries
++  });
++
++  /**
++   * GET /api/history/:sensorId
++   * Query historical data for a single sensor
++   * 
++   * Query params:
++   * - start: Start timestamp (ms) - optional, defaults to 10 min ago
++   * - end: End timestamp (ms) - optional, defaults to now
++   * - last: Get last N points instead of time range
++   */
++  router.get('/:sensorId', async (req, res) => {
++    try {
++      const { sensorId } = req.params;
++      const { start, end, last } = req.query;
++      
++      // If 'last' is specified, get last N points
++      if (last) {
++        const count = parseInt(last, 10);
++        if (isNaN(count) || count < 1 || count > 10000) {
++          return res.status(400).json({ 
++            error: 'Invalid "last" parameter. Must be between 1 and 10000.' 
++          });
++        }
++        
++        // "Last N" is usually recent, try buffer first
++        // If buffer has enough, return it. If not, maybe DB?
++        // Simplicity: Just return what buffer has for "last". 
++        // If user wants historical "last N", they should use time range.
++        const data = buffer.getLastN(sensorId, count);
++        return res.json({
++          sensorId,
++          count: data.length,
++          data
++        });
++      }
++      
++      // Time range query
++      const now = Date.now();
++      const endMs = end ? parseInt(end, 10) : now;
++      const startMs = start ? parseInt(start, 10) : now - 10 * 60 * 1000;
++      
++      if (isNaN(startMs) || isNaN(endMs)) {
++        return res.status(400).json({ error: 'Invalid start or end timestamp' });
++      }
++      
++      if (startMs > endMs) {
++        return res.status(400).json({ error: 'Start must be before end' });
++      }
++      
++      // Use coalescer to prevent thundering herd
++      const key = coalescer.generateKey(sensorId, startMs, endMs);
++      const data = await coalescer.execute(key, async () => {
++        // Optimization: Check if fully in buffer
++        const bufferWindowStart = Date.now() - buffer.windowSizeMs;
++        
++        if (startMs >= bufferWindowStart) {
++            // Fully in buffer
++            return buffer.getRange(sensorId, startMs, endMs);
++        } else if (endMs < bufferWindowStart) {
++            // Fully in DB
++            return await db.queryRange(sensorId, startMs, endMs);
++        } else {
++            // Overlaps both
++            // Split the query
++            const dbData = await db.queryRange(sensorId, startMs, bufferWindowStart);
++            const bufferData = buffer.getRange(sensorId, bufferWindowStart, endMs);
++            
++            // Simple merge (dbData should be older)
++            return [...dbData, ...bufferData];
++        }
++      });
++      
++      res.json({
++        sensorId,
++        startMs,
++        endMs,
++        count: data.length,
++        data
++      });
++    } catch (err) {
++      console.error('Error fetching history:', err);
++      res.status(500).json({ error: 'Internal server error' });
++    }
++  });
++
++  /**
++   * POST /api/history/batch
++   * Query historical data for multiple sensors
++   * 
++   * Body:
++   * {
++   *   sensorIds: [...],
++   *   start: number (optional),
++   *   end: number (optional)
++   * }
++   */
++  router.post('/batch', async (req, res) => {
++    try {
++      const { sensorIds, start, end } = req.body;
++      
++      if (!Array.isArray(sensorIds) || sensorIds.length === 0) {
++        return res.status(400).json({ error: 'sensorIds must be a non-empty array' });
++      }
++      
++      if (sensorIds.length > 100) {
++        return res.status(400).json({ error: 'Maximum 100 sensors per batch request' });
++      }
++      
++      const now = Date.now();
++      const endMs = end || now;
++      const startMs = start || now - 10 * 60 * 1000;
++      
++      // Fetch all sensors with coalescing
++      const results = {};
++      const bufferWindowStart = Date.now() - buffer.windowSizeMs;
++
++      await Promise.all(sensorIds.map(async (sensorId) => {
++        const key = coalescer.generateKey(sensorId, startMs, endMs);
++        const data = await coalescer.execute(key, async () => {
++             if (startMs >= bufferWindowStart) {
++                return buffer.getRange(sensorId, startMs, endMs);
++            } else if (endMs < bufferWindowStart) {
++                return await db.queryRange(sensorId, startMs, endMs);
++            } else {
++                const dbData = await db.queryRange(sensorId, startMs, bufferWindowStart);
++                const bufferData = buffer.getRange(sensorId, bufferWindowStart, endMs);
++                return [...dbData, ...bufferData];
++            }
++        });
++        results[sensorId] = data;
++      }));
++      
++      res.json({
++        startMs,
++        endMs,
++        sensors: results
++      });
++    } catch (err) {
++      console.error('Error fetching batch history:', err);
++      res.status(500).json({ error: 'Internal server error' });
++    }
++  });
++
++  /**
++   * GET /api/history/stats
++   * Get buffer and coalescer statistics
++   */
++  router.get('/stats', (req, res) => {
++    res.json({
++      buffer: buffer.getEvictionStats(),
++      coalescer: coalescer.getStats()
++    });
++  });
++
++  return router;
++}
++
++module.exports = { createHistoryRoutes };
+diff --git a/repository_after/server/src/buffer/SlidingWindowBuffer.js b/repository_after/server/src/buffer/SlidingWindowBuffer.js
+new file mode 100644
+index 00000000..6291a993
+--- /dev/null
++++ b/repository_after/server/src/buffer/SlidingWindowBuffer.js
+@@ -0,0 +1,255 @@
++/**
++ * SlidingWindowBuffer - In-memory buffer for sensor data with automatic eviction
++ * 
++ * Requirement 2: The backend must implement a sliding-window buffer in memory 
++ * to support immediate 'last 10 minutes' queries without hitting the primary 
++ * database for every request.
++ * 
++ * Requirement 6: Testing Requirement: Include a backend unit test verifying 
++ * that the memory buffer correctly evicts the oldest data points when the 
++ * window size is exceeded.
++ */
++
++class SlidingWindowBuffer {
++  /**
++   * @param {number} windowSizeMs - Window size in milliseconds (default 10 minutes)
++   * @param {number} maxPointsPerSensor - Max data points per sensor (prevents memory bloat)
++   */
++  constructor(windowSizeMs = 10 * 60 * 1000, maxPointsPerSensor = 6000) {
++    this.windowSizeMs = windowSizeMs;
++    this.maxPointsPerSensor = maxPointsPerSensor;
++    // Map of sensorId -> sorted array of { timestamp, value, type }
++    this.buffers = new Map();
++    // Track eviction stats for testing
++    this.evictionCount = 0;
++  }
++
++  /**
++   * Push a new data point for a sensor
++   * @param {string} sensorId 
++   * @param {object} data - { timestamp, value, type }
++   */
++  push(sensorId, data) {
++    if (!this.buffers.has(sensorId)) {
++      this.buffers.set(sensorId, []);
++    }
++    
++    const buffer = this.buffers.get(sensorId);
++    const point = {
++      timestamp: data.timestamp || Date.now(),
++      value: data.value,
++      type: data.type || 'unknown'
++    };
++    
++    // Insert in sorted order (most data comes in order, so check end first)
++    if (buffer.length === 0 || buffer[buffer.length - 1].timestamp <= point.timestamp) {
++      buffer.push(point);
++    } else {
++      // Binary search for insert position (rare case)
++      const insertIdx = this._findInsertIndex(buffer, point.timestamp);
++      buffer.splice(insertIdx, 0, point);
++    }
++    
++    // Evict old data
++    this._evictOldData(sensorId);
++  }
++
++  /**
++   * Push multiple data points in batch (more efficient)
++   * @param {string} sensorId 
++   * @param {Array} dataPoints 
++   */
++  pushBatch(sensorId, dataPoints) {
++    for (const data of dataPoints) {
++      this.push(sensorId, data);
++    }
++  }
++
++  /**
++   * Get data points within a time range
++   * @param {string} sensorId 
++   * @param {number} startMs - Start timestamp (inclusive)
++   * @param {number} endMs - End timestamp (inclusive)
++   * @returns {Array}
++   */
++  getRange(sensorId, startMs, endMs) {
++    const buffer = this.buffers.get(sensorId);
++    if (!buffer || buffer.length === 0) {
++      return [];
++    }
++
++    // Binary search for start index
++    const startIdx = this._findStartIndex(buffer, startMs);
++    if (startIdx === -1) {
++      return [];
++    }
++
++    const result = [];
++    for (let i = startIdx; i < buffer.length && buffer[i].timestamp <= endMs; i++) {
++      result.push({ ...buffer[i] });
++    }
++    
++    return result;
++  }
++
++  /**
++   * Get the last N data points for a sensor
++   * @param {string} sensorId 
++   * @param {number} count 
++   * @returns {Array}
++   */
++  getLastN(sensorId, count) {
++    const buffer = this.buffers.get(sensorId);
++    if (!buffer || buffer.length === 0) {
++      return [];
++    }
++    
++    const startIdx = Math.max(0, buffer.length - count);
++    return buffer.slice(startIdx).map(p => ({ ...p }));
++  }
++
++  /**
++   * Get all data for a sensor within the current window
++   * @param {string} sensorId 
++   * @returns {Array}
++   */
++  getCurrentWindow(sensorId) {
++    const now = Date.now();
++    return this.getRange(sensorId, now - this.windowSizeMs, now);
++  }
++
++  /**
++   * Get the total number of data points across all sensors
++   * @returns {number}
++   */
++  getTotalSize() {
++    let total = 0;
++    for (const buffer of this.buffers.values()) {
++      total += buffer.length;
++    }
++    return total;
++  }
++
++  /**
++   * Get the number of data points for a specific sensor
++   * @param {string} sensorId 
++   * @returns {number}
++   */
++  getSensorSize(sensorId) {
++    const buffer = this.buffers.get(sensorId);
++    return buffer ? buffer.length : 0;
++  }
++
++  /**
++   * Get all sensor IDs in the buffer
++   * @returns {Array<string>}
++   */
++  getSensorIds() {
++    return Array.from(this.buffers.keys());
++  }
++
++  /**
++   * Clear all data for a sensor
++   * @param {string} sensorId 
++   */
++  clearSensor(sensorId) {
++    this.buffers.delete(sensorId);
++  }
++
++  /**
++   * Clear all data
++   */
++  clearAll() {
++    this.buffers.clear();
++    this.evictionCount = 0;
++  }
++
++  /**
++   * Get eviction statistics
++   * @returns {object}
++   */
++  getEvictionStats() {
++    return {
++      totalEvictions: this.evictionCount,
++      currentSensors: this.buffers.size,
++      totalPoints: this.getTotalSize()
++    };
++  }
++
++  /**
++   * Evict data points outside the window or exceeding max count
++   * @private
++   */
++  _evictOldData(sensorId) {
++    const buffer = this.buffers.get(sensorId);
++    if (!buffer || buffer.length === 0) return;
++
++    const cutoffTime = Date.now() - this.windowSizeMs;
++    let evicted = 0;
++
++    // Remove points older than window
++    while (buffer.length > 0 && buffer[0].timestamp < cutoffTime) {
++      buffer.shift();
++      evicted++;
++    }
++
++    // Remove points exceeding max count (keep newest)
++    while (buffer.length > this.maxPointsPerSensor) {
++      buffer.shift();
++      evicted++;
++    }
++
++    this.evictionCount += evicted;
++  }
++
++  /**
++   * Force eviction check on all sensors (useful for cleanup)
++   */
++  evictAll() {
++    for (const sensorId of this.buffers.keys()) {
++      this._evictOldData(sensorId);
++    }
++  }
++
++  /**
++   * Binary search to find insert index
++   * @private
++   */
++  _findInsertIndex(buffer, timestamp) {
++    let low = 0;
++    let high = buffer.length;
++    
++    while (low < high) {
++      const mid = Math.floor((low + high) / 2);
++      if (buffer[mid].timestamp < timestamp) {
++        low = mid + 1;
++      } else {
++        high = mid;
++      }
++    }
++    
++    return low;
++  }
++
++  /**
++   * Binary search to find first index >= startMs
++   * @private
++   */
++  _findStartIndex(buffer, startMs) {
++    let low = 0;
++    let high = buffer.length;
++    
++    while (low < high) {
++      const mid = Math.floor((low + high) / 2);
++      if (buffer[mid].timestamp < startMs) {
++        low = mid + 1;
++      } else {
++        high = mid;
++      }
++    }
++    
++    return low < buffer.length ? low : -1;
++  }
++}
++
++module.exports = { SlidingWindowBuffer };
+diff --git a/repository_after/server/src/db/database.js b/repository_after/server/src/db/database.js
+new file mode 100644
+index 00000000..255eb9bb
+--- /dev/null
++++ b/repository_after/server/src/db/database.js
+@@ -0,0 +1,100 @@
++const sqlite3 = require('sqlite3').verbose();
++const path = require('path');
++const fs = require('fs');
++
++class Database {
++  constructor() {
++    this.db = null;
++    this.dbPath = process.env.DB_PATH || path.join(__dirname, '../../data', 'sensors.db');
++  }
++
++  async connect() {
++    // Ensure directory exists
++    const dir = path.dirname(this.dbPath);
++    if (!fs.existsSync(dir)) {
++      fs.mkdirSync(dir, { recursive: true });
++    }
++
++    return new Promise((resolve, reject) => {
++      this.db = new sqlite3.Database(this.dbPath, (err) => {
++        if (err) {
++          console.error('Could not connect to database', err);
++          reject(err);
++        } else {
++          console.log('Connected to SQLite database');
++          this.initSchema().then(resolve).catch(reject);
++        }
++      });
++    });
++  }
++
++  async initSchema() {
++    const sql = `
++      CREATE TABLE IF NOT EXISTS readings (
++        id INTEGER PRIMARY KEY AUTOINCREMENT,
++        sensor_id TEXT NOT NULL,
++        timestamp INTEGER NOT NULL,
++        value REAL NOT NULL,
++        type TEXT
++      );
++      CREATE INDEX IF NOT EXISTS idx_sensor_time ON readings(sensor_id, timestamp);
++    `;
++
++    return new Promise((resolve, reject) => {
++      this.db.exec(sql, (err) => {
++        if (err) reject(err);
++        else resolve();
++      });
++    });
++  }
++
++  async insertBatch(readings) {
++    if (!readings || readings.length === 0) return;
++
++    return new Promise((resolve, reject) => {
++      const db = this.db;
++      db.serialize(() => {
++        db.exec('BEGIN TRANSACTION');
++        
++        const stmt = db.prepare('INSERT INTO readings (sensor_id, timestamp, value, type) VALUES (?, ?, ?, ?)');
++        
++        for (const r of readings) {
++          stmt.run(r.sensorId, r.timestamp, r.value, r.type);
++        }
++        
++        stmt.finalize((err) => {
++          if (err) {
++            db.exec('ROLLBACK');
++            reject(err);
++          } else {
++            db.exec('COMMIT', (err) => {
++              if (err) reject(err);
++              else resolve();
++            });
++          }
++        });
++      });
++    });
++  }
++
++  async queryRange(sensorId, startMs, endMs) {
++    const sql = `
++      SELECT timestamp, value, type 
++      FROM readings 
++      WHERE sensor_id = ? AND timestamp >= ? AND timestamp <= ?
++      ORDER BY timestamp ASC
++    `;
++
++    return new Promise((resolve, reject) => {
++      this.db.all(sql, [sensorId, startMs, endMs], (err, rows) => {
++        if (err) reject(err);
++        else resolve(rows);
++      });
++    });
++  }
++}
++
++// Singleton instance
++const db = new Database();
++
++module.exports = db;
+diff --git a/repository_after/server/src/index.js b/repository_after/server/src/index.js
+new file mode 100644
+index 00000000..8e63f8cc
+--- /dev/null
++++ b/repository_after/server/src/index.js
+@@ -0,0 +1,192 @@
++const express = require('express');
++const http = require('http');
++const cors = require('cors');
++const { SlidingWindowBuffer } = require('./buffer/SlidingWindowBuffer');
++const { WebSocketServer } = require('./websocket/WebSocketServer');
++const { createHistoryRoutes } = require('./api/historyRoutes');
++const { SensorSimulator } = require('./simulator/SensorSimulator');
++const db = require('./db/database');
++
++// Configuration
++const PORT = process.env.PORT || 3001;
++const SENSOR_COUNT = parseInt(process.env.SENSOR_COUNT, 10) || 50;
++const UPDATE_INTERVAL_MS = parseInt(process.env.UPDATE_INTERVAL_MS, 10) || 100;
++const WINDOW_SIZE_MS = parseInt(process.env.WINDOW_SIZE_MS, 10) || 10 * 60 * 1000;
++
++// Initialize components
++const buffer = new SlidingWindowBuffer(WINDOW_SIZE_MS);
++const simulator = new SensorSimulator({
++  sensorCount: SENSOR_COUNT,
++  updateIntervalMs: UPDATE_INTERVAL_MS,
++  thresholds: {
++    vibration: 80,
++    temperature: 85
++  }
++});
++
++// Create Express app
++const app = express();
++app.use(cors());
++app.use(express.json());
++
++// Health check endpoint
++app.get('/health', (req, res) => {
++  res.json({ 
++    status: 'ok',
++    timestamp: Date.now(),
++    sensors: SENSOR_COUNT,
++    updateRate: `${1000 / UPDATE_INTERVAL_MS}Hz`
++  });
++});
++
++// Sensor info endpoint
++app.get('/api/sensors', (req, res) => {
++  const sensors = simulator.getSensorStates();
++  res.json({ sensors });
++});
++
++// Single sensor info
++app.get('/api/sensors/:sensorId', (req, res) => {
++  const info = simulator.getSensorInfo(req.params.sensorId);
++  if (!info) {
++    return res.status(404).json({ error: 'Sensor not found' });
++  }
++  res.json(info);
++});
++
++// History routes with buffer and db
++app.use('/api/history', createHistoryRoutes(buffer, db));
++
++// Stats endpoint
++app.get('/api/stats', (req, res) => {
++  res.json({
++    buffer: buffer.getEvictionStats(),
++    simulator: {
++      running: simulator.isRunning(),
++      sensorCount: SENSOR_COUNT
++    },
++    websocket: wsServer.getStats()
++  });
++});
++
++// DEBUG: Trigger anomaly for testing alerts
++app.post('/api/debug/trigger-alert/:sensorId', (req, res) => {
++  const { sensorId } = req.params;
++  const readings = parseInt(req.query.readings, 10) || 5;
++  
++  simulator.triggerAnomaly(sensorId, readings);
++  res.json({ 
++    success: true, 
++    message: `Triggered ${readings} threshold violations on ${sensorId}` 
++  });
++});
++
++// DEBUG: Trigger alerts on multiple sensors
++app.post('/api/debug/trigger-alerts', (req, res) => {
++  const count = parseInt(req.query.count, 10) || 5;
++  const readings = parseInt(req.query.readings, 10) || 5;
++  
++  const triggered = [];
++  for (let i = 0; i < count; i++) {
++    const sensorId = `sensor-${String(i).padStart(3, '0')}`;
++    simulator.triggerAnomaly(sensorId, readings);
++    triggered.push(sensorId);
++  }
++  
++  res.json({ 
++    success: true, 
++    message: `Triggered alerts on ${count} sensors`,
++    sensors: triggered
++  });
++});
++
++// Create HTTP server
++const server = http.createServer(app);
++
++// Create and attach WebSocket server
++const wsServer = new WebSocketServer({
++  path: '/ws',
++  heartbeatInterval: 30000
++});
++wsServer.attach(server);
++
++// Persistence Buffer
++let writeBuffer = [];
++const BATCH_SIZE = 500;
++const FLUSH_INTERVAL = 1000;
++
++const flushToDb = async () => {
++  if (writeBuffer.length === 0) return;
++  
++  const batch = [...writeBuffer];
++  writeBuffer = [];
++  
++  try {
++    await db.insertBatch(batch);
++  } catch (err) {
++    console.error('Failed to flush to DB:', err);
++  }
++};
++
++setInterval(flushToDb, FLUSH_INTERVAL);
++
++// Connect simulator to buffer, WebSocket, and DB
++simulator.start((sensorId, data) => {
++  // Store in buffer
++  buffer.push(sensorId, data);
++  
++  // Broadcast to subscribed clients
++  wsServer.broadcast(sensorId, data);
++  
++  // Add to persistence buffer
++  writeBuffer.push({
++    sensorId,
++    timestamp: data.timestamp || Date.now(),
++    value: data.value,
++    type: data.type
++  });
++  
++  if (writeBuffer.length >= BATCH_SIZE) {
++    flushToDb();
++  }
++});
++
++// Periodic cleanup
++setInterval(() => {
++  buffer.evictAll();
++}, 60000); // Every minute
++
++// Initialize DB and Start server
++const startServer = async () => {
++  try {
++    await db.connect();
++    server.listen(PORT, () => {
++      console.log(`IoT Sensor Dashboard Server running on port ${PORT}`);
++      console.log(`- Sensors: ${SENSOR_COUNT}`);
++      console.log(`- Update rate: ${1000 / UPDATE_INTERVAL_MS}Hz`);
++      console.log(`- Buffer window: ${WINDOW_SIZE_MS / 1000}s`);
++      console.log(`- WebSocket: ws://localhost:${PORT}/ws`);
++      console.log(`- API: http://localhost:${PORT}/api`);
++    });
++  } catch (err) {
++    console.error('Failed to start server:', err);
++    process.exit(1);
++  }
++};
++
++startServer();
++
++// Graceful shutdown
++process.on('SIGTERM', () => {
++  console.log('Shutting down...');
++  simulator.stop();
++  wsServer.close();
++  flushToDb().then(() => {
++    server.close(() => {
++      console.log('Server closed');
++      process.exit(0);
++    });
++  });
++});
++
++module.exports = { app, server, buffer, wsServer, simulator };
+diff --git a/repository_after/server/src/simulator/SensorSimulator.js b/repository_after/server/src/simulator/SensorSimulator.js
+new file mode 100644
+index 00000000..dd4c5d01
+--- /dev/null
++++ b/repository_after/server/src/simulator/SensorSimulator.js
+@@ -0,0 +1,197 @@
++/**
++ * SensorSimulator - Generates realistic sensor data for development/testing
++ * 
++ * Simulates low-power IoT sensors reporting vibration and temperature data.
++ * Occasionally generates threshold violations for alert testing.
++ */
++
++class SensorSimulator {
++  /**
++   * @param {object} options
++   * @param {number} options.sensorCount - Number of sensors to simulate (default 50)
++   * @param {number} options.updateIntervalMs - Update interval in ms (default 100)
++   * @param {object} options.thresholds - Threshold values for alerts
++   */
++  constructor(options = {}) {
++    this.sensorCount = options.sensorCount || 50;
++    this.updateIntervalMs = options.updateIntervalMs || 100;
++    this.thresholds = options.thresholds || {
++      vibration: 80,    // mm/s
++      temperature: 85   // °C
++    };
++    
++    // Sensor state
++    this.sensors = new Map();
++    this.timer = null;
++    this.onData = null;
++    
++    // Initialize sensors
++    this._initializeSensors();
++  }
++
++  /**
++   * Initialize sensor state
++   * @private
++   */
++  _initializeSensors() {
++    for (let i = 0; i < this.sensorCount; i++) {
++      const sensorId = `sensor-${String(i).padStart(3, '0')}`;
++      this.sensors.set(sensorId, {
++        id: sensorId,
++        type: i % 2 === 0 ? 'vibration' : 'temperature',
++        baseValue: i % 2 === 0 ? 30 : 45,  // Base vibration or temperature
++        drift: 0,
++        anomalyCounter: 0
++      });
++    }
++  }
++
++  /**
++   * Get all sensor IDs
++   * @returns {Array<string>}
++   */
++  getSensorIds() {
++    return Array.from(this.sensors.keys());
++  }
++
++  /**
++   * Get sensor metadata
++   * @param {string} sensorId 
++   * @returns {object|null}
++   */
++  getSensorInfo(sensorId) {
++    const sensor = this.sensors.get(sensorId);
++    if (!sensor) return null;
++    
++    return {
++      id: sensor.id,
++      type: sensor.type,
++      threshold: this.thresholds[sensor.type]
++    };
++  }
++
++  /**
++   * Generate a single data point for a sensor
++   * @param {string} sensorId 
++   * @returns {object}
++   */
++  generateDataPoint(sensorId) {
++    const sensor = this.sensors.get(sensorId);
++    if (!sensor) return null;
++    
++    const timestamp = Date.now();
++    
++    // Update drift (slow random walk)
++    sensor.drift += (Math.random() - 0.5) * 2;
++    sensor.drift = Math.max(-10, Math.min(10, sensor.drift));
++    
++    // Calculate base value with drift
++    let value = sensor.baseValue + sensor.drift;
++    
++    // Add noise
++    value += (Math.random() - 0.5) * 5;
++    
++    // Occasionally generate anomalies (threshold violations)
++    // This creates sustained violations for alert testing
++    const threshold = this.thresholds[sensor.type];
++    
++    // 5% chance to start an anomaly sequence
++    if (sensor.anomalyCounter === 0 && Math.random() < 0.05) {
++      sensor.anomalyCounter = Math.floor(Math.random() * 6) + 3; // 3-8 readings
++    }
++    
++    // During anomaly, push value above threshold
++    if (sensor.anomalyCounter > 0) {
++      value = threshold + Math.random() * 20 + 5;
++      sensor.anomalyCounter--;
++    }
++    
++    // Ensure non-negative
++    value = Math.max(0, value);
++    
++    return {
++      timestamp,
++      value: Math.round(value * 100) / 100,
++      type: sensor.type
++    };
++  }
++
++  /**
++   * Generate data for all sensors
++   * @returns {Object}
++   */
++  generateAllData() {
++    const data = {};
++    for (const sensorId of this.sensors.keys()) {
++      data[sensorId] = this.generateDataPoint(sensorId);
++    }
++    return data;
++  }
++
++  /**
++   * Start generating data at configured interval
++   * @param {Function} callback - Called with (sensorId, data) for each update
++   */
++  start(callback) {
++    this.onData = callback;
++    
++    this.timer = setInterval(() => {
++      const allData = this.generateAllData();
++      
++      if (this.onData) {
++        for (const [sensorId, data] of Object.entries(allData)) {
++          this.onData(sensorId, data);
++        }
++      }
++    }, this.updateIntervalMs);
++    
++    console.log(`Sensor simulator started: ${this.sensorCount} sensors at ${1000/this.updateIntervalMs}Hz`);
++  }
++
++  /**
++   * Stop generating data
++   */
++  stop() {
++    if (this.timer) {
++      clearInterval(this.timer);
++      this.timer = null;
++    }
++    this.onData = null;
++    console.log('Sensor simulator stopped');
++  }
++
++  /**
++   * Check if simulation is running
++   * @returns {boolean}
++   */
++  isRunning() {
++    return this.timer !== null;
++  }
++
++  /**
++   * Force a threshold violation for a specific sensor (for testing)
++   * @param {string} sensorId 
++   * @param {number} readings - Number of consecutive violations (default 5)
++   */
++  triggerAnomaly(sensorId, readings = 5) {
++    const sensor = this.sensors.get(sensorId);
++    if (sensor) {
++      sensor.anomalyCounter = readings;
++    }
++  }
++
++  /**
++   * Get current sensor states
++   * @returns {Array}
++   */
++  getSensorStates() {
++    return Array.from(this.sensors.values()).map(s => ({
++      id: s.id,
++      type: s.type,
++      threshold: this.thresholds[s.type],
++      hasAnomaly: s.anomalyCounter > 0
++    }));
++  }
++}
++
++module.exports = { SensorSimulator };
+diff --git a/repository_after/server/src/thunderingHerd/RequestCoalescer.js b/repository_after/server/src/thunderingHerd/RequestCoalescer.js
+new file mode 100644
+index 00000000..998086a9
+--- /dev/null
++++ b/repository_after/server/src/thunderingHerd/RequestCoalescer.js
+@@ -0,0 +1,188 @@
++/**
++ * RequestCoalescer - Prevents thundering herd problem for historical data requests
++ * 
++ * Requirement 4: The system must handle a 'thundering herd' scenario where 100 
++ * clients refresh the page and request historical data simultaneously.
++ * 
++ * Strategy:
++ * 1. Request deduplication: identical concurrent requests share a single computation
++ * 2. Short-lived cache with TTL for recent queries
++ * 3. Semaphore for limiting concurrent heavy operations
++ */
++
++class RequestCoalescer {
++  /**
++   * @param {object} options
++   * @param {number} options.cacheTTLMs - Cache TTL in milliseconds (default 1000ms)
++   * @param {number} options.maxConcurrent - Max concurrent heavy operations (default 10)
++   */
++  constructor(options = {}) {
++    this.cacheTTLMs = options.cacheTTLMs || 1000;
++    this.maxConcurrent = options.maxConcurrent || 10;
++    
++    // Cache of completed results: key -> { data, expiry }
++    this.cache = new Map();
++    
++    // In-flight requests: key -> Promise
++    this.inFlight = new Map();
++    
++    // Semaphore for limiting concurrent operations
++    this.activeOperations = 0;
++    this.waitingQueue = [];
++    
++    // Stats for monitoring
++    this.stats = {
++      cacheHits: 0,
++      cacheMisses: 0,
++      coalesced: 0,
++      queued: 0
++    };
++  }
++
++  /**
++   * Generate a cache key from request parameters
++   * @param {string} sensorId 
++   * @param {number} startMs 
++   * @param {number} endMs 
++   * @returns {string}
++   */
++  generateKey(sensorId, startMs, endMs) {
++    // Round to nearest second to improve cache hits
++    const roundedStart = Math.floor(startMs / 1000) * 1000;
++    const roundedEnd = Math.floor(endMs / 1000) * 1000;
++    return `${sensorId}:${roundedStart}:${roundedEnd}`;
++  }
++
++  /**
++   * Execute a request with coalescing and caching
++   * @param {string} key - Unique request key
++   * @param {Function} fetcher - Async function that fetches the data
++   * @returns {Promise}
++   */
++  async execute(key, fetcher) {
++    // Check cache first
++    const cached = this.cache.get(key);
++    if (cached && cached.expiry > Date.now()) {
++      this.stats.cacheHits++;
++      return cached.data;
++    }
++    
++    // Check if request is already in-flight
++    if (this.inFlight.has(key)) {
++      this.stats.coalesced++;
++      return this.inFlight.get(key);
++    }
++    
++    this.stats.cacheMisses++;
++    
++    // Wait for semaphore if at capacity
++    if (this.activeOperations >= this.maxConcurrent) {
++      this.stats.queued++;
++      await this._waitForSlot();
++    }
++    
++    // Create the in-flight promise
++    const promise = this._executeWithSemaphore(key, fetcher);
++    this.inFlight.set(key, promise);
++    
++    try {
++      const result = await promise;
++      
++      // Cache the result
++      this.cache.set(key, {
++        data: result,
++        expiry: Date.now() + this.cacheTTLMs
++      });
++      
++      return result;
++    } finally {
++      this.inFlight.delete(key);
++    }
++  }
++
++  /**
++   * Execute fetcher with semaphore protection
++   * @private
++   */
++  async _executeWithSemaphore(key, fetcher) {
++    this.activeOperations++;
++    
++    try {
++      return await fetcher();
++    } finally {
++      this.activeOperations--;
++      this._releaseSlot();
++    }
++  }
++
++  /**
++   * Wait for a semaphore slot to become available
++   * @private
++   */
++  _waitForSlot() {
++    return new Promise(resolve => {
++      this.waitingQueue.push(resolve);
++    });
++  }
++
++  /**
++   * Release a semaphore slot and wake up waiting requests
++   * @private
++   */
++  _releaseSlot() {
++    if (this.waitingQueue.length > 0) {
++      const next = this.waitingQueue.shift();
++      next();
++    }
++  }
++
++  /**
++   * Clean up expired cache entries
++   */
++  cleanupCache() {
++    const now = Date.now();
++    for (const [key, value] of this.cache) {
++      if (value.expiry <= now) {
++        this.cache.delete(key);
++      }
++    }
++  }
++
++  /**
++   * Clear all cache and in-flight requests
++   */
++  clear() {
++    this.cache.clear();
++    // Note: in-flight requests will complete naturally
++  }
++
++  /**
++   * Get current statistics
++   * @returns {object}
++   */
++  getStats() {
++    return {
++      ...this.stats,
++      cacheSize: this.cache.size,
++      inFlightRequests: this.inFlight.size,
++      activeOperations: this.activeOperations,
++      queuedRequests: this.waitingQueue.length,
++      hitRate: this.stats.cacheHits / 
++        (this.stats.cacheHits + this.stats.cacheMisses) || 0
++    };
++  }
++
++  /**
++   * Reset statistics
++   */
++  resetStats() {
++    this.stats = {
++      cacheHits: 0,
++      cacheMisses: 0,
++      coalesced: 0,
++      queued: 0
++    };
++  }
++}
++
++module.exports = { RequestCoalescer };
+diff --git a/repository_after/server/src/websocket/SubscriptionManager.js b/repository_after/server/src/websocket/SubscriptionManager.js
+new file mode 100644
+index 00000000..5e63e299
+--- /dev/null
++++ b/repository_after/server/src/websocket/SubscriptionManager.js
+@@ -0,0 +1,243 @@
++/**
++ * SubscriptionManager - Manages WebSocket client subscriptions to sensors
++ * 
++ * Requirement 3: Implement a WebSocket protocol that supports 'subscriptions': 
++ * a client should only receive data for the sensors currently visible in the viewport.
++ */
++
++class SubscriptionManager {
++  constructor() {
++    // Map of clientId -> Set of sensorIds
++    this.clientSubscriptions = new Map();
++    // Reverse map: sensorId -> Set of clientIds (for efficient broadcast)
++    this.sensorSubscribers = new Map();
++    // Map of clientId -> WebSocket
++    this.clients = new Map();
++  }
++
++  /**
++   * Register a new client connection
++   * @param {string} clientId 
++   * @param {WebSocket} ws 
++   */
++  registerClient(clientId, ws) {
++    this.clients.set(clientId, ws);
++    this.clientSubscriptions.set(clientId, new Set());
++  }
++
++  /**
++   * Unregister a client and clean up all subscriptions
++   * @param {string} clientId 
++   */
++  unregisterClient(clientId) {
++    const subscriptions = this.clientSubscriptions.get(clientId);
++    if (subscriptions) {
++      // Remove from all sensor subscriber lists
++      for (const sensorId of subscriptions) {
++        const subscribers = this.sensorSubscribers.get(sensorId);
++        if (subscribers) {
++          subscribers.delete(clientId);
++          if (subscribers.size === 0) {
++            this.sensorSubscribers.delete(sensorId);
++          }
++        }
++      }
++    }
++    
++    this.clientSubscriptions.delete(clientId);
++    this.clients.delete(clientId);
++  }
++
++  /**
++   * Subscribe a client to specific sensors
++   * @param {string} clientId 
++   * @param {Array<string>} sensorIds 
++   */
++  subscribe(clientId, sensorIds) {
++    const subscriptions = this.clientSubscriptions.get(clientId);
++    if (!subscriptions) {
++      return false;
++    }
++
++    for (const sensorId of sensorIds) {
++      subscriptions.add(sensorId);
++      
++      if (!this.sensorSubscribers.has(sensorId)) {
++        this.sensorSubscribers.set(sensorId, new Set());
++      }
++      this.sensorSubscribers.get(sensorId).add(clientId);
++    }
++    
++    return true;
++  }
++
++  /**
++   * Unsubscribe a client from specific sensors
++   * @param {string} clientId 
++   * @param {Array<string>} sensorIds 
++   */
++  unsubscribe(clientId, sensorIds) {
++    const subscriptions = this.clientSubscriptions.get(clientId);
++    if (!subscriptions) {
++      return false;
++    }
++
++    for (const sensorId of sensorIds) {
++      subscriptions.delete(sensorId);
++      
++      const subscribers = this.sensorSubscribers.get(sensorId);
++      if (subscribers) {
++        subscribers.delete(clientId);
++        if (subscribers.size === 0) {
++          this.sensorSubscribers.delete(sensorId);
++        }
++      }
++    }
++    
++    return true;
++  }
++
++  /**
++   * Replace all subscriptions for a client (used when viewport changes)
++   * @param {string} clientId 
++   * @param {Array<string>} sensorIds 
++   */
++  setSubscriptions(clientId, sensorIds) {
++    const currentSubs = this.clientSubscriptions.get(clientId);
++    if (!currentSubs) {
++      return false;
++    }
++
++    const newSensorSet = new Set(sensorIds);
++    
++    // Find sensors to unsubscribe (in current but not in new)
++    const toUnsubscribe = [];
++    for (const sensorId of currentSubs) {
++      if (!newSensorSet.has(sensorId)) {
++        toUnsubscribe.push(sensorId);
++      }
++    }
++    
++    // Find sensors to subscribe (in new but not in current)
++    const toSubscribe = [];
++    for (const sensorId of sensorIds) {
++      if (!currentSubs.has(sensorId)) {
++        toSubscribe.push(sensorId);
++      }
++    }
++    
++    this.unsubscribe(clientId, toUnsubscribe);
++    this.subscribe(clientId, toSubscribe);
++    
++    return true;
++  }
++
++  /**
++   * Get all clients subscribed to a specific sensor
++   * @param {string} sensorId 
++   * @returns {Array<string>}
++   */
++  getSubscribers(sensorId) {
++    const subscribers = this.sensorSubscribers.get(sensorId);
++    return subscribers ? Array.from(subscribers) : [];
++  }
++
++  /**
++   * Get all sensors a client is subscribed to
++   * @param {string} clientId 
++   * @returns {Array<string>}
++   */
++  getSubscriptions(clientId) {
++    const subscriptions = this.clientSubscriptions.get(clientId);
++    return subscriptions ? Array.from(subscriptions) : [];
++  }
++
++  /**
++   * Broadcast data to all clients subscribed to a sensor
++   * @param {string} sensorId 
++   * @param {object} data 
++   */
++  broadcast(sensorId, data) {
++    const subscribers = this.sensorSubscribers.get(sensorId);
++    if (!subscribers || subscribers.size === 0) {
++      return 0;
++    }
++
++    const message = JSON.stringify({
++      type: 'sensorData',
++      sensorId,
++      data
++    });
++
++    let sentCount = 0;
++    for (const clientId of subscribers) {
++      const ws = this.clients.get(clientId);
++      if (ws && ws.readyState === 1) { // WebSocket.OPEN = 1
++        try {
++          ws.send(message);
++          sentCount++;
++        } catch (err) {
++          // Client disconnected, will be cleaned up
++          console.error(`Failed to send to client ${clientId}:`, err.message);
++        }
++      }
++    }
++    
++    return sentCount;
++  }
++
++  /**
++   * Broadcast data to multiple sensors efficiently (batched)
++   * @param {Object} sensorDataMap - { sensorId: data }
++   */
++  broadcastBatch(sensorDataMap) {
++    // Group data by client to minimize sends
++    const clientMessages = new Map();
++    
++    for (const [sensorId, data] of Object.entries(sensorDataMap)) {
++      const subscribers = this.sensorSubscribers.get(sensorId);
++      if (!subscribers) continue;
++      
++      for (const clientId of subscribers) {
++        if (!clientMessages.has(clientId)) {
++          clientMessages.set(clientId, []);
++        }
++        clientMessages.get(clientId).push({ sensorId, data });
++      }
++    }
++    
++    // Send batched messages to each client
++    let totalSent = 0;
++    for (const [clientId, messages] of clientMessages) {
++      const ws = this.clients.get(clientId);
++      if (ws && ws.readyState === 1) {
++        try {
++          ws.send(JSON.stringify({
++            type: 'sensorDataBatch',
++            sensors: messages
++          }));
++          totalSent++;
++        } catch (err) {
++          console.error(`Failed to send batch to client ${clientId}:`, err.message);
++        }
++      }
++    }
++    
++    return totalSent;
++  }
++
++  /**
++   * Get statistics about subscriptions
++   * @returns {object}
++   */
++  getStats() {
++    return {
++      totalClients: this.clients.size,
++      totalSubscriptions: Array.from(this.clientSubscriptions.values())
++        .reduce((sum, set) => sum + set.size, 0),
++      sensorsWithSubscribers: this.sensorSubscribers.size
++    };
++  }
++}
++
++module.exports = { SubscriptionManager };
+diff --git a/repository_after/server/src/websocket/WebSocketServer.js b/repository_after/server/src/websocket/WebSocketServer.js
+new file mode 100644
+index 00000000..768d3d99
+--- /dev/null
++++ b/repository_after/server/src/websocket/WebSocketServer.js
+@@ -0,0 +1,244 @@
++const WebSocket = require('ws');
++const { v4: uuidv4 } = require('uuid');
++const { SubscriptionManager } = require('./SubscriptionManager');
++
++/**
++ * WebSocketServer - Handles WebSocket connections and message routing
++ * 
++ * Protocol Messages:
++ * - Client -> Server:
++ *   { type: 'subscribe', sensorIds: [...] }
++ *   { type: 'unsubscribe', sensorIds: [...] }
++ *   { type: 'setSubscriptions', sensorIds: [...] }
++ *   { type: 'ping' }
++ * 
++ * - Server -> Client:
++ *   { type: 'connected', clientId: '...' }
++ *   { type: 'subscribed', sensorIds: [...] }
++ *   { type: 'unsubscribed', sensorIds: [...] }
++ *   { type: 'sensorData', sensorId: '...', data: {...} }
++ *   { type: 'sensorDataBatch', sensors: [{ sensorId, data }] }
++ *   { type: 'pong' }
++ *   { type: 'error', message: '...' }
++ */
++
++class WebSocketServerWrapper {
++  /**
++   * @param {object} options
++   * @param {http.Server} options.server - HTTP server to attach to
++   * @param {string} options.path - WebSocket path (default '/ws')
++   * @param {number} options.heartbeatInterval - Heartbeat interval in ms (default 30000)
++   */
++  constructor(options = {}) {
++    this.path = options.path || '/ws';
++    this.heartbeatInterval = options.heartbeatInterval || 30000;
++    this.subscriptionManager = new SubscriptionManager();
++    this.wss = null;
++    this.heartbeatTimer = null;
++  }
++
++  /**
++   * Attach to an HTTP server and start accepting connections
++   * @param {http.Server} server 
++   */
++  attach(server) {
++    this.wss = new WebSocket.Server({ 
++      server,
++      path: this.path
++    });
++
++    this.wss.on('connection', (ws, req) => {
++      this._handleConnection(ws, req);
++    });
++
++    // Start heartbeat
++    this._startHeartbeat();
++
++    console.log(`WebSocket server attached at path: ${this.path}`);
++  }
++
++  /**
++   * Handle a new WebSocket connection
++   * @private
++   */
++  _handleConnection(ws, req) {
++    const clientId = uuidv4();
++    ws.clientId = clientId;
++    ws.isAlive = true;
++
++    // Register client
++    this.subscriptionManager.registerClient(clientId, ws);
++
++    // Send connection confirmation
++    this._send(ws, {
++      type: 'connected',
++      clientId
++    });
++
++    console.log(`Client connected: ${clientId}`);
++
++    // Handle messages
++    ws.on('message', (data) => {
++      this._handleMessage(ws, clientId, data);
++    });
++
++    // Handle pong (heartbeat response)
++    ws.on('pong', () => {
++      ws.isAlive = true;
++    });
++
++    // Handle close
++    ws.on('close', () => {
++      this.subscriptionManager.unregisterClient(clientId);
++      console.log(`Client disconnected: ${clientId}`);
++    });
++
++    // Handle errors
++    ws.on('error', (err) => {
++      console.error(`WebSocket error for client ${clientId}:`, err.message);
++    });
++  }
++
++  /**
++   * Handle incoming message from client
++   * @private
++   */
++  _handleMessage(ws, clientId, data) {
++    try {
++      const message = JSON.parse(data.toString());
++      
++      switch (message.type) {
++        case 'subscribe':
++          if (Array.isArray(message.sensorIds)) {
++            this.subscriptionManager.subscribe(clientId, message.sensorIds);
++            this._send(ws, {
++              type: 'subscribed',
++              sensorIds: message.sensorIds
++            });
++          }
++          break;
++          
++        case 'unsubscribe':
++          if (Array.isArray(message.sensorIds)) {
++            this.subscriptionManager.unsubscribe(clientId, message.sensorIds);
++            this._send(ws, {
++              type: 'unsubscribed',
++              sensorIds: message.sensorIds
++            });
++          }
++          break;
++          
++        case 'setSubscriptions':
++          if (Array.isArray(message.sensorIds)) {
++            this.subscriptionManager.setSubscriptions(clientId, message.sensorIds);
++            this._send(ws, {
++              type: 'subscribed',
++              sensorIds: message.sensorIds
++            });
++          }
++          break;
++          
++        case 'ping':
++          this._send(ws, { type: 'pong' });
++          break;
++          
++        default:
++          this._send(ws, {
++            type: 'error',
++            message: `Unknown message type: ${message.type}`
++          });
++      }
++    } catch (err) {
++      this._send(ws, {
++        type: 'error',
++        message: 'Invalid JSON message'
++      });
++    }
++  }
++
++  /**
++   * Send a message to a WebSocket client
++   * @private
++   */
++  _send(ws, data) {
++    if (ws.readyState === WebSocket.OPEN) {
++      ws.send(JSON.stringify(data));
++    }
++  }
++
++  /**
++   * Start heartbeat timer to detect dead connections
++   * @private
++   */
++  _startHeartbeat() {
++    this.heartbeatTimer = setInterval(() => {
++      if (!this.wss) return;
++      
++      this.wss.clients.forEach((ws) => {
++        if (ws.isAlive === false) {
++          // Connection is dead
++          if (ws.clientId) {
++            this.subscriptionManager.unregisterClient(ws.clientId);
++          }
++          return ws.terminate();
++        }
++        
++        ws.isAlive = false;
++        ws.ping();
++      });
++    }, this.heartbeatInterval);
++  }
++
++  /**
++   * Broadcast sensor data to subscribed clients
++   * @param {string} sensorId 
++   * @param {object} data 
++   */
++  broadcast(sensorId, data) {
++    return this.subscriptionManager.broadcast(sensorId, data);
++  }
++
++  /**
++   * Broadcast batch of sensor data
++   * @param {Object} sensorDataMap 
++   */
++  broadcastBatch(sensorDataMap) {
++    return this.subscriptionManager.broadcastBatch(sensorDataMap);
++  }
++
++  /**
++   * Get subscription manager for external access
++   * @returns {SubscriptionManager}
++   */
++  getSubscriptionManager() {
++    return this.subscriptionManager;
++  }
++
++  /**
++   * Get server statistics
++   * @returns {object}
++   */
++  getStats() {
++    return {
++      connections: this.wss ? this.wss.clients.size : 0,
++      ...this.subscriptionManager.getStats()
++    };
++  }
++
++  /**
++   * Close the WebSocket server
++   */
++  close() {
++    if (this.heartbeatTimer) {
++      clearInterval(this.heartbeatTimer);
++      this.heartbeatTimer = null;
++    }
++    
++    if (this.wss) {
++      this.wss.close();
++      this.wss = null;
++    }
++  }
++}
++
++module.exports = { WebSocketServer: WebSocketServerWrapper };
