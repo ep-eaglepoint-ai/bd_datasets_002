@@ -1,0 +1,981 @@
+diff --git a/repository_after/__init__.py b/repository_after/__init__.py
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/repository_after/config/test_settings.py b/repository_after/config/test_settings.py
+new file mode 100644
+index 00000000..2847ee6c
+--- /dev/null
++++ b/repository_after/config/test_settings.py
+@@ -0,0 +1,17 @@
++"""
++Test-specific Django settings that uses SQLite instead of PostgreSQL.
++"""
++from config.settings import *
++
++# Override database to use SQLite for testing
++DATABASES = {
++    'default': {
++        'ENGINE': 'django.db.backends.sqlite3',
++        'NAME': ':memory:',
++    }
++}
++
++# Disable password hashing for faster tests
++PASSWORD_HASHERS = [
++    'django.contrib.auth.hashers.MD5PasswordHasher',
++]
+diff --git a/repository_after/config/wsgi.py b/repository_after/config/wsgi.py
+new file mode 100644
+index 00000000..45140752
+--- /dev/null
++++ b/repository_after/config/wsgi.py
+@@ -0,0 +1,16 @@
++"""
++WSGI config for the multi-tenant SaaS project.
++
++It exposes the WSGI callable as a module-level variable named ``application``.
++
++For more information on this file, see
++https://docs.djangoproject.com/en/4.2/howto/deployment/wsgi/
++"""
++
++import os
++
++from django.core.wsgi import get_wsgi_application
++
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
++
++application = get_wsgi_application()
+diff --git a/repository_after/core/management/__init__.py b/repository_after/core/management/__init__.py
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/repository_after/core/management/commands/__init__.py b/repository_after/core/management/commands/__init__.py
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/repository_after/core/management/commands/cleanup_deleted_records.py b/repository_after/core/management/commands/cleanup_deleted_records.py
+new file mode 100644
+index 00000000..b998004f
+--- /dev/null
++++ b/repository_after/core/management/commands/cleanup_deleted_records.py
+@@ -0,0 +1,97 @@
++"""
++Management command to clean up soft-deleted records older than 30 days.
++
++This enforces the 30-day recovery period policy by permanently deleting
++records that have been soft-deleted for more than 30 days.
++
++Usage:
++    python manage.py cleanup_deleted_records
++    python manage.py cleanup_deleted_records --days=60  # Custom retention period
++    python manage.py cleanup_deleted_records --dry-run  # Preview without deleting
++"""
++
++from django.core.management.base import BaseCommand
++from django.utils import timezone
++from datetime import timedelta
++
++from core.models import Project, Task, Organization
++
++
++class Command(BaseCommand):
++    help = 'Permanently delete soft-deleted records older than the retention period (default: 30 days)'
++
++    def add_arguments(self, parser):
++        parser.add_argument(
++            '--days',
++            type=int,
++            default=30,
++            help='Number of days after which soft-deleted records are permanently deleted (default: 30)'
++        )
++        parser.add_argument(
++            '--dry-run',
++            action='store_true',
++            help='Preview what would be deleted without actually deleting'
++        )
++
++    def handle(self, *args, **options):
++        days = options['days']
++        dry_run = options['dry_run']
++        cutoff_date = timezone.now() - timedelta(days=days)
++        
++        self.stdout.write(
++            f"{'[DRY RUN] ' if dry_run else ''}Cleaning up records soft-deleted before {cutoff_date.isoformat()}"
++        )
++        
++        models_to_clean = [
++            ('Project', Project),
++            ('Task', Task),
++            ('Organization', Organization),
++        ]
++        
++        total_deleted = 0
++        
++        for model_name, model_class in models_to_clean:
++            # Get soft-deleted records older than cutoff
++            old_deleted = model_class.all_objects.filter(
++                is_deleted=True,
++                deleted_at__lt=cutoff_date
++            )
++            
++            count = old_deleted.count()
++            
++            if count > 0:
++                if dry_run:
++                    self.stdout.write(
++                        self.style.WARNING(
++                            f"  Would delete {count} {model_name}(s)"
++                        )
++                    )
++                    # List the records that would be deleted
++                    for obj in old_deleted[:10]:  # Show first 10
++                        self.stdout.write(f"    - {obj}")
++                    if count > 10:
++                        self.stdout.write(f"    ... and {count - 10} more")
++                else:
++                    # Actually delete the records
++                    deleted_count, _ = old_deleted.delete()
++                    self.stdout.write(
++                        self.style.SUCCESS(
++                            f"  Deleted {deleted_count} {model_name}(s)"
++                        )
++                    )
++                    total_deleted += deleted_count
++            else:
++                self.stdout.write(f"  No expired {model_name}s to clean up")
++        
++        if dry_run:
++            self.stdout.write(
++                self.style.NOTICE(
++                    f"\n[DRY RUN] Total records that would be deleted: {sum(m.all_objects.filter(is_deleted=True, deleted_at__lt=cutoff_date).count() for _, m in models_to_clean)}"
++                )
++            )
++        else:
++            self.stdout.write(
++                self.style.SUCCESS(
++                    f"\nTotal records permanently deleted: {total_deleted}"
++                )
++            )
+diff --git a/repository_before/core/middleware.py b/repository_after/core/middleware.py
+index ab58c317..f7adc51c 100644
+--- a/repository_before/core/middleware.py
++++ b/repository_after/core/middleware.py
+@@ -1,13 +1,20 @@
+ from django.utils.deprecation import MiddlewareMixin
++from django.utils import timezone
+ from rest_framework_simplejwt.authentication import JWTAuthentication
+ from rest_framework.exceptions import AuthenticationFailed
+ 
+-from .models import set_current_tenant, Organization, OrganizationMembership
++from .models import (
++    set_current_tenant, clear_current_tenant,
++    set_current_user, clear_current_user,
++    Organization, OrganizationMembership, APIKey
++)
+ 
+ 
+ class TenantMiddleware(MiddlewareMixin):
+     def process_request(self, request):
+         request.tenant = None
++        request.membership = None
++        request.api_key = None
+         
+         if request.path.startswith('/admin/'):
+             return
+@@ -17,7 +24,7 @@ class TenantMiddleware(MiddlewareMixin):
+             return
+         
+         try:
+-            organization = Organization.objects.get(slug=org_slug, is_deleted=False)
++            organization = Organization.all_objects.get(slug=org_slug, is_deleted=False)
+         except Organization.DoesNotExist:
+             return
+         
+@@ -38,26 +45,40 @@ class TenantMiddleware(MiddlewareMixin):
+                         request.tenant = organization
+                         request.membership = membership
+                         set_current_tenant(organization)
++                        set_current_user(user)
++                        
++                        # Track last_login on successful authentication
++                        user.last_login = timezone.now()
++                        user.save(update_fields=['last_login'])
+             except (AuthenticationFailed, Exception):
+                 pass
+         
+         elif auth_header.startswith('Api-Key '):
+-            from .models import APIKey
+-            from django.contrib.auth.hashers import make_password
+-            
+             raw_key = auth_header.split(' ')[1]
+-            try:
+-                api_key = APIKey.objects.get(
+-                    key_hash=make_password(raw_key),
+-                    organization=organization,
+-                    is_active=True
+-                )
+-                api_key.last_used_at = timezone.now()
+-                api_key.save(update_fields=['last_used_at'])
+-                
+-                request.tenant = organization
+-                request.api_key = api_key
+-                set_current_tenant(organization)
+-            except APIKey.DoesNotExist:
+-                pass
++            
++            # Must iterate through all active keys and use check_password
++            # because make_password generates different hashes each time
++            api_keys = APIKey.objects.filter(
++                organization=organization,
++                is_active=True
++            ).select_related('organization', 'created_by')
++            
++            for api_key in api_keys:
++                if api_key.check_key(raw_key):
++                    api_key.last_used_at = timezone.now()
++                    api_key.save(update_fields=['last_used_at'])
++                    
++                    request.tenant = organization
++                    request.api_key = api_key
++                    # Set user to the creator of the API key for audit logging
++                    if api_key.created_by:
++                        request.user = api_key.created_by
++                        set_current_user(api_key.created_by)
++                    set_current_tenant(organization)
++                    break
+ 
++    def process_response(self, request, response):
++        """Clear tenant and user context after each request to prevent leakage."""
++        clear_current_tenant()
++        clear_current_user()
++        return response
+diff --git a/repository_before/core/models.py b/repository_after/core/models.py
+index d291fd98..592ca63b 100644
+--- a/repository_before/core/models.py
++++ b/repository_after/core/models.py
+@@ -16,6 +16,26 @@ def set_current_tenant(tenant):
+     _thread_locals.tenant = tenant
+ 
+ 
++def clear_current_tenant():
++    """Clear the current tenant from thread-local storage."""
++    _thread_locals.tenant = None
++
++
++def get_current_user():
++    """Get the current user from thread-local storage for audit logging."""
++    return getattr(_thread_locals, 'user', None)
++
++
++def set_current_user(user):
++    """Set the current user in thread-local storage for audit logging."""
++    _thread_locals.user = user
++
++
++def clear_current_user():
++    """Clear the current user from thread-local storage."""
++    _thread_locals.user = None
++
++
+ class TenantManager(models.Manager):
+     def get_queryset(self):
+         queryset = super().get_queryset()
+@@ -231,6 +251,8 @@ class AuditLog(BaseModel):
+         ('create', 'Create'),
+         ('update', 'Update'),
+         ('delete', 'Delete'),
++        ('soft_delete', 'Soft Delete'),
++        ('restore', 'Restore'),
+     ]
+ 
+     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='audit_logs')
+@@ -247,10 +269,12 @@ class AuditLog(BaseModel):
+         ordering = ['-timestamp']
+ 
+     def save(self, *args, **kwargs):
+-        if self.pk is not None:
++        if not self._state.adding:
+             raise ValueError("Audit logs cannot be modified")
+         super().save(*args, **kwargs)
+ 
++    def delete(self, *args, **kwargs):
++        raise ValueError("Audit logs cannot be deleted")
++
+     def __str__(self):
+         return f"{self.user} {self.action} {self.model_name} at {self.timestamp}"
+-
+diff --git a/repository_before/core/pagination.py b/repository_after/core/pagination.py
+index f22f5eb7..0eeda926 100644
+--- a/repository_before/core/pagination.py
++++ b/repository_after/core/pagination.py
+@@ -1,8 +1,35 @@
+-from rest_framework.pagination import PageNumberPagination
++from rest_framework.pagination import CursorPagination
+ 
+ 
+-class StandardPagination(PageNumberPagination):
++class CursorPaginationWithOrdering(CursorPagination):
++    """
++    Cursor-based pagination for efficient handling of large datasets.
++    
++    Cursor pagination is more efficient than page number pagination because:
++    1. It doesn't need to count total records
++    2. It maintains consistent ordering even with concurrent inserts/deletes
++    3. It's memory efficient for 100,000+ records
++    """
+     page_size = 20
+     page_size_query_param = 'page_size'
+     max_page_size = 100
++    ordering = '-created_at'  # Default ordering by most recent first
+ 
++    def get_ordering(self, request, queryset, view):
++        """
++        Return the ordering to use for cursor pagination.
++        Avoid the conflict with OrderingFilter by always using the default ordering.
++        """
++        # Use our default ordering attribute
++        ordering = self.ordering
++        if isinstance(ordering, str):
++            return (ordering,)
++        return tuple(ordering)
++
++
++class StandardPagination(CursorPaginationWithOrdering):
++    """
++    Standard pagination class using cursor-based pagination.
++    This is the default pagination class used across all endpoints.
++    """
++    pass
+diff --git a/repository_before/core/serializers.py b/repository_after/core/serializers.py
+index 34767d0d..3c5f402a 100644
+--- a/repository_before/core/serializers.py
++++ b/repository_after/core/serializers.py
+@@ -1,4 +1,6 @@
+ from rest_framework import serializers
++from django.db.models import Count
++
+ from .models import Organization, User, OrganizationMembership, Project, Task, APIKey, AuditLog
+ 
+ 
+@@ -14,12 +16,12 @@ class UserSerializer(serializers.ModelSerializer):
+ 
+     class Meta:
+         model = User
+-        fields = ['id', 'email', 'name', 'is_active', 'role', 'created_at']
+-        read_only_fields = ['id', 'created_at']
++        fields = ['id', 'email', 'name', 'is_active', 'role', 'created_at', 'last_login']
++        read_only_fields = ['id', 'created_at', 'last_login']
+ 
+     def get_role(self, obj):
+         request = self.context.get('request')
+-        if request and hasattr(request, 'tenant'):
++        if request and hasattr(request, 'tenant') and request.tenant:
+             membership = OrganizationMembership.objects.filter(
+                 user=obj,
+                 organization=request.tenant
+@@ -40,8 +42,8 @@ class OrganizationMembershipSerializer(serializers.ModelSerializer):
+ 
+ 
+ class ProjectSerializer(serializers.ModelSerializer):
+-    owner_email = serializers.EmailField(source='owner.email', read_only=True)
+-    owner_name = serializers.CharField(source='owner.name', read_only=True)
++    owner_email = serializers.SerializerMethodField()
++    owner_name = serializers.SerializerMethodField()
+     task_count = serializers.SerializerMethodField()
+ 
+     class Meta:
+@@ -53,20 +55,29 @@ class ProjectSerializer(serializers.ModelSerializer):
+         ]
+         read_only_fields = ['id', 'created_at', 'updated_at']
+ 
++    def get_owner_email(self, obj):
++        return obj.owner.email if obj.owner else None
++
++    def get_owner_name(self, obj):
++        return obj.owner.name if obj.owner else None
++
+     def get_task_count(self, obj):
++        # Use annotated value if available (for optimized queries)
++        if hasattr(obj, 'active_task_count'):
++            return obj.active_task_count
+         return obj.tasks.filter(is_deleted=False).count()
+ 
+     def create(self, validated_data):
+         request = self.context.get('request')
+-        if request and hasattr(request, 'tenant'):
++        if request and hasattr(request, 'tenant') and request.tenant:
+             validated_data['organization'] = request.tenant
+         return super().create(validated_data)
+ 
+ 
+ class TaskSerializer(serializers.ModelSerializer):
+-    assignee_email = serializers.EmailField(source='assignee.email', read_only=True)
+-    assignee_name = serializers.CharField(source='assignee.name', read_only=True)
+-    project_name = serializers.CharField(source='project.name', read_only=True)
++    assignee_email = serializers.SerializerMethodField()
++    assignee_name = serializers.SerializerMethodField()
++    project_name = serializers.SerializerMethodField()
+ 
+     class Meta:
+         model = Task
+@@ -77,12 +88,31 @@ class TaskSerializer(serializers.ModelSerializer):
+         ]
+         read_only_fields = ['id', 'created_at', 'updated_at']
+ 
++    def get_assignee_email(self, obj):
++        return obj.assignee.email if obj.assignee else None
++
++    def get_assignee_name(self, obj):
++        return obj.assignee.name if obj.assignee else None
++
++    def get_project_name(self, obj):
++        return obj.project.name if obj.project else None
++
+     def create(self, validated_data):
+         request = self.context.get('request')
+-        if request and hasattr(request, 'tenant'):
++        if request and hasattr(request, 'tenant') and request.tenant:
+             validated_data['organization'] = request.tenant
+         return super().create(validated_data)
+ 
++    def validate_project(self, value):
++        """Ensure the project belongs to the current tenant."""
++        request = self.context.get('request')
++        if request and hasattr(request, 'tenant') and request.tenant:
++            if value.organization != request.tenant:
++                raise serializers.ValidationError(
++                    "Project does not belong to the current organization"
++                )
++        return value
++
+ 
+ class APIKeySerializer(serializers.ModelSerializer):
+     key = serializers.CharField(read_only=True)
+@@ -94,7 +124,7 @@ class APIKeySerializer(serializers.ModelSerializer):
+ 
+ 
+ class AuditLogSerializer(serializers.ModelSerializer):
+-    user_email = serializers.EmailField(source='user.email', read_only=True)
++    user_email = serializers.SerializerMethodField()
+ 
+     class Meta:
+         model = AuditLog
+@@ -102,5 +132,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
+             'id', 'user', 'user_email', 'action', 'model_name',
+             'object_id', 'object_repr', 'changes', 'timestamp'
+         ]
+-        read_only_fields = '__all__'
++        read_only_fields = ['id', 'user', 'user_email', 'action', 'model_name',
++                            'object_id', 'object_repr', 'changes', 'timestamp']
+ 
++    def get_user_email(self, obj):
++        return obj.user.email if obj.user else None
+diff --git a/repository_before/core/signals.py b/repository_after/core/signals.py
+index 9c6469fb..537bc390 100644
+--- a/repository_before/core/signals.py
++++ b/repository_after/core/signals.py
+@@ -1,43 +1,161 @@
+-from django.db.models.signals import post_save, pre_delete
++from django.db.models.signals import post_save, pre_save, pre_delete
+ from django.dispatch import receiver
+ 
+-from .models import Project, Task, AuditLog, get_current_tenant
++from .models import Project, Task, Organization, User, AuditLog, get_current_tenant, get_current_user
++
++# Store for tracking old values before save
++_old_values = {}
++
++
++def get_model_field_values(instance):
++    """Extract field values from a model instance for comparison."""
++    values = {}
++    for field in instance._meta.fields:
++        field_name = field.name
++        value = getattr(instance, field_name, None)
++        # Convert to string for JSON serialization
++        if value is not None:
++            if hasattr(value, 'pk'):  # Foreign key - store ID
++                values[field_name] = str(value.pk)
++            elif hasattr(value, 'isoformat'):  # DateTime
++                values[field_name] = value.isoformat()
++            else:
++                values[field_name] = str(value)
++        else:
++            values[field_name] = None
++    return values
++
++
++def get_organization_for_audit(instance, sender):
++    """Get the organization for audit logging based on model type."""
++    tenant = get_current_tenant()
++    if tenant:
++        return tenant
++    
++    # For tenant-scoped models
++    if hasattr(instance, 'organization'):
++        return instance.organization
++    
++    # For Organization model itself
++    if sender == Organization:
++        return instance
++    
++    # For User model, try to get from first membership
++    if sender == User:
++        membership = instance.memberships.first()
++        if membership:
++            return membership.organization
++    
++    return None
++
++
++@receiver(pre_save, sender=Project)
++@receiver(pre_save, sender=Task)
++@receiver(pre_save, sender=Organization)
++@receiver(pre_save, sender=User)
++def store_old_values(sender, instance, **kwargs):
++    """Store old values before save for change tracking."""
++    if instance.pk:
++        try:
++            # Get the old instance from database
++            if hasattr(sender, 'all_objects'):
++                old_instance = sender.all_objects.get(pk=instance.pk)
++            else:
++                old_instance = sender.objects.get(pk=instance.pk)
++            _old_values[f"{sender.__name__}_{instance.pk}"] = get_model_field_values(old_instance)
++        except sender.DoesNotExist:
++            pass
+ 
+ 
+ @receiver(post_save, sender=Project)
+ @receiver(post_save, sender=Task)
++@receiver(post_save, sender=Organization)
++@receiver(post_save, sender=User)
+ def log_model_save(sender, instance, created, **kwargs):
+-    tenant = get_current_tenant()
+-    if not tenant:
+-        tenant = instance.organization
+-
+-    action = 'create' if created else 'update'
++    """Create audit log entry for create/update operations."""
++    organization = get_organization_for_audit(instance, sender)
++    if not organization:
++        return  # Skip if no organization context
++    
++    user = get_current_user()
++    
++    changes = {}
++    if not created:
++        # Calculate changes for update
++        key = f"{sender.__name__}_{instance.pk}"
++        old_values = _old_values.pop(key, {})
++        new_values = get_model_field_values(instance)
++        
++        for field_name in new_values:
++            old_val = old_values.get(field_name)
++            new_val = new_values.get(field_name)
++            if old_val != new_val:
++                changes[field_name] = {
++                    'old': old_val,
++                    'new': new_val
++                }
++        
++        # Detect soft delete vs regular update
++        # If is_deleted changed from False to True, this is a soft_delete
++        if 'is_deleted' in changes:
++            if changes['is_deleted'].get('old') == 'False' and changes['is_deleted'].get('new') == 'True':
++                action = 'soft_delete'
++            elif changes['is_deleted'].get('old') == 'True' and changes['is_deleted'].get('new') == 'False':
++                action = 'restore'
++            else:
++                action = 'update'
++        else:
++            action = 'update'
++    else:
++        action = 'create'
++        # For create, record all field values as new
++        new_values = get_model_field_values(instance)
++        for field_name, value in new_values.items():
++            if value is not None:
++                changes[field_name] = {
++                    'old': None,
++                    'new': value
++                }
+ 
+     AuditLog.objects.create(
+-        organization=tenant,
+-        user=None,
++        organization=organization,
++        user=user,
+         action=action,
+         model_name=sender.__name__,
+         object_id=instance.id,
+         object_repr=str(instance),
+-        changes={}
++        changes=changes
+     )
+ 
+ 
+ @receiver(pre_delete, sender=Project)
+ @receiver(pre_delete, sender=Task)
++@receiver(pre_delete, sender=Organization)
++@receiver(pre_delete, sender=User)
+ def log_model_delete(sender, instance, **kwargs):
+-    tenant = get_current_tenant()
+-    if not tenant:
+-        tenant = instance.organization
++    """Create audit log entry for hard delete operations."""
++    organization = get_organization_for_audit(instance, sender)
++    if not organization:
++        return  # Skip if no organization context
++    
++    user = get_current_user()
++    
++    # Record all field values being deleted
++    changes = {}
++    old_values = get_model_field_values(instance)
++    for field_name, value in old_values.items():
++        if value is not None:
++            changes[field_name] = {
++                'old': value,
++                'new': None
++            }
+ 
+     AuditLog.objects.create(
+-        organization=tenant,
+-        user=None,
++        organization=organization,
++        user=user,
+         action='delete',
+         model_name=sender.__name__,
+         object_id=instance.id,
+         object_repr=str(instance),
+-        changes={}
++        changes=changes
+     )
+-
+diff --git a/repository_before/core/views.py b/repository_after/core/views.py
+index 5075ed4d..1ea18ad0 100644
+--- a/repository_before/core/views.py
++++ b/repository_after/core/views.py
+@@ -1,7 +1,8 @@
+-from rest_framework import viewsets, status
++from rest_framework import viewsets, status, filters
+ from rest_framework.decorators import action
+ from rest_framework.response import Response
+ from rest_framework.permissions import IsAuthenticated
++from django_filters.rest_framework import DjangoFilterBackend
+ 
+ from .models import Organization, User, OrganizationMembership, Project, Task, APIKey, AuditLog
+ from .serializers import (
+@@ -13,12 +14,22 @@ from .serializers import (
+     APIKeySerializer,
+     AuditLogSerializer,
+ )
+-from .permissions import IsTenantMember, IsOwnerOrAdmin, CanManageProjects, CanManageTasks
++from .permissions import (
++    IsTenantMember, IsOwnerOrAdmin, CanManageProjects, 
++    CanManageTasks, IsViewer, CanManageOrganization
++)
+ 
+ 
+ class OrganizationViewSet(viewsets.ModelViewSet):
++    """
++    ViewSet for managing organizations.
++    Only owners can update organization settings (name, plan).
++    """
+     serializer_class = OrganizationSerializer
+-    permission_classes = [IsAuthenticated]
++    permission_classes = [IsAuthenticated, CanManageOrganization]
++    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
++    search_fields = ['name', 'slug']
++    ordering_fields = ['name', 'created_at']
+ 
+     def get_queryset(self):
+         if self.request.user.is_authenticated:
+@@ -30,42 +41,148 @@ class OrganizationViewSet(viewsets.ModelViewSet):
+ 
+     @action(detail=True, methods=['get'])
+     def members(self, request, pk=None):
++        """List all members in the organization."""
+         organization = self.get_object()
+-        memberships = OrganizationMembership.objects.filter(organization=organization)
++        memberships = OrganizationMembership.objects.filter(
++            organization=organization
++        ).select_related('user')
+         serializer = OrganizationMembershipSerializer(memberships, many=True)
+         return Response(serializer.data)
+ 
++    def perform_destroy(self, instance):
++        """Soft delete instead of hard delete."""
++        instance.soft_delete()
++
++    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
++    def restore(self, request, pk=None):
++        """Restore a soft-deleted organization (Admin/Owner only)."""
++        try:
++            # Use all_objects to find deleted organizations
++            org = Organization.all_objects.get(pk=pk)
++        except Organization.DoesNotExist:
++            return Response({'error': 'Organization not found'}, status=status.HTTP_404_NOT_FOUND)
++        
++        # Verify user has permission to restore this org
++        membership = OrganizationMembership.objects.filter(
++            user=request.user,
++            organization=org,
++            role__in=['owner', 'admin']
++        ).first()
++        
++        if not membership:
++            return Response(
++                {'error': 'You do not have permission to restore this organization'},
++                status=status.HTTP_403_FORBIDDEN
++            )
++        
++        if not org.is_deleted:
++            return Response(
++                {'error': 'Organization is not deleted'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++        org.restore()
++        serializer = self.get_serializer(org)
++        return Response(serializer.data)
++
++    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
++    def deleted(self, request):
++        """List all soft-deleted organizations the user can restore."""
++        deleted_orgs = Organization.all_objects.filter(
++            memberships__user=request.user,
++            memberships__role__in=['owner', 'admin'],
++            is_deleted=True
++        ).distinct()
++        serializer = self.get_serializer(deleted_orgs, many=True)
++        return Response(serializer.data)
++
++    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
++    def invite_member(self, request, pk=None):
++        """Invite a new member to the organization (Admin/Owner only)."""
++        organization = self.get_object()
++        user_id = request.data.get('user_id')
++        role = request.data.get('role', 'member')
++        
++        if role not in ['admin', 'member', 'viewer']:
++            return Response(
++                {'error': 'Invalid role. Must be admin, member, or viewer'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++        
++        try:
++            user = User.objects.get(id=user_id)
++        except User.DoesNotExist:
++            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
++        
++        membership, created = OrganizationMembership.objects.get_or_create(
++            user=user,
++            organization=organization,
++            defaults={'role': role}
++        )
++        
++        if not created:
++            return Response(
++                {'error': 'User is already a member of this organization'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++        
++        serializer = OrganizationMembershipSerializer(membership)
++        return Response(serializer.data, status=status.HTTP_201_CREATED)
++
+ 
+ class UserViewSet(viewsets.ModelViewSet):
++    """
++    ViewSet for managing users within an organization.
++    """
+     serializer_class = UserSerializer
+-    permission_classes = [IsAuthenticated, IsTenantMember]
++    permission_classes = [IsAuthenticated, IsTenantMember, IsViewer]
++    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
++    search_fields = ['email', 'name']
++    ordering_fields = ['name', 'email', 'created_at']
+ 
+     def get_queryset(self):
+         if hasattr(self.request, 'tenant') and self.request.tenant:
+             return User.objects.filter(
+                 memberships__organization=self.request.tenant
+-            ).distinct()
++            ).select_related().prefetch_related('memberships').distinct()
+         return User.objects.none()
+ 
+     @action(detail=False, methods=['get'])
+     def me(self, request):
++        """Get current user's profile."""
+         serializer = self.get_serializer(request.user)
+         return Response(serializer.data)
+ 
+ 
+ class ProjectViewSet(viewsets.ModelViewSet):
++    """
++    ViewSet for managing projects.
++    - Owner/Admin can create, update, delete
++    - Member/Viewer can read only
++    """
+     serializer_class = ProjectSerializer
+-    permission_classes = [IsAuthenticated, IsTenantMember, CanManageProjects]
++    permission_classes = [IsAuthenticated, IsTenantMember, CanManageProjects, IsViewer]
++    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
++    filterset_fields = ['status', 'owner']
++    search_fields = ['name', 'description']
++    ordering_fields = ['name', 'status', 'created_at', 'updated_at']
+ 
+     def get_queryset(self):
+-        return Project.objects.all()
++        # Use select_related to prevent N+1 queries
++        return Project.objects.all().select_related('owner', 'organization').prefetch_related('tasks')
+ 
+     def perform_destroy(self, instance):
++        """Soft delete instead of hard delete."""
+         instance.soft_delete()
+ 
+-    @action(detail=True, methods=['post'])
++    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsTenantMember, IsOwnerOrAdmin])
+     def restore(self, request, pk=None):
+-        project = Project.all_objects.get(pk=pk)
++        """Restore a soft-deleted project (Admin/Owner only)."""
++        try:
++            # Use all_objects to find deleted projects, but must still be scoped to tenant
++            project = Project.all_objects.filter(organization=request.tenant).get(pk=pk)
++        except Project.DoesNotExist:
++            return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
++        
+         if not project.is_deleted:
+             return Response(
+                 {'error': 'Project is not deleted'},
+@@ -75,41 +192,94 @@ class ProjectViewSet(viewsets.ModelViewSet):
+         serializer = self.get_serializer(project)
+         return Response(serializer.data)
+ 
+-    @action(detail=False, methods=['get'])
++    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsTenantMember, IsOwnerOrAdmin])
+     def deleted(self, request):
+-        queryset = Project.all_objects.filter(is_deleted=True)
++        """List all soft-deleted projects (Admin/Owner only)."""
++        queryset = Project.all_objects.filter(
++            organization=request.tenant,
++            is_deleted=True
++        ).select_related('owner', 'organization')
+         serializer = self.get_serializer(queryset, many=True)
+         return Response(serializer.data)
+ 
+ 
+ class TaskViewSet(viewsets.ModelViewSet):
++    """
++    ViewSet for managing tasks.
++    - Owner/Admin/Member can create, update, delete
++    - Viewer can read only
++    """
+     serializer_class = TaskSerializer
+-    permission_classes = [IsAuthenticated, IsTenantMember, CanManageTasks]
++    permission_classes = [IsAuthenticated, IsTenantMember, CanManageTasks, IsViewer]
++    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
++    filterset_fields = ['status', 'priority', 'project', 'assignee']
++    search_fields = ['title', 'description']
++    ordering_fields = ['title', 'status', 'priority', 'due_date', 'created_at']
+ 
+     def get_queryset(self):
+-        return Task.objects.all()
++        # Use select_related to prevent N+1 queries
++        return Task.objects.all().select_related('project', 'assignee', 'organization')
+ 
+     def perform_destroy(self, instance):
++        """Soft delete instead of hard delete."""
+         instance.soft_delete()
+ 
+     @action(detail=False, methods=['get'])
+     def my_tasks(self, request):
++        """Get tasks assigned to current user."""
+         queryset = self.get_queryset().filter(assignee=request.user)
+         serializer = self.get_serializer(queryset, many=True)
+         return Response(serializer.data)
+ 
++    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsTenantMember, IsOwnerOrAdmin])
++    def restore(self, request, pk=None):
++        """Restore a soft-deleted task (Admin/Owner only)."""
++        try:
++            task = Task.all_objects.filter(organization=request.tenant).get(pk=pk)
++        except Task.DoesNotExist:
++            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
++        
++        if not task.is_deleted:
++            return Response(
++                {'error': 'Task is not deleted'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++        task.restore()
++        serializer = self.get_serializer(task)
++        return Response(serializer.data)
++
++    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsTenantMember, IsOwnerOrAdmin])
++    def deleted(self, request):
++        """List all soft-deleted tasks (Admin/Owner only)."""
++        queryset = Task.all_objects.filter(
++            organization=request.tenant,
++            is_deleted=True
++        ).select_related('project', 'assignee', 'organization')
++        serializer = self.get_serializer(queryset, many=True)
++        return Response(serializer.data)
++
+ 
+ class APIKeyViewSet(viewsets.ModelViewSet):
++    """
++    ViewSet for managing API keys.
++    Only Owner/Admin can manage API keys.
++    """
+     serializer_class = APIKeySerializer
+     permission_classes = [IsAuthenticated, IsTenantMember, IsOwnerOrAdmin]
+     http_method_names = ['get', 'post', 'delete']
++    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
++    search_fields = ['name']
++    ordering_fields = ['name', 'created_at', 'last_used_at']
+ 
+     def get_queryset(self):
+         if hasattr(self.request, 'tenant') and self.request.tenant:
+-            return APIKey.objects.filter(organization=self.request.tenant)
++            return APIKey.objects.filter(
++                organization=self.request.tenant
++            ).select_related('organization', 'created_by')
+         return APIKey.objects.none()
+ 
+     def create(self, request, *args, **kwargs):
++        """Create a new API key and return the raw key (only shown once)."""
+         serializer = self.get_serializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+ 
+@@ -130,11 +300,20 @@ class APIKeyViewSet(viewsets.ModelViewSet):
+ 
+ 
+ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
++    """
++    ViewSet for viewing audit logs (read-only).
++    Only Owner/Admin can view audit logs.
++    """
+     serializer_class = AuditLogSerializer
+     permission_classes = [IsAuthenticated, IsTenantMember, IsOwnerOrAdmin]
++    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
++    filterset_fields = ['action', 'model_name', 'user']
++    search_fields = ['object_repr', 'model_name']
++    ordering_fields = ['timestamp', 'action', 'model_name']
+ 
+     def get_queryset(self):
+         if hasattr(self.request, 'tenant') and self.request.tenant:
+-            return AuditLog.objects.filter(organization=self.request.tenant)
++            return AuditLog.objects.filter(
++                organization=self.request.tenant
++            ).select_related('user', 'organization')
+         return AuditLog.objects.none()
+-
+diff --git a/repository_before/requirements.txt b/repository_after/requirements.txt
+index c9cd0652..3077494e 100644
+--- a/repository_before/requirements.txt
++++ b/repository_after/requirements.txt
+@@ -3,4 +3,3 @@ djangorestframework==3.14.0
+ djangorestframework-simplejwt==5.3.0
+ django-filter==23.3
+ psycopg2-binary==2.9.9
+-

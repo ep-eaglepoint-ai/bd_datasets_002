@@ -1,0 +1,13 @@
+{
+            "instance_id": "Y1APGM",
+            "problem_statement": "A project management SaaS platform is experiencing data leakage between customer organizations. Users from Company A can occasionally see projects belonging to Company B when the application is under load. The current implementation uses a global filter in views, but it's inconsistent and bypassed in some queries. Audit logs are being modified by admins to cover up unauthorized changes. 
+
+Soft-deleted projects are still appearing in API responses. The permission system allows Members to create new projects when they should only manage tasks. Core issues are in the tenant middleware, custom managers, and permission classes. Files involved: models.py, middleware.py, managers.py, permissions.py, and views.py.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/y1apgm-django-multi-tenant-saas-api-with-row-level-security",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  test-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/repository_before
+    environment:
+      - PYTHONPATH=/app/repository_before:/app/tests:/app
+      - DJANGO_SETTINGS_MODULE=settings
+      - TARGET_REPOSITORY=repository_before
+    command: >
+      sh -c "python -m pytest /app/tests/ -v --tb=short --ds=settings || true"
+
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/repository_after
+    environment:
+      - PYTHONPATH=/app/repository_after:/app/tests:/app
+      - DJANGO_SETTINGS_MODULE=settings
+      - TARGET_REPOSITORY=repository_after
+    command: >
+      sh -c "python -m pytest /app/tests/ -v --tb=short --ds=settings"
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./evaluation:/app/evaluation
+    command: >
+      sh -c "python evaluation/evaluation.py"
