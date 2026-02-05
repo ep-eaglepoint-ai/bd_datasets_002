@@ -1,157 +1,398 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as path from "path";
 
-// Get the target directory from environment variable or default to repository_after
-const targetRepo = process.env.REPO_PATH || 'repository_after';
-const componentPath = path.join(__dirname, '..', targetRepo, 'components', 'category-form.tsx');
+type HookHarness = ReturnType<typeof createHookHarness>;
 
-describe('CategoryForm Behavioral Analysis', () => {
-    let fileContent: string;
+const targetRepo = process.env.REPO_PATH || "repository_after";
+const componentModulePath = path.join(
+  __dirname,
+  "..",
+  targetRepo,
+  "components",
+  "category-form",
+);
 
-    beforeAll(() => {
-        try {
-            fileContent = fs.readFileSync(componentPath, 'utf8');
-            console.log(`Analyzing file at: ${componentPath}`);
-        } catch (error) {
-            console.error(`Error reading file: ${componentPath}`);
-            throw error;
-        }
+const createElement = (type: any, props: any, ...children: any[]) => ({
+  type,
+  props: { ...props, children },
+});
+
+function createHookHarness() {
+  let hookIndex = 0;
+  const stateValues: any[] = [];
+  const refValues: any[] = [];
+  const memoValues: any[] = [];
+  const memoDeps: any[] = [];
+  const callbackValues: any[] = [];
+  const callbackDeps: any[] = [];
+  const effectDeps: any[] = [];
+  const effectCleanups: Array<(() => void) | undefined> = [];
+
+  const depsChanged = (prev: any[] | undefined, next: any[] | undefined) => {
+    if (!prev || !next) return true;
+    if (prev.length !== next.length) return true;
+    return prev.some((value, index) => value !== next[index]);
+  };
+
+  const resetIndex = () => {
+    hookIndex = 0;
+  };
+
+  const useState = (initial: any) => {
+    const index = hookIndex++;
+    if (stateValues[index] === undefined) {
+      stateValues[index] = typeof initial === "function" ? initial() : initial;
+    }
+    const setState = (next: any) => {
+      stateValues[index] =
+        typeof next === "function" ? next(stateValues[index]) : next;
+    };
+    return [stateValues[index], setState] as const;
+  };
+
+  const useRef = (initial: any) => {
+    const index = hookIndex++;
+    if (!refValues[index]) {
+      refValues[index] = { current: initial };
+    }
+    return refValues[index];
+  };
+
+  const useMemo = (factory: () => any, deps?: any[]) => {
+    const index = hookIndex++;
+    if (!memoDeps[index] || depsChanged(memoDeps[index], deps)) {
+      memoDeps[index] = deps;
+      memoValues[index] = factory();
+    }
+    return memoValues[index];
+  };
+
+  const useCallback = (callback: (...args: any[]) => any, deps?: any[]) => {
+    const index = hookIndex++;
+    if (!callbackDeps[index] || depsChanged(callbackDeps[index], deps)) {
+      callbackDeps[index] = deps;
+      callbackValues[index] = callback;
+    }
+    return callbackValues[index];
+  };
+
+  const useEffect = (effect: () => void | (() => void), deps?: any[]) => {
+    const index = hookIndex++;
+    if (!effectDeps[index] || depsChanged(effectDeps[index], deps)) {
+      effectDeps[index] = deps;
+      const cleanup = effect();
+      effectCleanups[index] =
+        typeof cleanup === "function" ? cleanup : undefined;
+    }
+  };
+
+  const cleanupEffects = () => {
+    effectCleanups.forEach((cleanup) => cleanup?.());
+  };
+
+  return {
+    useState,
+    useRef,
+    useMemo,
+    useCallback,
+    useEffect,
+    resetIndex,
+    cleanupEffects,
+    stateValues,
+    refValues,
+    memoValues,
+    callbackValues,
+  };
+}
+
+function setupModule(hooks: HookHarness) {
+  const toast = { success: jest.fn(), error: jest.fn() };
+  const router = { push: jest.fn() };
+  const params = { storeId: "store-123", categoryId: "cat-456" };
+  const formReset = jest.fn();
+  const useForm = jest.fn(() => ({
+    control: {},
+    handleSubmit: (cb: any) => cb,
+    reset: formReset,
+  }));
+
+  const abortInstances: Array<{ abort: jest.Mock; signal: any }> = [];
+  class MockAbortController {
+    signal = { aborted: false };
+    abort = jest.fn(() => {
+      this.signal.aborted = true;
     });
+    constructor() {
+      abortInstances.push(this);
+    }
+  }
 
-    describe('Real Behavioral Requirements', () => {
-        test('should implement ownership-based locking to prevent deadlock', () => {
-            // This is the critical behavioral invariant: exactly one owner, always releases
-            const takesOwnership = /lockOwnerIdRef\.current\s*=\s*currentRequestId/.test(fileContent);
-            expect(takesOwnership).toBe(true);
-            
-            // Only owner can release the lock (deadlock prevention)
-            const releasesOwnership = /if\s*\(\s*lockOwnerIdRef\.current\s*===\s*currentRequestId\s*\)[\s\S]*lockOwnerIdRef\.current\s*=\s*null/.test(fileContent);
-            expect(releasesOwnership).toBe(true);
-            
-            // This proves the deadlock class is eliminated at runtime
-        });
+  jest.doMock(
+    "react",
+    () => ({
+      __esModule: true,
+      default: { memo: (component: any) => component, createElement },
+      memo: (component: any) => component,
+      createElement,
+      useState: hooks.useState,
+      useRef: hooks.useRef,
+      useEffect: hooks.useEffect,
+      useMemo: hooks.useMemo,
+      useCallback: hooks.useCallback,
+    }),
+    { virtual: true },
+  );
 
-        test('should handle null initialData to prevent stale data across tenants', () => {
-            // Check for else clause that handles null case (runtime behavior)
-            const handlesNullCase = /else\s*{[\s\S]*form\.reset\(\s*{\s*name:\s*\"\",\s*billboardId:\s*\"\"\s*}\s*\)/.test(fileContent);
-            expect(handlesNullCase).toBe(true);
-            
-            // This proves cross-tenant data leakage is prevented at runtime
-        });
+  jest.doMock("react-hot-toast", () => ({ toast }), { virtual: true });
+  jest.doMock(
+    "next/navigation",
+    () => ({
+      useParams: () => params,
+      useRouter: () => router,
+    }),
+    { virtual: true },
+  );
+  jest.doMock("@prisma/client", () => ({}), { virtual: true });
+  jest.doMock("react-hook-form", () => ({ useForm }), { virtual: true });
+  jest.doMock("lucide-react", () => ({ Trash: () => null }), { virtual: true });
 
-        test('should implement proper abort controller lifecycle for race conditions', () => {
-            // Abort previous before creating new (runtime race prevention)
-            const abortsPrevious = /abortControllerRef\.current\?\.abort\(\)/.test(fileContent);
-            expect(abortsPrevious).toBe(true);
-            
-            // Create new controller
-            const createsNew = /const\s+controller\s*=\s*new\s+AbortController\(\)/.test(fileContent);
-            expect(createsNew).toBe(true);
-            
-            // Pass signal to fetch (runtime cancellation)
-            const passesSignal = /signal:\s*controller\.signal/.test(fileContent);
-            expect(passesSignal).toBe(true);
-            
-            // Cleanup on unmount (runtime safety)
-            const cleansUpOnUnmount = /return\s*\(\)\s*=>\s*{[\s\S]*abortControllerRef\.current\?\.abort\(\)/.test(fileContent);
-            expect(cleansUpOnUnmount).toBe(true);
-            
-            // This proves race conditions are handled at runtime
-        });
+  jest.doMock("@/components/ui/input", () => ({ Input: () => null }), {
+    virtual: true,
+  });
+  jest.doMock("@/components/ui/button", () => ({ Button: () => null }), {
+    virtual: true,
+  });
+  jest.doMock(
+    "@/components/ui/form",
+    () => ({
+      Form: ({ children }: { children: any }) => children ?? null,
+      FormControl: ({ children }: { children: any }) => children ?? null,
+      FormField: ({ render }: { render: any }) => render({ field: {} }),
+      FormItem: ({ children }: { children: any }) => children ?? null,
+      FormLabel: ({ children }: { children: any }) => children ?? null,
+      FormMessage: () => null,
+    }),
+    { virtual: true },
+  );
+  jest.doMock("@/components/ui/separator", () => ({ Separator: () => null }), {
+    virtual: true,
+  });
+  jest.doMock("@/components/ui/heading", () => ({ Heading: () => null }), {
+    virtual: true,
+  });
+  jest.doMock(
+    "@/components/modals/alert-modal",
+    () => ({
+      default: () => null,
+    }),
+    { virtual: true },
+  );
+  jest.doMock(
+    "@/components/ui/select",
+    () => ({
+      Select: ({ children }: { children: any }) => children ?? null,
+      SelectContent: ({ children }: { children: any }) => children ?? null,
+      SelectItem: () => null,
+      SelectTrigger: ({ children }: { children: any }) => children ?? null,
+      SelectValue: () => null,
+    }),
+    { virtual: true },
+  );
 
-        test('should prevent state updates after component unmount', () => {
-            // isMounted ref pattern (runtime safety)
-            const hasIsMountedRef = /isMounted\s*=\s*useRef\(false\)/.test(fileContent);
-            expect(hasIsMountedRef).toBe(true);
-            
-            // Set to true on mount
-            const setsToTrue = /isMounted\.current\s*=\s*true/.test(fileContent);
-            expect(setsToTrue).toBe(true);
-            
-            // Set to false on unmount
-            const setsToFalse = /isMounted\.current\s*=\s*false/.test(fileContent);
-            expect(setsToFalse).toBe(true);
-            
-            // Guard state updates (runtime safety)
-            const guardsStateUpdates = /if\s*\(\s*!isMounted\.current\s*\)\s*return/.test(fileContent);
-            expect(guardsStateUpdates).toBe(true);
-            
-            // This proves unmount safety is implemented at runtime
-        });
+  return {
+    toast,
+    router,
+    params,
+    useForm,
+    formReset,
+    abortInstances,
+    MockAbortController,
+  };
+}
 
-        test('should include client-side idempotency hints for server cooperation', () => {
-            // Check for proper Idempotency-Key header (runtime contract)
-            const hasIdempotencyHeader = /"Idempotency-Key":/.test(fileContent);
-            expect(hasIdempotencyHeader).toBe(true);
-            
-            // This proves client-side idempotency hints are sent at runtime
-        });
+function loadComponent() {
+  let component: any;
+  jest.isolateModules(() => {
+    component = require(componentModulePath).CategoryForm;
+  });
+  return component;
+}
 
-        test('should mirror submit flow in delete flow for consistency', () => {
-            // Delete uses same ownership pattern (runtime consistency)
-            const deleteTakesOwnership = /onDelete[\s\S]*lockOwnerIdRef\.current\s*=\s*currentRequestId/.test(fileContent);
-            expect(deleteTakesOwnership).toBe(true);
-            
-            // Delete releases ownership (runtime consistency)
-            const deleteReleasesOwnership = /onDelete[\s\S]*if\s*\(\s*lockOwnerIdRef\.current\s*===\s*currentRequestId\s*\)[\s\S]*lockOwnerIdRef\.current\s*=\s*null/.test(fileContent);
-            expect(deleteReleasesOwnership).toBe(true);
-            
-            // This proves delete flow has same runtime robustness as submit
-        });
+function renderComponent(
+  Component: any,
+  hooks: HookHarness,
+  props: { initialData: any; billboards: any[] },
+) {
+  hooks.resetIndex();
+  Component(props);
+}
+
+describe("CategoryForm Behavioral Analysis (runtime)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
+  test("prevents double submission and uses idempotency headers", async () => {
+    const hooks = createHookHarness();
+    const { toast, router, abortInstances, MockAbortController } =
+      setupModule(hooks);
+
+    (global as any).AbortController = MockAbortController;
+
+    let resolveFetch: (value: any) => void = () => undefined;
+    const fetchPromise = new Promise((resolve) => {
+      resolveFetch = resolve;
     });
+    const fetchMock = jest.fn().mockReturnValue(fetchPromise);
+    (global as any).fetch = fetchMock;
 
-    describe('Evidence These Address Original Critiques', () => {
-        test('loading lock can stick → FIXED (ownership-based release)', () => {
-            // Original problem: stale requests couldn't unlock
-            // Proof it's fixed: ownership-based release at runtime
-            const deadlockFix = /if\s*\(\s*lockOwnerIdRef\.current\s*===\s*currentRequestId\s*\)[\s\S]*setLoading\(false\)/.test(fileContent);
-            expect(deadlockFix).toBe(true);
-        });
+    const Component = loadComponent();
+    renderComponent(Component, hooks, { initialData: null, billboards: [] });
 
-        test('stale data after prop changes → FIXED (null handling)', () => {
-            // Original problem: form retained previous values
-            // Proof it's fixed: explicit else clause for null at runtime
-            const staleDataFix = /else\s*{[\s\S]*form\.reset/.test(fileContent);
-            expect(staleDataFix).toBe(true);
-        });
+    const onSubmit = hooks.callbackValues[0];
 
-        test('idempotence not guaranteed → IMPROVED (client hints)', () => {
-            // Original problem: only client-side hints
-            // Proof it's improved: proper HTTP headers at runtime
-            const idempotencyImprovement = /"Idempotency-Key":/.test(fileContent);
-            expect(idempotencyImprovement).toBe(true);
-        });
+    const submitPromise = onSubmit({ name: "A", billboardId: "B" });
+    await Promise.resolve();
 
-        test('delete flow lacks dedupe → FIXED (mirrors submit)', () => {
-            // Original problem: delete had no deduplication
-            // Proof it's fixed: same ownership pattern at runtime
-            const deleteDedupeFix = /onDelete[\s\S]*lockOwnerIdRef/.test(fileContent);
-            expect(deleteDedupeFix).toBe(true);
-        });
+    await onSubmit({ name: "A", billboardId: "B" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const fetchOptions = fetchMock.mock.calls[0][1];
+    expect(fetchOptions.headers["Idempotency-Key"]).toBeTruthy();
+
+    resolveFetch({ ok: true });
+    await submitPromise;
+
+    expect(toast.success).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith("/store-123/categories");
+    expect(abortInstances.length).toBe(1);
+  });
+
+  test("aborts previous request when starting a new one", async () => {
+    const hooks = createHookHarness();
+    const { MockAbortController, abortInstances } = setupModule(hooks);
+    (global as any).AbortController = MockAbortController;
+
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    (global as any).fetch = fetchMock;
+
+    const Component = loadComponent();
+    renderComponent(Component, hooks, { initialData: null, billboards: [] });
+    const onSubmit = hooks.callbackValues[0];
+
+    await onSubmit({ name: "A", billboardId: "B" });
+    expect(abortInstances).toHaveLength(1);
+
+    await onSubmit({ name: "A", billboardId: "B" });
+    expect(abortInstances).toHaveLength(2);
+    expect(abortInstances[0].abort).toHaveBeenCalled();
+  });
+
+  test("avoids stale updates when unmounted", async () => {
+    const hooks = createHookHarness();
+    const { toast, router, MockAbortController } = setupModule(hooks);
+    (global as any).AbortController = MockAbortController;
+
+    let resolveFetch: (value: any) => void = () => undefined;
+    const fetchPromise = new Promise((resolve) => {
+      resolveFetch = resolve;
     });
+    (global as any).fetch = jest.fn().mockReturnValue(fetchPromise);
 
-    describe('Runtime Behavior Assertions', () => {
-        test('these patterns prove runtime behavior, not just code structure', () => {
-            // The difference: these aren't just checking if functions exist
-            // They're checking specific behavioral invariants that must hold true at runtime
-            
-            // Ownership invariant: exactly one owner, always releases
-            const ownershipInvariant = /lockOwnerIdRef\.current\s*===\s*currentRequestId/.test(fileContent);
-            expect(ownershipInvariant).toBe(true);
-            
-            // Idempotency invariant: headers sent per request intent
-            const idempotencyInvariant = /Idempotency-Key/.test(fileContent);
-            expect(idempotencyInvariant).toBe(true);
-            
-            // Race condition invariant: abort before create
-            const raceInvariant = /abort\(\)[\s\S]*new\s+AbortController/.test(fileContent);
-            expect(raceInvariant).toBe(true);
-            
-            // Unmount invariant: guard before state update
-            const unmountInvariant = /!isMounted\.current.*return/.test(fileContent);
-            expect(unmountInvariant).toBe(true);
-            
-            // These are runtime invariants, not code structure checks
-        });
+    const Component = loadComponent();
+    renderComponent(Component, hooks, { initialData: null, billboards: [] });
+    const onSubmit = hooks.callbackValues[0];
+
+    const submitPromise = onSubmit({ name: "A", billboardId: "B" });
+    hooks.refValues[3].current = false; // isMounted
+
+    resolveFetch({ ok: true });
+    await submitPromise;
+
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  test("reports errors and releases loading on failure", async () => {
+    const hooks = createHookHarness();
+    const { toast, MockAbortController } = setupModule(hooks);
+    (global as any).AbortController = MockAbortController;
+
+    (global as any).fetch = jest.fn().mockResolvedValue({ ok: false });
+
+    const Component = loadComponent();
+    renderComponent(Component, hooks, { initialData: null, billboards: [] });
+    const onSubmit = hooks.callbackValues[0];
+
+    await onSubmit({ name: "A", billboardId: "B" });
+
+    expect(toast.error).toHaveBeenCalled();
+    expect(hooks.stateValues[1]).toBe(false);
+  });
+
+  test("memoizes list rendering to avoid repeated mapping", () => {
+    const hooks = createHookHarness();
+    setupModule(hooks);
+
+    const mapSpy = jest.fn((fn: any) =>
+      ["one", "two"].map((label, index) => fn({ id: String(index), label })),
+    );
+    const billboards: any[] = Object.assign([], [], { map: mapSpy });
+
+    const Component = loadComponent();
+
+    renderComponent(Component, hooks, { initialData: null, billboards });
+    expect(mapSpy).toHaveBeenCalledTimes(1);
+
+    renderComponent(Component, hooks, { initialData: null, billboards });
+    expect(mapSpy).toHaveBeenCalledTimes(1);
+
+    const nextBillboards: any[] = Object.assign([], [], { map: mapSpy });
+    renderComponent(Component, hooks, {
+      initialData: null,
+      billboards: nextBillboards,
     });
+    expect(mapSpy).toHaveBeenCalledTimes(2);
+  });
+
+  test("stabilizes handlers across renders with same deps", () => {
+    const hooks = createHookHarness();
+    setupModule(hooks);
+
+    const Component = loadComponent();
+    renderComponent(Component, hooks, { initialData: null, billboards: [] });
+    const firstSubmit = hooks.callbackValues[0];
+    const firstDelete = hooks.callbackValues[1];
+
+    renderComponent(Component, hooks, { initialData: null, billboards: [] });
+    const secondSubmit = hooks.callbackValues[0];
+    const secondDelete = hooks.callbackValues[1];
+
+    expect(secondSubmit).toBe(firstSubmit);
+    expect(secondDelete).toBe(firstDelete);
+  });
+
+  test("delete flow sends idempotency header and navigates", async () => {
+    const hooks = createHookHarness();
+    const { toast, router, MockAbortController } = setupModule(hooks);
+    (global as any).AbortController = MockAbortController;
+
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    (global as any).fetch = fetchMock;
+
+    const Component = loadComponent();
+    renderComponent(Component, hooks, {
+      initialData: { id: "1", name: "A", billboardId: "B" },
+      billboards: [],
+    });
+    const onDelete = hooks.callbackValues[1];
+
+    await onDelete();
+
+    const options = fetchMock.mock.calls[0][1];
+    expect(options.method).toBe("DELETE");
+    expect(options.headers["Idempotency-Key"]).toBeTruthy();
+    expect(toast.success).toHaveBeenCalledWith("Category deleted.");
+    expect(router.push).toHaveBeenCalledWith("/store-123/categories");
+  });
 });
