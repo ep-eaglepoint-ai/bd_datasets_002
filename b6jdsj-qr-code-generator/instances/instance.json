@@ -1,0 +1,11 @@
+{
+            "instance_id": "B6JDSJ",
+            "problem_statement": "Build a minimal but robust full-stack QR code generator ",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/b6jdsj-qr-code-generator",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

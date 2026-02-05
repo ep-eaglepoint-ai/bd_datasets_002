@@ -1,0 +1,5 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* No custom CSS - styling must use Tailwind utility classes only */
