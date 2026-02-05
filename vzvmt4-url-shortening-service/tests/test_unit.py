@@ -1,10 +1,18 @@
 import pytest
-from src.services import encode_base62, decode_base62, generate_short_code, OFFSET
+from src.services import (
+    encode_base62,
+    decode_base62,
+    generate_short_code,
+    OFFSET,
+    MAX_CODE_LENGTH,
+)
 from src.models import URLItem
+from src.validation import validate_url_format
 
 # REQ-06: Character set: [a-zA-Z0-9]
 # REQ-07: Length: 5–8 characters
 # REQ-08: Deterministic, no collisions
+
 
 class TestBijectiveAlgorithm:
     def test_encode_decode_correctness(self):
@@ -17,7 +25,9 @@ class TestBijectiveAlgorithm:
 
     def test_character_set(self):
         """Verify that only allowed characters are used."""
-        valid_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        valid_chars = set(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        )
         code = encode_base62(123456789012345)
         for char in code:
             assert char in valid_chars, f"Invalid character '{char}' in code '{code}'"
@@ -29,14 +39,20 @@ class TestBijectiveAlgorithm:
 
     def test_length_constraint_max(self):
         """Verify max length of 8 characters."""
-        large_id = 100_000_000_000_000 
-        code = encode_base62(large_id)
+        large_id = (62**MAX_CODE_LENGTH) - 1 - OFFSET
+        code = generate_short_code(large_id)
         assert len(code) <= 8, f"Code '{code}' is too long for ID {large_id}"
+
+    def test_length_constraint_overflow(self):
+        """Verify generate_short_code raises when code exceeds max length."""
+        overflow_id = (62**MAX_CODE_LENGTH) - OFFSET
+        with pytest.raises(ValueError):
+            generate_short_code(overflow_id)
 
     def test_length_constraint_large_db_id(self):
         """Verify generate_short_code produces at most 8 chars for large DB IDs."""
         # Maximum DB ID that still fits in 8 base62 chars: 62**8 - 1 - OFFSET
-        max_target = (62 ** 8) - 1
+        max_target = (62**8) - 1
         large_db_id = max_target - OFFSET
         code = generate_short_code(large_db_id)
         assert len(code) <= 8, f"Code '{code}' is too long for db_id {large_db_id}"
@@ -50,24 +66,27 @@ class TestBijectiveAlgorithm:
         code_2 = generate_short_code(2)
         assert code_1a != code_2, "Different IDs must produce different codes"
         seen = {generate_short_code(i) for i in range(1, 101)}
-        assert len(seen) == 100, "No collisions: 100 distinct IDs must yield 100 distinct codes"
+        assert (
+            len(seen) == 100
+        ), "No collisions: 100 distinct IDs must yield 100 distinct codes"
+
 
 class TestURLValidation:
-    
+
     def test_valid_http_url(self):
         url = "http://example.com"
         item = URLItem(target_url=url)
-        assert str(item.target_url).rstrip("/") == url.rstrip("/")
+        assert validate_url_format(item.target_url) is None
 
     def test_valid_https_url_with_path(self):
         url = "https://example.com/path/to/resource?query=1"
         item = URLItem(target_url=url)
-        assert str(item.target_url) == url
+        assert validate_url_format(item.target_url) is None
 
     def test_invalid_scheme(self):
-        with pytest.raises(Exception): 
-            URLItem(target_url="ftp://example.com")
+        item = URLItem(target_url="ftp://example.com")
+        assert validate_url_format(item.target_url) is not None
 
     def test_invalid_format(self):
-        with pytest.raises(Exception):
-            URLItem(target_url="not_a_url")
+        item = URLItem(target_url="not_a_url")
+        assert validate_url_format(item.target_url) is not None
