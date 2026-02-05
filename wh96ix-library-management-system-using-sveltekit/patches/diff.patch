@@ -1,0 +1,2925 @@
+diff --git a/wh96ix-library-management-system-using-sveltekit/.gitignore b/wh96ix-library-management-system-using-sveltekit/.gitignore
+index 24697905..40ceae75 100644
+--- a/wh96ix-library-management-system-using-sveltekit/.gitignore
++++ b/wh96ix-library-management-system-using-sveltekit/.gitignore
+@@ -63,8 +63,7 @@ coverage/
+ *.backup.json
+ *.tmp.json
+ *.temp.json
+-evaluation/reports/*.json
+-evaluation/reports/*/*.json
++evaluation/reports
+ instances/*.json
+ *.report.json
+ *-report.json
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/AuthForm.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/AuthForm.svelte
+new file mode 100644
+index 00000000..c0f2cba3
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/AuthForm.svelte
+@@ -0,0 +1,188 @@
++<script lang="ts">
++  import Card from './Card.svelte';
++  
++  export let mode: 'login' | 'register' = 'login';
++  export let error: string = '';
++  export let loading: boolean = false;
++  export let onModeChange: ((mode: 'login' | 'register') => void) | null = null;
++  export let onSubmit: ((data: { email: string; password: string; name?: string }) => void) | null = null;
++
++  let email = '';
++  let password = '';
++  let name = '';
++
++  function handleSubmit() {
++    if (onSubmit) {
++      onSubmit({
++        email: email.trim(),
++        password,
++        ...(mode === 'register' ? { name: name.trim() } : {})
++      });
++    }
++  }
++</script>
++
++<Card title={mode === 'login' ? 'Login' : 'Register'}>
++  {#if error}
++    <p class="error" role="alert" aria-live="assertive">{error}</p>
++  {/if}
++  <form
++    on:submit|preventDefault={handleSubmit}
++    aria-label={mode === 'login' ? 'Login form' : 'Registration form'}
++  >
++    <div class="auth-toggle" role="tablist" aria-label="Authentication mode">
++      <button
++        type="button"
++        class:active={mode === 'login'}
++        on:click={() => onModeChange?.('login')}
++        role="tab"
++        aria-selected={mode === 'login'}
++        aria-controls="auth-form"
++      >
++        Login
++      </button>
++      <button
++        type="button"
++        class:active={mode === 'register'}
++        on:click={() => onModeChange?.('register')}
++        role="tab"
++        aria-selected={mode === 'register'}
++        aria-controls="auth-form"
++      >
++        Register
++      </button>
++    </div>
++    <div id="auth-form" role="tabpanel">
++      {#if mode === 'register'}
++        <label>
++          Name
++          <input
++            type="text"
++            bind:value={name}
++            required
++            aria-required="true"
++            aria-label="Full name"
++          />
++        </label>
++      {/if}
++      <label>
++        Email
++        <input
++          type="email"
++          bind:value={email}
++          required
++          aria-required="true"
++          aria-label="Email address"
++        />
++      </label>
++      <label>
++        Password
++        <input
++          type="password"
++          bind:value={password}
++          minlength="6"
++          required
++          aria-required="true"
++          aria-label="Password"
++        />
++      </label>
++      <button type="submit" disabled={loading} aria-busy={loading}>
++        {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create account'}
++      </button>
++    </div>
++  </form>
++</Card>
++
++<style>
++  .auth-toggle {
++    display: flex;
++    gap: 0.5rem;
++    background: #f3f4f6;
++    padding: 0.25rem;
++    border-radius: 0.5rem;
++    margin-bottom: 1rem;
++  }
++
++  .auth-toggle button {
++    padding: 0.5rem 1rem;
++    border: none;
++    background: transparent;
++    color: #6b7280;
++    cursor: pointer;
++    border-radius: 0.375rem;
++    font-weight: 500;
++    transition: all 0.2s ease;
++  }
++
++  .auth-toggle button.active {
++    background: white;
++    color: #667eea;
++    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
++  }
++
++  form {
++    display: flex;
++    flex-direction: column;
++    gap: 1rem;
++  }
++
++  label {
++    font-weight: 600;
++    font-size: 0.875rem;
++    color: #374151;
++    margin-bottom: 0.5rem;
++    display: block;
++  }
++
++  input[type='email'],
++  input[type='password'],
++  input[type='text'] {
++    width: 100%;
++    padding: 0.75rem 1rem;
++    border-radius: 0.5rem;
++    border: 2px solid #e5e7eb;
++    font-size: 1rem;
++    transition: all 0.2s ease;
++    background: white;
++  }
++
++  input:focus {
++    outline: none;
++    border-color: #667eea;
++    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
++  }
++
++  button {
++    padding: 0.625rem 1.25rem;
++    border-radius: 0.5rem;
++    border: none;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    color: white;
++    cursor: pointer;
++    font-size: 0.875rem;
++    font-weight: 600;
++    transition: all 0.2s ease;
++    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
++  }
++
++  button[disabled] {
++    opacity: 0.6;
++    cursor: not-allowed;
++    box-shadow: none;
++  }
++
++  button:not([disabled]):hover {
++    transform: translateY(-1px);
++    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
++  }
++
++  .error {
++    color: #dc2626;
++    margin-bottom: 0.75rem;
++    padding: 0.75rem 1rem;
++    background: #fee2e2;
++    border-radius: 0.5rem;
++    border-left: 4px solid #dc2626;
++    font-weight: 500;
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/BookForm.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/BookForm.svelte
+new file mode 100644
+index 00000000..3172dfcf
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/BookForm.svelte
+@@ -0,0 +1,191 @@
++<script lang="ts">
++  import Card from './Card.svelte';
++  import type { Book } from '$lib/stores/books';
++
++  export let book: Partial<Book> = {};
++  export let error: string = '';
++  export let loading: boolean = false;
++  export let onSubmit: ((book: Partial<Book>) => void) | null = null;
++  export let onCancel: (() => void) | null = null;
++
++  $: isEditing = !!book.id;
++  $: title = isEditing ? 'Edit book' : 'Add new book';
++</script>
++
++<Card {title}>
++  {#if error}
++    <p class="error" role="alert" aria-live="assertive">{error}</p>
++  {/if}
++  <form on:submit|preventDefault={() => onSubmit?.(book)} class="book-form" aria-label="Book form">
++    <label>
++      Title
++      <input
++        type="text"
++        bind:value={book.title}
++        required
++        aria-required="true"
++        aria-label="Book title"
++      />
++    </label>
++    <label>
++      Author
++      <input
++        type="text"
++        bind:value={book.author}
++        required
++        aria-required="true"
++        aria-label="Book author"
++      />
++    </label>
++    <label>
++      ISBN
++      <input
++        type="text"
++        bind:value={book.isbn}
++        required
++        aria-required="true"
++        aria-label="ISBN"
++      />
++    </label>
++    <label>
++      Category
++      <input
++        type="text"
++        bind:value={book.category}
++        aria-label="Book category"
++      />
++    </label>
++    <label>
++      Total copies
++      <input
++        type="number"
++        min="1"
++        bind:value={book.totalCopies}
++        required
++        aria-required="true"
++        aria-label="Total copies"
++      />
++    </label>
++    <label>
++      Available copies
++      <input
++        type="number"
++        min="0"
++        bind:value={book.availableCopies}
++        aria-label="Available copies"
++      />
++    </label>
++    <label>
++      Publication year
++      <input
++        type="number"
++        min="0"
++        bind:value={book.publicationYear}
++        aria-label="Publication year"
++      />
++    </label>
++    <div class="actions">
++      <button type="submit" disabled={loading} aria-busy={loading}>
++        {loading ? 'Saving...' : isEditing ? 'Save changes' : 'Add book'}
++      </button>
++      {#if isEditing && onCancel}
++        <button type="button" class="secondary" on:click={onCancel}>
++          Cancel
++        </button>
++      {/if}
++    </div>
++  </form>
++</Card>
++
++<style>
++  .book-form {
++    display: grid;
++    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
++    gap: 1rem;
++    margin-top: 1rem;
++  }
++
++  @media (max-width: 640px) {
++    .book-form {
++      grid-template-columns: 1fr;
++    }
++  }
++
++  .book-form label {
++    display: flex;
++    flex-direction: column;
++    gap: 0.5rem;
++    font-size: 0.875rem;
++    font-weight: 600;
++    color: #374151;
++  }
++
++  input[type='text'],
++  input[type='number'] {
++    width: 100%;
++    padding: 0.75rem 1rem;
++    border-radius: 0.5rem;
++    border: 2px solid #e5e7eb;
++    font-size: 1rem;
++    transition: all 0.2s ease;
++    background: white;
++  }
++
++  input:focus {
++    outline: none;
++    border-color: #667eea;
++    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
++  }
++
++  .actions {
++    grid-column: 1 / -1;
++    display: flex;
++    gap: 0.75rem;
++    margin-top: 0.5rem;
++    flex-wrap: wrap;
++  }
++
++  button {
++    padding: 0.625rem 1.25rem;
++    border-radius: 0.5rem;
++    border: none;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    color: white;
++    cursor: pointer;
++    font-size: 0.875rem;
++    font-weight: 600;
++    transition: all 0.2s ease;
++    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
++  }
++
++  button[disabled] {
++    opacity: 0.6;
++    cursor: not-allowed;
++    box-shadow: none;
++  }
++
++  button:not([disabled]):hover {
++    transform: translateY(-1px);
++    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
++  }
++
++  button.secondary {
++    background: #6b7280;
++    box-shadow: 0 4px 6px rgba(107, 114, 128, 0.3);
++  }
++
++  button.secondary:hover:not([disabled]) {
++    background: #4b5563;
++    box-shadow: 0 6px 12px rgba(107, 114, 128, 0.4);
++  }
++
++  .error {
++    color: #dc2626;
++    margin-bottom: 0.75rem;
++    padding: 0.75rem 1rem;
++    background: #fee2e2;
++    border-radius: 0.5rem;
++    border-left: 4px solid #dc2626;
++    font-weight: 500;
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/BookTable.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/BookTable.svelte
+new file mode 100644
+index 00000000..8ea4199a
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/BookTable.svelte
+@@ -0,0 +1,235 @@
++<script lang="ts">
++  import type { Book } from '$lib/stores/books';
++  import type { User } from '$lib/stores/user';
++  import Pagination from './Pagination.svelte';
++
++  export let books: Book[] = [];
++  export let loading: boolean = false;
++  export let user: User | null = null;
++  export let actionLoading: Record<string, boolean> = {};
++  export let currentPage: number = 1;
++  export let itemsPerPage: number = 10;
++  export let onBorrow: ((bookId: number) => void) | null = null;
++  export let onEdit: ((book: Book) => void) | null = null;
++  export let onDelete: ((bookId: number) => void) | null = null;
++  export let onPageChange: ((page: number) => void) | null = null;
++
++  $: startIndex = (currentPage - 1) * itemsPerPage;
++  $: endIndex = startIndex + itemsPerPage;
++  $: paginatedBooks = books.slice(startIndex, endIndex);
++  $: totalPages = Math.ceil(books.length / itemsPerPage);
++</script>
++
++{#if loading}
++  <p aria-live="polite" aria-busy="true">Loading books...</p>
++{:else if books.length === 0}
++  <p>No books found.</p>
++{:else}
++  <div class="table-container">
++    <table role="table" aria-label="Books table">
++      <thead>
++        <tr>
++          <th scope="col">Title</th>
++          <th scope="col">Author</th>
++          <th scope="col">ISBN</th>
++          <th scope="col">Available / Total</th>
++          <th scope="col">Category</th>
++          <th scope="col">Year</th>
++          <th scope="col">Actions</th>
++        </tr>
++      </thead>
++      <tbody>
++        {#each paginatedBooks as book (book.id)}
++          <tr
++            class:low-stock={book.availableCopies <= 2 && book.availableCopies > 0}
++            class:out-of-stock={book.availableCopies === 0}
++          >
++            <td data-label="Title">{book.title}</td>
++            <td data-label="Author">{book.author}</td>
++            <td data-label="ISBN">{book.isbn}</td>
++            <td data-label="Available / Total">
++              <span
++                class:low-stock-badge={book.availableCopies <= 2 && book.availableCopies > 0}
++                class:out-of-stock-badge={book.availableCopies === 0}
++              >
++                {book.availableCopies} / {book.totalCopies}
++              </span>
++            </td>
++            <td data-label="Category">{book.category || '-'}</td>
++            <td data-label="Year">{book.publicationYear || '-'}</td>
++            <td data-label="Actions">
++              {#if user}
++                <button
++                  on:click={() => onBorrow?.(book.id)}
++                  disabled={book.availableCopies <= 0 || actionLoading[`borrow-${book.id}`]}
++                  aria-label="Borrow {book.title}"
++                >
++                  {actionLoading[`borrow-${book.id}`] ? 'Borrowing...' : 'Borrow'}
++                </button>
++                {#if user.role === 'ADMIN'}
++                  <button
++                    on:click={() => onEdit?.(book)}
++                    disabled={actionLoading[`edit-${book.id}`]}
++                    aria-label="Edit {book.title}"
++                  >
++                    Edit
++                  </button>
++                  <button
++                    class="danger"
++                    on:click={() => onDelete?.(book.id)}
++                    disabled={actionLoading[`delete-${book.id}`]}
++                    aria-label="Delete {book.title}"
++                  >
++                    {actionLoading[`delete-${book.id}`] ? 'Deleting...' : 'Delete'}
++                  </button>
++                {/if}
++              {:else}
++                <span class="muted">Login to borrow</span>
++              {/if}
++            </td>
++          </tr>
++        {/each}
++      </tbody>
++    </table>
++  </div>
++  <Pagination
++    {currentPage}
++    {totalPages}
++    onPageChange={onPageChange}
++    label="Books pagination"
++  />
++{/if}
++
++<style>
++  .table-container {
++    overflow-x: auto;
++  }
++
++  table {
++    width: 100%;
++    border-collapse: collapse;
++    font-size: 0.9rem;
++  }
++
++  th,
++  td {
++    padding: 0.75rem 1rem;
++    border-bottom: 1px solid #e5e7eb;
++    text-align: left;
++  }
++
++  th {
++    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
++    font-weight: 700;
++    color: #374151;
++    text-transform: uppercase;
++    font-size: 0.75rem;
++    letter-spacing: 0.05em;
++  }
++
++  tbody tr {
++    transition: background-color 0.2s ease;
++  }
++
++  tbody tr:hover {
++    background-color: #f9fafb;
++  }
++
++  tr.low-stock {
++    background: #fffbeb;
++    border-left: 4px solid #f59e0b;
++  }
++
++  tr.out-of-stock {
++    background: #fef2f2;
++    border-left: 4px solid #dc2626;
++  }
++
++  .low-stock-badge {
++    color: #d97706;
++    font-weight: 700;
++    padding: 0.25rem 0.5rem;
++    background: #fef3c7;
++    border-radius: 0.375rem;
++    font-size: 0.75rem;
++  }
++
++  .out-of-stock-badge {
++    color: #dc2626;
++    font-weight: 700;
++    padding: 0.25rem 0.5rem;
++    background: #fee2e2;
++    border-radius: 0.375rem;
++    font-size: 0.75rem;
++  }
++
++  button {
++    padding: 0.5rem 1rem;
++    border-radius: 0.5rem;
++    border: none;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    color: white;
++    cursor: pointer;
++    font-size: 0.875rem;
++    font-weight: 600;
++    transition: all 0.2s ease;
++    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
++    margin-right: 0.5rem;
++  }
++
++  button[disabled] {
++    opacity: 0.6;
++    cursor: not-allowed;
++    box-shadow: none;
++  }
++
++  button:not([disabled]):hover {
++    transform: translateY(-1px);
++    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
++  }
++
++  button.danger {
++    background: #ef4444;
++    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
++  }
++
++  button.danger:hover:not([disabled]) {
++    background: #dc2626;
++    box-shadow: 0 6px 12px rgba(239, 68, 68, 0.4);
++  }
++
++  .muted {
++    color: #9ca3af;
++    font-size: 0.875rem;
++    font-style: italic;
++  }
++
++  @media (max-width: 640px) {
++    table thead {
++      display: none;
++    }
++    table tbody tr {
++      display: block;
++      margin-bottom: 1rem;
++      border: 2px solid #e5e7eb;
++      border-radius: 0.75rem;
++      padding: 1rem;
++      background: #f9fafb;
++    }
++    table tbody td {
++      display: flex;
++      justify-content: space-between;
++      padding: 0.75rem 0.5rem;
++      border-bottom: 1px solid #e5e7eb;
++    }
++    table tbody td:last-child {
++      border-bottom: none;
++    }
++    table tbody td:before {
++      content: attr(data-label);
++      font-weight: 700;
++      margin-right: 1rem;
++      color: #6b7280;
++    }
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Card.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Card.svelte
+new file mode 100644
+index 00000000..adc9453d
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Card.svelte
+@@ -0,0 +1,45 @@
++<script lang="ts">
++  export let title: string = '';
++  export let class: string = '';
++</script>
++
++<section class="card {class}" role="region" aria-labelledby={title ? `card-title-${title.replace(/\s+/g, '-').toLowerCase()}` : undefined}>
++  {#if title}
++    <h2 id="card-title-{title.replace(/\s+/g, '-').toLowerCase()}">{title}</h2>
++  {/if}
++  <slot />
++</section>
++
++<style>
++  .card {
++    background: rgba(255, 255, 255, 0.95);
++    backdrop-filter: blur(10px);
++    border-radius: 1rem;
++    padding: 1.5rem;
++    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
++    transition: transform 0.2s ease, box-shadow 0.2s ease;
++  }
++
++  .card:hover {
++    transform: translateY(-2px);
++    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
++  }
++
++  .card h2 {
++    font-size: 1.5rem;
++    font-weight: 700;
++    color: #1f2937;
++    margin: 0 0 1rem 0;
++    display: flex;
++    align-items: center;
++    gap: 0.5rem;
++  }
++
++  .card h2::before {
++    content: '';
++    width: 4px;
++    height: 1.5rem;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    border-radius: 2px;
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/CategoryFilter.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/CategoryFilter.svelte
+new file mode 100644
+index 00000000..57789f38
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/CategoryFilter.svelte
+@@ -0,0 +1,52 @@
++<script lang="ts">
++  import type { Book } from '$lib/stores/books';
++  
++  export let books: Book[] = [];
++  export let selectedCategory: string = 'all';
++  export let onCategoryChange: ((category: string) => void) | null = null;
++
++  $: categories = ['all', ...new Set(books.map(b => b.category).filter(Boolean) as string[])].sort();
++</script>
++
++<label class="filter-label" aria-label="Filter by category">
++  <span>Category:</span>
++  <select
++    value={selectedCategory}
++    on:change={(e) => {
++      selectedCategory = e.currentTarget.value;
++      onCategoryChange?.(selectedCategory);
++    }}
++    aria-label="Select category filter"
++  >
++    {#each categories as category}
++      <option value={category}>{category === 'all' ? 'All Categories' : category}</option>
++    {/each}
++  </select>
++</label>
++
++<style>
++  .filter-label {
++    display: flex;
++    align-items: center;
++    gap: 0.5rem;
++    font-weight: 600;
++    font-size: 0.875rem;
++    color: #374151;
++  }
++
++  select {
++    padding: 0.5rem 1rem;
++    border-radius: 0.5rem;
++    border: 2px solid #e5e7eb;
++    font-size: 0.875rem;
++    background: white;
++    cursor: pointer;
++    transition: all 0.2s ease;
++  }
++
++  select:focus {
++    outline: none;
++    border-color: #667eea;
++    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Dashboard.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Dashboard.svelte
+new file mode 100644
+index 00000000..6932dfa1
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Dashboard.svelte
+@@ -0,0 +1,53 @@
++<script lang="ts">
++  import Card from './Card.svelte';
++  import StatCard from './StatCard.svelte';
++  import type { Book } from '$lib/stores/books';
++  import type { Loan } from '$lib/stores/loans';
++  import type { User } from '$lib/stores/user';
++
++  export let books: Book[] = [];
++  export let loans: Loan[] = [];
++  export let user: User | null = null;
++
++  $: stats = {
++    totalBooks: books.length,
++    availableBooks: books.filter(b => b.availableCopies > 0).length,
++    totalLoans: loans.length,
++    activeLoans: loans.filter(l => !l.returnedAt).length,
++    overdueLoans: loans.filter(l => l.isOverdue && !l.returnedAt).length,
++    totalFines: loans.reduce((sum, l) => sum + (l.fineCents || 0), 0)
++  };
++</script>
++
++<Card title="Dashboard" class="dashboard">
++  <div class="stats-grid" role="group" aria-label="Library statistics">
++    <StatCard value={stats.totalBooks} label="Total Books" />
++    <StatCard value={stats.availableBooks} label="Available Books" />
++    <StatCard value={stats.activeLoans} label="Active Loans" />
++    <StatCard value={stats.overdueLoans} label="Overdue Items" />
++    {#if user?.role === 'ADMIN'}
++      <StatCard value={stats.totalLoans} label="Total Loans" />
++      <StatCard value={`$${(stats.totalFines / 100).toFixed(2)}`} label="Total Fines" />
++    {/if}
++  </div>
++</Card>
++
++<style>
++  .dashboard {
++    margin-bottom: 1.5rem;
++  }
++
++  .stats-grid {
++    display: grid;
++    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
++    gap: 1.25rem;
++    margin-top: 1.25rem;
++  }
++
++  @media (max-width: 640px) {
++    .stats-grid {
++      grid-template-columns: repeat(2, 1fr);
++      gap: 1rem;
++    }
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/LoanTable.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/LoanTable.svelte
+new file mode 100644
+index 00000000..04a036f0
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/LoanTable.svelte
+@@ -0,0 +1,251 @@
++<script lang="ts">
++  import type { Loan } from '$lib/stores/loans';
++  import type { User } from '$lib/stores/user';
++  import Pagination from './Pagination.svelte';
++
++  export let loans: Loan[] = [];
++  export let loading: boolean = false;
++  export let user: User | null = null;
++  export let actionLoading: Record<string, boolean> = {};
++  export let currentPage: number = 1;
++  export let itemsPerPage: number = 10;
++  export let onReturn: ((loanId: number) => void) | null = null;
++  export let onPageChange: ((page: number) => void) | null = null;
++
++  $: startIndex = (currentPage - 1) * itemsPerPage;
++  $: endIndex = startIndex + itemsPerPage;
++  $: paginatedLoans = loans.slice(startIndex, endIndex);
++  $: totalPages = Math.ceil(loans.length / itemsPerPage);
++</script>
++
++{#if !user}
++  <p>Please login to view your loans.</p>
++{:else if loading}
++  <p aria-live="polite" aria-busy="true">Loading loans...</p>
++{:else if loans.length === 0}
++  <p>No loans yet.</p>
++{:else}
++  <div class="table-container">
++    <table role="table" aria-label="Loans table">
++      <thead>
++        <tr>
++          <th scope="col">Book</th>
++          {#if user?.role === 'ADMIN'}
++            <th scope="col">Borrower</th>
++          {/if}
++          <th scope="col">Borrowed</th>
++          <th scope="col">Due</th>
++          <th scope="col">Status</th>
++          <th scope="col">Fine</th>
++          <th scope="col">Actions</th>
++        </tr>
++      </thead>
++      <tbody>
++        {#each paginatedLoans as loan (loan.id)}
++          <tr class:overdue={loan.isOverdue && !loan.returnedAt}>
++            <td data-label="Book">{loan.book.title}</td>
++            {#if user?.role === 'ADMIN'}
++              <td data-label="Borrower">{loan.user?.name || 'Unknown'}</td>
++            {/if}
++            <td data-label="Borrowed">{new Date(loan.borrowedAt).toLocaleDateString()}</td>
++            <td data-label="Due">
++              {new Date(loan.dueDate).toLocaleDateString()}
++              {#if !loan.returnedAt}
++                {@const daysUntilDue = Math.ceil((new Date(loan.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
++                {#if daysUntilDue < 0}
++                  <span class="days-badge overdue-badge" aria-label="{Math.abs(daysUntilDue)} days overdue">
++                    ({Math.abs(daysUntilDue)} days overdue)
++                  </span>
++                {:else if daysUntilDue <= 3}
++                  <span class="days-badge warning-badge" aria-label="{daysUntilDue} days left">
++                    ({daysUntilDue} days left)
++                  </span>
++                {:else}
++                  <span class="days-badge" aria-label="{daysUntilDue} days left">
++                    ({daysUntilDue} days left)
++                  </span>
++                {/if}
++              {/if}
++            </td>
++            <td data-label="Status">
++              {#if loan.returnedAt}
++                <span class="status-badge returned" aria-label="Returned">Returned</span>
++              {:else if loan.isOverdue}
++                <span class="status-badge overdue" aria-label="Overdue">Overdue</span>
++              {:else}
++                <span class="status-badge active" aria-label="Active">Active</span>
++              {/if}
++            </td>
++            <td data-label="Fine">
++              {#if loan.fineCents && loan.fineCents > 0}
++                ${(loan.fineCents / 100).toFixed(2)}
++              {:else}
++                -
++              {/if}
++            </td>
++            <td data-label="Actions">
++              {#if !loan.returnedAt}
++                <button
++                  on:click={() => onReturn?.(loan.id)}
++                  disabled={actionLoading[`return-${loan.id}`]}
++                  aria-label="Return {loan.book.title}"
++                >
++                  {actionLoading[`return-${loan.id}`] ? 'Returning...' : 'Return'}
++                </button>
++              {/if}
++            </td>
++          </tr>
++        {/each}
++      </tbody>
++    </table>
++  </div>
++  <Pagination
++    {currentPage}
++    {totalPages}
++    onPageChange={onPageChange}
++    label="Loans pagination"
++  />
++{/if}
++
++<style>
++  .table-container {
++    overflow-x: auto;
++  }
++
++  table {
++    width: 100%;
++    border-collapse: collapse;
++    font-size: 0.9rem;
++  }
++
++  th,
++  td {
++    padding: 0.75rem 1rem;
++    border-bottom: 1px solid #e5e7eb;
++    text-align: left;
++  }
++
++  th {
++    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
++    font-weight: 700;
++    color: #374151;
++    text-transform: uppercase;
++    font-size: 0.75rem;
++    letter-spacing: 0.05em;
++  }
++
++  tbody tr {
++    transition: background-color 0.2s ease;
++  }
++
++  tbody tr:hover {
++    background-color: #f9fafb;
++  }
++
++  tr.overdue {
++    background: #fef2f2;
++    border-left: 4px solid #ef4444;
++  }
++
++  .days-badge {
++    font-size: 0.75rem;
++    margin-left: 0.5rem;
++    padding: 0.25rem 0.5rem;
++    border-radius: 0.375rem;
++    font-weight: 600;
++    display: inline-block;
++  }
++
++  .days-badge.overdue-badge {
++    background: #fee2e2;
++    color: #dc2626;
++  }
++
++  .days-badge.warning-badge {
++    background: #fef3c7;
++    color: #d97706;
++  }
++
++  .days-badge:not(.overdue-badge):not(.warning-badge) {
++    background: #dbeafe;
++    color: #1e40af;
++  }
++
++  .status-badge {
++    display: inline-block;
++    padding: 0.375rem 0.75rem;
++    border-radius: 0.5rem;
++    font-size: 0.75rem;
++    font-weight: 600;
++    text-transform: uppercase;
++    letter-spacing: 0.05em;
++  }
++
++  .status-badge.active {
++    background: #dbeafe;
++    color: #1e40af;
++  }
++
++  .status-badge.overdue {
++    background: #fee2e2;
++    color: #dc2626;
++  }
++
++  .status-badge.returned {
++    background: #d1fae5;
++    color: #065f46;
++  }
++
++  button {
++    padding: 0.5rem 1rem;
++    border-radius: 0.5rem;
++    border: none;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    color: white;
++    cursor: pointer;
++    font-size: 0.875rem;
++    font-weight: 600;
++    transition: all 0.2s ease;
++    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
++  }
++
++  button[disabled] {
++    opacity: 0.6;
++    cursor: not-allowed;
++    box-shadow: none;
++  }
++
++  button:not([disabled]):hover {
++    transform: translateY(-1px);
++    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
++  }
++
++  @media (max-width: 640px) {
++    table thead {
++      display: none;
++    }
++    table tbody tr {
++      display: block;
++      margin-bottom: 1rem;
++      border: 2px solid #e5e7eb;
++      border-radius: 0.75rem;
++      padding: 1rem;
++      background: #f9fafb;
++    }
++    table tbody td {
++      display: flex;
++      justify-content: space-between;
++      padding: 0.75rem 0.5rem;
++      border-bottom: 1px solid #e5e7eb;
++    }
++    table tbody td:last-child {
++      border-bottom: none;
++    }
++    table tbody td:before {
++      content: attr(data-label);
++      font-weight: 700;
++      margin-right: 1rem;
++      color: #6b7280;
++    }
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Pagination.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Pagination.svelte
+new file mode 100644
+index 00000000..f6a3ffd4
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/Pagination.svelte
+@@ -0,0 +1,75 @@
++<script lang="ts">
++  export let currentPage: number = 1;
++  export let totalPages: number = 1;
++  export let onPageChange: ((page: number) => void) | null = null;
++  export let label: string = '';
++
++  function goToPage(page: number) {
++    if (page >= 1 && page <= totalPages && page !== currentPage) {
++      onPageChange?.(page);
++    }
++  }
++</script>
++
++{#if totalPages > 1}
++  <nav class="pagination" aria-label={label || 'Pagination'}>
++    <button
++      class="pagination-button"
++      on:click={() => goToPage(currentPage - 1)}
++      disabled={currentPage === 1}
++      aria-label="Previous page"
++    >
++      Previous
++    </button>
++    <span class="page-info" aria-live="polite">
++      Page {currentPage} of {totalPages}
++    </span>
++    <button
++      class="pagination-button"
++      on:click={() => goToPage(currentPage + 1)}
++      disabled={currentPage === totalPages}
++      aria-label="Next page"
++    >
++      Next
++    </button>
++  </nav>
++{/if}
++
++<style>
++  .pagination {
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    gap: 1rem;
++    margin-top: 1rem;
++    padding: 1rem;
++  }
++
++  .pagination-button {
++    padding: 0.5rem 1rem;
++    border-radius: 0.5rem;
++    border: 2px solid #e5e7eb;
++    background: white;
++    color: #374151;
++    cursor: pointer;
++    font-size: 0.875rem;
++    font-weight: 600;
++    transition: all 0.2s ease;
++  }
++
++  .pagination-button:hover:not([disabled]) {
++    background: #f3f4f6;
++    border-color: #667eea;
++  }
++
++  .pagination-button[disabled] {
++    opacity: 0.5;
++    cursor: not-allowed;
++  }
++
++  .page-info {
++    font-size: 0.875rem;
++    color: #6b7280;
++    font-weight: 500;
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/SearchInput.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/SearchInput.svelte
+new file mode 100644
+index 00000000..9a67bd88
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/SearchInput.svelte
+@@ -0,0 +1,32 @@
++<script lang="ts">
++  export let value: string = '';
++  export let placeholder: string = 'Search...';
++  export let onInput: ((value: string) => void) | null = null;
++</script>
++
++<input
++  type="search"
++  {placeholder}
++  bind:value
++  on:input={(e) => onInput?.(e.currentTarget.value)}
++  aria-label={placeholder}
++  role="searchbox"
++/>
++
++<style>
++  input[type='search'] {
++    width: 100%;
++    padding: 0.75rem 1rem;
++    border-radius: 0.5rem;
++    border: 2px solid #e5e7eb;
++    font-size: 1rem;
++    transition: all 0.2s ease;
++    background: white;
++  }
++
++  input[type='search']:focus {
++    outline: none;
++    border-color: #667eea;
++    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/StatCard.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/StatCard.svelte
+new file mode 100644
+index 00000000..25427b84
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/StatCard.svelte
+@@ -0,0 +1,57 @@
++<script lang="ts">
++  export let value: string | number;
++  export let label: string;
++</script>
++
++<div class="stat-card" role="region" aria-label="{label}">
++  <div class="stat-value">{value}</div>
++  <div class="stat-label">{label}</div>
++</div>
++
++<style>
++  .stat-card {
++    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
++    border-radius: 0.75rem;
++    padding: 1.5rem;
++    text-align: center;
++    border: 2px solid #e5e7eb;
++    transition: all 0.3s ease;
++    position: relative;
++    overflow: hidden;
++  }
++
++  .stat-card::before {
++    content: '';
++    position: absolute;
++    top: 0;
++    left: 0;
++    right: 0;
++    height: 4px;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++  }
++
++  .stat-card:hover {
++    transform: translateY(-4px);
++    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
++    border-color: #667eea;
++  }
++
++  .stat-value {
++    font-size: 2.5rem;
++    font-weight: 800;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    -webkit-background-clip: text;
++    -webkit-text-fill-color: transparent;
++    background-clip: text;
++    margin-bottom: 0.5rem;
++    line-height: 1;
++  }
++
++  .stat-label {
++    font-size: 0.875rem;
++    color: #6b7280;
++    font-weight: 600;
++    text-transform: uppercase;
++    letter-spacing: 0.05em;
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/UserProfile.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/UserProfile.svelte
+new file mode 100644
+index 00000000..1d4d344a
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/components/UserProfile.svelte
+@@ -0,0 +1,254 @@
++<script lang="ts">
++  import Card from './Card.svelte';
++  import type { User } from '$lib/stores/user';
++
++  export let user: User | null = null;
++  export let loading: boolean = false;
++  export let error: string = '';
++  export let onUpdateProfile: ((data: { name: string; email: string }) => void) | null = null;
++  export let onChangePassword: ((data: { currentPassword: string; newPassword: string }) => void) | null = null;
++
++  let name = user?.name || '';
++  let email = user?.email || '';
++  let currentPassword = '';
++  let newPassword = '';
++  let confirmPassword = '';
++  let passwordError = '';
++  let activeTab: 'profile' | 'password' = 'profile';
++
++  $: if (user) {
++    name = user.name;
++    email = user.email;
++  }
++
++  function handleUpdateProfile() {
++    if (onUpdateProfile && name.trim() && email.trim()) {
++      onUpdateProfile({ name: name.trim(), email: email.trim() });
++    }
++  }
++
++  function handleChangePassword() {
++    passwordError = '';
++    if (!currentPassword || !newPassword) {
++      passwordError = 'All password fields are required';
++      return;
++    }
++    if (newPassword.length < 6) {
++      passwordError = 'New password must be at least 6 characters';
++      return;
++    }
++    if (newPassword !== confirmPassword) {
++      passwordError = 'New passwords do not match';
++      return;
++    }
++    if (onChangePassword) {
++      onChangePassword({ currentPassword, newPassword });
++      currentPassword = '';
++      newPassword = '';
++      confirmPassword = '';
++    }
++  }
++</script>
++
++{#if user}
++  <Card title="User Profile">
++    <div class="tabs" role="tablist" aria-label="Profile settings">
++      <button
++        type="button"
++        class="tab-button"
++        class:active={activeTab === 'profile'}
++        on:click={() => activeTab = 'profile'}
++        role="tab"
++        aria-selected={activeTab === 'profile'}
++        aria-controls="profile-tab"
++      >
++        Profile Information
++      </button>
++      <button
++        type="button"
++        class="tab-button"
++        class:active={activeTab === 'password'}
++        on:click={() => activeTab = 'password'}
++        role="tab"
++        aria-selected={activeTab === 'password'}
++        aria-controls="password-tab"
++      >
++        Change Password
++      </button>
++    </div>
++
++    {#if error}
++      <p class="error" role="alert" aria-live="assertive">{error}</p>
++    {/if}
++
++    {#if activeTab === 'profile'}
++      <div id="profile-tab" role="tabpanel" aria-labelledby="profile-tab-button">
++        <form on:submit|preventDefault={handleUpdateProfile} aria-label="Update profile form">
++          <label>
++            Name
++            <input
++              type="text"
++              bind:value={name}
++              required
++              aria-required="true"
++              aria-label="Full name"
++            />
++          </label>
++          <label>
++            Email
++            <input
++              type="email"
++              bind:value={email}
++              required
++              aria-required="true"
++              aria-label="Email address"
++            />
++          </label>
++          <button type="submit" disabled={loading} aria-busy={loading}>
++            {loading ? 'Updating...' : 'Update Profile'}
++          </button>
++        </form>
++      </div>
++    {:else}
++      <div id="password-tab" role="tabpanel" aria-labelledby="password-tab-button">
++        {#if passwordError}
++          <p class="error" role="alert" aria-live="assertive">{passwordError}</p>
++        {/if}
++        <form on:submit|preventDefault={handleChangePassword} aria-label="Change password form">
++          <label>
++            Current Password
++            <input
++              type="password"
++              bind:value={currentPassword}
++              required
++              aria-required="true"
++              aria-label="Current password"
++            />
++          </label>
++          <label>
++            New Password
++            <input
++              type="password"
++              bind:value={newPassword}
++              minlength="6"
++              required
++              aria-required="true"
++              aria-label="New password"
++            />
++          </label>
++          <label>
++            Confirm New Password
++            <input
++              type="password"
++              bind:value={confirmPassword}
++              minlength="6"
++              required
++              aria-required="true"
++              aria-label="Confirm new password"
++            />
++          </label>
++          <button type="submit" disabled={loading} aria-busy={loading}>
++            {loading ? 'Changing...' : 'Change Password'}
++          </button>
++        </form>
++      </div>
++    {/if}
++  </Card>
++{/if}
++
++<style>
++  .tabs {
++    display: flex;
++    gap: 0.5rem;
++    margin-bottom: 1.5rem;
++    border-bottom: 2px solid #e5e7eb;
++  }
++
++  .tab-button {
++    padding: 0.75rem 1.5rem;
++    border: none;
++    background: transparent;
++    color: #6b7280;
++    cursor: pointer;
++    font-weight: 600;
++    font-size: 0.875rem;
++    transition: all 0.2s ease;
++    border-bottom: 2px solid transparent;
++    margin-bottom: -2px;
++  }
++
++  .tab-button:hover {
++    color: #374151;
++  }
++
++  .tab-button.active {
++    color: #667eea;
++    border-bottom-color: #667eea;
++  }
++
++  form {
++    display: flex;
++    flex-direction: column;
++    gap: 1rem;
++  }
++
++  label {
++    font-weight: 600;
++    font-size: 0.875rem;
++    color: #374151;
++    display: block;
++  }
++
++  input[type='text'],
++  input[type='email'],
++  input[type='password'] {
++    width: 100%;
++    padding: 0.75rem 1rem;
++    border-radius: 0.5rem;
++    border: 2px solid #e5e7eb;
++    font-size: 1rem;
++    transition: all 0.2s ease;
++    background: white;
++    margin-top: 0.5rem;
++  }
++
++  input:focus {
++    outline: none;
++    border-color: #667eea;
++    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
++  }
++
++  button {
++    padding: 0.625rem 1.25rem;
++    border-radius: 0.5rem;
++    border: none;
++    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++    color: white;
++    cursor: pointer;
++    font-size: 0.875rem;
++    font-weight: 600;
++    transition: all 0.2s ease;
++    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
++  }
++
++  button[disabled] {
++    opacity: 0.6;
++    cursor: not-allowed;
++    box-shadow: none;
++  }
++
++  button:not([disabled]):hover {
++    transform: translateY(-1px);
++    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
++  }
++
++  .error {
++    color: #dc2626;
++    margin-bottom: 0.75rem;
++    padding: 0.75rem 1rem;
++    background: #fee2e2;
++    border-radius: 0.5rem;
++    border-left: 4px solid #dc2626;
++    font-weight: 500;
++  }
++</style>
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/config.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/config.ts
+new file mode 100644
+index 00000000..501a075e
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/config.ts
+@@ -0,0 +1,7 @@
++// Client-side application configuration
++export const CONFIG = {
++  ITEMS_PER_PAGE: {
++    books: 10,
++    loans: 10
++  }
++} as const;
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/server/auth.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/server/auth.ts
+index b29d775e..f785b645 100644
+--- a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/server/auth.ts
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/server/auth.ts
+@@ -1,13 +1,15 @@
+-import { createHash, timingSafeEqual } from 'crypto';
++// @ts-expect-error - bcryptjs types not available, but module exists
++import bcrypt from 'bcryptjs';
+ 
+ export type Role = 'ADMIN' | 'BORROWER';
+ 
+-export function hashPassword(password: string): string {
+-  return createHash('sha256').update(password).digest('hex');
++export async function hashPassword(password: string): Promise<string> {
++  // Use sync version wrapped in Promise for compatibility
++  return Promise.resolve(bcrypt.hashSync(password, 10));
+ }
+ 
+-export function verifyPassword(password: string, hash: string): boolean {
+-  const candidate = hashPassword(password);
+-  return timingSafeEqual(Buffer.from(candidate), Buffer.from(hash));
++export async function verifyPassword(password: string, hash: string): Promise<boolean> {
++  // Use sync version wrapped in Promise for compatibility
++  return Promise.resolve(bcrypt.compareSync(password, hash));
+ }
+ 
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/server/config.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/server/config.ts
+new file mode 100644
+index 00000000..10ec11a1
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/server/config.ts
+@@ -0,0 +1,5 @@
++// Server-side application configuration
++export const CONFIG = {
++  FINE_PER_DAY_CENTS: 50, // Fine rate in cents per day
++  LOAN_DURATION_DAYS: 14, // Default loan duration
++} as const;
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/books.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/books.ts
+new file mode 100644
+index 00000000..96e1bf28
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/books.ts
+@@ -0,0 +1,16 @@
++import { writable } from 'svelte/store';
++
++export interface Book {
++  id: number;
++  title: string;
++  author: string;
++  isbn: string;
++  category?: string | null;
++  totalCopies: number;
++  availableCopies: number;
++  publicationYear?: number | null;
++}
++
++export const books = writable<Book[]>([]);
++export const loadingBooks = writable(false);
++export const searchQuery = writable('');
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/index.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/index.ts
+new file mode 100644
+index 00000000..33d4191c
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/index.ts
+@@ -0,0 +1,5 @@
++// Central export for all stores
++export * from './user';
++export * from './books';
++export * from './loans';
++export * from './ui';
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/loans.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/loans.ts
+new file mode 100644
+index 00000000..453edfcb
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/loans.ts
+@@ -0,0 +1,17 @@
++import { writable } from 'svelte/store';
++import type { Book } from './books';
++
++export interface Loan {
++  id: number;
++  book: Book;
++  user?: { id: number; name: string; email: string };
++  borrowedAt: string;
++  dueDate: string;
++  returnedAt?: string | null;
++  isOverdue?: boolean;
++  fineCents?: number;
++}
++
++export const loans = writable<Loan[]>([]);
++export const loadingLoans = writable(false);
++export const viewAllLoans = writable(false);
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/ui.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/ui.ts
+new file mode 100644
+index 00000000..6554b847
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/ui.ts
+@@ -0,0 +1,8 @@
++import { writable } from 'svelte/store';
++
++export const authError = writable('');
++export const authLoading = writable(false);
++export const actionLoading = writable<Record<string, boolean>>({});
++export const selectedCategory = writable<string>('all');
++export const currentPage = writable<{ books: number; loans: number }>({ books: 1, loans: 1 });
++export const itemsPerPage = writable<{ books: number; loans: number }>({ books: 10, loans: 10 });
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/user.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/user.ts
+new file mode 100644
+index 00000000..53546421
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/lib/stores/user.ts
+@@ -0,0 +1,12 @@
++import { writable } from 'svelte/store';
++
++export type Role = 'ADMIN' | 'BORROWER';
++
++export interface User {
++  id: number;
++  email: string;
++  name: string;
++  role: Role;
++}
++
++export const user = writable<User | null>(null);
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/+page.svelte b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/+page.svelte
+index 80d2482c..32c15710 100644
+--- a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/+page.svelte
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/+page.svelte
+@@ -1,48 +1,43 @@
+ <script lang="ts">
+   import { onMount } from 'svelte';
+-  import { writable, get } from 'svelte/store';
++  import { get } from 'svelte/store';
++  import {
++    user,
++    books,
++    loans,
++    loadingBooks,
++    loadingLoans,
++    searchQuery,
++    selectedCategory,
++    currentPage,
++    itemsPerPage,
++    authError,
++    authLoading,
++    actionLoading,
++    viewAllLoans
++  } from '$lib/stores';
++  import type { Book } from '$lib/stores/books';
++  import type { Loan } from '$lib/stores/loans';
++  import AuthForm from '$lib/components/AuthForm.svelte';
++  import BookTable from '$lib/components/BookTable.svelte';
++  import LoanTable from '$lib/components/LoanTable.svelte';
++  import BookForm from '$lib/components/BookForm.svelte';
++  import Dashboard from '$lib/components/Dashboard.svelte';
++  import UserProfile from '$lib/components/UserProfile.svelte';
++  import Card from '$lib/components/Card.svelte';
++  import SearchInput from '$lib/components/SearchInput.svelte';
++  import CategoryFilter from '$lib/components/CategoryFilter.svelte';
++  import { CONFIG } from '$lib/config';
+ 
+-  type Role = 'ADMIN' | 'BORROWER';
+-
+-  interface User {
+-    id: number;
+-    email: string;
+-    name: string;
+-    role: Role;
+-  }
+-
+-  interface Book {
+-    id: number;
+-    title: string;
+-    author: string;
+-    isbn: string;
+-    category?: string | null;
+-    totalCopies: number;
+-    availableCopies: number;
+-    publicationYear?: number | null;
+-  }
+-
+-  interface Loan {
+-    id: number;
+-    book: Book;
+-    user?: { id: number; name: string; email: string };
+-    borrowedAt: string;
+-    dueDate: string;
+-    returnedAt?: string | null;
+-    isOverdue?: boolean;
+-    fineCents?: number;
+-  }
++  let authMode: 'login' | 'register' = 'login';
++  let bookForm: Partial<Book> = {};
++  let bookFormError = '';
++  let editingId: number | null = null;
++  let showUserProfile = false;
+ 
+-  const user = writable<User | null>(null);
+-  const books = writable<Book[]>([]);
+-  const loans = writable<Loan[]>([]);
+-  const search = writable('');
+-  const loadingBooks = writable(false);
+-  const loadingLoans = writable(false);
+-  const authError = writable('');
+-  const authLoading = writable(false);
+-  const actionLoading = writable<Record<string, boolean>>({});
+-  const viewAllLoans = writable(false);
++  // Initialize pagination
++  currentPage.set({ books: 1, loans: 1 });
++  itemsPerPage.set({ books: CONFIG.ITEMS_PER_PAGE.books, loans: CONFIG.ITEMS_PER_PAGE.loans });
+ 
+   async function fetchCurrent() {
+     await loadBooks();
+@@ -51,11 +46,17 @@
+ 
+   async function loadBooks() {
+     loadingBooks.set(true);
+-    const q = get(search);
+-    const url = q ? `/api/books?q=${encodeURIComponent(q)}` : '/api/books';
++    const q = get(searchQuery);
++    const category = get(selectedCategory);
++    const params = new URLSearchParams();
++    if (q) params.set('q', q);
++    if (category && category !== 'all') params.set('category', category);
++    const url = `/api/books${params.toString() ? '?' + params.toString() : ''}`;
+     const res = await fetch(url);
+     if (res.ok) {
+       books.set(await res.json());
++      // Reset to page 1 when filtering
++      currentPage.update(p => ({ ...p, books: 1 }));
+     }
+     loadingBooks.set(false);
+   }
+@@ -66,31 +67,22 @@
+     const res = await fetch(`/api/loans?view=${view}`);
+     if (res.ok) {
+       loans.set(await res.json());
++      currentPage.update(p => ({ ...p, loans: 1 }));
+     }
+     loadingLoans.set(false);
+   }
+ 
+-  // Computed statistics
+-  $: stats = {
+-    totalBooks: $books.length,
+-    availableBooks: $books.filter(b => b.availableCopies > 0).length,
+-    totalLoans: $loans.length,
+-    activeLoans: $loans.filter(l => !l.returnedAt).length,
+-    overdueLoans: $loans.filter(l => l.isOverdue && !l.returnedAt).length,
+-    totalFines: $loans.reduce((sum, l) => sum + (l.fineCents || 0), 0)
+-  };
+-
+-  let authMode: 'login' | 'register' = 'login';
+-  let email = '';
+-  let password = '';
+-  let name = '';
++  function handleAuthModeChange(mode: 'login' | 'register') {
++    authMode = mode;
++    authError.set('');
++  }
+ 
+-  async function submitAuth() {
++  async function handleAuthSubmit(data: { email: string; password: string; name?: string }) {
+     authError.set('');
+     authLoading.set(true);
+     try {
+-      const payload: any = { action: authMode, email: email.trim(), password };
+-      if (authMode === 'register') payload.name = name.trim();
++      const payload: any = { action: authMode, email: data.email, password: data.password };
++      if (authMode === 'register' && data.name) payload.name = data.name;
+       const res = await fetch('/api/auth', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+@@ -101,11 +93,8 @@
+         authError.set(errorData.message || 'Authentication failed');
+         return;
+       }
+-      const u = (await res.json()) as User;
++      const u = await res.json();
+       user.set(u);
+-      email = '';
+-      password = '';
+-      name = '';
+       await fetchCurrent();
+     } catch (e) {
+       authError.set('Network error. Please try again.');
+@@ -122,12 +111,9 @@
+     });
+     user.set(null);
+     loans.set([]);
++    books.set([]);
+   }
+ 
+-  let bookForm: Partial<Book> = {};
+-  let bookFormError = '';
+-  let editingId: number | null = null;
+-
+   function startEdit(book: Book) {
+     editingId = book.id;
+     bookForm = { ...book };
+@@ -142,7 +128,6 @@
+   async function saveBook() {
+     bookFormError = '';
+     
+-    // Frontend validation
+     if (!bookForm.title?.trim()) {
+       bookFormError = 'Title is required';
+       return;
+@@ -281,303 +266,196 @@
+     }
+   }
+ 
++  async function handleUpdateProfile(data: { name: string; email: string }) {
++    authLoading.set(true);
++    try {
++      const res = await fetch('/api/user', {
++        method: 'PUT',
++        headers: { 'content-type': 'application/json' },
++        body: JSON.stringify(data)
++      });
++      if (!res.ok) {
++        const errorData = await res.json().catch(() => ({ message: 'Failed to update profile' }));
++        authError.set(errorData.message || 'Failed to update profile');
++        return;
++      }
++      const updated = await res.json();
++      user.set(updated);
++      authError.set('');
++    } catch (e) {
++      authError.set('Network error. Please try again.');
++    } finally {
++      authLoading.set(false);
++    }
++  }
++
++  async function handleChangePassword(data: { currentPassword: string; newPassword: string }) {
++    authLoading.set(true);
++    try {
++      const res = await fetch('/api/user', {
++        method: 'POST',
++        headers: { 'content-type': 'application/json' },
++        body: JSON.stringify(data)
++      });
++      if (!res.ok) {
++        const errorData = await res.json().catch(() => ({ message: 'Failed to change password' }));
++        authError.set(errorData.message || 'Failed to change password');
++        return;
++      }
++      authError.set('');
++      alert('Password changed successfully');
++    } catch (e) {
++      authError.set('Network error. Please try again.');
++    } finally {
++      authLoading.set(false);
++    }
++  }
++
++  $: filteredBooks = get(books);
++  $: filteredLoans = get(loans);
++  $: booksPage = get(currentPage).books;
++  $: loansPage = get(currentPage).loans;
++  $: booksPerPage = get(itemsPerPage).books;
++  $: loansPerPage = get(itemsPerPage).loans;
++
+   onMount(() => {
+     loadCurrentUser();
+   });
+ </script>
+ 
+ <main class="app">
+-  <header class="topbar">
++  <header class="topbar" role="banner">
+     <h1>Library Management System</h1>
+     {#if $user}
+       <div class="user-info">
+-        <span>{$user.name} ({$user.role})</span>
+-        <button class="secondary" on:click={logout}>Logout</button>
++        <span aria-label="Current user: {$user.name}, Role: {$user.role}">{$user.name} ({$user.role})</span>
++        <button class="secondary" on:click={() => showUserProfile = !showUserProfile} aria-label="Toggle user profile">
++          Profile
++        </button>
++        <button class="secondary" on:click={logout} aria-label="Logout">Logout</button>
+       </div>
+     {:else}
+-      <div class="auth-toggle">
+-        <button class:active={authMode === 'login'} on:click={() => (authMode = 'login')}
+-          >Login</button
++      <div class="auth-toggle" role="tablist" aria-label="Authentication mode">
++        <button
++          class:active={authMode === 'login'}
++          on:click={() => handleAuthModeChange('login')}
++          role="tab"
++          aria-selected={authMode === 'login'}
+         >
++          Login
++        </button>
+         <button
+           class:active={authMode === 'register'}
+-          on:click={() => (authMode = 'register')}
+-          >Register</button
++          on:click={() => handleAuthModeChange('register')}
++          role="tab"
++          aria-selected={authMode === 'register'}
+         >
++          Register
++        </button>
+       </div>
+     {/if}
+   </header>
+ 
+   {#if !$user}
+-    <section class="card">
+-      <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
+-      {#if $authError}<p class="error">{$authError}</p>{/if}
+-      <form
+-        on:submit|preventDefault={submitAuth}
+-        aria-label={authMode === 'login' ? 'Login form' : 'Registration form'}
+-      >
+-        {#if authMode === 'register'}
+-          <label>
+-            Name
+-            <input bind:value={name} required />
+-          </label>
+-        {/if}
+-        <label>
+-          Email
+-          <input type="email" bind:value={email} required />
+-        </label>
+-        <label>
+-          Password
+-          <input type="password" bind:value={password} minlength="6" required />
+-        </label>
+-        <button type="submit" disabled={$authLoading}>
+-          {$authLoading ? 'Please wait...' : authMode === 'login' ? 'Login' : 'Create account'}
+-        </button>
+-      </form>
+-    </section>
++    <AuthForm
++      mode={authMode}
++      error={$authError}
++      loading={$authLoading}
++      onModeChange={handleAuthModeChange}
++      onSubmit={handleAuthSubmit}
++    />
++  {/if}
++
++  {#if $user && showUserProfile}
++    <UserProfile
++      user={$user}
++      loading={$authLoading}
++      error={$authError}
++      onUpdateProfile={handleUpdateProfile}
++      onChangePassword={handleChangePassword}
++    />
++  {/if}
++
++  {#if $user}
++    <Dashboard books={$books} loans={$loans} user={$user} />
+   {/if}
+ 
+   <section class="layout">
+-    <section class="card">
+-      <header class="card-header">
+-        <h2>Books</h2>
+-        <input
+-          type="search"
++    <Card title="Books">
++      <div class="card-header">
++        <SearchInput
++          value={$searchQuery}
+           placeholder="Search by title, author, ISBN"
+-          bind:value={$search}
+-          on:input={loadBooks}
+-          aria-label="Search books"
++          onInput={(value) => {
++            searchQuery.set(value);
++            loadBooks();
++          }}
+         />
+-      </header>
+-      {#if $loadingBooks}
+-        <p>Loading books...</p>
+-      {:else if $books.length === 0}
+-        <p>No books found.</p>
+-      {:else}
+-        <table>
+-          <thead>
+-            <tr>
+-              <th>Title</th>
+-              <th>Author</th>
+-              <th>ISBN</th>
+-              <th>Available / Total</th>
+-              <th>Category</th>
+-              <th>Year</th>
+-              <th>Actions</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {#each $books as book}
+-              <tr class:low-stock={book.availableCopies <= 2 && book.availableCopies > 0} class:out-of-stock={book.availableCopies === 0}>
+-                <td data-label="Title">{book.title}</td>
+-                <td data-label="Author">{book.author}</td>
+-                <td data-label="ISBN">{book.isbn}</td>
+-                <td data-label="Available / Total">
+-                  <span class:low-stock-badge={book.availableCopies <= 2 && book.availableCopies > 0} class:out-of-stock-badge={book.availableCopies === 0}>
+-                    {book.availableCopies} / {book.totalCopies}
+-                  </span>
+-                </td>
+-                <td data-label="Category">{book.category || '-'}</td>
+-                <td data-label="Year">{book.publicationYear || '-'}</td>
+-                <td data-label="Actions">
+-                  {#if $user}
+-                    <button 
+-                      on:click={() => borrow(book.id)} 
+-                      disabled={book.availableCopies <= 0 || $actionLoading[`borrow-${book.id}`]}
+-                    >
+-                      {$actionLoading[`borrow-${book.id}`] ? 'Borrowing...' : 'Borrow'}
+-                    </button>
+-                    {#if $user.role === 'ADMIN'}
+-                      <button on:click={() => startEdit(book)} disabled={$actionLoading[`edit-${book.id}`]}>
+-                        Edit
+-                      </button>
+-                      <button 
+-                        class="danger"
+-                        on:click={() => deleteBook(book.id)} 
+-                        disabled={$actionLoading[`delete-${book.id}`]}
+-                      >
+-                        {$actionLoading[`delete-${book.id}`] ? 'Deleting...' : 'Delete'}
+-                      </button>
+-                    {/if}
+-                  {:else}
+-                    <span class="muted">Login to borrow</span>
+-                  {/if}
+-                </td>
+-              </tr>
+-            {/each}
+-          </tbody>
+-        </table>
+-      {/if}
+-    </section>
+-
+-    <section class="card">
+-      <header class="card-header">
+-        <h2>{$user?.role === 'ADMIN' ? 'All Loans &amp; History' : 'Your Loans &amp; History'}</h2>
++        <CategoryFilter
++          books={$books}
++          selectedCategory={$selectedCategory}
++          onCategoryChange={(category) => {
++            selectedCategory.set(category);
++            loadBooks();
++          }}
++        />
++      </div>
++      <BookTable
++        books={$books}
++        loading={$loadingBooks}
++        user={$user}
++        actionLoading={$actionLoading}
++        currentPage={booksPage}
++        itemsPerPage={booksPerPage}
++        onBorrow={borrow}
++        onEdit={startEdit}
++        onDelete={deleteBook}
++        onPageChange={(page) => {
++          currentPage.update(p => ({ ...p, books: page }));
++        }}
++      />
++    </Card>
++
++    <Card title={$user?.role === 'ADMIN' ? 'All Loans &amp; History' : 'Your Loans &amp; History'}>
++      <div class="card-header">
+         {#if $user?.role === 'ADMIN'}
+           <label class="toggle-label">
+-            <input type="checkbox" bind:checked={$viewAllLoans} on:change={loadLoans} />
++            <input
++              type="checkbox"
++              checked={$viewAllLoans}
++              on:change={(e) => {
++                viewAllLoans.set(e.currentTarget.checked);
++                loadLoans();
++              }}
++              aria-label="View all loans"
++            />
+             <span>View All Loans</span>
+           </label>
+         {/if}
+-      </header>
+-      {#if !$user}
+-        <p>Please login to view your loans.</p>
+-      {:else if $loadingLoans}
+-        <p>Loading loans...</p>
+-      {:else if $loans.length === 0}
+-        <p>No loans yet.</p>
+-      {:else}
+-        <table>
+-          <thead>
+-            <tr>
+-              <th>Book</th>
+-              {#if $user?.role === 'ADMIN'}
+-                <th>Borrower</th>
+-              {/if}
+-              <th>Borrowed</th>
+-              <th>Due</th>
+-              <th>Status</th>
+-              <th>Fine</th>
+-              <th>Actions</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {#each $loans as loan}
+-              <tr class:overdue={loan.isOverdue && !loan.returnedAt}>
+-                <td data-label="Book">{loan.book.title}</td>
+-                {#if $user?.role === 'ADMIN'}
+-                  <td data-label="Borrower">{loan.user?.name || 'Unknown'}</td>
+-                {/if}
+-                <td data-label="Borrowed">{new Date(loan.borrowedAt).toLocaleDateString()}</td>
+-                <td data-label="Due">
+-                  {new Date(loan.dueDate).toLocaleDateString()}
+-                  {#if !loan.returnedAt}
+-                    {@const daysUntilDue = Math.ceil((new Date(loan.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+-                    {#if daysUntilDue < 0}
+-                      <span class="days-badge overdue-badge">({Math.abs(daysUntilDue)} days overdue)</span>
+-                    {:else if daysUntilDue <= 3}
+-                      <span class="days-badge warning-badge">({daysUntilDue} days left)</span>
+-                    {:else}
+-                      <span class="days-badge">({daysUntilDue} days left)</span>
+-                    {/if}
+-                  {/if}
+-                </td>
+-                <td data-label="Status">
+-                  {#if loan.returnedAt}
+-                    <span class="status-badge returned">Returned</span>
+-                  {:else if loan.isOverdue}
+-                    <span class="status-badge overdue">Overdue</span>
+-                  {:else}
+-                    <span class="status-badge active">Active</span>
+-                  {/if}
+-                </td>
+-                <td data-label="Fine">
+-                  {#if loan.fineCents && loan.fineCents > 0}
+-                    ${(loan.fineCents / 100).toFixed(2)}
+-                  {:else}
+-                    -
+-                  {/if}
+-                </td>
+-                <td data-label="Actions">
+-                  {#if !loan.returnedAt}
+-                    <button 
+-                      on:click={() => returnLoan(loan.id)}
+-                      disabled={$actionLoading[`return-${loan.id}`]}
+-                    >
+-                      {$actionLoading[`return-${loan.id}`] ? 'Returning...' : 'Return'}
+-                    </button>
+-                  {/if}
+-                </td>
+-              </tr>
+-            {/each}
+-          </tbody>
+-        </table>
+-      {/if}
+-    </section>
+-  </section>
+-
+-  {#if $user}
+-    <section class="card dashboard">
+-      <h2>Dashboard</h2>
+-      <div class="stats-grid">
+-        <div class="stat-card">
+-          <div class="stat-value">{$books.length}</div>
+-          <div class="stat-label">Total Books</div>
+-        </div>
+-        <div class="stat-card">
+-          <div class="stat-value">{stats.availableBooks}</div>
+-          <div class="stat-label">Available Books</div>
+-        </div>
+-        <div class="stat-card">
+-          <div class="stat-value">{stats.activeLoans}</div>
+-          <div class="stat-label">Active Loans</div>
+-        </div>
+-        <div class="stat-card">
+-          <div class="stat-value">{stats.overdueLoans}</div>
+-          <div class="stat-label">Overdue Items</div>
+-        </div>
+-        {#if $user.role === 'ADMIN'}
+-          <div class="stat-card">
+-            <div class="stat-value">{stats.totalLoans}</div>
+-            <div class="stat-label">Total Loans</div>
+-          </div>
+-          <div class="stat-card">
+-            <div class="stat-value">${(stats.totalFines / 100).toFixed(2)}</div>
+-            <div class="stat-label">Total Fines</div>
+-          </div>
+-        {/if}
+       </div>
+-    </section>
+-  {/if}
++      <LoanTable
++        loans={$loans}
++        loading={$loadingLoans}
++        user={$user}
++        actionLoading={$actionLoading}
++        currentPage={loansPage}
++        itemsPerPage={loansPerPage}
++        onReturn={returnLoan}
++        onPageChange={(page) => {
++          currentPage.update(p => ({ ...p, loans: page }));
++        }}
++      />
++    </Card>
++  </section>
+ 
+   {#if $user && $user.role === 'ADMIN'}
+-    <section class="card">
+-      <h2>{editingId ? 'Edit book' : 'Add new book'}</h2>
+-      {#if bookFormError}<p class="error">{bookFormError}</p>{/if}
+-      <form on:submit|preventDefault={saveBook} class="book-form">
+-        <label>
+-          Title
+-          <input bind:value={bookForm.title} required />
+-        </label>
+-        <label>
+-          Author
+-          <input bind:value={bookForm.author} required />
+-        </label>
+-        <label>
+-          ISBN
+-          <input bind:value={bookForm.isbn} required />
+-        </label>
+-        <label>
+-          Category
+-          <input bind:value={bookForm.category} />
+-        </label>
+-        <label>
+-          Total copies
+-          <input type="number" min="1" bind:value={bookForm.totalCopies} required />
+-        </label>
+-        <label>
+-          Available copies
+-          <input type="number" min="0" bind:value={bookForm.availableCopies} />
+-        </label>
+-        <label>
+-          Publication year
+-          <input type="number" min="0" bind:value={bookForm.publicationYear} />
+-        </label>
+-        <div class="actions">
+-          <button 
+-            type="submit" 
+-            disabled={$actionLoading[editingId ? `edit-${editingId}` : 'create']}
+-          >
+-            {$actionLoading[editingId ? `edit-${editingId}` : 'create'] 
+-              ? 'Saving...' 
+-              : editingId ? 'Save changes' : 'Add book'}
+-          </button>
+-          {#if editingId}
+-            <button type="button" class="secondary" on:click={resetBookForm}>Cancel</button>
+-          {/if}
+-        </div>
+-      </form>
+-    </section>
++    <BookForm
++      book={bookForm}
++      error={bookFormError}
++      loading={$actionLoading[editingId ? `edit-${editingId}` : 'create'] || false}
++      onSubmit={saveBook}
++      onCancel={resetBookForm}
++    />
+   {/if}
+ </main>
+ 
+@@ -694,38 +572,6 @@
+     }
+   }
+ 
+-  .card {
+-    background: rgba(255, 255, 255, 0.95);
+-    backdrop-filter: blur(10px);
+-    border-radius: 1rem;
+-    padding: 1.5rem;
+-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+-  }
+-
+-  .card:hover {
+-    transform: translateY(-2px);
+-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+-  }
+-
+-  .card h2 {
+-    font-size: 1.5rem;
+-    font-weight: 700;
+-    color: #1f2937;
+-    margin: 0 0 1rem 0;
+-    display: flex;
+-    align-items: center;
+-    gap: 0.5rem;
+-  }
+-
+-  .card h2::before {
+-    content: '';
+-    width: 4px;
+-    height: 1.5rem;
+-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+-    border-radius: 2px;
+-  }
+-
+   .card-header {
+     display: flex;
+     justify-content: space-between;
+@@ -735,189 +581,28 @@
+     flex-wrap: wrap;
+   }
+ 
+-  input[type='search'],
+-  input[type='email'],
+-  input[type='password'],
+-  input[type='number'],
+-  input:not([type]) {
+-    width: 100%;
+-    padding: 0.75rem 1rem;
+-    border-radius: 0.5rem;
+-    border: 2px solid #e5e7eb;
+-    font-size: 1rem;
+-    transition: all 0.2s ease;
+-    background: white;
+-  }
+-
+-  input:focus {
+-    outline: none;
+-    border-color: #667eea;
+-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+-  }
+-
+-  label {
+-    font-weight: 600;
+-    font-size: 0.875rem;
+-    color: #374151;
+-    margin-bottom: 0.5rem;
+-    display: block;
+-  }
+-
+-  table {
+-    width: 100%;
+-    border-collapse: collapse;
++  .toggle-label {
++    display: flex;
++    align-items: center;
++    gap: 0.75rem;
+     font-size: 0.9rem;
+-    overflow-x: auto;
+-    display: block;
+-  }
+-  
+-  @media (min-width: 641px) {
+-    table {
+-      display: table;
+-    }
+-  }
+-  
+-  th,
+-  td {
+-    padding: 0.75rem 1rem;
+-    border-bottom: 1px solid #e5e7eb;
+-    text-align: left;
+-  }
+-  
+-  @media (max-width: 640px) {
+-    th,
+-    td {
+-      padding: 0.5rem 0.75rem;
+-      font-size: 0.85rem;
+-    }
+-  }
+-  
+-  th {
+-    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+-    font-weight: 700;
+-    color: #374151;
+-    text-transform: uppercase;
+-    font-size: 0.75rem;
+-    letter-spacing: 0.05em;
+-  }
+-  
+-  @media (max-width: 640px) {
+-    table thead {
+-      display: none;
+-    }
+-    table tbody tr {
+-      display: block;
+-      margin-bottom: 1rem;
+-      border: 2px solid #e5e7eb;
+-      border-radius: 0.75rem;
+-      padding: 1rem;
+-      background: #f9fafb;
+-    }
+-    table tbody td {
+-      display: flex;
+-      justify-content: space-between;
+-      padding: 0.75rem 0.5rem;
+-      border-bottom: 1px solid #e5e7eb;
+-    }
+-    table tbody td:last-child {
+-      border-bottom: none;
+-    }
+-    table tbody td:before {
+-      content: attr(data-label);
+-      font-weight: 700;
+-      margin-right: 1rem;
+-      color: #6b7280;
+-    }
+-  }
+-
+-  tbody tr {
+-    transition: background-color 0.2s ease;
+-  }
+-
+-  tbody tr:hover {
+-    background-color: #f9fafb;
+-  }
+-
+-  tr.overdue {
+-    background: #fef2f2;
+-    border-left: 4px solid #ef4444;
+-  }
+-
+-  tr.low-stock {
+-    background: #fffbeb;
+-    border-left: 4px solid #f59e0b;
+-  }
+-
+-  tr.out-of-stock {
+-    background: #fef2f2;
+-    border-left: 4px solid #dc2626;
+-  }
+-
+-  .low-stock-badge {
+-    color: #d97706;
+-    font-weight: 700;
+-    padding: 0.25rem 0.5rem;
+-    background: #fef3c7;
+-    border-radius: 0.375rem;
+-    font-size: 0.75rem;
+-  }
+-
+-  .out-of-stock-badge {
+-    color: #dc2626;
+-    font-weight: 700;
+-    padding: 0.25rem 0.5rem;
+-    background: #fee2e2;
+-    border-radius: 0.375rem;
+-    font-size: 0.75rem;
+-  }
+-
+-  .days-badge {
+-    font-size: 0.75rem;
+-    margin-left: 0.5rem;
+-    padding: 0.25rem 0.5rem;
+-    border-radius: 0.375rem;
+-    font-weight: 600;
+-    display: inline-block;
+-  }
+-
+-  .days-badge.overdue-badge {
+-    background: #fee2e2;
+-    color: #dc2626;
+-  }
+-
+-  .days-badge.warning-badge {
+-    background: #fef3c7;
+-    color: #d97706;
+-  }
+-
+-  .days-badge:not(.overdue-badge):not(.warning-badge) {
+-    background: #dbeafe;
+-    color: #1e40af;
+-  }
+-
+-  .status-badge {
+-    display: inline-block;
+-    padding: 0.375rem 0.75rem;
++    cursor: pointer;
++    padding: 0.5rem 1rem;
++    background: #f3f4f6;
+     border-radius: 0.5rem;
+-    font-size: 0.75rem;
+-    font-weight: 600;
+-    text-transform: uppercase;
+-    letter-spacing: 0.05em;
+-  }
+-
+-  .status-badge.active {
+-    background: #dbeafe;
+-    color: #1e40af;
++    transition: background 0.2s ease;
+   }
+ 
+-  .status-badge.overdue {
+-    background: #fee2e2;
+-    color: #dc2626;
++  .toggle-label:hover {
++    background: #e5e7eb;
+   }
+ 
+-  .status-badge.returned {
+-    background: #d1fae5;
+-    color: #065f46;
++  .toggle-label input[type="checkbox"] {
++    width: auto;
++    cursor: pointer;
++    width: 18px;
++    height: 18px;
++    accent-color: #667eea;
+   }
+ 
+   button {
+@@ -944,10 +629,6 @@
+     box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+   }
+ 
+-  button:not([disabled]):active {
+-    transform: translateY(0);
+-  }
+-
+   button.secondary {
+     background: #6b7280;
+     box-shadow: 0 4px 6px rgba(107, 114, 128, 0.3);
+@@ -958,159 +639,6 @@
+     box-shadow: 0 6px 12px rgba(107, 114, 128, 0.4);
+   }
+ 
+-  button.danger {
+-    background: #ef4444;
+-    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+-  }
+-
+-  button.danger:hover:not([disabled]) {
+-    background: #dc2626;
+-    box-shadow: 0 6px 12px rgba(239, 68, 68, 0.4);
+-  }
+-
+-  .muted {
+-    color: #9ca3af;
+-    font-size: 0.875rem;
+-    font-style: italic;
+-  }
+-
+-  form {
+-    display: flex;
+-    flex-direction: column;
+-    gap: 1rem;
+-  }
+-
+-  form.book-form {
+-    display: grid;
+-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+-    gap: 1rem;
+-    margin-top: 1rem;
+-  }
+-  
+-  @media (max-width: 640px) {
+-    form.book-form {
+-      grid-template-columns: 1fr;
+-    }
+-  }
+-
+-  form.book-form label {
+-    display: flex;
+-    flex-direction: column;
+-    gap: 0.5rem;
+-    font-size: 0.875rem;
+-  }
+-
+-  .actions {
+-    grid-column: 1 / -1;
+-    display: flex;
+-    gap: 0.75rem;
+-    margin-top: 0.5rem;
+-    flex-wrap: wrap;
+-  }
+-
+-  .error {
+-    color: #dc2626;
+-    margin-bottom: 0.75rem;
+-    padding: 0.75rem 1rem;
+-    background: #fee2e2;
+-    border-radius: 0.5rem;
+-    border-left: 4px solid #dc2626;
+-    font-weight: 500;
+-  }
+-
+-  .dashboard {
+-    margin-bottom: 1.5rem;
+-  }
+-
+-  .stats-grid {
+-    display: grid;
+-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+-    gap: 1.25rem;
+-    margin-top: 1.25rem;
+-  }
+-
+-  @media (max-width: 640px) {
+-    .stats-grid {
+-      grid-template-columns: repeat(2, 1fr);
+-      gap: 1rem;
+-    }
+-  }
+-
+-  .stat-card {
+-    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+-    border-radius: 0.75rem;
+-    padding: 1.5rem;
+-    text-align: center;
+-    border: 2px solid #e5e7eb;
+-    transition: all 0.3s ease;
+-    position: relative;
+-    overflow: hidden;
+-  }
+-
+-  .stat-card::before {
+-    content: '';
+-    position: absolute;
+-    top: 0;
+-    left: 0;
+-    right: 0;
+-    height: 4px;
+-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+-  }
+-
+-  .stat-card:hover {
+-    transform: translateY(-4px);
+-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+-    border-color: #667eea;
+-  }
+-
+-  .stat-value {
+-    font-size: 2.5rem;
+-    font-weight: 800;
+-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+-    -webkit-background-clip: text;
+-    -webkit-text-fill-color: transparent;
+-    background-clip: text;
+-    margin-bottom: 0.5rem;
+-    line-height: 1;
+-  }
+-
+-  .stat-label {
+-    font-size: 0.875rem;
+-    color: #6b7280;
+-    font-weight: 600;
+-    text-transform: uppercase;
+-    letter-spacing: 0.05em;
+-  }
+-
+-  .toggle-label {
+-    display: flex;
+-    align-items: center;
+-    gap: 0.75rem;
+-    font-size: 0.9rem;
+-    cursor: pointer;
+-    padding: 0.5rem 1rem;
+-    background: #f3f4f6;
+-    border-radius: 0.5rem;
+-    transition: background 0.2s ease;
+-  }
+-
+-  .toggle-label:hover {
+-    background: #e5e7eb;
+-  }
+-
+-  .toggle-label input[type="checkbox"] {
+-    width: auto;
+-    cursor: pointer;
+-    width: 18px;
+-    height: 18px;
+-    accent-color: #667eea;
+-  }
+-
+-  p {
+-    color: #6b7280;
+-    line-height: 1.6;
+-  }
+-
+   @media (prefers-reduced-motion: reduce) {
+     * {
+       animation-duration: 0.01ms !important;
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/auth/+server.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/auth/+server.ts
+index 1d00fd36..bf311ac5 100644
+--- a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/auth/+server.ts
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/auth/+server.ts
+@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
+     
+     const normalizedEmail = email.trim().toLowerCase();
+     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+-    if (!user || !verifyPassword(password, user.password)) {
++    if (!user || !(await verifyPassword(password, user.password))) {
+       throw error(401, 'Invalid credentials');
+     }
+     makeSessionCookie({ cookies } as any, user.id, user.role as 'ADMIN' | 'BORROWER');
+@@ -84,7 +84,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
+         data: {
+           email: normalizedEmail,
+           name: name.trim(),
+-          password: hashPassword(password),
++          password: await hashPassword(password),
+           role: role
+         }
+       });
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/books/+server.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/books/+server.ts
+index 631e8d66..910719e7 100644
+--- a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/books/+server.ts
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/books/+server.ts
+@@ -13,22 +13,26 @@ function requireAdmin(locals: App.Locals) {
+ export const GET: RequestHandler = async ({ url, locals }) => {
+   const { prisma } = locals;
+   const q = url.searchParams.get('q')?.trim();
++  const category = url.searchParams.get('category')?.trim();
+   
+-  if (!q) {
+-    const books = await prisma.book.findMany({ orderBy: { title: 'asc' } });
+-    return json(books);
++  const where: any = {};
++  
++  if (q) {
++    // SQLite doesn't support 'mode: insensitive', but SQLite is case-insensitive by default
++    // However, Prisma requires explicit handling. We'll use contains which works case-insensitively in SQLite
++    where.OR = [
++      { title: { contains: q } },
++      { author: { contains: q } },
++      { isbn: { contains: q } }
++    ];
+   }
+-
+-  // SQLite doesn't support 'mode: insensitive', but SQLite is case-insensitive by default
+-  // However, Prisma requires explicit handling. We'll use contains which works case-insensitively in SQLite
++  
++  if (category && category !== 'all') {
++    where.category = category;
++  }
++  
+   const books = await prisma.book.findMany({
+-    where: {
+-      OR: [
+-        { title: { contains: q } },
+-        { author: { contains: q } },
+-        { isbn: { contains: q } }
+-      ]
+-    },
++    where,
+     orderBy: { title: 'asc' }
+   });
+   
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/loans/+server.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/loans/+server.ts
+index 60a14d0b..872fd514 100644
+--- a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/loans/+server.ts
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/loans/+server.ts
+@@ -1,8 +1,6 @@
+ import type { RequestHandler } from '@sveltejs/kit';
+ import { json, error } from '@sveltejs/kit';
+-
+-const DAYS_DEFAULT = 14;
+-const FINE_PER_DAY_CENTS = 50;
++import { CONFIG } from '$lib/server/config';
+ 
+ function requireAuth(locals: App.Locals) {
+   if (!locals.user) throw error(401, 'Authentication required');
+@@ -35,7 +33,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
+     const fineCents = loan.returnedAt
+       ? loan.fineCents
+       : isOverdue
+-      ? daysOverdue * FINE_PER_DAY_CENTS
++      ? daysOverdue * CONFIG.FINE_PER_DAY_CENTS
+       : 0;
+     return { ...loan, isOverdue, daysOverdue, fineCents };
+   });
+@@ -71,7 +69,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
+ 
+   const borrowedAt = new Date();
+   const dueDate = new Date(borrowedAt);
+-  const days = typeof body.days === 'number' && body.days > 0 ? body.days : DAYS_DEFAULT;
++  const days = typeof body.days === 'number' && body.days > 0 ? body.days : CONFIG.LOAN_DURATION_DAYS;
+   dueDate.setDate(dueDate.getDate() + days);
+ 
+   try {
+@@ -128,7 +126,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
+   const daysOverdue = isOverdue
+     ? Math.ceil((now.getTime() - loan.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+     : 0;
+-  const fineCents = isOverdue ? daysOverdue * FINE_PER_DAY_CENTS : 0;
++  const fineCents = isOverdue ? daysOverdue * CONFIG.FINE_PER_DAY_CENTS : 0;
+ 
+   try {
+     const updated = await prisma.$transaction(async (tx) => {
+diff --git a/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/user/+server.ts b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/user/+server.ts
+new file mode 100644
+index 00000000..c35b9500
+--- /dev/null
++++ b/wh96ix-library-management-system-using-sveltekit/repository_after/src/routes/api/user/+server.ts
+@@ -0,0 +1,100 @@
++import type { RequestHandler } from '@sveltejs/kit';
++import { json, error } from '@sveltejs/kit';
++import { verifyPassword, hashPassword } from '$lib/server/auth';
++
++function requireAuth(locals: App.Locals) {
++  if (!locals.user) throw error(401, 'Authentication required');
++}
++
++export const GET: RequestHandler = async ({ locals }) => {
++  requireAuth(locals);
++  const { user } = locals;
++  return json({ id: user!.id, email: user!.email, name: user!.name, role: user!.role });
++};
++
++export const PUT: RequestHandler = async ({ request, locals }) => {
++  requireAuth(locals);
++  const { prisma, user } = locals;
++  const body = await request.json().catch(() => null);
++  if (!body) throw error(400, 'Invalid JSON');
++
++  const { name, email } = body;
++
++  if (name !== undefined) {
++    if (typeof name !== 'string' || name.trim().length === 0) {
++      throw error(400, 'Name cannot be empty');
++    }
++  }
++
++  if (email !== undefined) {
++    if (typeof email !== 'string' || !email.trim()) {
++      throw error(400, 'Email is required');
++    }
++    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
++    const normalizedEmail = email.trim().toLowerCase();
++    if (!emailRegex.test(normalizedEmail)) {
++      throw error(400, 'Invalid email format');
++    }
++    // Check if email is already used by another user
++    const emailExists = await prisma.user.findFirst({
++      where: { email: normalizedEmail, id: { not: user!.id } }
++    });
++    if (emailExists) {
++      throw error(409, 'Email already in use');
++    }
++  }
++
++  try {
++    const updateData: any = {};
++    if (name !== undefined) updateData.name = name.trim();
++    if (email !== undefined) updateData.email = email.trim().toLowerCase();
++
++    const updated = await prisma.user.update({
++      where: { id: user!.id },
++      data: updateData
++    });
++
++    return json({ id: updated.id, email: updated.email, name: updated.name, role: updated.role });
++  } catch (e: any) {
++    if (e.code === 'P2025') {
++      throw error(404, 'User not found');
++    }
++    throw error(500, 'Failed to update profile');
++  }
++};
++
++export const POST: RequestHandler = async ({ request, locals }) => {
++  requireAuth(locals);
++  const { prisma, user } = locals;
++  const body = await request.json().catch(() => null);
++  if (!body) throw error(400, 'Invalid JSON');
++
++  const { currentPassword, newPassword } = body;
++
++  if (!currentPassword || typeof currentPassword !== 'string') {
++    throw error(400, 'Current password is required');
++  }
++  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
++    throw error(400, 'New password must be at least 6 characters');
++  }
++
++  // Verify current password
++  const dbUser = await prisma.user.findUnique({ where: { id: user!.id } });
++  if (!dbUser) throw error(404, 'User not found');
++
++  const isValid = await verifyPassword(currentPassword, dbUser.password);
++  if (!isValid) {
++    throw error(401, 'Current password is incorrect');
++  }
++
++  try {
++    await prisma.user.update({
++      where: { id: user!.id },
++      data: { password: await hashPassword(newPassword) }
++    });
++
++    return json({ ok: true });
++  } catch (e: any) {
++    throw error(500, 'Failed to change password');
++  }
++};
