@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  test-before:
+    build: .
+    command: pytest /app/tests/comprehensive -v --tb=short
+    working_dir: /app/repository_before
+    volumes:
+      - ./tests:/app/tests
+
+  test-after:
+    build: .
+    command: pytest tests -v --tb=short
+    working_dir: /app/repository_after
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+      - ./tests:/app/tests
