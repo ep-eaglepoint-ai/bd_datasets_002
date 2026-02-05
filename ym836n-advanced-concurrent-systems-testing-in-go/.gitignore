@@ -1,0 +1,44 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Go coverage
+*.out
+coverage.html
+
+# Go workspace
+go.work.sum
+
+# Dependencies
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+dist/
+
+# Python (legacy)
+__pycache__/
+*.pyc
+.venv/
+.env
+
+
+# Evaluation reports
+evaluation/reports/

@@ -1,0 +1,610 @@
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/concurrency_test.go	2026-02-01 19:11:32.999466400 +0300
+@@ -0,0 +1,83 @@
++package unit_test
++
++import (
++	"context"
++	"runtime"
++	"testing"
++	"time"
++
++	"example.com/batch-optimized"
++)
++
++// 3. Concurrency
++func TestConcurrencyLimits(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	blocker := make(chan struct{})
++	for i := 0; i < 10; i++ {
++		dl.blockers[i] = blocker
++	}
++
++	opts := batch.ProcessOptions{MinWorkers: 3, MaxWorkers: 3}
++	go func() {
++		time.Sleep(50 * time.Millisecond)
++		close(blocker)
++	}()
++
++	batch.ProcessParallelOptimized(context.Background(), []int{0, 1, 2, 3, 4}, dl, opts, nil)
++	dl.mu.Lock()
++	max := dl.maxActiveCalls
++	dl.mu.Unlock()
++	if max != 3 {
++		t.Errorf("Expected max 3, got %d", max)
++	}
++}
++
++// 4. Scaling
++func TestDynamicWorkerScaling(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	blocker := make(chan struct{})
++
++	count := 20
++	ids := make([]int, count)
++	for i := 0; i < count; i++ {
++		ids[i] = i
++		dl.blockers[i] = blocker
++	}
++
++	opts := batch.ProcessOptions{
++		MinWorkers: 1, MaxWorkers: 5, TargetQueuePerWorker: 1,
++	}
++
++	go func() {
++		for i := 0; i < 10; i++ {
++			time.Sleep(10 * time.Millisecond)
++			clk.Advance(20 * time.Millisecond)
++		}
++		close(blocker)
++	}()
++
++	batch.ProcessParallelOptimized(context.Background(), ids, dl, opts, nil)
++
++	dl.mu.Lock()
++	max := dl.maxActiveCalls
++	dl.mu.Unlock()
++	if max < 5 {
++		t.Errorf("Expected scaling to 5, got %d", max)
++	}
++}
++
++// 14. Stress
++func TestStress(t *testing.T) {
++	initial := runtime.NumGoroutine()
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++
++	batch.ProcessParallelOptimized(context.Background(), make([]int, 100), dl, batch.ProcessOptions{MinWorkers: 10, MaxWorkers: 50}, nil)
++
++	time.Sleep(50 * time.Millisecond)
++	if runtime.NumGoroutine() > initial+5 {
++		t.Error("Goroutine leak")
++	}
++}
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/correctness_test.go	2026-02-01 19:11:25.485316300 +0300
+@@ -0,0 +1,48 @@
++package unit_test
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	"example.com/batch-optimized"
++)
++
++// 1. Deterministic
++func TestProcessParallelOptimized_Deterministic(t *testing.T) {
++	clk := NewMockClock()
++	rnd := &MockRand{val: 0}
++	dl := NewMockDownloader(clk, rnd)
++
++	ids := []int{1, 2, 3}
++	opts := batch.ProcessOptions{MinWorkers: 1, MaxWorkers: 1}
++
++	results, errs := batch.ProcessParallelOptimized(context.Background(), ids, dl, opts, nil)
++
++	if len(results) != 3 {
++		t.Fatalf("expected 3 results")
++	}
++	if results[0] != "default_1" {
++		t.Errorf("got %s", results[0])
++	}
++	if errs[0] != nil {
++		t.Errorf("err %v", errs[0])
++	}
++}
++
++// 2. Order
++func TestInputOrderPreservation(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	dl.delays[1] = 100 * time.Millisecond
++
++	go func() {
++		time.Sleep(10 * time.Millisecond)
++		clk.Advance(200 * time.Millisecond)
++	}()
++
++	results, _ := batch.ProcessParallelOptimized(context.Background(), []int{1, 2}, dl, batch.ProcessOptions{MinWorkers: 2, MaxWorkers: 2}, nil)
++	if results[0] != "default_1" || results[1] != "default_2" {
++		t.Error("Order mismatch")
++	}
++}
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/features_test.go	2026-02-01 19:11:53.517632500 +0300
+@@ -0,0 +1,121 @@
++package unit_test
++
++import (
++	"context"
++	"errors"
++	"strings"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"example.com/batch-optimized"
++)
++
++// 8. Cache
++func TestCacheCorrectness(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++
++	ids := []int{1, 1}
++	blocker := make(chan struct{})
++	dl.blockers[1] = blocker
++
++	go func() {
++		close(blocker)
++	}()
++
++	opts := batch.ProcessOptions{
++		EnableCache: true, CacheTTL: 10 * time.Second,
++		MinWorkers: 1, MaxWorkers: 1,
++	}
++
++	batch.ProcessParallelOptimized(context.Background(), ids, dl, opts, nil)
++
++	if dl.calls[1] != 1 {
++		t.Errorf("Expected 1 call (cache hit), got %d", dl.calls[1])
++	}
++
++	dl2 := NewMockDownloader(clk, &MockRand{})
++	dl2.responses[1] = "val"
++
++	wrapper2 := &DynamicDownloader{
++		MockDownloader: dl2,
++		OnDownload: func(id int) (string, error) {
++			if id == 2 {
++				clk.Advance(11 * time.Second)
++				return "val2", nil
++			}
++			return "val1", nil
++		},
++	}
++
++	batch.ProcessParallelOptimized(context.Background(), []int{1, 2, 1}, wrapper2, opts, nil)
++
++	if dl2.calls[1] != 2 {
++		t.Errorf("Expected 2 calls for ID 1 due to TTL, got %d", dl2.calls[1])
++	}
++}
++
++// 9. Coalescing
++func TestRequestCoalescing(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	dl.blockers[1] = make(chan struct{})
++
++	go func() {
++		time.Sleep(50 * time.Millisecond)
++		close(dl.blockers[1])
++	}()
++
++	batch.ProcessParallelOptimized(context.Background(), []int{1, 1, 1}, dl, batch.ProcessOptions{EnableCoalesce: true, MinWorkers: 3, MaxWorkers: 3}, nil)
++	if dl.calls[1] != 1 {
++		t.Errorf("Expected 1 call, got %d", dl.calls[1])
++	}
++}
++
++// 11. Rate Limit
++func TestGlobalRateLimit(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	dl.delays[1] = 1 * time.Second
++
++	go func() {
++		time.Sleep(10 * time.Millisecond)
++		clk.Advance(2 * time.Second)
++	}()
++
++	_, errs := batch.ProcessParallelOptimized(context.Background(), []int{1, 2}, dl, batch.ProcessOptions{GlobalRateLimit: 1, MinWorkers: 2, MaxWorkers: 2}, nil)
++
++	fails := 0
++	for _, e := range errs {
++		if errors.Is(e, batch.ErrRateLimited) {
++			fails++
++		}
++	}
++	if fails != 1 {
++		t.Errorf("Expected 1 RateLimit, got %d", fails)
++	}
++}
++
++// 12. PostProcess
++func TestPostProcessing(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	dl.responses[1] = "raw"
++	res, _ := batch.ProcessParallelOptimized(context.Background(), []int{1}, dl, batch.ProcessOptions{PostProcess: true, MinWorkers: 1, MaxWorkers: 1}, nil)
++	if !strings.HasPrefix(res[0], "raw:") {
++		t.Error("PostProcess failed")
++	}
++}
++
++// 13. Hooks
++func TestHookInvocation(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	var calls int32
++	hooks := &batch.ProcessHooks{OnItem: func(id, att int, err error) { atomic.AddInt32(&calls, 1) }}
++	batch.ProcessParallelOptimized(context.Background(), []int{1}, dl, batch.ProcessOptions{MinWorkers: 1, MaxWorkers: 1}, hooks)
++	if calls != 1 {
++		t.Error("Hook failed")
++	}
++}
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/mocks_test.go	2026-02-01 19:11:19.275159600 +0300
+@@ -0,0 +1,178 @@
++package unit_test
++
++import (
++	"context"
++	"fmt"
++	"sync"
++	"sync/atomic"
++	"time"
++
++	"example.com/batch-optimized"
++)
++
++// --- Mocks & Fakes ---
++
++type MockClock struct {
++	mu      sync.Mutex
++	current time.Time
++	timers  []*mockTimer
++}
++
++type mockTimer struct {
++	deadline time.Time
++	ch       chan time.Time
++	active   bool
++}
++
++func (m *mockTimer) C() <-chan time.Time { return m.ch }
++func (m *mockTimer) Stop() bool {
++	m.active = false
++	return true
++}
++
++func NewMockClock() *MockClock {
++	return &MockClock{
++		current: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
++	}
++}
++
++func (c *MockClock) Now() time.Time {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	return c.current
++}
++
++func (c *MockClock) Sleep(ctx context.Context, d time.Duration) error {
++	if d == 0 {
++		return nil
++	}
++	timer := c.NewTimer(d).(*mockTimer)
++	select {
++	case <-ctx.Done():
++		return ctx.Err()
++	case <-timer.ch:
++		return nil
++	}
++}
++
++func (c *MockClock) NewTimer(d time.Duration) batch.Timer {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	deadline := c.current.Add(d)
++	timer := &mockTimer{
++		deadline: deadline,
++		ch:       make(chan time.Time, 1),
++		active:   true,
++	}
++	c.timers = append(c.timers, timer)
++	return timer
++}
++
++func (c *MockClock) Advance(d time.Duration) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	c.current = c.current.Add(d)
++
++	active := c.timers[:0]
++	for _, t := range c.timers {
++		if t.active {
++			if !c.current.Before(t.deadline) {
++				t.active = false
++				select {
++				case t.ch <- t.deadline:
++				default:
++				}
++			} else {
++				active = append(active, t)
++			}
++		}
++	}
++	c.timers = active
++}
++
++type MockRand struct {
++	mu  sync.Mutex
++	val int64
++}
++
++func (r *MockRand) Int63n(n int64) int64 {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	return r.val % n
++}
++
++type MockDownloader struct {
++	mu             sync.Mutex
++	responses      map[int]string
++	errs           map[int]error
++	delays         map[int]time.Duration
++	blockers       map[int]chan struct{}
++	calls          map[int]int
++	activeCalls    int32
++	maxActiveCalls int32
++	clock          batch.Clock
++	rand           batch.Rand
++}
++
++func NewMockDownloader(clock batch.Clock, r batch.Rand) *MockDownloader {
++	return &MockDownloader{
++		responses: make(map[int]string),
++		errs:      make(map[int]error),
++		delays:    make(map[int]time.Duration),
++		blockers:  make(map[int]chan struct{}),
++		calls:     make(map[int]int),
++		clock:     clock,
++		rand:      r,
++	}
++}
++
++func (d *MockDownloader) Clock() batch.Clock { return d.clock }
++func (d *MockDownloader) Rand() batch.Rand   { return d.rand }
++
++func (d *MockDownloader) Download(ctx context.Context, id int) (string, error) {
++	atomic.AddInt32(&d.activeCalls, 1)
++	curr := atomic.LoadInt32(&d.activeCalls)
++	d.mu.Lock()
++	if curr > d.maxActiveCalls {
++		d.maxActiveCalls = curr
++	}
++	d.calls[id]++
++	val, okVal := d.responses[id]
++	err := d.errs[id]
++	delay := d.delays[id]
++	blocker, hasBlocker := d.blockers[id]
++	d.mu.Unlock()
++
++	defer atomic.AddInt32(&d.activeCalls, -1)
++
++	if hasBlocker {
++		select {
++		case <-ctx.Done():
++			return "", ctx.Err()
++		case <-blocker:
++		}
++	}
++
++	if delay > 0 {
++		d.clock.Sleep(ctx, delay)
++	}
++
++	if ctx.Err() != nil {
++		return "", ctx.Err()
++	}
++
++	if !okVal && err == nil {
++		return fmt.Sprintf("default_%d", id), nil
++	}
++	return val, err
++}
++
++type DynamicDownloader struct {
++	*MockDownloader
++	OnDownload func(id int) (string, error)
++}
++
++func (d *DynamicDownloader) Download(ctx context.Context, id int) (string, error) {
++	d.calls[id]++
++	return d.OnDownload(id)
++}
+--- /dev/null	2026-02-01 22:52:59.000000000 +0300
++++ repository_after/batch/unit_test/resilience_test.go	2026-02-01 22:51:44.885946700 +0300
+@@ -0,0 +1,165 @@
++package unit_test
++
++import (
++	"context"
++	"errors"
++	"testing"
++	"time"
++
++	"example.com/batch-optimized"
++)
++
++// 5. Timeouts
++func TestPerItemTimeouts(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	// Item takes 2s to download
++	dl.delays[1] = 2 * time.Second
++
++	opts := batch.ProcessOptions{
++		TimeoutPerItem: 1 * time.Second,
++		MinWorkers:     1, MaxWorkers: 1,
++	}
++
++	go func() {
++		time.Sleep(10 * time.Millisecond)
++		clk.Advance(1500 * time.Millisecond)
++	}()
++
++	_, errs := batch.ProcessParallelOptimized(context.Background(), []int{1}, dl, opts, nil)
++
++	if !errors.Is(errs[0], context.DeadlineExceeded) {
++		t.Errorf("Expected DeadlineExceeded, got %v", errs[0])
++	}
++}
++
++// 6. Cancellation - uses blocker channel for deterministic synchronization
++func TestParentContextCancellation(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++
++	// Block the download until we explicitly release it
++	blocker := make(chan struct{})
++	dl.blockers[1] = blocker
++
++	ctx, cancel := context.WithCancel(context.Background())
++
++	done := make(chan struct{})
++	var results []string
++	var errs []error
++
++	go func() {
++		results, errs = batch.ProcessParallelOptimized(ctx, []int{1}, dl, batch.ProcessOptions{
++			MinWorkers: 1,
++			MaxWorkers: 1,
++		}, nil)
++		close(done)
++	}()
++
++	// Wait for the download to start (it will block on the blocker channel)
++	time.Sleep(50 * time.Millisecond)
++
++	// Cancel context while download is blocked
++	cancel()
++
++	// Don't close blocker - this forces Download to notice ctx cancellation
++	// and return ctx.Err()
++
++	// Wait for completion with timeout
++	select {
++	case <-done:
++		// Processing completed
++	case <-time.After(2 * time.Second):
++		t.Fatal("ProcessParallelOptimized did not complete after cancellation")
++	}
++
++	// After cancellation, must have an error
++	if len(errs) == 0 || errs[0] == nil {
++		t.Errorf("Expected cancellation error, got success: %v", results)
++	}
++}
++
++// 7. Retry
++func TestRetryBehavior(t *testing.T) {
++	clk := NewMockClock()
++	rnd := &MockRand{val: 0}
++
++	// Use direct error injection that will ONLY succeed on 3rd call
++	attemptCount := 0
++
++	// Create custom downloader that tracks attempts
++	customDL := &DynamicDownloader{
++		MockDownloader: NewMockDownloader(clk, rnd),
++		OnDownload: func(id int) (string, error) {
++			attemptCount++
++
++			// Critical: Only succeed on exactly the 3rd attempt
++			// If retries are broken, we only get 1 attempt and test MUST fail
++			if attemptCount == 3 {
++				return "retry-success", nil
++			}
++			return "", errors.New("intentional failure")
++		},
++	}
++
++	// Advance clock for backoff delays
++	go func() {
++		for i := 0; i < 10; i++ {
++			time.Sleep(10 * time.Millisecond)
++			clk.Advance(100 * time.Millisecond)
++		}
++	}()
++
++	results, errs := batch.ProcessParallelOptimized(
++		context.Background(),
++		[]int{1},
++		customDL,
++		batch.ProcessOptions{
++			Retries:    2,
++			MinWorkers: 1,
++			MaxWorkers: 1,
++		},
++		nil,
++	)
++
++	// MUST have exactly 3 attempts (initial + 2 retries)
++	if attemptCount != 3 {
++		t.Fatalf("Expected exactly 3 attempts, got %d - retry logic is broken", attemptCount)
++	}
++
++	// MUST succeed (only happens on 3rd attempt)
++	if results[0] != "retry-success" {
++		t.Errorf("Expected 'retry-success', got %q", results[0])
++	}
++
++	// MUST have no error
++	if errs[0] != nil {
++		t.Errorf("Expected no error after successful retry, got %v", errs[0])
++	}
++}
++
++// 10. Circuit Breaker
++func TestCircuitBreaker(t *testing.T) {
++	clk := NewMockClock()
++	dl := NewMockDownloader(clk, &MockRand{})
++	dl.errs[1] = errors.New("fail")
++
++	ids := []int{1, 1, 1, 2}
++	opts := batch.ProcessOptions{
++		EnableCircuitBreaker: true,
++		CircuitThreshold:     2,
++		CircuitBuckets:       1,
++		CircuitCoolDown:      1 * time.Second,
++		MinWorkers:           1, MaxWorkers: 1,
++		Retries: 0,
++	}
++
++	_, errs := batch.ProcessParallelOptimized(context.Background(), ids, dl, opts, nil)
++
++	if !errors.Is(errs[2], batch.ErrCircuitOpen) {
++		t.Errorf("Idx 2 expected ErrCircuitOpen, got %v", errs[2])
++	}
++	if !errors.Is(errs[3], batch.ErrCircuitOpen) {
++		t.Errorf("Idx 3 expected ErrCircuitOpen, got %v", errs[3])
++	}
++}
