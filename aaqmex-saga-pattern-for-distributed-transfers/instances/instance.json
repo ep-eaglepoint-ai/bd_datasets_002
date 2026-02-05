@@ -1,0 +1,12 @@
+{
+            "instance_id": "AAQMEX",
+            "problem_statement": "In distributed systems, a "transaction" spans multiple independent services. If the network cuts out halfway through, the system can be left in a corrupted state (e.g., money deducted but not credited). Standard ACID database transactions don't work across API calls. The challenge is to implement "Compensating Transactions" (undo logic) and "Idempotency" (safe retries). The solution must ensure that no matter how many times the API fails or the client retries, the final account balances are mathematically correct.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/aaqmex-saga-pattern-for-distributed-transfers",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

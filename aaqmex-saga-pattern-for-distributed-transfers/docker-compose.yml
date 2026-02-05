@@ -1,0 +1,10 @@
+services:
+  test:
+    build: .
+    command: pytest tests/test_after.py -v
+  
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - ./evaluation:/host/evaluation
