@@ -1,0 +1,11 @@
+{
+            "instance_id": "TO51AD",
+            "problem_statement": "Debug a Python in‑memory caching system with TTL, LRU, and complex‑key support that suffers from O(n) lookups, O(n²) bubble sorting, inefficient hashing, and excessive deep‑copying, causing severe performance degradation. Refactor the cache to use dictionaries for O(1) lookups, `collections.OrderedDict` for LRU, a min‑heap for TTL expiration, and minimal lock granularity to achieve 100,000+ get operations and 50,000+ set operations per second. The optimized implementation must handle millions of entries with sub‑millisecond latency while preserving all original features—complex keys, pattern search, and statistics—without data races or excessive memory overhead.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/to51ad-in-memory-caching-system",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

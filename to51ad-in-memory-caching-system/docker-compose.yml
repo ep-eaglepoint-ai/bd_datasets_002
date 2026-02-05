@@ -1,0 +1,18 @@
+services:
+  test-before:
+    build: .
+    environment:
+      - REPO_TYPE=before
+    command: [ "sh", "-c", "timeout 30 pytest -v --tb=short --timeout=3 tests/ || exit 0" ]
+
+  test-after:
+    build: .
+    environment:
+      - REPO_TYPE=after
+    command: [ "pytest", "-v", "--tb=short", "--timeout=10", "tests/" ]
+
+  evaluation:
+    build: .
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: [ "python", "evaluation/evaluation.py" ]
