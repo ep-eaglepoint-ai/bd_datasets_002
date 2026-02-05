@@ -1,0 +1,11 @@
+{
+            "instance_id": "OPCZ3F",
+            "problem_statement": "Users need a fast, offline-capable contact management system that securely stores, organizes, and searches contacts directly in the browser without relying on a backend.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/opcz3f-frontend-only-contact-manager-application-next-js",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

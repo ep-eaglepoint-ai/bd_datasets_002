@@ -1,0 +1,19 @@
+services:
+  test-after:
+    build: .
+    command: npm test -- --forceExit
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - CI=true
+
+  evaluation:
+    build: .
+    command: npx tsx evaluation/evaluation.ts
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - CI=true
+      # Pass necessary env vars if any
