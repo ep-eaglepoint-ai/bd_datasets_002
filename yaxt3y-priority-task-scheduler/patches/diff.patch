@@ -1,0 +1,617 @@
+diff --git a/repository_before/scheduler.py b/repository_after/scheduler.py
+index 67f448f..1e15d63 100644
+--- a/repository_before/scheduler.py
++++ b/repository_after/scheduler.py
+@@ -1,7 +1,9 @@
+ import copy
+ import time
++import heapq
++import collections
+ from datetime import datetime, timedelta
+-
++import io
+ 
+ class Task:
+     def __init__(self, task_id, name, priority, duration, deadline, dependencies, resources_needed):
+@@ -16,215 +18,114 @@ class Task:
+         self.end_time = None
+         self.status = "pending"
+ 
++    def __repr__(self):
++        return f"<Task {self.task_id}: {self.name}>"
+ 
+-class UnoptimizedScheduler:
++class OptimizedScheduler:
+     def __init__(self, tasks, available_resources):
+         self.tasks = tasks
+-        self.available_resources = available_resources
++        self.available_resources = available_resources.copy()
+         self.schedule = []
+-        self.execution_log = ""
+-    
+-    def find_task_by_id(self, task_id):
+-        for task in self.tasks:
+-            if task.task_id == task_id:
+-                return task
+-        return None
+-    
+-    def get_all_dependencies_recursive(self, task_id, visited=None):
+-
+-        if visited is None:
+-            visited = []
+-        
+-        task = self.find_task_by_id(task_id)
+-        if task is None:
+-            return []
++        self.execution_log = []
+         
+-        all_deps = []
+-        for dep_id in task.dependencies:
+-            if dep_id not in visited:
+-                visited.append(dep_id)
+-                all_deps.append(dep_id)
+-                sub_deps = self.get_all_dependencies_recursive(dep_id, visited)
+-                for sd in sub_deps:
+-                    if sd not in all_deps:
+-                        all_deps.append(sd)
++        self.task_map = {t.task_id: t for t in tasks}
+         
+-        return all_deps
+-    
++        self.dependents = collections.defaultdict(list)
++        for t in tasks:
++            for dep_id in t.dependencies:
++                if dep_id in self.task_map:
++                    self.dependents[dep_id].append(t.task_id)
++
++    def find_task_by_id(self, task_id):
++        return self.task_map.get(task_id)
++
+     def check_circular_dependencies(self):
+-        has_cycle = False
+-        
+-        for task in self.tasks:
+-            for other_task in self.tasks:
+-                if task.task_id != other_task.task_id:
+-                    deps_of_task = self.get_all_dependencies_recursive(task.task_id, [])
+-                    deps_of_other = self.get_all_dependencies_recursive(other_task.task_id, [])
++        in_degree = {t.task_id: 0 for t in self.tasks}
++        for t in self.tasks:
++            for dep_id in t.dependencies:
++                if dep_id in in_degree:
++                    in_degree[t.task_id] += 1
++        
++        queue = collections.deque([tid for tid, deg in in_degree.items() if deg == 0])
++        visited_count = 0
++        
++        while queue:
++            node_id = queue.popleft()
++            visited_count += 1
++            
++            for distinct_dependent in self.dependents[node_id]:
++                in_degree[distinct_dependent] -= 1
++                if in_degree[distinct_dependent] == 0:
++                    queue.append(distinct_dependent)
+                     
+-                    if task.task_id in deps_of_other and other_task.task_id in deps_of_task:
+-                        has_cycle = True
+-                        self.execution_log = self.execution_log + "Cycle detected between " + str(task.task_id) + " and " + str(other_task.task_id) + "\n"
+-        
++        has_cycle = visited_count != len(self.tasks)
++        if has_cycle:
++            self.execution_log.append("Cycle detected in dependency graph")
++            
+         return has_cycle
+-    
+-    def are_dependencies_complete(self, task):
+-        for dep_id in task.dependencies:
+-            dep_task = self.find_task_by_id(dep_id)
+-            if dep_task is None:
+-                continue
+-            if dep_task.status != "completed":
+-                return False
+-        return True
+-    
+-    def get_available_tasks(self):
+-        available = []
+-        for task in self.tasks:
+-            if task.status == "pending":
+-                if self.are_dependencies_complete(task):
+-                    resources_available = True
+-                    for resource, amount in task.resources_needed.items():
+-                        if resource not in self.available_resources:
+-                            resources_available = False
+-                        elif self.available_resources[resource] < amount:
+-                            resources_available = False
++
++    def calculate_critical_path(self):
++        in_degree = {t.task_id: 0 for t in self.tasks}
++        for t in self.tasks:
++            for dep_id in t.dependencies:
++                if dep_id in in_degree:
++                    in_degree[t.task_id] += 1
+                     
+-                    if resources_available:
+-                        available.append(task)
+-        
+-        return available
+-    
+-    def sort_by_priority(self, tasks):
+-        tasks_copy = []
+-        for t in tasks:
+-            tasks_copy.append(t)
+-        
+-        n = len(tasks_copy)
+-        for i in range(n):
+-            for j in range(0, n - i - 1):
+-                if tasks_copy[j].priority < tasks_copy[j + 1].priority:
+-                    temp = tasks_copy[j]
+-                    tasks_copy[j] = tasks_copy[j + 1]
+-                    tasks_copy[j + 1] = temp
+-        
+-        return tasks_copy
+-    
+-    def sort_by_deadline(self, tasks):
+-        tasks_copy = []
+-        for t in tasks:
+-            tasks_copy.append(t)
+-        
+-        n = len(tasks_copy)
+-        for i in range(n):
+-            for j in range(0, n - i - 1):
+-                if tasks_copy[j].deadline > tasks_copy[j + 1].deadline:
+-                    temp = tasks_copy[j]
+-                    tasks_copy[j] = tasks_copy[j + 1]
+-                    tasks_copy[j + 1] = temp
+-        
+-        return tasks_copy
+-    
+-    def calculate_priority_score(self, task, current_time):
+-        score = 0
+-        
+-        score = score + task.priority * 10
+-        
+-        time_to_deadline = (task.deadline - current_time).total_seconds()
+-        if time_to_deadline < 3600:
+-            score = score + 100
+-        elif time_to_deadline < 7200:
+-            score = score + 50
+-        elif time_to_deadline < 14400:
+-            score = score + 25
+-        
+-        all_deps = self.get_all_dependencies_recursive(task.task_id, [])
+-        completed_deps = 0
+-        for dep_id in all_deps:
+-            dep_task = self.find_task_by_id(dep_id)
+-            if dep_task and dep_task.status == "completed":
+-                completed_deps = completed_deps + 1
+-        
+-        if len(all_deps) > 0:
+-            score = score + (completed_deps / len(all_deps)) * 20
+-        
+-        total_resources_needed = 0
+-        for resource, amount in task.resources_needed.items():
+-            total_resources_needed = total_resources_needed + amount
+-        
+-        total_available = 0
+-        for resource, amount in self.available_resources.items():
+-            total_available = total_available + amount
+-        
+-        if total_available > 0:
+-            score = score + (1 - total_resources_needed / total_available) * 10
++        queue = collections.deque([tid for tid, deg in in_degree.items() if deg == 0])
++        topo_order = []
++        while queue:
++            u = queue.popleft()
++            topo_order.append(u)
++            for v in self.dependents[u]:
++                in_degree[v] -= 1
++                if in_degree[v] == 0:
++                    queue.append(v)
++        
++        if len(topo_order) != len(self.tasks):
++            return [], 0
++            
++        max_dist = {tid: 0 for tid in self.task_map}
++        predecessor = {tid: None for tid in self.task_map}
+         
+-        return score
+-    
+-    def get_tasks_waiting_for(self, task_id):
+-        waiting = []
+-        for task in self.tasks:
+-            if task.status == "pending":
+-                for dep_id in task.dependencies:
+-                    if dep_id == task_id:
+-                        waiting.append(task)
+-                        break
+-        return waiting
+-    
+-    def calculate_critical_path(self):
+-        max_path_length = 0
+-        critical_path = []
++        for tid in self.task_map:
++            max_dist[tid] = self.task_map[tid].duration
++            
++        overall_max_len = 0
++        end_node = None
+         
+-        for start_task in self.tasks:
+-            paths = self.build_all_paths(start_task.task_id, [])
++        for tid in topo_order:
++            task = self.task_map[tid]
++            current_max_prev = 0
++            best_pred = None
++            
++            for dep_id in task.dependencies:
++                if dep_id in max_dist:
++                    if max_dist[dep_id] > current_max_prev:
++                        current_max_prev = max_dist[dep_id]
++                        best_pred = dep_id
+             
+-            for path in paths:
+-                path_length = 0
+-                for task_id in path:
+-                    task = self.find_task_by_id(task_id)
+-                    if task:
+-                        path_length = path_length + task.duration
++            if best_pred is not None:
++                max_dist[tid] += current_max_prev
++                predecessor[tid] = best_pred
++            
++            if max_dist[tid] > overall_max_len:
++                overall_max_len = max_dist[tid]
++                end_node = tid
+                 
+-                if path_length > max_path_length:
+-                    max_path_length = path_length
+-                    critical_path = []
+-                    for tid in path:
+-                        critical_path.append(tid)
+-        
+-        return critical_path, max_path_length
+-    
+-    def build_all_paths(self, task_id, current_path):
+-        new_path = []
+-        for p in current_path:
+-            new_path.append(p)
+-        new_path.append(task_id)
+-        
+-        waiting_tasks = self.get_tasks_waiting_for(task_id)
+-        
+-        if len(waiting_tasks) == 0:
+-            return [new_path]
+-        
+-        all_paths = []
+-        for waiting_task in waiting_tasks:
+-            sub_paths = self.build_all_paths(waiting_task.task_id, new_path)
+-            for sp in sub_paths:
+-                all_paths.append(sp)
+-        
+-        return all_paths
+-    
+-    def allocate_resources(self, task):
+-        for resource, amount in task.resources_needed.items():
+-            if resource in self.available_resources:
+-                self.available_resources[resource] = self.available_resources[resource] - amount
+-    
+-    def release_resources(self, task):
+-        for resource, amount in task.resources_needed.items():
+-            if resource in self.available_resources:
+-                self.available_resources[resource] = self.available_resources[resource] + amount
+-    
++        path = []
++        curr = end_node
++        while curr is not None:
++            path.append(curr)
++            curr = predecessor[curr]
++            
++        return list(reversed(path)), overall_max_len
++
+     def execute_task(self, task, current_time):
+         task.start_time = current_time
+         task.end_time = current_time + timedelta(minutes=task.duration)
+         task.status = "completed"
+         
+-        self.execution_log = self.execution_log + "Executed task " + task.name + " at " + str(current_time) + "\n"
++        self.execution_log.append(f"Executed task {task.name} at {current_time}")
+         
+         schedule_entry = {
+             "task_id": task.task_id,
+@@ -236,96 +137,127 @@ class UnoptimizedScheduler:
+         self.schedule.append(schedule_entry)
+         
+         return task.end_time
+-    
++
+     def generate_schedule(self, start_time):
+         current_time = start_time
+-        iterations = 0
+-        max_iterations = len(self.tasks) * len(self.tasks) * 10
+         
+         if self.check_circular_dependencies():
+-            self.execution_log = self.execution_log + "Cannot schedule due to circular dependencies\n"
++            self.execution_log.append("Cannot schedule due to circular dependencies")
+             return None
+-        
+-        while True:
+-            iterations = iterations + 1
+-            if iterations > max_iterations:
+-                self.execution_log = self.execution_log + "Max iterations reached\n"
+-                break
+-            
+-            all_complete = True
+-            for task in self.tasks:
+-                if task.status != "completed":
+-                    all_complete = False
+-                    break
+-            
+-            if all_complete:
+-                break
+-            
+-            available_tasks = self.get_available_tasks()
++
++        pending_dependency_count = {t.task_id: 0 for t in self.tasks}
++        for t in self.tasks:
++            count = 0
++            for dep_id in t.dependencies:
++                if dep_id in self.task_map:
++                    count += 1
++            pending_dependency_count[t.task_id] = count
+             
+-            if len(available_tasks) == 0:
+-                current_time = current_time + timedelta(minutes=1)
+-                continue
++        ready_heap = []
++        
++        for t in self.tasks:
++            if pending_dependency_count[t.task_id] == 0:
++                heapq.heappush(ready_heap, (-t.priority, t.deadline, t.task_id))
++                
++        running_tasks = []
++        completed_count = 0
++        n_tasks = len(self.tasks)
++         
++        while completed_count < n_tasks:
++            if not ready_heap and running_tasks:
++                 next_end, finished_tid = heapq.heappop(running_tasks)
++                 current_time = max(current_time, next_end)
++                 heapq.heappush(running_tasks, (next_end, finished_tid))
+             
+-            scored_tasks = []
+-            for task in available_tasks:
+-                score = self.calculate_priority_score(task, current_time)
+-                scored_tasks.append((task, score))
++            while running_tasks and running_tasks[0][0] <= current_time:
++                end_t, finished_tid = heapq.heappop(running_tasks)
++                task = self.task_map[finished_tid]
++                
++                for res, amt in task.resources_needed.items():
++                    if res in self.available_resources:
++                        self.available_resources[res] += amt
++                        
++                completed_count += 1
++                
++                for dep_tid in self.dependents[finished_tid]:
++                    pending_dependency_count[dep_tid] -= 1
++                    if pending_dependency_count[dep_tid] == 0:
++                        dep_task = self.task_map[dep_tid]
++                        heapq.heappush(ready_heap, (-dep_task.priority, dep_task.deadline, dep_task.task_id))
++
++            non_executable = []
++            matched_task = None
+             
+-            n = len(scored_tasks)
+-            for i in range(n):
+-                for j in range(0, n - i - 1):
+-                    if scored_tasks[j][1] < scored_tasks[j + 1][1]:
+-                        temp = scored_tasks[j]
+-                        scored_tasks[j] = scored_tasks[j + 1]
+-                        scored_tasks[j + 1] = temp
++            while ready_heap:
++                prio, deadline, tid = heapq.heappop(ready_heap)
++                task = self.task_map[tid]
++                
++                can_run = True
++                for res, amt in task.resources_needed.items():
++                    if self.available_resources.get(res, 0) < amt:
++                        can_run = False
++                        break
++                
++                if can_run:
++                    matched_task = task
++                    break
++                else:
++                    non_executable.append((prio, deadline, tid))
+             
+-            best_task = scored_tasks[0][0]
+-            self.allocate_resources(best_task)
+-            current_time = self.execute_task(best_task, current_time)
+-            self.release_resources(best_task)
+-        
++            for item in non_executable:
++                heapq.heappush(ready_heap, item)
++                
++            if matched_task:
++                for res, amt in matched_task.resources_needed.items():
++                    if res in self.available_resources:
++                         self.available_resources[res] -= amt
++                
++                self.execute_task(matched_task, current_time)
++                heapq.heappush(running_tasks, (matched_task.end_time, matched_task.task_id))
++            else:
++                 if running_tasks:
++                     next_time = running_tasks[0][0]
++                     if next_time > current_time:
++                         current_time = next_time
++                     else:
++                         if not running_tasks and ready_heap:
++                             self.execution_log.append("Resource deadlock detected")
++                             break
++                         
++                         current_time = next_time
++                 else:
++                     if completed_count < n_tasks:
++                         pass
++                     break
++                     
+         return self.schedule
+-    
++
+     def calculate_metrics(self):
+-        total_wait_time = 0
+-        total_turnaround = 0
++        total_wait_time = 0.0
+         missed_deadlines = 0
+         total_idle_time = 0
+         
+-        schedule_copy = []
+-        for entry in self.schedule:
+-            schedule_copy.append(entry)
+-        
+-        n = len(schedule_copy)
+-        for i in range(n):
+-            for j in range(0, n - i - 1):
+-                if schedule_copy[j]["start_time"] > schedule_copy[j + 1]["start_time"]:
+-                    temp = schedule_copy[j]
+-                    schedule_copy[j] = schedule_copy[j + 1]
+-                    schedule_copy[j + 1] = temp
++        sorted_schedule = sorted(self.schedule, key=lambda x: x["start_time"])
+         
+-        for i in range(len(schedule_copy)):
+-            entry = schedule_copy[i]
+-            task = self.find_task_by_id(entry["task_id"])
++        for i, entry in enumerate(sorted_schedule):
++            task = self.task_map[entry["task_id"]]
+             
+-            if task:
+-                if task.end_time and task.end_time > task.deadline:
+-                    missed_deadlines = missed_deadlines + 1
+-                
+-                for dep_id in task.dependencies:
+-                    dep_task = self.find_task_by_id(dep_id)
+-                    if dep_task and dep_task.end_time:
+-                        wait = (task.start_time - dep_task.end_time).total_seconds() / 60
+-                        if wait > 0:
+-                            total_wait_time = total_wait_time + wait
+-        
+-        for i in range(1, len(schedule_copy)):
+-            prev_end = schedule_copy[i - 1]["end_time"]
+-            curr_start = schedule_copy[i]["start_time"]
+-            if curr_start > prev_end:
+-                total_idle_time = total_idle_time + 1
+-        
++            if task.end_time and task.end_time > task.deadline:
++                missed_deadlines += 1
++            
++            for dep_id in task.dependencies:
++                dep_task = self.task_map.get(dep_id)
++                if dep_task and dep_task.end_time:
++                    wait = (task.start_time - dep_task.end_time).total_seconds() / 60
++                    if wait > 0:
++                        total_wait_time += wait
++            
++            if i > 0:
++                prev_end = sorted_schedule[i-1]["end_time"]
++                curr_start = sorted_schedule[i]["start_time"]
++                if curr_start > prev_end:
++                    total_idle_time += 1
++                    
+         metrics = {
+             "total_tasks": len(self.tasks),
+             "completed_tasks": len(self.schedule),
+@@ -333,42 +265,41 @@ class UnoptimizedScheduler:
+             "total_wait_time_minutes": total_wait_time,
+             "estimated_idle_periods": total_idle_time
+         }
+-        
+         return metrics
+-    
++
+     def generate_report(self):
+-        report = ""
+-        report = report + "=" * 50 + "\n"
+-        report = report + "SCHEDULING REPORT\n"
+-        report = report + "=" * 50 + "\n\n"
++        parts = []
++        parts.append("=" * 50 + "\n")
++        parts.append("SCHEDULING REPORT\n")
++        parts.append("=" * 50 + "\n\n")
+         
+-        report = report + "SCHEDULED TASKS:\n"
+-        report = report + "-" * 30 + "\n"
++        parts.append("SCHEDULED TASKS:\n")
++        parts.append("-" * 30 + "\n")
+         
+         for entry in self.schedule:
+-            report = report + "Task: " + entry["task_name"] + "\n"
+-            report = report + "  Start: " + entry["start_time"] + "\n"
+-            report = report + "  End: " + entry["end_time"] + "\n"
+-            report = report + "  Duration: " + str(entry["duration"]) + " minutes\n"
+-            report = report + "\n"
+-        
++            parts.append(f"Task: {entry['task_name']}\n")
++            parts.append(f"  Start: {entry['start_time']}\n")
++            parts.append(f"  End: {entry['end_time']}\n")
++            parts.append(f"  Duration: {entry['duration']} minutes\n")
++            parts.append("\n")
++            
+         metrics = self.calculate_metrics()
+         
+-        report = report + "METRICS:\n"
+-        report = report + "-" * 30 + "\n"
++        parts.append("METRICS:\n")
++        parts.append("-" * 30 + "\n")
+         for key, value in metrics.items():
+-            report = report + key + ": " + str(value) + "\n"
+-        
+-        report = report + "\nEXECUTION LOG:\n"
+-        report = report + "-" * 30 + "\n"
+-        report = report + self.execution_log
++            parts.append(f"{key}: {value}\n")
++            
++        parts.append("\nEXECUTION LOG:\n")
++        parts.append("-" * 30 + "\n")
++        parts.append("\n".join(self.execution_log))
++        if self.execution_log:
++             parts.append("\n") 
+         
+-        return report
+-
++        return "".join(parts)
+ 
+ def create_sample_tasks():
+     base_time = datetime.now()
+-    
+     tasks = [
+         Task(1, "Data Collection", 5, 30, base_time + timedelta(hours=4), [], {"cpu": 2, "memory": 4}),
+         Task(2, "Data Validation", 4, 20, base_time + timedelta(hours=5), [1], {"cpu": 1, "memory": 2}),
+@@ -381,15 +312,13 @@ def create_sample_tasks():
+         Task(9, "Log Analysis", 2, 20, base_time + timedelta(hours=10), [2, 8], {"cpu": 2, "memory": 4}),
+         Task(10, "System Monitoring", 1, 10, base_time + timedelta(hours=16), [7, 9], {"cpu": 1, "memory": 1}),
+     ]
+-    
+     return tasks
+ 
+-
+ def main():
+     tasks = create_sample_tasks()
+     available_resources = {"cpu": 16, "memory": 64}
+     
+-    scheduler = UnoptimizedScheduler(tasks, available_resources)
++    scheduler = OptimizedScheduler(tasks, available_resources)
+     
+     start_time = datetime.now()
+     
+@@ -409,6 +338,7 @@ def main():
+         report = scheduler.generate_report()
+         print(report)
+ 
+-
+ if __name__ == "__main__":
+-    main()
+\ No newline at end of file
++    main()
++
++Scheduler = OptimizedScheduler
+\ No newline at end of file
