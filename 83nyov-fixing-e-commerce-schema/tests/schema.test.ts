@@ -17,6 +17,28 @@ describe("Schema Validation & Structure", () => {
 
   const schemaContent = fs.readFileSync(schemaPath, "utf8");
 
+  const getModelBlock = (modelName: string) => {
+    const modelMatch = schemaContent.match(
+      new RegExp(`model ${modelName} \\{[\\s\\S]*?\\n\\}`),
+    );
+    expect(modelMatch).toBeTruthy();
+    return modelMatch![0];
+  };
+
+  const expectRelation = (
+    modelBlock: string,
+    fieldName: string,
+    relationName: string,
+  ) => {
+    const fieldLineMatch = modelBlock.match(
+      new RegExp(`^\\s*${fieldName}\\s+[^\\n]+`, "m"),
+    );
+    expect(fieldLineMatch).toBeTruthy();
+    expect(fieldLineMatch![0]).toMatch(
+      new RegExp(`@relation\\(\\"${relationName}\\"`),
+    );
+  };
+
   // Requirement 8: Prisma-valid for SaaS use
   it("should pass prisma validate", async () => {
     try {
@@ -40,9 +62,8 @@ describe("Schema Validation & Structure", () => {
     });
 
     it("should have userId field in Store model", () => {
-      const storeModelMatch = schemaContent.match(/model Store \{[\s\S]*?\n\}/);
-      expect(storeModelMatch).toBeTruthy();
-      expect(storeModelMatch![0]).toMatch(/userId\s+String/);
+      const storeModelBlock = getModelBlock("Store");
+      expect(storeModelBlock).toMatch(/userId\s+String/);
     });
   });
 
@@ -84,37 +105,104 @@ describe("Schema Validation & Structure", () => {
     it("should have Product to OrderItem relation named", () => {
       expect(schemaContent).toContain('@relation("ProductToOrderItem"');
     });
+
+    it("should have User to Store relation named on both sides", () => {
+      const userBlock = getModelBlock("User");
+      expectRelation(userBlock, "stores", "UserToStore");
+
+      const storeBlock = getModelBlock("Store");
+      expectRelation(storeBlock, "user", "UserToStore");
+    });
+
+    it("should have relation names on all array fields", () => {
+      const storeBlock = getModelBlock("Store");
+      expectRelation(storeBlock, "billboards", "StoreToBillboard");
+      expectRelation(storeBlock, "categories", "StoreToCategory");
+      expectRelation(storeBlock, "products", "StoreToProduct");
+      expectRelation(storeBlock, "sizes", "StoreToSize");
+      expectRelation(storeBlock, "colors", "StoreToColor");
+      expectRelation(storeBlock, "orders", "StoreToOrder");
+
+      const billboardBlock = getModelBlock("Billboard");
+      expectRelation(billboardBlock, "categories", "BillboardToCategory");
+
+      const categoryBlock = getModelBlock("Category");
+      expectRelation(categoryBlock, "products", "CategoryToProduct");
+
+      const sizeBlock = getModelBlock("Size");
+      expectRelation(sizeBlock, "products", "SizeToProduct");
+
+      const colorBlock = getModelBlock("Color");
+      expectRelation(colorBlock, "products", "ColorToProduct");
+
+      const productBlock = getModelBlock("Product");
+      expectRelation(productBlock, "images", "ProductToImage");
+      expectRelation(productBlock, "orderItems", "ProductToOrderItem");
+
+      const orderBlock = getModelBlock("Order");
+      expectRelation(orderBlock, "orderItems", "OrderToOrderItem");
+    });
   });
 
   // Requirement 2: Remove redundant foreign keys
   describe("Requirement 2: No Redundant Foreign Keys", () => {
     it("should not have standalone ownerId in Store (replaced by userId)", () => {
-      const storeModelMatch = schemaContent.match(/model Store \{[\s\S]*?\n\}/);
-      expect(storeModelMatch).toBeTruthy();
-      // Should have userId but not ownerId
-      expect(storeModelMatch![0]).not.toMatch(/ownerId\s+String/);
+      const storeModelBlock = getModelBlock("Store");
+      expect(storeModelBlock).not.toMatch(/ownerId\s+String/);
     });
 
     it("should have foreign key fields only on the owning side of relations", () => {
-      // Billboard should have storeId (many-to-one)
-      const billboardMatch = schemaContent.match(/model Billboard \{[\s\S]*?\n\}/);
-      expect(billboardMatch![0]).toMatch(/storeId\s+String/);
-      
-      // Store should NOT have billboardId (one-to-many)
-      const storeMatch = schemaContent.match(/model Store \{[\s\S]*?\n\}/);
-      expect(storeMatch![0]).not.toMatch(/billboardId/);
+      const billboardBlock = getModelBlock("Billboard");
+      expect(billboardBlock).toMatch(/storeId\s+String/);
+
+      const storeBlock = getModelBlock("Store");
+      expect(storeBlock).not.toMatch(/billboardId/);
+
+      const categoryBlock = getModelBlock("Category");
+      expect(categoryBlock).toMatch(/billboardId\s+String/);
+      expect(categoryBlock).not.toMatch(/billboardIds/);
+
+      const productBlock = getModelBlock("Product");
+      expect(productBlock).toMatch(/categoryId\s+String/);
+      expect(productBlock).not.toMatch(/categories\s+Category/);
     });
 
     it("should not have circular ownership patterns", () => {
-      // Ensure no model references itself in a way that creates circular ownership
-      // For example, Billboard shouldn't own Store while Store owns Billboard
-      const billboardMatch = schemaContent.match(/model Billboard \{[\s\S]*?\n\}/);
-      expect(billboardMatch![0]).not.toMatch(/stores\s+Store\[\]/);
+      const billboardBlock = getModelBlock("Billboard");
+      expect(billboardBlock).not.toMatch(/stores\s+Store\[\]/);
+
+      const categoryBlock = getModelBlock("Category");
+      expect(categoryBlock).not.toMatch(/billboards\s+Billboard\[\]/);
     });
   });
 
   // Requirement 3: Cascade behavior defined explicitly
   describe("Requirement 3: Explicit Cascade Behavior", () => {
+    it("should define onDelete on all required owning relations", () => {
+      const relationsRequiringOnDelete = [
+        "StoreToBillboard",
+        "StoreToCategory",
+        "StoreToProduct",
+        "StoreToSize",
+        "StoreToColor",
+        "StoreToOrder",
+        "BillboardToCategory",
+        "CategoryToProduct",
+        "SizeToProduct",
+        "ColorToProduct",
+        "ProductToImage",
+        "OrderToOrderItem",
+        "ProductToOrderItem",
+        "UserToStore",
+      ];
+
+      relationsRequiringOnDelete.forEach((relationName) => {
+        expect(schemaContent).toMatch(
+          new RegExp(`@relation\\(\\"${relationName}\\"[^\n]*onDelete:\\s*`),
+        );
+      });
+    });
+
     it("should have Cascade delete on Store to Billboard", () => {
       expect(schemaContent).toMatch(
         /@relation\("StoreToBillboard".*onDelete:\s*Cascade/s,
@@ -168,6 +256,12 @@ describe("Schema Validation & Structure", () => {
         /@relation\("OrderToOrderItem".*onDelete:\s*Cascade/s,
       );
     });
+
+    it("should have Restrict delete on Product to OrderItem", () => {
+      expect(schemaContent).toMatch(
+        /@relation\("ProductToOrderItem".*onDelete:\s*Restrict/s,
+      );
+    });
   });
 
   // Requirement 5: Multi-tenant boundaries with Store as root
@@ -185,7 +279,7 @@ describe("Schema Validation & Structure", () => {
 
       modelsRequiringStoreId.forEach((modelName) => {
         const modelMatch = schemaContent.match(
-          new RegExp(`model ${modelName} \\{[\\s\\S]*?\\n\\}`)
+          new RegExp(`model ${modelName} \\{[\\s\\S]*?\\n\\}`),
         );
         expect(modelMatch).toBeTruthy();
         expect(modelMatch![0]).toMatch(/storeId\s+String/);
@@ -200,7 +294,9 @@ describe("Schema Validation & Structure", () => {
 
     it("should enforce Store boundary on all tenant-scoped relations", () => {
       // Category should reference Store
-      const categoryMatch = schemaContent.match(/model Category \{[\s\S]*?\n\}/);
+      const categoryMatch = schemaContent.match(
+        /model Category \{[\s\S]*?\n\}/,
+      );
       expect(categoryMatch![0]).toMatch(/@relation\("StoreToCategory"/);
 
       // Product should reference Store
@@ -222,7 +318,9 @@ describe("Schema Validation & Structure", () => {
     });
 
     it("should have Billboard array in Category model", () => {
-      const billboardMatch = schemaContent.match(/model Billboard \{[\s\S]*?\n\}/);
+      const billboardMatch = schemaContent.match(
+        /model Billboard \{[\s\S]*?\n\}/,
+      );
       expect(billboardMatch![0]).toMatch(/categories\s+Category\[\]/);
     });
 
@@ -277,7 +375,9 @@ describe("Schema Validation & Structure", () => {
     });
 
     it("should preserve Billboard fields", () => {
-      const billboardMatch = schemaContent.match(/model Billboard \{[\s\S]*?\n\}/);
+      const billboardMatch = schemaContent.match(
+        /model Billboard \{[\s\S]*?\n\}/,
+      );
       expect(billboardMatch![0]).toMatch(/id\s+String/);
       expect(billboardMatch![0]).toMatch(/label\s+String/);
       expect(billboardMatch![0]).toMatch(/imageUrl\s+String/);
@@ -286,7 +386,9 @@ describe("Schema Validation & Structure", () => {
     });
 
     it("should preserve Category fields", () => {
-      const categoryMatch = schemaContent.match(/model Category \{[\s\S]*?\n\}/);
+      const categoryMatch = schemaContent.match(
+        /model Category \{[\s\S]*?\n\}/,
+      );
       expect(categoryMatch![0]).toMatch(/id\s+String/);
       expect(categoryMatch![0]).toMatch(/name\s+String/);
       expect(categoryMatch![0]).toMatch(/billboardId\s+String/);
@@ -317,7 +419,9 @@ describe("Schema Validation & Structure", () => {
     });
 
     it("should preserve OrderItem structure", () => {
-      const orderItemMatch = schemaContent.match(/model OrderItem \{[\s\S]*?\n\}/);
+      const orderItemMatch = schemaContent.match(
+        /model OrderItem \{[\s\S]*?\n\}/,
+      );
       expect(orderItemMatch![0]).toMatch(/id\s+String/);
       expect(orderItemMatch![0]).toMatch(/orderId\s+String/);
       expect(orderItemMatch![0]).toMatch(/productId\s+String/);

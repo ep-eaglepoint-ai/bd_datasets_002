@@ -20,7 +20,7 @@ model Store {
   id          String      @id @default(uuid())
   name        String
   userId      String
-  user        User        @relation("UserToStore", fields: [userId], references: [id])
+  user        User        @relation("UserToStore", fields: [userId], references: [id], onDelete: Cascade)
   billboards  Billboard[] @relation("StoreToBillboard")
   categories  Category[]  @relation("StoreToCategory")
   products    Product[]   @relation("StoreToProduct")
@@ -50,8 +50,8 @@ model Category {
   id          String    @id @default(uuid())
   storeId     String
   store       Store     @relation("StoreToCategory", fields: [storeId], references: [id], onDelete: Cascade)
-  billboardId String?   
-  billboard   Billboard? @relation("BillboardToCategory", fields: [billboardId], references: [id], onDelete: SetNull)
+  billboardId String
+  billboard   Billboard @relation("BillboardToCategory", fields: [billboardId], references: [id], onDelete: Cascade)
   name        String
   products    Product[] @relation("CategoryToProduct")
   createdAt   DateTime  @default(now())
