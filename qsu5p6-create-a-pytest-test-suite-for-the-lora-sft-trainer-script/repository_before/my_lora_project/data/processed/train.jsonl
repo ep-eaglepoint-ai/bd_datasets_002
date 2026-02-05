@@ -1,0 +1,2 @@
+{"instruction": "Explain a four-bar linkage.", "input": "", "output": "A four-bar linkage is a planar mechanism with four rigid links connected in a loop."}
+{"instruction": "Suggest improvements for a crank-slider.", "input": "High friction at joints", "output": "Use needle bearings, improve lubrication, and reduce side loads."}

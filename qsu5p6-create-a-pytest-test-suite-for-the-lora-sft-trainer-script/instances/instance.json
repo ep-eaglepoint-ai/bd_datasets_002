@@ -1,0 +1,11 @@
+{
+            "instance_id": "QSU5P6",
+            "problem_statement": "Write automated tests for the LoRA supervised fine-tuning trainer to ensure the data pipeline and training orchestration behave correctly without performing real model training. The test suite must verify: JSONL reading, prompt formatting, dataset creation with the expected columns, the causal data collator producing correct tensors and labels, and a smoke test for main() that confirms argument parsing and output directory creation while mocking heavy Hugging Face components to keep tests fast, deterministic, and runnable on CPU-only machines.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/qsu5p6-create-a-pytest-test-suite-for-the-lora-sft-trainer-script",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

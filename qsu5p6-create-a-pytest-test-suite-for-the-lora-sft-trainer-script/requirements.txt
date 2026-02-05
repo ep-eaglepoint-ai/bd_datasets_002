@@ -1,0 +1,9 @@
+# --- core ---
+pytest>=7.4.0
+
+# --- ML libs (CPU only, import-safe) ---
+torch==2.2.2+cpu
+transformers>=4.36.0
+datasets>=2.14.0
+peft>=0.7.0
+accelerate>=0.25.0
