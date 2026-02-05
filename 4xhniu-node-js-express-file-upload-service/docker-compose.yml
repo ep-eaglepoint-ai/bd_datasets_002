@@ -1,0 +1,18 @@
+services:
+  test:
+    image: file-upload-service
+    build: .
+    command: go test -v ./tests/...
+    volumes:
+      - .:/app
+    environment:
+      - CGO_ENABLED=1
+
+  evaluation:
+    image: file-upload-service
+    # Build context removed to ensure it uses the image built by 'test'
+    command: python3 evaluation/evaluation.py
+    volumes:
+      - .:/app
+    environment:
+      - CGO_ENABLED=1
