@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2/repository
+    working_dir: /app
+
+volumes:
+  maven-cache: {}

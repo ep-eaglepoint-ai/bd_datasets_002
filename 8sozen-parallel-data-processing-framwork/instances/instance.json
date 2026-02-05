@@ -1,0 +1,11 @@
+{
+            "instance_id": "8SOZEN",
+            "problem_statement": "Implement a production‑grade Java parallel data processing framework using Fork/Join with work‑stealing to achieve near‑linear speedup on CPU‑bound tasks across multiple cores. The framework must support recursive task decomposition, configurable thresholds, MapReduce semantics, progress monitoring, cancellation, and aggregated exception handling while processing up to 10 million integers in under 500ms on a 4‑core system. Use `RecursiveTask<R>` for fine‑grained control, enable streaming data processing for memory efficiency, and ensure idle workers can steal tasks via `ForkJoinPool` to maintain optimal load balancing.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/8sozen-parallel-data-processing-framwork",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
