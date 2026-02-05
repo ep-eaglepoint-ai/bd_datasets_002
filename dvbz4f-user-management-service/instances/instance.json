@@ -1,0 +1,33 @@
+{
+  "instance_id": "DVBZ4F",
+  "problem_statement": "Refactor a Python user management service to follow clean architecture by separating concerns into distinct classes: User (model), UserRepository (data access), UserValidator (validation), PasswordHasher (security), and UserService (orchestration). Use dependency injection for testability, extract magic values into named constants, and ensure all existing registration, authentication, and profile‑update functionality remains unchanged. The refactored code must preserve identical external behavior and pass the original tests while eliminating the god‑class pattern and mixing of responsibilities.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/dvbz4f-user-management-service",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "tests/test_architecture.py::test_components_exist",
+    "tests/test_architecture.py::test_userservice_dependency_injection",
+    "tests/test_architecture.py::test_user_model_is_dataclass",
+    "tests/test_architecture.py::test_constants_class_exists",
+    "tests/test_architecture.py::test_repository_interface"
+  ],
+  "PASS_TO_PASS": [
+    "tests/test_user_manager.py::test_register_user_success",
+    "tests/test_user_manager.py::test_register_user_validation_username",
+    "tests/test_user_manager.py::test_register_user_validation_email",
+    "tests/test_user_manager.py::test_register_user_validation_password",
+    "tests/test_user_manager.py::test_register_duplicate_email",
+    "tests/test_user_manager.py::test_authenticate_success",
+    "tests/test_user_manager.py::test_authenticate_failure",
+    "tests/test_user_manager.py::test_update_profile_username",
+    "tests/test_user_manager.py::test_update_profile_email",
+    "tests/test_user_manager.py::test_update_profile_duplicate_email",
+    "tests/test_user_manager.py::test_update_profile_password",
+    "tests/test_user_manager.py::test_delete_user",
+    "tests/test_user_manager.py::test_immutability",
+    "tests/test_user_manager.py::test_user_not_found",
+    "tests/test_user_manager.py::test_boundaries",
+    "tests/test_user_manager.py::test_deactivation"
+  ]
+}
