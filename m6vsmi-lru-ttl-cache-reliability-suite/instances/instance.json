@@ -1,0 +1,11 @@
+{
+            "instance_id": "M6VSMI",
+            "problem_statement": "The task is to verify a hybrid cache eviction strategy (LRU + TTL). Testing must ensure that the capacity limit is strictly honored, the LRU ordering is maintained across reads/writes, and that TTL expiration takes precedence over existence in the cache. 100% branch and statement coverage is mandatory.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/m6vsmi-lru-ttl-cache-reliability-suite",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

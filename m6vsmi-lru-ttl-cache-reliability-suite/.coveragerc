@@ -1,0 +1,19 @@
+[coverage:run]
+branch = True
+source = repository_after
+omit =
+    */test_*.py
+    */__init__.py
+
+[coverage:report]
+show_missing = True
+fail_under = 100
+precision = 0
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
