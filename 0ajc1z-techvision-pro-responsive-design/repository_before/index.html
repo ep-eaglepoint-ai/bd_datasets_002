@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TechVision Pro - Enterprise Analytics Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            width: 1440px;
+            margin: 0;
+        }
+        
+        /* Fixed Navigation */
+        .navbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1440px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        
+        .nav-container {
+            position: absolute;
+            top: 0;
+            left: 80px;
+            width: 1280px;
+            height: 80px;
+        }
+        
+        .logo {
+            position: absolute;
+            top: 22px;
+            left: 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+        
+        .nav-links {
+            position: absolute;
+            top: 28px;
+            right: 200px;
+            list-style: none;
+        }
+        
+        .nav-links li {
+            position: relative;
+            float: left;
+            margin-left: 45px;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        
+        .nav-links a:hover {
+            opacity: 0.8;
+        }
+        
+        .cta-button {
+            position: absolute;
+            top: 20px;
+            right: 0;
+            width: 160px;
+            height: 40px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Hero Section */
+        .hero {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            width: 1440px;
+            height: 600px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .hero-content {
+            position: absolute;
+            top: 120px;
+            left: 80px;
+            width: 600px;
+        }
+        
+        .hero h1 {
+            font-size: 56px;
+            color: white;
+            line-height: 1.2;
+            margin-bottom: 24px;
+            font-weight: 800;
+        }
+        
+        .hero p {
+            font-size: 20px;
+            color: rgba(255,255,255,0.9);
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+        
+        .hero-buttons {
+            position: relative;
+            height: 50px;
+        }
+        
+        .btn-primary {
+            position: absolute;
+            left: 0;
+            width: 180px;
+            height: 50px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            position: absolute;
+            left: 200px;
+            width: 180px;
+            height: 50px;
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .hero-image {
+            position: absolute;
+            top: 80px;
+            right: 80px;
+            width: 580px;
+            height: 440px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* Features Section */
+        .features {
+            position: absolute;
+            top: 680px;
+            left: 0;
+            width: 1440px;
+            height: 600px;
+            background: white;
+        }
+        
+        .section-title {
+            position: absolute;
+            top: 80px;
+            left: 520px;
+            width: 400px;
+            text-align: center;
+            font-size: 42px;
+            color: #2d3748;
+            font-weight: 700;
+        }
+        
+        .feature-card-1 {
+            position: absolute;
+            top: 200px;
+            left: 80px;
+            width: 380px;
+            height: 320px;
+            background: #f7fafc;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .feature-card-2 {
+            position: absolute;
+            top: 200px;
+            left: 530px;
+            width: 380px;
+            height: 320px;
+            background: #f7fafc;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .feature-card-3 {
+            position: absolute;
+            top: 200px;
+            left: 980px;
+            width: 380px;
+            height: 320px;
+            background: #f7fafc;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .feature-card h3 {
+            font-size: 24px;
+            color: #2d3748;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+        
+        .feature-card p {
+            font-size: 16px;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        
+        /* Stats Section */
+        .stats {
+            position: absolute;
+            top: 1280px;
+            left: 0;
+            width: 1440px;
+            height: 300px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .stat-item-1 {
+            position: absolute;
+            top: 100px;
+            left: 180px;
+            width: 240px;
+            text-align: center;
+        }
+        
+        .stat-item-2 {
+            position: absolute;
+            top: 100px;
+            left: 600px;
+            width: 240px;
+            text-align: center;
+        }
+        
+        .stat-item-3 {
+            position: absolute;
+            top: 100px;
+            left: 1020px;
+            width: 240px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 48px;
+            color: white;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            font-size: 18px;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+        }
+        
+        /* Pricing Section */
+        .pricing {
+            position: absolute;
+            top: 1580px;
+            left: 0;
+            width: 1440px;
+            height: 700px;
+            background: #f5f7fa;
+        }
+        
+        .pricing-title {
+            position: absolute;
+            top: 80px;
+            left: 570px;
+            width: 300px;
+            text-align: center;
+            font-size: 42px;
+            color: #2d3748;
+            font-weight: 700;
+        }
+        
+        .price-card-1 {
+            position: absolute;
+            top: 200px;
+            left: 180px;
+            width: 340px;
+            height: 420px;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .price-card-2 {
+            position: absolute;
+            top: 180px;
+            left: 550px;
+            width: 340px;
+            height: 460px;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            border: 3px solid #667eea;
+        }
+        
+        .price-card-3 {
+            position: absolute;
+            top: 200px;
+            left: 920px;
+            width: 340px;
+            height: 420px;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .plan-name {
+            font-size: 24px;
+            color: #2d3748;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .plan-price {
+            font-size: 48px;
+            color: #667eea;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        
+        .plan-period {
+            font-size: 16px;
+            color: #718096;
+            margin-bottom: 32px;
+        }
+        
+        .plan-features {
+            list-style: none;
+            margin-bottom: 32px;
+        }
+        
+        .plan-features li {
+            font-size: 16px;
+            color: #4a5568;
+            margin-bottom: 16px;
+            padding-left: 28px;
+            position: relative;
+        }
+        
+        .plan-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: 700;
+        }
+        
+        .plan-button {
+            width: 100%;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* Footer */
+        .footer {
+            position: absolute;
+            top: 2280px;
+            left: 0;
+            width: 1440px;
+            height: 200px;
+            background: #2d3748;
+        }
+        
+        .footer-content {
+            position: absolute;
+            top: 60px;
+            left: 80px;
+            width: 1280px;
+            height: 80px;
+        }
+        
+        .footer-logo {
+            position: absolute;
+            left: 0;
+            font-size: 24px;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .footer-links {
+            position: absolute;
+            right: 0;
+            top: 5px;
+        }
+        
+        .footer-links a {
+            color: #cbd5e0;
+            text-decoration: none;
+            margin-left: 32px;
+            font-size: 15px;
+        }
+        
+        .copyright {
+            position: absolute;
+            top: 140px;
+            left: 640px;
+            color: #718096;
+            font-size: 14px;
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">TechVision Pro</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+            <button class="cta-button">Get Started</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Transform Your Data Into Actionable Insights</h1>
+            <p>Enterprise-grade analytics platform trusted by Fortune 500 companies to drive decision-making with AI-powered intelligence.</p>
+            <div class="hero-buttons">
+                <button class="btn-primary">Start Free Trial</button>
+                <button class="btn-secondary">Watch Demo</button>
+            </div>
+        </div>
+        <div class="hero-image"></div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <h2 class="section-title">Powerful Features</h2>
+        <div class="feature-card-1 feature-card">
+            <div class="feature-icon"></div>
+            <h3>Real-Time Analytics</h3>
+            <p>Process millions of data points per second with our distributed computing engine. Get instant insights from streaming data sources.</p>
+        </div>
+        <div class="feature-card-2 feature-card">
+            <div class="feature-icon"></div>
+            <h3>AI-Powered Predictions</h3>
+            <p>Leverage machine learning models to forecast trends, detect anomalies, and automate decision-making processes.</p>
+        </div>
+        <div class="feature-card-3 feature-card">
+            <div class="feature-icon"></div>
+            <h3>Enterprise Security</h3>
+            <p>Bank-level encryption, SOC 2 compliance, and role-based access control to protect your most sensitive data.</p>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="stat-item-1">
+            <div class="stat-number">10M+</div>
+            <div class="stat-label">Data Points Processed Daily</div>
+        </div>
+        <div class="stat-item-2">
+            <div class="stat-number">99.99%</div>
+            <div class="stat-label">Uptime Guarantee</div>
+        </div>
+        <div class="stat-item-3">
+            <div class="stat-number">500+</div>
+            <div class="stat-label">Enterprise Customers</div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing">
+        <h2 class="pricing-title">Simple Pricing</h2>
+        <div class="price-card-1">
+            <div class="plan-name">Starter</div>
+            <div class="plan-price">$49</div>
+            <div class="plan-period">per month</div>
+            <ul class="plan-features">
+                <li>Up to 100K events/month</li>
+                <li>5 team members</li>
+                <li>Basic analytics</li>
+                <li>Email support</li>
+                <li>7-day data retention</li>
+            </ul>
+            <button class="plan-button">Choose Plan</button>
+        </div>
+        <div class="price-card-2">
+            <div class="plan-name">Professional</div>
+            <div class="plan-price">$199</div>
+            <div class="plan-period">per month</div>
+            <ul class="plan-features">
+                <li>Up to 1M events/month</li>
+                <li>Unlimited team members</li>
+                <li>Advanced analytics</li>
+                <li>Priority support</li>
+                <li>90-day data retention</li>
+                <li>Custom integrations</li>
+            </ul>
+            <button class="plan-button">Choose Plan</button>
+        </div>
+        <div class="price-card-3">
+            <div class="plan-name">Enterprise</div>
+            <div class="plan-price">Custom</div>
+            <div class="plan-period">contact sales</div>
+            <ul class="plan-features">
+                <li>Unlimited events</li>
+                <li>Dedicated account manager</li>
+                <li>AI-powered insights</li>
+                <li>24/7 phone support</li>
+                <li>Unlimited data retention</li>
+            </ul>
+            <button class="plan-button">Contact Sales</button>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">TechVision Pro</div>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Documentation</a>
+                <a href="#">Support</a>
+            </div>
+        </div>
+        <div class="copyright">© 2026 TechVision Pro. All rights reserved.</div>
+    </footer>
+</body>
+</html>

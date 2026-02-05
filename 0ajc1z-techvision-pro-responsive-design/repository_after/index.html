@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechVision Pro - Enterprise Analytics Platform</title>
+    <style>
+        /* Base Styles - Mobile First */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            min-width: 320px;
+            max-width: 1440px;
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* ========== Navigation ========== */
+        .navbar {
+            position: relative;
+            width: 100%;
+            min-height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding: 0 20px;
+        }
+
+        .nav-container {
+            position: relative;
+            width: 100%;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px 0;
+        }
+
+        .logo {
+            font-size: clamp(24px, 5vw, 28px);
+            font-weight: 700;
+            color: white;
+            letter-spacing: -0.5px;
+            text-align: center;
+        }
+
+        .nav-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .nav-links li {
+            width: 100%;
+            text-align: center;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: clamp(16px, 4vw, 18px);
+            font-weight: 500;
+            display: inline-block;
+            padding: 12px 20px;
+            min-height: 44px;
+            min-width: 44px;
+            border-radius: 4px;
+            transition: opacity 0.3s, background-color 0.3s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a:focus {
+            opacity: 0.8;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .cta-button {
+            width: 160px;
+            height: 44px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* ========== Hero Section ========== */
+        .hero {
+            position: relative;
+            width: 100%;
+            min-height: 600px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .hero-content {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .hero h1 {
+            font-size: clamp(32px, 8vw, 56px);
+            color: white;
+            line-height: 1.2;
+            margin-bottom: 24px;
+            font-weight: 800;
+        }
+
+        .hero p {
+            font-size: clamp(16px, 4vw, 20px);
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 380px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            width: 100%;
+            min-height: 50px;
+            padding: 12px 24px;
+            font-size: clamp(14px, 3vw, 16px);
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 30px;
+            transition: transform 0.2s;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .hero-image {
+            width: 100%;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* ========== Features Section ========== */
+        .features {
+            position: relative;
+            width: 100%;
+            min-height: 600px;
+            background: white;
+            padding: 80px 20px;
+        }
+
+        .section-title {
+            font-size: clamp(32px, 6vw, 42px);
+            color: #2d3748;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 60px;
+            width: 100%;
+        }
+
+        .feature-card {
+            background: #f7fafc;
+            border-radius: 16px;
+            padding: 40px 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .feature-card h3 {
+            font-size: clamp(20px, 4vw, 24px);
+            color: #2d3748;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        .feature-card p {
+            font-size: clamp(14px, 3vw, 16px);
+            color: #4a5568;
+            line-height: 1.6;
+        }
+
+        /* ========== Stats Section ========== */
+        .stats {
+            position: relative;
+            width: 100%;
+            min-height: 300px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 60px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .stat-item {
+            text-align: center;
+            width: 100%;
+            max-width: 240px;
+        }
+
+        .stat-number {
+            font-size: clamp(36px, 8vw, 48px);
+            color: white;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: clamp(16px, 4vw, 18px);
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+
+        /* ========== Pricing Section ========== */
+        .pricing {
+            position: relative;
+            width: 100%;
+            min-height: 700px;
+            background: #f5f7fa;
+            padding: 80px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pricing-grid {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pricing-title {
+            font-size: clamp(32px, 6vw, 42px);
+            color: #2d3748;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 60px;
+            width: 100%;
+        }
+
+        .price-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            padding: clamp(30px, 5vw, 40px) clamp(20px, 4vw, 30px);
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .price-card:hover {
+            transform: translateY(-5px) scale(1.02);
+        }
+
+        .price-card .plan-features {
+            flex-grow: 1;
+        }
+
+        .price-card-2 {
+            border: 3px solid #667eea;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .plan-name {
+            font-size: clamp(20px, 4vw, 24px);
+            color: #2d3748;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .plan-price {
+            font-size: clamp(36px, 8vw, 48px);
+            color: #667eea;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .plan-period {
+            font-size: clamp(14px, 3vw, 16px);
+            color: #718096;
+            margin-bottom: 32px;
+        }
+
+        .plan-features {
+            list-style: none;
+            margin-bottom: 32px;
+        }
+
+        .plan-features li {
+            font-size: clamp(14px, 3vw, 16px);
+            color: #4a5568;
+            margin-bottom: 16px;
+            padding-left: 28px;
+            position: relative;
+        }
+
+        .plan-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .plan-button {
+            width: 100%;
+            min-height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: clamp(14px, 3vw, 16px);
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .plan-button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* ========== Footer ========== */
+        .footer {
+            position: relative;
+            width: 100%;
+            min-height: 200px;
+            background: #2d3748;
+            padding: 40px 20px;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .footer-logo {
+            font-size: clamp(20px, 4vw, 24px);
+            font-weight: 700;
+            color: white;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .footer-links a {
+            color: #cbd5e0;
+            text-decoration: none;
+            font-size: clamp(14px, 3vw, 15px);
+            padding: 8px 12px;
+            min-height: 44px;
+            min-width: 44px;
+            border-radius: 4px;
+            transition: color 0.3s, background-color 0.3s;
+        }
+
+        .footer-links a:hover,
+        .footer-links a:focus {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .copyright {
+            color: #718096;
+            font-size: clamp(12px, 3vw, 14px);
+            text-align: center;
+            width: 100%;
+        }
+
+        /* ========== Tablet Styles (768px-1023px) ========== */
+        @media (min-width: 768px) {
+            .nav-container {
+                flex-direction: row;
+                justify-content: space-between;
+                padding: 0;
+                min-height: 80px;
+            }
+
+            .nav-links {
+                flex-direction: row;
+                width: auto;
+                gap: 30px;
+            }
+
+            .nav-links li {
+                width: auto;
+            }
+
+            .nav-links a {
+                padding: 12px 0;
+            }
+
+            .cta-button {
+                margin-top: 0;
+            }
+
+            .hero {
+                flex-direction: row;
+                align-items: center;
+                padding: 120px 40px;
+            }
+
+            .hero-content {
+                flex: 1;
+            }
+
+            .hero-buttons {
+                flex-direction: row;
+                max-width: 380px;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                width: 180px;
+            }
+
+            .hero-image {
+                flex: 1;
+                height: 400px;
+            }
+
+            .features-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 30px;
+            }
+
+            .stats {
+                flex-direction: row;
+                justify-content: space-around;
+                gap: 20px;
+            }
+
+            .pricing-grid {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 30px;
+            }
+
+            .footer-content {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+
+            .footer-links {
+                flex-direction: row;
+                gap: 32px;
+            }
+        }
+
+        /* ========== Desktop Small (1024px-1439px) ========== */
+        @media (min-width: 1024px) {
+
+            .navbar,
+            .hero,
+            .features,
+            .stats,
+            .pricing,
+            .footer {
+                padding-left: 40px;
+                padding-right: 40px;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .pricing-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 40px;
+            }
+
+            .price-card-2 {
+                grid-column: span 1;
+                transform: translateY(-20px);
+            }
+
+            .footer-content {
+                max-width: 1280px;
+                margin: 0 auto 30px;
+            }
+        }
+
+        /* ========== Desktop Large (≥1440px) ========== */
+        @media (min-width: 1440px) {
+            body {
+                width: 1440px;
+                margin: 0 auto;
+            }
+
+            /* Reset to original absolute positioning for desktop */
+            .navbar,
+            .hero,
+            .features,
+            .stats,
+            .pricing,
+            .footer {
+                position: absolute;
+                padding: 0;
+                left: 0;
+            }
+
+            .navbar {
+                top: 0;
+                left: 0;
+                width: 1440px;
+                height: 80px;
+            }
+
+            .nav-container {
+                position: absolute;
+                top: 0;
+                left: 80px;
+                width: 1280px;
+                height: 80px;
+                flex-direction: row;
+                gap: 0;
+            }
+
+            .logo {
+                position: absolute;
+                top: 22px;
+                left: 0;
+                font-size: 28px;
+            }
+
+            .nav-links {
+                position: absolute;
+                top: 28px;
+                right: 200px;
+                flex-direction: row;
+                width: auto;
+            }
+
+            .nav-links li {
+                position: relative;
+                float: left;
+                margin-left: 45px;
+            }
+
+            .nav-links a {
+                padding: 0;
+                min-height: 0;
+                min-width: 0;
+                font-size: 16px;
+            }
+
+            .cta-button {
+                position: absolute;
+                top: 20px;
+                right: 0;
+                margin: 0;
+            }
+
+            .hero {
+                top: 80px;
+                width: 1440px;
+                height: 600px;
+                padding: 0;
+                flex-direction: row;
+            }
+
+            .hero-content {
+                position: absolute;
+                top: 120px;
+                left: 80px;
+                width: 600px;
+                max-width: none;
+            }
+
+            .hero h1 {
+                font-size: 56px;
+            }
+
+            .hero p {
+                font-size: 20px;
+            }
+
+            .hero-buttons {
+                position: relative;
+                flex-direction: row;
+                width: auto;
+                max-width: none;
+            }
+
+            .btn-primary {
+                position: absolute;
+                left: 0;
+                width: 180px;
+            }
+
+            .btn-secondary {
+                position: absolute;
+                left: 200px;
+                width: 180px;
+            }
+
+            .hero-image {
+                position: absolute;
+                top: 80px;
+                right: 80px;
+                width: 580px;
+                height: 440px;
+            }
+
+            .features {
+                top: 680px;
+                width: 1440px;
+                height: 600px;
+                padding: 0;
+            }
+
+            .section-title {
+                position: absolute;
+                top: 80px;
+                left: 520px;
+                width: 400px;
+                font-size: 42px;
+                margin: 0;
+            }
+
+            .features-grid {
+                display: block;
+            }
+
+            .feature-card-1 {
+                position: absolute;
+                top: 200px;
+                left: 80px;
+                width: 380px;
+                height: 320px;
+            }
+
+            .feature-card-2 {
+                position: absolute;
+                top: 200px;
+                left: 530px;
+                width: 380px;
+                height: 320px;
+            }
+
+            .feature-card-3 {
+                position: absolute;
+                top: 200px;
+                left: 980px;
+                width: 380px;
+                height: 320px;
+            }
+
+            .feature-card {
+                margin: 0;
+            }
+
+            .stats {
+                top: 1280px;
+                width: 1440px;
+                height: 300px;
+                padding: 0;
+                flex-direction: row;
+            }
+
+            .stat-item-1 {
+                position: absolute;
+                top: 100px;
+                left: 180px;
+                width: 240px;
+            }
+
+            .stat-item-2 {
+                position: absolute;
+                top: 100px;
+                left: 600px;
+                width: 240px;
+            }
+
+            .stat-item-3 {
+                position: absolute;
+                top: 100px;
+                left: 1020px;
+                width: 240px;
+            }
+
+            .stat-number {
+                font-size: 48px;
+            }
+
+            .stat-label {
+                font-size: 18px;
+            }
+
+            .pricing {
+                top: 1580px;
+                width: 1440px;
+                height: 700px;
+                padding: 0;
+            }
+
+            .pricing-title {
+                position: absolute;
+                top: 80px;
+                left: 570px;
+                width: 300px;
+                font-size: 42px;
+                margin: 0;
+            }
+
+            .pricing-grid {
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
+
+            .price-card-1 {
+                position: absolute;
+                top: 200px;
+                left: 180px;
+                width: 340px;
+                min-height: 420px;
+                height: auto;
+                margin: 0;
+            }
+
+            .price-card-2 {
+                position: absolute;
+                top: 180px;
+                left: 550px;
+                width: 340px;
+                min-height: 460px;
+                height: auto;
+                margin: 0;
+                transform: none;
+            }
+
+            .price-card-3 {
+                position: absolute;
+                top: 200px;
+                left: 920px;
+                width: 340px;
+                min-height: 420px;
+                height: auto;
+                margin: 0;
+            }
+
+            .plan-name {
+                font-size: 24px;
+            }
+
+            .plan-price {
+                font-size: 48px;
+            }
+
+            .plan-period {
+                font-size: 16px;
+            }
+
+            .plan-features li {
+                font-size: 16px;
+            }
+
+            .plan-button {
+                font-size: 16px;
+            }
+
+            .footer {
+                top: 2280px;
+                width: 1440px;
+                height: 200px;
+                padding: 0;
+            }
+
+            .footer-content {
+                position: absolute;
+                top: 60px;
+                left: 80px;
+                width: 1280px;
+                flex-direction: row;
+                margin: 0;
+            }
+
+            .footer-logo {
+                position: absolute;
+                left: 0;
+                font-size: 24px;
+            }
+
+            .footer-links {
+                position: absolute;
+                right: 0;
+                top: 5px;
+                flex-direction: row;
+                gap: 32px;
+            }
+
+            .footer-links a {
+                padding: 0;
+                min-height: 0;
+                min-width: 0;
+                font-size: 15px;
+            }
+
+            .copyright {
+                position: absolute;
+                top: 140px;
+                left: 640px;
+                font-size: 14px;
+            }
+        }
+
+        /* ========== Accessibility Improvements ========== */
+        button,
+        .nav-links a,
+        .footer-links a {
+            cursor: pointer;
+        }
+
+        button:focus,
+        .nav-links a:focus,
+        .footer-links a:focus {
+            outline: 3px solid rgba(102, 126, 234, 0.5);
+            outline-offset: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">TechVision Pro</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+            <button class="cta-button">Get Started</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Transform Your Data Into Actionable Insights</h1>
+            <p>Enterprise-grade analytics platform trusted by Fortune 500 companies to drive decision-making with
+                AI-powered intelligence.</p>
+            <div class="hero-buttons">
+                <button class="btn-primary">Start Free Trial</button>
+                <button class="btn-secondary">Watch Demo</button>
+            </div>
+        </div>
+        <div class="hero-image"></div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <h2 class="section-title">Powerful Features</h2>
+        <div class="features-grid">
+            <div class="feature-card-1 feature-card">
+                <div class="feature-icon"></div>
+                <h3>Real-Time Analytics</h3>
+                <p>Process millions of data points per second with our distributed computing engine. Get instant
+                    insights from streaming data sources.</p>
+            </div>
+            <div class="feature-card-2 feature-card">
+                <div class="feature-icon"></div>
+                <h3>AI-Powered Predictions</h3>
+                <p>Leverage machine learning models to forecast trends, detect anomalies, and automate decision-making
+                    processes.</p>
+            </div>
+            <div class="feature-card-3 feature-card">
+                <div class="feature-icon"></div>
+                <h3>Enterprise Security</h3>
+                <p>Bank-level encryption, SOC 2 compliance, and role-based access control to protect your most sensitive
+                    data.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="stat-item-1 stat-item">
+            <div class="stat-number">10M+</div>
+            <div class="stat-label">Data Points Processed Daily</div>
+        </div>
+        <div class="stat-item-2 stat-item">
+            <div class="stat-number">99.99%</div>
+            <div class="stat-label">Uptime Guarantee</div>
+        </div>
+        <div class="stat-item-3 stat-item">
+            <div class="stat-number">500+</div>
+            <div class="stat-label">Enterprise Customers</div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing">
+        <h2 class="pricing-title">Simple Pricing</h2>
+        <div class="pricing-grid">
+            <div class="price-card-1 price-card">
+                <div class="plan-name">Starter</div>
+                <div class="plan-price">$49</div>
+                <div class="plan-period">per month</div>
+                <ul class="plan-features">
+                    <li>Up to 100K events/month</li>
+                    <li>5 team members</li>
+                    <li>Basic analytics</li>
+                    <li>Email support</li>
+                    <li>7-day data retention</li>
+                </ul>
+                <button class="plan-button">Choose Plan</button>
+            </div>
+            <div class="price-card-2 price-card">
+                <div class="plan-name">Professional</div>
+                <div class="plan-price">$199</div>
+                <div class="plan-period">per month</div>
+                <ul class="plan-features">
+                    <li>Up to 1M events/month</li>
+                    <li>Unlimited team members</li>
+                    <li>Advanced analytics</li>
+                    <li>Priority support</li>
+                    <li>90-day data retention</li>
+                    <li>Custom integrations</li>
+                </ul>
+                <button class="plan-button">Choose Plan</button>
+            </div>
+            <div class="price-card-3 price-card">
+                <div class="plan-name">Enterprise</div>
+                <div class="plan-price">Custom</div>
+                <div class="plan-period">contact sales</div>
+                <ul class="plan-features">
+                    <li>Unlimited events</li>
+                    <li>Dedicated account manager</li>
+                    <li>AI-powered insights</li>
+                    <li>24/7 phone support</li>
+                    <li>Unlimited data retention</li>
+                </ul>
+                <button class="plan-button">Contact Sales</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">TechVision Pro</div>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Documentation</a>
+                <a href="#">Support</a>
+            </div>
+        </div>
+        <div class="copyright">© 2026 TechVision Pro. All rights reserved.</div>
+    </footer>
+</body>
+
+</html>
