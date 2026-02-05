@@ -1,0 +1,36 @@
+services:
+  # Development server
+  app:
+    container_name: app
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Run tests
+  test:
+    container_name: test
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm test
+
+  # Production build
+  prod:
+    build: .
+    ports:
+      - "3000:3000"
+    command: sh -c "npm run build && npm start"
+
+  # Run evaluation
+  evaluate:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./evaluation/reports:/app/evaluation/reports
+    command: npm run evaluate

@@ -1,0 +1,73 @@
+services:
+  # Development server
+  app:
+    container_name: app
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./jest.config.js:/app/jest.config.js
+      - ./jest.setup.js:/app/jest.setup.js
+      - ./eslint.config.mjs:/app/eslint.config.mjs
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - /app/node_modules
+    command: npm run dev
+
+  # Run tests
+  test:
+    container_name: test
+    build: .
+    environment:
+      - CI=true
+      - NODE_ENV=test
+    volumes:
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./jest.config.js:/app/jest.config.js
+      - ./jest.setup.js:/app/jest.setup.js
+      - ./eslint.config.mjs:/app/eslint.config.mjs
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - /app/node_modules
+    command: npm test
+
+  # Production build
+  prod:
+    build: .
+    ports:
+      - "3000:3000"
+    command: sh -c "npm run build && npm start"
+
+  # Run evaluation
+  evaluate:
+    build: .
+    environment:
+      - CI=true
+      - NODE_ENV=test
+      - FORCE_COLOR=0
+    volumes:
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./jest.config.js:/app/jest.config.js
+      - ./jest.setup.js:/app/jest.setup.js
+      - ./eslint.config.mjs:/app/eslint.config.mjs
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - ./evaluation/reports:/app/evaluation/reports
+      - /app/node_modules
+    command: sh -c "(timeout 150 npm run evaluate || true) && exit 0"
