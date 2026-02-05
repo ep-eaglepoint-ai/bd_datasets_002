@@ -1,0 +1,21 @@
+{
+  "instance_id": "5H7XOP",
+  "problem_statement": "Noticed a maintainability challenge when testing an order processing system in a Java 17 e-commerce application. The OrderProcessor class has grown to over 1500 lines with the main processOrder method containing deeply nested conditional logic that handles validation, pricing, inventory, payment, and fulfillment in a single flow. Adding a new payment provider last sprint required modifications in 12 different locations and introduced 3 regression bugs. The discount calculation appears in 4 separate places with subtle variations causing pricing inconsistencies. Order status changes happen throughout the code making it impossible to track valid state transitions. The team cannot write unit tests because every code path requires a live database connection and payment gateway.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/5h7xop-order-processing-pipeline-code-refactoring",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": [
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testHappyPath",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testValidationFailure",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testDiscount_Stacking_All",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testDiscount_CouponOnly",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testDiscount_LoyaltyOnly",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testDiscount_Priority",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testUnsupportedPaymentMethod",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testInvalidStateTransition",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testInventoryCommit",
+    "tests/OrderProcessorTest.java::com.ecommerce.order.OrderProcessorTest::testInventoryFailureParams"
+  ]
+}
