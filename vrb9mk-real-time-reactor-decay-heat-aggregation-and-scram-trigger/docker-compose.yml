@@ -1,0 +1,14 @@
+services:
+  test-after:
+    build: .
+    command: sh -c "cd tests && go mod tidy && go test -v -race ./..."
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  evaluation:
+    build: .
+    command: sh -c "cd repository_after && go mod tidy && go run ../evaluation/Evaluation.go"
+    volumes:
+      - .:/app
+    working_dir: /app

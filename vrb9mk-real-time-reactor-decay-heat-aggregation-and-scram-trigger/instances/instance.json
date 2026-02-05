@@ -1,0 +1,11 @@
+{
+            "instance_id": "vrb9mk-real-time-reactor-decay-heat-aggregation-and-scram-trigger",
+            "problem_statement": "The core engineering challenge lies at the intersection of extreme concurrency and numerical stability within safety-critical systems. In a pebble-bed reactor, aggregating thermal data from thousands of independent sources using standard locking mechanisms (Global Mutex) creates fatal contention, causing the telemetry ingestion pipeline to stall and drop packets, effectively blinding the control system. Simultaneously, the mathematical modeling of radioactive decay involves combining isotopes with vastly different half-lives; standard floating-point arithmetic frequently suffers from underflow or catastrophic cancellation when summing these disparate magnitudes, potentially masking localized thermal runaway events. The system requires a lock-free architecture and precision-aware arithmetic to ensure the SCRAM signal triggers reliably under maximum load.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vrb9mk-real-time-reactor-decay-heat-aggregation-and-scram-trigger",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
