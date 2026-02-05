@@ -1,0 +1,147 @@
+package com.example.ratelimiter;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+/**
+ * A thread-safe sliding window rate limiter that enforces per-client request limits.
+ * 
+ * This implementation uses a circular buffer approach to efficiently track requests
+ * within a sliding time window without unbounded memory growth.
+ */
+public class RateLimiter {
+    private final int maxRequests;
+    private final long windowSizeMillis;
+    private final ConcurrentHashMap<String, ClientWindow> clientWindows;
+    private final AtomicInteger operationCounter;
+    
+    // Cleanup old client windows every N operations to bound memory
+    private static final int CLEANUP_INTERVAL = 1000;
+    // Remove client windows that haven't been accessed in 2x the window size
+    private static final long CLIENT_EXPIRY_MULTIPLIER = 2;
+    
+    /**
+     * Creates a new RateLimiter instance.
+     * 
+     * @param maxRequests Maximum number of requests allowed per client within the time window
+     * @param windowSizeMillis Size of the sliding time window in milliseconds
+     */
+    public RateLimiter(int maxRequests, long windowSizeMillis) {
+        if (maxRequests <= 0) {
+            throw new IllegalArgumentException("maxRequests must be positive");
+        }
+        if (windowSizeMillis <= 0) {
+            throw new IllegalArgumentException("windowSizeMillis must be positive");
+        }
+        this.maxRequests = maxRequests;
+        this.windowSizeMillis = windowSizeMillis;
+        this.clientWindows = new ConcurrentHashMap<>();
+        this.operationCounter = new AtomicInteger(0);
+    }
+    
+    /**
+     * Determines whether a request from the given client should be allowed.
+     * 
+     * @param clientId Unique identifier for the client
+     * @return true if the request should be allowed, false if it should be rate-limited
+     */
+    public boolean isAllowed(String clientId) {
+        if (clientId == null) {
+            throw new IllegalArgumentException("clientId cannot be null");
+        }
+        
+        long currentTime = System.currentTimeMillis();
+        
+        // Periodically cleanup old client windows to bound memory
+        int ops = operationCounter.incrementAndGet();
+        if (ops % CLEANUP_INTERVAL == 0) {
+            cleanupOldClients(currentTime);
+        }
+        
+        // Use compute to atomically retrieve/create and update last access time
+        // This prevents the cleanup race where a window might be removed while in use
+        ClientWindow window = clientWindows.compute(clientId, (k, v) -> {
+            if (v == null) {
+                return new ClientWindow(maxRequests, windowSizeMillis, currentTime);
+            }
+            v.updateLastAccess(currentTime);
+            return v;
+        });
+        
+        return window.isAllowed(currentTime);
+    }
+    
+    /**
+     * Removes client windows that haven't been accessed recently to bound memory usage.
+     * This method is thread-safe and uses ConcurrentHashMap's atomic operations.
+     */
+    private void cleanupOldClients(long currentTime) {
+        long expiryTime = currentTime - (windowSizeMillis * CLIENT_EXPIRY_MULTIPLIER);
+        
+        clientWindows.entrySet().removeIf(entry -> {
+            ClientWindow window = entry.getValue();
+            return window.getLastAccessTime() < expiryTime;
+        });
+    }
+    
+    /**
+     * Per-client sliding window tracker.
+     * Uses a circular buffer to efficiently track request timestamps within the window.
+     */
+    private class ClientWindow {
+        private final int maxRequests;
+        private final long windowSizeMillis;
+        private final long[] requestTimes;
+        private int head = 0;
+        private int tail = 0;
+        private int count = 0;
+        private final AtomicLong lastAccessTime;
+        private final ReentrantReadWriteLock lock;
+        private final int bufferSize;
+        
+        ClientWindow(int maxRequests, long windowSizeMillis, long initialTime) {
+            this.maxRequests = maxRequests;
+            this.windowSizeMillis = windowSizeMillis;
+            this.bufferSize = maxRequests;
+            this.requestTimes = new long[bufferSize];
+            this.lastAccessTime = new AtomicLong(initialTime);
+            this.lock = new ReentrantReadWriteLock();
+        }
+        
+        long getLastAccessTime() {
+            return lastAccessTime.get();
+        }
+        
+        void updateLastAccess(long currentTime) {
+            lastAccessTime.set(currentTime);
+        }
+        
+        boolean isAllowed(long currentTime) {
+            lock.writeLock().lock();
+            try {
+                long windowStart = currentTime - windowSizeMillis;
+                
+                // Cleanup expired entries from the head of the circular buffer
+                while (count > 0 && requestTimes[head] <= windowStart) {
+                    head = (head + 1) % bufferSize;
+                    count--;
+                }
+                
+                if (count >= maxRequests) {
+                    return false;
+                }
+                
+                // Add new request timestamp at the tail
+                requestTimes[tail] = currentTime;
+                tail = (tail + 1) % bufferSize;
+                count++;
+                
+                return true;
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+    }
+}
