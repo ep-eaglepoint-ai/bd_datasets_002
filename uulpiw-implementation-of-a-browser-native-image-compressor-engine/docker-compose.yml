@@ -1,0 +1,11 @@
+services:
+  evaluation:
+    build: .
+    working_dir: /app
+    command: node evaluation/evaluation.js
+    volumes:
+      - .:/host:rw
+  test-after:
+    build: .
+    working_dir: /app/tests
+    command: sh -c "rm -rf node_modules package-lock.json && npm install && npm test"

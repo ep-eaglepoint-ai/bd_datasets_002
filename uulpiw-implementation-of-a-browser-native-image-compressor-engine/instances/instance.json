@@ -1,0 +1,11 @@
+{
+            "instance_id": "UULPIW",
+            "problem_statement": "",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/uulpiw-implementation-of-a-browser-native-image-compressor-engine",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
