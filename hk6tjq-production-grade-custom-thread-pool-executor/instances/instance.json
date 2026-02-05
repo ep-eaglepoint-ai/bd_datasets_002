@@ -1,0 +1,19 @@
+{
+  "instance_id": "HK6TJQ",
+  "problem_statement": "Implement a production‑grade Java thread pool executor that supports configurable core/max pool sizes, bounded work queues, four rejection policies, priority‑based scheduling, and graceful shutdown while implementing the `ExecutorService` interface for standard compatibility. The pool must lazily create core threads, terminate idle threads beyond the core size after a keep‑alive timeout, and handle both `Runnable` and `Callable` tasks with proper `Future` cancellation and timeout support. Use `ReentrantLock` with minimal contention, ensure zero resource leaks during shutdown, and pass stress tests of 100 threads submitting 10,000 tasks each without deadlocks or lost work.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hk6tjq-production-grade-custom-thread-pool-executor",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "testBasicExecution",
+    "testCorePoolSizeMaintenance",
+    "testMaxPoolSizeAndQueueCapacity",
+    "testKeepAlive",
+    "testRejectionPolicies",
+    "testPriorityScheduling",
+    "testShutdown",
+    "testStress"
+  ],
+  "PASS_TO_PASS": []
+}

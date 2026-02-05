@@ -1,0 +1,20 @@
+services:
+  test:
+    image: custom-thread-pool-executor
+    build: .
+    volumes:
+      - .:/app
+    # Compile the executor and the test, then run the test
+    # Classpath includes repository_after (for the source) and current dir (for the test class)
+    # Actually, we put CustomThreadPoolExecutor in repository_after.
+    # We compile repository_after/*.java and tests/*.java
+    command: >
+      sh -c "javac -d /tmp/out repository_after/*.java tests/test_requirements.java &&
+             java -cp /tmp/out test_requirements"
+
+  evaluation:
+    image: custom-thread-pool-executor
+    build: .
+    volumes:
+      - .:/app
+    command: python3 evaluation/evaluation.py
