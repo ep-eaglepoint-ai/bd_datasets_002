@@ -1,0 +1,15 @@
+{
+  "name": "csv-importer-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for CSV Importer",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "form-data": "^4.0.0",
+    "jest": "^29.7.0",
+    "pg": "^8.11.5",
+    "socket.io-client": "^4.8.1"
+  }
+}
