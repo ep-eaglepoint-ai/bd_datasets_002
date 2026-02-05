@@ -1,0 +1,11 @@
+{
+            "instance_id": "XNI9VX",
+            "problem_statement": "Write a comprehensive Jest/RTL test suite for a React/Redux shopping cart that catches bugs related to duplicate items, quantity manipulation, price calculations returning NaN, and race conditions during rapid user interactions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xni9vx-shopping-cart-test-suite",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
