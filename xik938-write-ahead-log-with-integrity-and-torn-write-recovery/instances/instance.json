@@ -1,0 +1,13 @@
+{
+            "instance_id": "XIK938",
+            "problem_statement": "In database systems, durability relies on the WAL. Writing to a file is not atomic; a power failure can occur while writing byte 50 of a 100-byte record. The model must implement a framing format (e.g., [CRC][Type][Len][Data]) to detect this.
+The Core Trap is Recovery Logic. A naive implementation reads the whole file and crashes on the last partial packet. A Senior implementation reads sequentially, validates checksums, and if the last packet is short or invalid, it calls file.Truncate(valid_offset) to clean the mess.
+Mid-tier models often fail to implement the Sync() (fsync) call for durability, or they incorrectly implement the checksum (checksumming only the payload instead of the header+payload).",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/xik938-write-ahead-log-with-integrity-and-torn-write-recovery",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
