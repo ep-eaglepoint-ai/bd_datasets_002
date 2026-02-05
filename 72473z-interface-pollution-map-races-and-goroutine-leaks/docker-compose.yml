@@ -1,0 +1,16 @@
+services:
+  test-before:
+    build: .
+    command: go run evaluation/evaluation.go -target before
+    volumes:
+      - .:/app
+  test-after:
+    build: .
+    command: go run evaluation/evaluation.go -target after
+    volumes:
+      - .:/app
+  evaluation:
+    build: .
+    command: go run evaluation/evaluation.go -target all
+    volumes:
+      - .:/app

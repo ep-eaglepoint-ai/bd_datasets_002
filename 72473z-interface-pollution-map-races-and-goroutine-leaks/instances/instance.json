@@ -1,0 +1,11 @@
+{
+            "instance_id": "72473Z",
+            "problem_statement": "The code serves as a comprehensive test of a developer's grasp on Go's unique type system quirks and concurrency hazards. The primary failure mode stems from the "Typed Nil" trap, where a specific error pointer (*PluginError) initialized to nil is returned as an interface value; because an interface acts as a tuple of (type, value), the runtime evaluates this non-empty tuple as "not nil," causing the main loop to interpret successful plugin executions as system errors. Simultaneously, the application suffers from critical instability due to unprotected writes to the shared stats map from background goroutines, which inevitably triggers "concurrent map write" panics under load. Finally, the architecture introduces a subtle memory leak where, upon a request timeout, the spawned worker goroutine remains blocked indefinitely trying to write to an unbuffered channel that no longer has a receiver, leading to a monotonic increase in resource consumption over time.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/72473z-interface-pollution-map-races-and-goroutine-leaks",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
