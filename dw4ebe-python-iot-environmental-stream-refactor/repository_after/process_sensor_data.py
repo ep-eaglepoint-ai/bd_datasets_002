@@ -1,0 +1,527 @@
+"""
+TerraSense IoT Data Processing Pipeline
+
+Refactored from monolithic process_telemetry_batch into a modular,
+strategy-driven pipeline following Single Responsibility Principle.
+
+Architecture:
+- Pipeline: Configurable sequence of Processor classes
+- Strategy Pattern: CalibrationRegistry for model-specific calibration
+- InsightEngine: Separated alert generation and statistics
+"""
+
+import math
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+
+# =============================================================================
+# DATA CLASSES
+# =============================================================================
+
+@dataclass
+class SensorReading:
+    """Immutable representation of a raw sensor reading."""
+    id: str
+    model: str
+    value: float
+    sensor_type: str
+    unit: str = 'C'
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Optional['SensorReading']:
+        """Create SensorReading from raw dictionary, returns None if invalid."""
+        try:
+            val = data.get('val')
+            if val is None or not isinstance(val, (int, float)):
+                return None
+            return cls(
+                id=data.get('id', ''),
+                model=data.get('model', ''),
+                value=float(val),
+                sensor_type=data.get('type', ''),
+                unit=data.get('unit', 'C')
+            )
+        except (TypeError, ValueError):
+            return None
+
+
+@dataclass
+class ProcessedReading:
+    """Result of pipeline processing."""
+    sensor_id: str
+    normalized_value: float
+    timestamp: str
+    original_value: float = 0.0
+    model: str = ''
+    sensor_type: str = ''
+
+
+@dataclass
+class ProcessError:
+    """Error record for malformed data."""
+    raw_data: Dict[str, Any]
+    error_message: str
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+@dataclass
+class PipelineContext:
+    """Mutable context passed through the pipeline."""
+    reading: SensorReading
+    current_value: float
+    errors: List[str] = field(default_factory=list)
+    skip: bool = False
+
+
+# =============================================================================
+# CALIBRATION STRATEGIES (Strategy Pattern)
+# =============================================================================
+
+class CalibrationStrategy(ABC):
+    """Abstract base class for calibration strategies."""
+
+    @abstractmethod
+    def calibrate(self, value: float, sensor_type: str) -> float:
+        """Apply calibration to the value."""
+        pass
+
+
+class AlphaCalibration(CalibrationStrategy):
+    """Calibration for Alpha model sensors.
+
+    Model Alpha has a systematic drift of +1.5 units.
+    """
+
+    def calibrate(self, value: float, sensor_type: str) -> float:
+        return value - 1.5
+
+
+class BetaCalibration(CalibrationStrategy):
+    """Calibration for Beta model sensors.
+
+    Beta requires logarithmic scaling for CO2 sensors,
+    otherwise applies +0.8 offset.
+    """
+
+    def calibrate(self, value: float, sensor_type: str) -> float:
+        if sensor_type == 'co2':
+            return math.log10(value) * 10 if value > 0 else 0
+        else:
+            return value + 0.8
+
+
+class DefaultCalibration(CalibrationStrategy):
+    """Default calibration (no adjustment)."""
+
+    def calibrate(self, value: float, sensor_type: str) -> float:
+        return value
+
+
+class CalibrationRegistry:
+    """Registry mapping sensor models to calibration strategies.
+
+    Allows adding new models without modifying core logic.
+    """
+
+    def __init__(self):
+        self._strategies: Dict[str, CalibrationStrategy] = {}
+        self._default = DefaultCalibration()
+        # Register built-in strategies
+        self.register('Alpha', AlphaCalibration())
+        self.register('Beta', BetaCalibration())
+
+    def register(self, model: str, strategy: CalibrationStrategy) -> None:
+        """Register a calibration strategy for a sensor model."""
+        self._strategies[model] = strategy
+
+    def get(self, model: str) -> CalibrationStrategy:
+        """Get calibration strategy for a model, returns default if not found."""
+        return self._strategies.get(model, self._default)
+
+    def calibrate(self, model: str, value: float, sensor_type: str) -> float:
+        """Apply calibration for the given model."""
+        strategy = self.get(model)
+        return strategy.calibrate(value, sensor_type)
+
+
+# =============================================================================
+# PIPELINE PROCESSORS
+# =============================================================================
+
+class Processor(ABC):
+    """Abstract base class for pipeline processors."""
+
+    @abstractmethod
+    def process(self, context: PipelineContext) -> PipelineContext:
+        """Process the context and return updated context."""
+        pass
+
+
+class Sanitizer(Processor):
+    """Validates and sanitizes input data.
+
+    Handles nulls, invalid types, and missing keys.
+    """
+
+    def process(self, context: PipelineContext) -> PipelineContext:
+        if context.reading is None:
+            context.skip = True
+            context.errors.append("Invalid reading: None")
+        return context
+
+
+class Calibrator(Processor):
+    """Applies model-specific calibration using strategy pattern."""
+
+    def __init__(self, registry: Optional[CalibrationRegistry] = None):
+        self._registry = registry or CalibrationRegistry()
+
+    @property
+    def registry(self) -> CalibrationRegistry:
+        """Expose registry for extensibility."""
+        return self._registry
+
+    def process(self, context: PipelineContext) -> PipelineContext:
+        if context.skip:
+            return context
+
+        context.current_value = self._registry.calibrate(
+            context.reading.model,
+            context.current_value,
+            context.reading.sensor_type
+        )
+        return context
+
+
+class UnitConverter(Processor):
+    """Converts units to standard format.
+
+    Currently supports:
+    - Temperature: Fahrenheit to Celsius
+    """
+
+    def process(self, context: PipelineContext) -> PipelineContext:
+        if context.skip:
+            return context
+
+        reading = context.reading
+
+        # Temperature F to C conversion
+        if reading.sensor_type == 'temp' and reading.unit == 'F':
+            context.current_value = (context.current_value - 32) * (5/9)
+
+        return context
+
+
+class RangeFilter(Processor):
+    """Filters values outside a specified range.
+
+    Demonstrates extensibility - can be added to pipeline without
+    modifying existing processors.
+    """
+
+    def __init__(self, min_value: Optional[float] = None, max_value: Optional[float] = None):
+        self._min = min_value
+        self._max = max_value
+
+    def process(self, context: PipelineContext) -> PipelineContext:
+        if context.skip:
+            return context
+
+        value = context.current_value
+
+        if self._min is not None and value < self._min:
+            context.skip = True
+            context.errors.append(f"Value {value} below minimum {self._min}")
+
+        if self._max is not None and value > self._max:
+            context.skip = True
+            context.errors.append(f"Value {value} above maximum {self._max}")
+
+        return context
+
+
+class ValueRounder(Processor):
+    """Rounds values to specified decimal places."""
+
+    def __init__(self, decimal_places: int = 2):
+        self._decimal_places = decimal_places
+
+    def process(self, context: PipelineContext) -> PipelineContext:
+        if context.skip:
+            return context
+
+        context.current_value = round(context.current_value, self._decimal_places)
+        return context
+
+
+# =============================================================================
+# PIPELINE ORCHESTRATOR
+# =============================================================================
+
+class Pipeline:
+    """Orchestrates a sequence of processors.
+
+    Processors are executed in order, with context passed through each.
+    Thread-safe as all state is contained in the context.
+    """
+
+    def __init__(self, processors: Optional[List[Processor]] = None):
+        self._processors: List[Processor] = processors or []
+
+    def add(self, processor: Processor) -> 'Pipeline':
+        """Add a processor to the pipeline."""
+        self._processors.append(processor)
+        return self
+
+    def process(self, reading: SensorReading) -> Tuple[Optional[ProcessedReading], List[str]]:
+        """Process a single reading through the pipeline."""
+        context = PipelineContext(
+            reading=reading,
+            current_value=reading.value
+        )
+
+        for processor in self._processors:
+            context = processor.process(context)
+            if context.skip:
+                break
+
+        if context.skip:
+            return None, context.errors
+
+        result = ProcessedReading(
+            sensor_id=reading.id,
+            normalized_value=context.current_value,
+            timestamp=datetime.now().isoformat(),
+            original_value=reading.value,
+            model=reading.model,
+            sensor_type=reading.sensor_type
+        )
+
+        return result, context.errors
+
+    def process_batch(self, raw_readings: List[Dict[str, Any]]) -> Tuple[List[ProcessedReading], List[ProcessError]]:
+        """Process a batch of raw readings.
+
+        Returns tuple of (processed_results, errors).
+        Malformed data is logged as ProcessError and processing continues.
+        """
+        results: List[ProcessedReading] = []
+        errors: List[ProcessError] = []
+
+        for raw in raw_readings:
+            reading = SensorReading.from_dict(raw)
+
+            if reading is None:
+                errors.append(ProcessError(
+                    raw_data=raw,
+                    error_message="Failed to parse sensor reading: invalid or missing 'val'"
+                ))
+                continue
+
+            result, process_errors = self.process(reading)
+
+            if result is not None:
+                results.append(result)
+            elif process_errors:
+                errors.append(ProcessError(
+                    raw_data=raw,
+                    error_message="; ".join(process_errors)
+                ))
+
+        return results, errors
+
+
+# =============================================================================
+# INSIGHT ENGINE (Separated Analysis)
+# =============================================================================
+
+class AlertGenerator:
+    """Generates alerts based on threshold violations.
+
+    Decoupled from normalization pipeline.
+    """
+
+    def __init__(self, temp_max_c: float = 55.0, moisture_min: float = 10.0):
+        self._temp_max_c = temp_max_c
+        self._moisture_min = moisture_min
+
+    def generate(self, results: List[ProcessedReading]) -> List[str]:
+        """Generate alerts for threshold violations."""
+        alerts = []
+
+        for r in results:
+            if r.sensor_type == 'temp' and r.normalized_value > self._temp_max_c:
+                alerts.append(
+                    f"CRITICAL_HEAT: Sensor {r.sensor_id} reported {r.normalized_value}C"
+                )
+
+            if r.sensor_type == 'moisture' and r.normalized_value < self._moisture_min:
+                alerts.append(
+                    f"DRY_SOIL: Sensor {r.sensor_id} reported {r.normalized_value}%"
+                )
+
+        return alerts
+
+
+class StatisticsCalculator:
+    """Calculates summary statistics from processed data.
+
+    Decoupled from normalization pipeline.
+    """
+
+    def calculate(self, results: List[ProcessedReading]) -> Dict[str, Any]:
+        """Calculate summary statistics."""
+        if not results:
+            return {'average': 0, 'count': 0}
+
+        total = sum(r.normalized_value for r in results)
+        avg = round(total / len(results), 2)
+
+        return {
+            'average': avg,
+            'count': len(results)
+        }
+
+
+class InsightEngine:
+    """Combines alert generation and statistics calculation.
+
+    Provides a unified interface for analysis operations.
+    """
+
+    def __init__(
+        self,
+        alert_generator: Optional[AlertGenerator] = None,
+        statistics_calculator: Optional[StatisticsCalculator] = None
+    ):
+        self._alerts = alert_generator or AlertGenerator()
+        self._stats = statistics_calculator or StatisticsCalculator()
+
+    def analyze(self, results: List[ProcessedReading]) -> Dict[str, Any]:
+        """Analyze processed results and return insights."""
+        return {
+            'alerts': self._alerts.generate(results),
+            'summary': self._stats.calculate(results)
+        }
+
+
+# =============================================================================
+# SENSOR PROFILES
+# =============================================================================
+
+class SensorProfile:
+    """Defines a sensor profile with specific pipeline configuration.
+
+    Allows different profiles (Industrial-Grade, Consumer-Grade) to
+    share normalization but use different calibration.
+    """
+
+    def __init__(self, name: str, pipeline: Pipeline):
+        self.name = name
+        self.pipeline = pipeline
+
+
+def create_industrial_profile(registry: Optional[CalibrationRegistry] = None) -> SensorProfile:
+    """Create an Industrial-Grade sensor profile."""
+    reg = registry or CalibrationRegistry()
+    pipeline = Pipeline([
+        Sanitizer(),
+        Calibrator(reg),
+        UnitConverter(),
+        ValueRounder(2)
+    ])
+    return SensorProfile('Industrial-Grade', pipeline)
+
+
+def create_consumer_profile(registry: Optional[CalibrationRegistry] = None) -> SensorProfile:
+    """Create a Consumer-Grade sensor profile.
+
+    Uses same normalization but could have different calibration strategies.
+    """
+    reg = registry or CalibrationRegistry()
+    pipeline = Pipeline([
+        Sanitizer(),
+        Calibrator(reg),
+        UnitConverter(),
+        ValueRounder(2)
+    ])
+    return SensorProfile('Consumer-Grade', pipeline)
+
+
+# =============================================================================
+# MAIN ENTRY POINT (Drop-in replacement for legacy function)
+# =============================================================================
+
+def create_default_pipeline() -> Pipeline:
+    """Create the default processing pipeline."""
+    return Pipeline([
+        Sanitizer(),
+        Calibrator(),
+        UnitConverter(),
+        ValueRounder(2)
+    ])
+
+
+def process_telemetry_batch(raw_readings: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Process a batch of telemetry readings.
+
+    Drop-in replacement for the legacy monolithic function.
+    Maintains mathematical parity with the original implementation.
+
+    Args:
+        raw_readings: List of dicts with keys 'id', 'model', 'val', 'type', 'unit'
+
+    Returns:
+        Dict with 'data', 'alerts', and 'summary' keys
+    """
+    pipeline = create_default_pipeline()
+    insight_engine = InsightEngine()
+
+    # Process through pipeline
+    results, errors = pipeline.process_batch(raw_readings)
+
+    # Convert to output format matching legacy
+    data = [
+        {
+            'sensor_id': r.sensor_id,
+            'normalized_value': r.normalized_value,
+            'timestamp': r.timestamp
+        }
+        for r in results
+    ]
+
+    # Generate insights
+    insights = insight_engine.analyze(results)
+
+    # Handle empty results
+    if not data:
+        return {'data': [], 'stats': {'avg': 0}}
+
+    return {
+        'data': data,
+        'alerts': insights['alerts'],
+        'summary': insights['summary']
+    }
+
+
+# =============================================================================
+# EXTENSIBILITY HELPERS
+# =============================================================================
+
+def create_pipeline_with_range_filter(
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None,
+    registry: Optional[CalibrationRegistry] = None
+) -> Pipeline:
+    """Create a pipeline with RangeFilter for extensibility demonstration."""
+    return Pipeline([
+        Sanitizer(),
+        Calibrator(registry),
+        UnitConverter(),
+        RangeFilter(min_value, max_value),
+        ValueRounder(2)
+    ])

@@ -1,0 +1,5 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY . /app
+RUN pip install --no-cache-dir -r requirements.txt
+CMD ["echo", "Docker container for dw4ebe-python-iot-environmental-stream-refactor is set up."]

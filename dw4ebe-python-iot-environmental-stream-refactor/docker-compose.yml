@@ -1,0 +1,22 @@
+services:
+  app-before:
+    build: .
+    command: sh -c "pytest tests/ --tb=no --no-header -q -rN || true"
+    environment:
+      - REPO_UNDER_TEST=repository_before
+    volumes:
+      - .:/app
+
+  app-after:
+    build: .
+    command: sh -c "pytest tests/ --tb=no --no-header -q -rN || true"
+    environment:
+      - REPO_UNDER_TEST=repository_after
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app
