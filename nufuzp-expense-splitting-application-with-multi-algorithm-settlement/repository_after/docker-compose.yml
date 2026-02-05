@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: expense-splitter-db
+    environment:
+      POSTGRES_USER: pg
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: expense_splitting
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pg"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - expense-splitter-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: expense-splitter-app
+    environment:
+      DATABASE_URL: postgresql://pg:1234@postgres:5432/expense_splitting
+      AUTH_SECRET: ${AUTH_SECRET:-your-secret-key-change-in-production}
+      AUTH_URL: http://localhost:3000
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@example.com}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - expense-splitter-network
+    command: sh -c "npx prisma migrate deploy && node server.js"
+
+volumes:
+  postgres_data:
+
+networks:
+  expense-splitter-network:
+    driver: bridge
