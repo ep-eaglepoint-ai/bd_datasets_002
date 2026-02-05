@@ -1,0 +1,22 @@
+{
+  "name": "qi6fip-dynamic-entitlement-kernel-refactor",
+  "version": "1.0.0",
+  "description": "**Category:** sft",
+  "main": "index.js",
+  "type": "module",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:before": "TEST_REPO=before NODE_OPTIONS=--experimental-vm-modules jest tests/unified_verification.test.js --testEnvironment=node || true",
+    "test:after": "TEST_REPO=after NODE_OPTIONS=--experimental-vm-modules jest tests/unified_verification.test.js --testEnvironment=node",
+    "evaluate": "node evaluation/evaluation.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

@@ -1,0 +1,38 @@
+services:
+  # Test repository_before
+  test-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: before
+    container_name: entitlement-test-before
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+    command: npm run test:before
+
+  # Test repository_after
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: after
+    container_name: entitlement-test-after
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_after:/app/repository_after
+    command: npm run test:after
+
+  # Run evaluation and generate reports
+  test-evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: eval
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./tests:/app/tests
+      - ./evaluation/reports:/app/evaluation/reports
+    command: npm run evaluate
