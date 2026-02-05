@@ -1,0 +1,13 @@
+{
+            "instance_id": "HOFAZ9",
+            "problem_statement": "Noticed severe performance degradation when testing the product catalog API in a Python FastAPI e-commerce system. The issue appeared while working on the product listing endpoints in main.py and crud.py, where the goal is to serve product data with categories, reviews, and inventory information efficiently. The API handles GET /products which returns paginated products with nested relationships. 
+
+Under load testing with 100 concurrent users, response times exceed 5 seconds and database connections are exhausted. The system needs to handle 1000+ products with efficient eager loading, maintain stable connection pools under concurrent requests, cache frequently accessed data, and respond within 200ms for listing endpoints — all while ensuring data consistency and proper error handling for the React frontend consuming this API.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hofaz9-python-fastapi-product-catalog-api-performance-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
