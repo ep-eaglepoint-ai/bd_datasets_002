@@ -1,0 +1,31 @@
+{
+    "instance_id": "RK203I",
+    "problem_statement": "The solution does not meet the prompt requirements. It violates multiple core constraints: rate-limiter design, determinism, per-endpoint space guarantees, correctness under concurrency, and the actual token bucket behavior required by the Definition of Done.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/rk203i-secure-api-calls-with-rate-limiting",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "tests/telebirr_calls.test.ts::TokenBucketRateLimiter should start with burst capacity (10 tokens)",
+        "tests/telebirr_calls.test.ts::TokenBucketRateLimiter should deny requests after burst exhausted",
+        "tests/telebirr_calls.test.ts::TokenBucketRateLimiter should return valid signature with allowed request",
+        "tests/telebirr_calls.test.ts::teleBirrCoreCall should return 429 when rate limit exceeded",
+        "tests/telebirr_calls.test.ts::Should deny exactly 10 out of 110 calls in one minute (100 allowed, 10 denied)",
+        "tests/telebirr_calls.test.ts::Should deny exactly 10 out of 20 calls when burst is 10 (rapid calls)",
+        "tests/telebirr_calls.test.ts::Should deny requests beyond burst without refill time",
+        "tests/telebirr_calls.test.ts::DilithiumPQSigner should sign data",
+        "tests/telebirr_calls.test.ts::DilithiumPQSigner should verify valid signatures",
+        "tests/telebirr_calls.test.ts::DilithiumPQSigner should be deterministic",
+        "tests/telebirr_calls.test.ts::Different data should produce different signatures",
+        "tests/telebirr_calls.test.ts::resetRateLimiter should reset state",
+        "tests/telebirr_calls.test.ts::getRemainingTokens should return correct count"
+    ],
+    "PASS_TO_PASS": [
+        "tests/telebirr_calls.test.ts::TokenBucketRateLimiter should allow requests within burst limit",
+        "tests/telebirr_calls.test.ts::TokenBucketRateLimiter should track remaining tokens correctly",
+        "tests/telebirr_calls.test.ts::teleBirrCoreCall should return 200 when within rate limit",
+        "tests/telebirr_calls.test.ts::teleBirrCoreCall should include rateLimit info in response",
+        "tests/telebirr_calls.test.ts::DilithiumPQSigner should reject invalid signatures",
+        "tests/telebirr_calls.test.ts::getRateLimiterState should return valid state"
+    ]
+}
