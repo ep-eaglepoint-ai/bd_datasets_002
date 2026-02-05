@@ -1,0 +1,11 @@
+{
+            "instance_id": "VVG3WM",
+            "problem_statement": "You are tasked with implementing a simple rate limiter in Python using the sliding window algorithm. Rate limiters prevent abuse by limiting how many requests a client can make within a time window. This is essential for API protection, preventing brute force attacks, and ensuring fair resource usage.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/vvg3wm-sliding-window-rate-limiter",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
