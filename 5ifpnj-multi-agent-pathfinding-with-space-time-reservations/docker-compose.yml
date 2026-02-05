@@ -1,0 +1,10 @@
+services:
+  test:
+    build: .
+    command: sh -c "cd /app/tests && go test -v ."
+
+  evaluation:
+    build: .
+    command: sh -c "cd /app/evaluation && go run evaluation.go"
+    volumes:
+      - ./evaluation:/host/evaluation

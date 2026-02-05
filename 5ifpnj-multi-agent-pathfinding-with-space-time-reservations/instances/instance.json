@@ -1,0 +1,17 @@
+{
+            "instance_id": "5IFPNJ",
+            "problem_statement": "The fundamental algorithmic challenge in this task is transitioning from static 2D pathfinding to Multi-Agent Pathfinding (MAPF) in the Space-Time domain (       
+x,y,tx,y,t      
+
+). Standard implementations often fail because they treat other robots as permanent static obstacles, rendering the grid unnavigable, or they ignore the temporal dimension entirely, leading to intersection collisions where paths cross at the same moment. A critical failure mode involves "Edge Conflicts" (swapping), where two robots attempting to traverse the same link in opposite directions simultaneously physically collide—a scenario that simple vertex-occupancy checks fail to detect. Furthermore, the pathfinder must inherently support "Wait" actions—sacrificing time to resolve spatial contention—which requires the A* neighbor generation logic to expand temporal nodes (
+t+1t+1    
+
+) at the same spatial coordinate rather than just moving to spatial neighbors.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/5ifpnj-multi-agent-pathfinding-with-space-time-reservations",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

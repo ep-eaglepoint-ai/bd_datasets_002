@@ -1,0 +1,15 @@
+# Multi-Agent Pathfinding with Space-Time Reservations
+
+## Commands
+
+### Test repository_after
+
+```bash
+docker compose run test
+```
+
+### Generate evaluation report
+
+```bash
+docker compose run evaluation
+```
