@@ -1,0 +1,14 @@
+{
+            "instance_id": "Z8OPST",
+            "problem_statement": "Build a production-ready API rate limiter library from scratch supporting multiple algorithms. The system must handle per-user and per-endpoint throttling with configurable time windows. It needs to support fixed window counter, sliding window log, sliding window counter (hybrid), and token bucket algorithms. 
+
+The implementation must be thread-safe for concurrent request handling and include an in-memory storage backend with automatic TTL-based cleanup. No external dependencies allowed - use Python standard library only. Starter scaffold is in limiter.py, storage.py, algorithms.py, and types.py.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/z8opst-python-rate-limiter-with-sliding-window",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

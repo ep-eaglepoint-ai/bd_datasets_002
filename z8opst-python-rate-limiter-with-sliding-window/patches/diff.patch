@@ -1,0 +1,314 @@
+diff --git a/repository_after/__pycache__/algorithms.cpython-311.pyc b/repository_after/__pycache__/algorithms.cpython-311.pyc
+new file mode 100644
+index 00000000..91cdb61f
+Binary files /dev/null and b/repository_after/__pycache__/algorithms.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/limiter.cpython-311.pyc b/repository_after/__pycache__/limiter.cpython-311.pyc
+new file mode 100644
+index 00000000..71e7429f
+Binary files /dev/null and b/repository_after/__pycache__/limiter.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/storage.cpython-311.pyc b/repository_after/__pycache__/storage.cpython-311.pyc
+new file mode 100644
+index 00000000..139c6d24
+Binary files /dev/null and b/repository_after/__pycache__/storage.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/types.cpython-311.pyc b/repository_after/__pycache__/types.cpython-311.pyc
+new file mode 100644
+index 00000000..bcdd2f27
+Binary files /dev/null and b/repository_after/__pycache__/types.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/types_limiter.cpython-311.pyc b/repository_after/__pycache__/types_limiter.cpython-311.pyc
+new file mode 100644
+index 00000000..005b7f7b
+Binary files /dev/null and b/repository_after/__pycache__/types_limiter.cpython-311.pyc differ
+diff --git a/repository_after/algorithms.py b/repository_after/algorithms.py
+new file mode 100644
+index 00000000..3f674673
+--- /dev/null
++++ b/repository_after/algorithms.py
+@@ -0,0 +1,125 @@
++import math
++from abc import ABC, abstractmethod
++from typing import Any, Tuple, Dict, List, Optional
++from types_limiter import RateLimiterConfig
++
++class BaseAlgorithm(ABC):
++    def __init__(self, config: RateLimiterConfig):
++        self.config = config
++
++    @abstractmethod
++    def is_allowed(self, state: Any, now: float) -> Tuple[bool, Any]:
++        pass
++
++    @abstractmethod
++    def get_remaining(self, state: Any, now: float) -> int:
++        pass
++
++    @abstractmethod
++    def get_reset_time(self, state: Any, now: float) -> float:
++        pass
++
++class FixedWindow(BaseAlgorithm):
++    def _get_window(self, now: float):
++        window_id = math.floor(now / self.config.window_size_seconds)
++        window_end = (window_id + 1) * self.config.window_size_seconds
++        return window_id, window_end
++
++    def is_allowed(self, state: Any, now: float) -> Tuple[bool, Any]:
++        win_id, win_end = self._get_window(now)
++        # state format: (window_id, count)
++        if not state or state[0] != win_id:
++            state = (win_id, 0)
++        
++        if state[1] < self.config.requests_per_window:
++            return True, (win_id, state[1] + 1)
++        return False, state
++
++    def get_remaining(self, state: Any, now: float) -> int:
++        win_id, _ = self._get_window(now)
++        if not state or state[0] != win_id:
++            return self.config.requests_per_window
++        return max(0, self.config.requests_per_window - state[1])
++
++    def get_reset_time(self, state: Any, now: float) -> float:
++        _, win_end = self._get_window(now)
++        return win_end
++
++class SlidingWindowLog(BaseAlgorithm):
++    def _filter(self, logs: List[float], now: float) -> List[float]:
++        cutoff = now - self.config.window_size_seconds
++        return [ts for ts in logs if ts > cutoff]
++
++    def is_allowed(self, state: Any, now: float) -> Tuple[bool, Any]:
++        logs = self._filter(state or [], now)
++        if len(logs) < self.config.requests_per_window:
++            logs.append(now)
++            return True, logs
++        return False, logs
++
++    def get_remaining(self, state: Any, now: float) -> int:
++        logs = self._filter(state or [], now)
++        return max(0, self.config.requests_per_window - len(logs))
++
++    def get_reset_time(self, state: Any, now: float) -> float:
++        logs = self._filter(state or [], now)
++        if not logs:
++            return now
++        return logs[0] + self.config.window_size_seconds
++
++class SlidingWindowCounter(BaseAlgorithm):
++    def is_allowed(self, state: Any, now: float) -> Tuple[bool, Any]:
++        curr_win_id = math.floor(now / self.config.window_size_seconds)
++        state = state or {}
++        
++        curr_count = state.get(curr_win_id, 0)
++        prev_count = state.get(curr_win_id - 1, 0)
++        
++        win_start = curr_win_id * self.config.window_size_seconds
++        overlap_weight = 1 - ((now - win_start) / self.config.window_size_seconds)
++        
++        estimated = (prev_count * overlap_weight) + curr_count
++        
++        if estimated < self.config.requests_per_window:
++            new_state = {curr_win_id: curr_count + 1, curr_win_id - 1: prev_count}
++            return True, new_state
++        return False, state
++
++    def get_remaining(self, state: Any, now: float) -> int:
++        curr_win_id = math.floor(now / self.config.window_size_seconds)
++        if not state: return self.config.requests_per_window
++        curr_count = state.get(curr_win_id, 0)
++        prev_count = state.get(curr_win_id - 1, 0)
++        win_start = curr_win_id * self.config.window_size_seconds
++        weight = 1 - ((now - win_start) / self.config.window_size_seconds)
++        return max(0, self.config.requests_per_window - math.floor(curr_count + (prev_count * weight)))
++
++    def get_reset_time(self, state: Any, now: float) -> float:
++        curr_win_id = math.floor(now / self.config.window_size_seconds)
++        return (curr_win_id + 1) * self.config.window_size_seconds
++
++class TokenBucket(BaseAlgorithm):
++    def is_allowed(self, state: Any, now: float) -> Tuple[bool, Any]:
++        if not state:
++            # (last_refill_time, current_tokens)
++            state = (now, float(self.config.bucket_capacity))
++        
++        last_time, tokens = state
++        elapsed = now - last_time
++        refill = elapsed * self.config.refill_rate
++        new_tokens = min(float(self.config.bucket_capacity), tokens + refill)
++        
++        if new_tokens >= 1.0:
++            return True, (now, new_tokens - 1.0)
++        return False, (now, new_tokens)
++
++    def get_remaining(self, state: Any, now: float) -> int:
++        if not state: return self.config.bucket_capacity
++        last_time, tokens = state
++        new_tokens = min(float(self.config.bucket_capacity), tokens + (now - last_time) * self.config.refill_rate)
++        return math.floor(new_tokens)
++
++    def get_reset_time(self, state: Any, now: float) -> float:
++        if self.get_remaining(state, now) >= 1: return now
++        last_time, tokens = state
++        return now + (1.0 - tokens) / self.config.refill_rate
+\ No newline at end of file
+diff --git a/repository_after/limiter.py b/repository_after/limiter.py
+new file mode 100644
+index 00000000..a31ad4d1
+--- /dev/null
++++ b/repository_after/limiter.py
+@@ -0,0 +1,58 @@
++import time
++from typing import Dict, Type, Optional
++from types_limiter import RateLimiterConfig, AlgorithmType
++from storage import Storage, InMemoryStorage
++from algorithms import (
++    BaseAlgorithm, FixedWindow, SlidingWindowLog, 
++    SlidingWindowCounter, TokenBucket
++)
++
++class RateLimiter:
++    _ALGO_MAP: Dict[AlgorithmType, Type[BaseAlgorithm]] = {
++        AlgorithmType.FIXED: FixedWindow,
++        AlgorithmType.SLIDING_LOG: SlidingWindowLog,
++        AlgorithmType.SLIDING_COUNTER: SlidingWindowCounter,
++        AlgorithmType.TOKEN_BUCKET: TokenBucket,
++    }
++
++    def __init__(self, config: RateLimiterConfig, storage: Optional[Storage] = None):
++        self.config = config
++        self.storage = storage or InMemoryStorage()
++        self.algo = self._ALGO_MAP[config.algorithm](config)
++        
++        # Calculate how long we should keep data in storage
++        if config.algorithm == AlgorithmType.TOKEN_BUCKET:
++            # Keep until bucket is full: capacity / rate
++            self._ttl = config.bucket_capacity / config.refill_rate
++        else:
++            # Keep for at least one full window
++            self._ttl = config.window_size_seconds
++
++    def is_allowed(self, key: str) -> bool:
++        lock = self.storage.get_lock(key)
++        with lock:
++            now = time.time()
++            state = self.storage.get(key)
++            allowed, new_state = self.algo.is_allowed(state, now)
++            
++            # Requirement 2 fix: Pass the TTL so cleanup knows when to delete
++            if allowed:
++                self.storage.set(key, new_state, ttl=self._ttl)
++            return allowed
++
++    def get_remaining(self, key: str) -> int:
++        lock = self.storage.get_lock(key)
++        with lock:
++            state = self.storage.get(key)
++            return self.algo.get_remaining(state, time.time())
++
++    def get_reset_time(self, key: str) -> float:
++        lock = self.storage.get_lock(key)
++        with lock:
++            state = self.storage.get(key)
++            return self.algo.get_reset_time(state, time.time())
++
++    def reset(self, key: str) -> None:
++        lock = self.storage.get_lock(key)
++        with lock:
++            self.storage.delete(key)
+\ No newline at end of file
+diff --git a/repository_after/storage.py b/repository_after/storage.py
+new file mode 100644
+index 00000000..e6e876be
+--- /dev/null
++++ b/repository_after/storage.py
+@@ -0,0 +1,55 @@
++import threading
++import time
++from abc import ABC, abstractmethod
++from typing import Any, Dict
++
++class Storage(ABC):
++    @abstractmethod
++    def get_lock(self, key: str) -> threading.Lock: pass
++    @abstractmethod
++    def get(self, key: str) -> Any: pass
++    @abstractmethod
++    def set(self, key: str, value: Any, ttl: float): pass
++    @abstractmethod
++    def delete(self, key: str): pass
++
++class InMemoryStorage(Storage):
++    def __init__(self, cleanup_interval: float = 10.0):
++        self._data: Dict[str, Any] = {}
++        self._locks: Dict[str, threading.Lock] = {}
++        self._expiry: Dict[str, float] = {}
++        self._global_lock = threading.Lock()
++        
++        # Requirement 2: Automatic Background Cleanup
++        self._cleanup_thread = threading.Thread(target=self._cleanup_loop, daemon=True)
++        self._cleanup_interval = cleanup_interval
++        self._cleanup_thread.start()
++
++    def get_lock(self, key: str) -> threading.Lock:
++        # Requirement 6: Per-key locking
++        with self._global_lock:
++            if key not in self._locks:
++                self._locks[key] = threading.Lock()
++            return self._locks[key]
++
++    def get(self, key: str) -> Any:
++        return self._data.get(key)
++
++    def set(self, key: str, value: Any, ttl: float = 300.0):
++        self._data[key] = value
++        self._expiry[key] = time.time() + ttl
++
++    def delete(self, key: str):
++        self._data.pop(key, None)
++        self._expiry.pop(key, None)
++
++    def _cleanup_loop(self):
++        while True:
++            time.sleep(self._cleanup_interval)
++            now = time.time()
++            with self._global_lock:
++                expired = [k for k, exp in self._expiry.items() if now > exp]
++                for k in expired:
++                    self._data.pop(k, None)
++                    self._expiry.pop(k, None)
++                    self._locks.pop(k, None)
+\ No newline at end of file
+diff --git a/repository_after/types_limiter.py b/repository_after/types_limiter.py
+new file mode 100644
+index 00000000..b137eca6
+--- /dev/null
++++ b/repository_after/types_limiter.py
+@@ -0,0 +1,28 @@
++from dataclasses import dataclass
++from typing import Literal, Optional
++from enum import Enum
++
++class AlgorithmType(Enum):
++    FIXED = "fixed"
++    SLIDING_LOG = "sliding_log"
++    SLIDING_COUNTER = "sliding_counter"
++    TOKEN_BUCKET = "token_bucket"
++
++@dataclass
++class RateLimiterConfig:
++    algorithm: AlgorithmType
++    window_size_seconds: float = 60.0
++    requests_per_window: int = 100
++    bucket_capacity: Optional[int] = None
++    refill_rate: Optional[float] = None
++
++    def __post_init__(self):
++        if self.window_size_seconds <= 0:
++            raise ValueError("window_size_seconds must be positive")
++        if self.requests_per_window <= 0:
++            raise ValueError("requests_per_window must be positive")
++        if self.algorithm == AlgorithmType.TOKEN_BUCKET:
++            if not self.bucket_capacity or self.bucket_capacity <= 0:
++                raise ValueError("bucket_capacity must be positive for token_bucket")
++            if not self.refill_rate or self.refill_rate <= 0:
++                raise ValueError("refill_rate must be positive for token_bucket")
+\ No newline at end of file
