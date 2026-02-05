@@ -1,0 +1,11 @@
+{
+            "instance_id": "CIONFC",
+            "problem_statement": "The objective is to refactor a legacy reporting service that relies on hardcoded PostgreSQL strings into a modern, maintainable implementation using the Knex.js query builder in TypeScript. The current service handles multi-table joins and dynamic filtering via brittle string concatenation. The refactor must eliminate raw SQL while preserving identical result sets, improving type safety, and ensuring that dynamic query components (conditional filters and pagination) are handled through the builder's native API.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/cionfc-kenx-query-builder-inventory-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
