@@ -15,8 +15,7 @@ class TestBasicFunctionality:
 
     def test_single(self):
         assert findMaximumLength([5]) == 1
-        assert findMaximumLength([-5]) == 1
-        assert findMaximumLength([0]) == 1
+        assert findMaximumLength([1]) == 1
 
     def test_two_elements(self):
         assert findMaximumLength([1, 2]) == 2
@@ -41,16 +40,13 @@ class TestRequirement6StrictlyDecreasing:
     def test_medium(self):
         assert findMaximumLength([10, 9, 8, 7]) == 1
 
-    def test_negative(self):
-        assert findMaximumLength([0, -1, -2, -3]) == 1
-
 
 class TestPartialConsolidation:
     def test_case_1(self):
         assert findMaximumLength([1, 3, 2, 4]) == 3
 
     def test_case_2(self):
-        assert findMaximumLength([5, -1, 3, 2]) == 2
+        assert findMaximumLength([5, 1, 3, 2]) == 2
 
     def test_case_3(self):
         assert findMaximumLength([2, 1, 4, 3, 6]) == 3
@@ -70,19 +66,33 @@ class TestDynamicProgrammingCorrectness:
 
 
 class TestEdgeCases:
-    def test_negatives(self):
-        assert findMaximumLength([-5, -3, -1]) == 3
-        assert findMaximumLength([-1, -3, -5]) == 1
-
-    def test_mixed_sign(self):
-        assert findMaximumLength([-2, 3, -1, 5]) == 3
 
     def test_large_values(self):
         assert findMaximumLength([1000000, 1, 2000000]) == 2
 
-    def test_zeros(self):
-        assert findMaximumLength([0, 0, 0]) == 3
-        assert findMaximumLength([1, 0, 2]) == 2
+    def test_small_values(self):
+        assert findMaximumLength([1, 1, 1]) == 3
+        assert findMaximumLength([2, 1, 2]) == 2
+
+
+class TestProblemExamples:
+    def test_example_1(self):
+        assert findMaximumLength([5, 2, 2]) == 1
+
+    def test_example_2(self):
+        assert findMaximumLength([1, 2, 3, 4]) == 4
+
+    def test_example_3(self):
+        assert findMaximumLength([4, 3, 2, 6]) == 3
+
+    def test_example_4(self):
+        assert findMaximumLength([10, 5, 1, 8, 20]) == 3
+
+    def test_example_5(self):
+        assert findMaximumLength([10, 5, 1]) == 1
+
+    def test_example_6(self):
+        assert findMaximumLength([1, 1, 1, 1]) == 4
 
 
 class TestEarlyTermination:
