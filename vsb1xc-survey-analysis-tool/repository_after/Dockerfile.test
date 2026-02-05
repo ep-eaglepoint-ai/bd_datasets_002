@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Create .npmrc for legacy peer deps
+RUN echo "legacy-peer-deps=true" > .npmrc
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port (if needed)
+EXPOSE 3000
+
+# Default command
+CMD ["npm", "test"]
