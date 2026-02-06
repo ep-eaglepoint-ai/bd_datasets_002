@@ -1,0 +1,170 @@
+diff --git a/repository_before/csv_importer.py b/repository_after/csv_importer.py
+index afca6b2..91f0d21 100644
+--- a/repository_before/csv_importer.py
++++ b/repository_after/csv_importer.py
+@@ -50,4 +50,4 @@ class CustomerImporter:
+             self.repo.insert(customer)
+             inserted += 1
+ 
+-        return ImportStats(processed, inserted, invalid, duplicate)
++        return ImportStats(processed, inserted, invalid, duplicate)
+\ No newline at end of file
+diff --git a/repository_after/tests/test_customer_importer.py b/repository_after/tests/test_customer_importer.py
+new file mode 100644
+index 0000000..3ced4bd
+--- /dev/null
++++ b/repository_after/tests/test_customer_importer.py
+@@ -0,0 +1,152 @@
++from unittest.mock import Mock
++
++import pytest
++
++from repository_after.csv_importer import CustomerImporter, CustomerRepository, ImportStats
++
++
++@pytest.fixture
++def repo():
++    mock = Mock(spec=CustomerRepository)
++    return mock
++
++
++def test_valid_customer_inserted(repo):
++    csv_text = "email,name,country\nalice@example.com,Alice,US\nbob@example.com,Bob,DE"
++    repo.exists_by_email.return_value = False
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++
++    assert stats == ImportStats(processed=2, inserted=2, skipped_invalid=0, skipped_duplicate=0)
++    assert repo.exists_by_email.call_count == 2
++    assert repo.insert.call_count == 2
++    inserted_customers = [call.args[0] for call in repo.insert.call_args_list]
++    assert inserted_customers == [
++        {"email": "alice@example.com", "name": "Alice", "country": "US"},
++        {"email": "bob@example.com", "name": "Bob", "country": "DE"},
++    ]
++
++
++@pytest.mark.parametrize(
++    "missing_field_row",
++    [
++        "alice@example.com,,US",
++        ",Alice,US",
++        "alice@example.com,Alice,",
++        " ,Alice,US",
++        "alice@example.com, ,US",
++        "alice@example.com,Alice,   ",
++    ],
++)
++def test_invalid_row_skipped(repo, missing_field_row):
++    csv_text = "email,name,country\n" + missing_field_row
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++    assert stats == ImportStats(processed=1, inserted=0, skipped_invalid=1, skipped_duplicate=0)
++    repo.exists_by_email.assert_not_called()
++    repo.insert.assert_not_called()
++
++
++def test_duplicates_within_csv_skipped(repo):
++    repo.exists_by_email.return_value = False
++    csv_text = (
++        "email,name,country\n"
++        "dana@example.com,Dana,US\n"
++        "dana@example.com,Dana,US\n"
++        "DANA@example.com,Dana,US\n"
++        "erin@example.com,Erin,CA\n"
++    )
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++
++    assert stats == ImportStats(processed=4, inserted=2, skipped_invalid=0, skipped_duplicate=2)
++    assert repo.insert.call_count == 2
++    inserted_emails = [call.args[0]["email"] for call in repo.insert.call_args_list]
++    assert set(inserted_emails) == {"dana@example.com", "erin@example.com"}
++
++
++def test_existing_emails_skipped_as_duplicate(repo):
++    def exists_by_email(email):
++        return email.strip().lower() == "bob@example.com"
++
++    repo.exists_by_email.side_effect = exists_by_email
++    csv_text = (
++        "email,name,country\n"
++        "bob@example.com,Bob,US\n"
++        "ALICE@example.com,Alice,Ca\n"
++        "bob@example.com,Bob,US\n"
++    )
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++
++    assert stats == ImportStats(processed=3, inserted=1, skipped_invalid=0, skipped_duplicate=2)
++    repo.insert.assert_called_once_with({"email": "alice@example.com", "name": "Alice", "country": "CA"})
++
++
++def test_importstats_all_fields_exact(repo):
++    repo.exists_by_email.side_effect = lambda email: email.strip().lower() == "dup@example.com"
++    csv_text = (
++        "email,name,country\n"
++        "ok1@example.com,Ok1,US\n"
++        "dup@example.com,Dup,FR\n"
++        "ok2@example.com, ,DE\n"
++        "invalid2@example.com,Fred,\n"
++        "ok1@example.com,OK1,US\n"
++    )
++
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++    assert stats.processed == 5
++    assert stats.inserted == 1
++    assert stats.skipped_invalid == 2
++    assert stats.skipped_duplicate == 2
++    repo.insert.assert_called_once()
++    assert repo.insert.call_args[0][0]["email"] == "ok1@example.com"
++
++
++def test_empty_csv(repo):
++    csv_text = ""
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++    assert stats == ImportStats(processed=0, inserted=0, skipped_invalid=0, skipped_duplicate=0)
++    repo.exists_by_email.assert_not_called()
++    repo.insert.assert_not_called()
++
++
++def test_header_only_csv(repo):
++    csv_text = "email,name,country\n"
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++    assert stats == ImportStats(processed=0, inserted=0, skipped_invalid=0, skipped_duplicate=0)
++    repo.exists_by_email.assert_not_called()
++    repo.insert.assert_not_called()
++
++
++def test_mixed_valid_invalid_duplicates(repo):
++    repo.exists_by_email.side_effect = lambda email: email.strip().lower() == "taken@example.com"
++    csv_text = (
++        "email,name,country\n"
++        "good1@example.com,Good1,US\n"
++        "good2@example.com,Good2,UK\n"
++        "bad1@example.com,,US\n"
++        "GOOD1@example.com,Good1,US\n"
++        "taken@example.com,Taken,FR\n"
++        "bad2@example.com,Bad2,\n"
++        "good3@example.com,Good3,CA\n"
++    )
++    importer = CustomerImporter(repo)
++    stats = importer.import_csv(csv_text)
++
++    assert stats == ImportStats(processed=7, inserted=3, skipped_invalid=2, skipped_duplicate=2)
++    inserted_customers = [call.args[0] for call in repo.insert.call_args_list]
++    assert inserted_customers == [
++        {"email": "good1@example.com", "name": "Good1", "country": "US"},
++        {"email": "good2@example.com", "name": "Good2", "country": "UK"},
++        {"email": "good3@example.com", "name": "Good3", "country": "CA"},
++    ]
++
++
++def test_none_csv_text_raises(repo):
++    importer = CustomerImporter(repo)
++    with pytest.raises(ValueError):
++        importer.import_csv(None)
+\ No newline at end of file
