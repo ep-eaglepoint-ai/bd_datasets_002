@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      # Default to the 'after' state for logic imports
+      - PYTHONPATH=/app:/app/repository_after/src:/app/app/repository_before/src
