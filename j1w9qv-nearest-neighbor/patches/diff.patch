@@ -1,6 +1,3 @@
-diff --git a/repository_before/__pycache__/knn.cpython-311.pyc b/repository_after/__pycache__/knn.cpython-311.pyc
-index c3f9a1f..a06bd20 100644
-Binary files a/repository_before/__pycache__/knn.cpython-311.pyc and b/repository_after/__pycache__/knn.cpython-311.pyc differ
 diff --git a/repository_before/knn.py b/repository_after/knn.py
 index 40cddce..fc066cb 100644
 --- a/repository_before/knn.py
