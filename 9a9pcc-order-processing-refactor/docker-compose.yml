@@ -1,0 +1,9 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: pytest -q tests
+
+    volumes:
+      - .:/app
