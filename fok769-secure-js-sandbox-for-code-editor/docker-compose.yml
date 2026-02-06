@@ -1,0 +1,31 @@
+services:
+  test-before:
+    build: .
+    command: npm test
+    environment:
+      - TEST_REPO=before
+    volumes:
+      # Mount source code but preserve node_modules from image
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+
+  test-after:
+    build: .
+    command: npm test
+    environment:
+      - TEST_REPO=after
+    volumes:
+      # Mount source code but preserve node_modules from image
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+
+  evaluation:
+    build: .
+    command: npm run evaluation
+    volumes:
+      # Mount source code but preserve node_modules from image
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
