@@ -109,7 +109,7 @@ def run_tests(repo_name: str):
                 sys.executable,
                 "-m",
                 "pytest",
-                "tests",
+                "tests/test_meta_customer_importer.py",
                 "-vv",
                 "--json-report",
                 f"--json-report-file={json_report_path}",
@@ -119,7 +119,13 @@ def run_tests(repo_name: str):
 
         if proc.returncode == 4 and "unrecognized arguments: --json-report" in output:
             proc, output = _run_pytest(
-                [sys.executable, "-m", "pytest", "tests", "-vv"],
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "tests/test_meta_customer_importer.py",
+                    "-vv",
+                ],
                 env,
             )
             outcomes = _parse_test_outcomes_from_stdout(output)
@@ -272,7 +278,7 @@ def run_evaluation():
     }
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    report_path = REPORTS_DIR / f"report_{started_at.strftime('%Y%m%d_%H%M%S')}.json"
+    report_path = REPORTS_DIR / "report.json"
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
