@@ -1,0 +1,11 @@
+{
+            "instance_id": "NO6T4M",
+            "problem_statement": "This project requires the creation of a terminal-based knowledge graph explorer to enable interactive navigation and visualization of concept relationships through a text interface. The system must support dynamic graph manipulation—including adding, editing, and removing nodes and edges—with navigation via keyboard input, search/filter capabilities, and import/export from JSON, all while maintaining consistent state and performance for graphs with hundreds of nodes. The implementation must prioritize an intuitive terminal experience, clear output, and graceful error handling without using GUI frameworks, ensuring the tool remains usable and maintainable as a simplified knowledge navigation simulator.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/no6t4m-knowledge-graph",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

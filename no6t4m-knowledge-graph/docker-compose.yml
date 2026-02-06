@@ -1,0 +1,19 @@
+services:
+  test-after:
+    build: .
+    container_name: test-after
+    command: pytest -v tests
+    environment:
+      - TARGET_REPOSITORY=repository_after
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    container_name: evaluation
+    command: python evaluation/evaluation.py
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
