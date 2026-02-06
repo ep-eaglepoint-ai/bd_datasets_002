@@ -1,0 +1,16 @@
+services:
+  test-after:
+    build: .
+    command: pytest -q tests/after-test.py
+    volumes:
+      - .:/app
+    working_dir: /app
+    network_mode: bridge
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app
+    working_dir: /app
+    network_mode: bridge

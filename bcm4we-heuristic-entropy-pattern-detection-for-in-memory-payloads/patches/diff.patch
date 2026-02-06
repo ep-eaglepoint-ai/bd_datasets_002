@@ -1,0 +1,716 @@
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/README.md b/repository_after/README.md
+new file mode 100644
+index 0000000..b218d38
+--- /dev/null
++++ b/repository_after/README.md
+@@ -0,0 +1,84 @@
++# Repository After - Modular Structure
++
++## Package Organization
++
++The codebase has been refactored into a modular, production-ready structure:
++
++```
++repository_after/
++├── __init__.py          # Package initialization and exports
++├── config.py            # Configuration constants
++├── entropy.py           # Entropy calculation module
++├── patterns.py          # Pattern detection (NOP sled, XOR)
++├── file_reader.py       # Chunked file reading
++├── detector.py          # Main PayloadDetector class
++├── formatter.py          # Output formatting
++└── main.py              # CLI entry point
++```
++
++## Module Responsibilities
++
++### `config.py`
++- All configuration constants (CHUNK_SIZE, WINDOW_SIZE, thresholds, etc.)
++- Centralized configuration management
++- Easy to adjust parameters without touching core logic
++
++### `entropy.py`
++- Pure function: `calculate_entropy(data: bytes) -> float`
++- Implements Shannon entropy calculation
++- Stateless and testable
++
++### `patterns.py`
++- `detect_nop_sled()`: Detects NOP sled sequences
++- `detect_xor_patterns()`: Detects XOR decryption patterns
++- Pattern detection logic isolated for easy testing and extension
++
++### `file_reader.py`
++- `read_file_chunks()`: Generator for chunked file reading
++- Handles overlap between chunks
++- Memory-efficient streaming
++
++### `detector.py`
++- `PayloadDetector` class: Main orchestration logic
++- `analyze_window()`: Window analysis
++- `detect()`: Main detection pipeline
++- Coordinates all detection components
++
++### `formatter.py`
++- `format_output()`: Formats detection results
++- Output formatting logic separated from detection logic
++
++### `main.py`
++- CLI entry point
++- File validation
++- Orchestrates detector and formatter
++
++### `__init__.py`
++- Package exports
++- Maintains backward compatibility
++- Exports: `PayloadDetector`, `main`, and utility functions
++
++## Benefits
++
++1. **Maintainability**: Each module has a single, clear responsibility
++2. **Testability**: Pure functions and isolated modules are easy to test
++3. **Extensibility**: Easy to add new pattern detectors or modify existing ones
++4. **Readability**: Clear separation of concerns
++5. **Production-Ready**: Professional structure suitable for production deployment
++
++## Usage
++
++The API remains the same for backward compatibility:
++
++```python
++from repository_after import PayloadDetector
++
++detector = PayloadDetector("file.bin")
++detections = detector.detect()
++```
++
++Or use the CLI:
++
++```bash
++python -m repository_after file.bin
++```
+diff --git a/repository_after/__init__.py b/repository_after/__init__.py
+new file mode 100644
+index 0000000..0e4ba71
+--- /dev/null
++++ b/repository_after/__init__.py
+@@ -0,0 +1,22 @@
++"""
++Heuristic Entropy & Pattern Detection for In-Memory Payloads
++
++This package implements a streaming analyzer that detects shellcode in memory dumps
++by combining statistical analysis (entropy) with structural analysis (assembly patterns).
++"""
++
++from .detector import PayloadDetector
++from .entropy import calculate_entropy
++from .patterns import detect_nop_sled, detect_xor_patterns, detect_getpc_stub
++from .formatter import format_output
++from .main import main
++
++__all__ = [
++    'PayloadDetector',
++    'calculate_entropy',
++    'detect_nop_sled',
++    'detect_xor_patterns',
++    'detect_getpc_stub',
++    'format_output',
++    'main',
++]
+diff --git a/repository_after/config.py b/repository_after/config.py
+new file mode 100644
+index 0000000..d2c33cf
+--- /dev/null
++++ b/repository_after/config.py
+@@ -0,0 +1,37 @@
++"""
++Configuration constants for the payload detector.
++"""
++
++import struct  # Used for Little-Endian address parsing (x64 Linux requirement)
++                # Used in patterns.py for extracting loop counters and address parsing
++                # Use struct.unpack('<Q', ...) for 64-bit addresses, '<I' for 32-bit values
++
++# File reading configuration
++CHUNK_SIZE = 4096  # 4KB chunks
++WINDOW_SIZE = 512  # Sliding window size
++OVERLAP_SIZE = 256  # Overlap to catch payloads across chunk boundaries
++NOP_CHECK_RANGE = 64  # Range to check for NOP sleds adjacent to high-entropy zones
++
++# Detection thresholds
++HIGH_ENTROPY_THRESHOLD = 6.5  # High entropy threshold (0-8 scale, where 8 is maximum entropy)
++MIN_NOP_SLED_LENGTH = 16  # Minimum NOP sled length
++
++# XOR decryption patterns (common shellcode decryption signatures)
++XOR_PATTERNS = [
++    b'\x31\xc9',  # xor ecx, ecx
++    b'\x31\xdb',  # xor ebx, ebx
++    b'\x31\xd2',  # xor edx, edx
++    b'\x31\xc0',  # xor eax, eax
++    b'\x31\xff',  # xor edi, edi
++    b'\x31\xf6',  # xor esi, esi
++]
++
++# Confidence scoring weights (sum to 1.0)
++CONFIDENCE_HIGH_ENTROPY = 0.35
++CONFIDENCE_NOP_SLED = 0.25
++CONFIDENCE_XOR_PATTERN = 0.25
++CONFIDENCE_GETPC_STUB = 0.15
++CONFIDENCE_THRESHOLD = 0.7  # Minimum confidence to report detection
++
++# Window analysis
++MIN_WINDOW_SIZE = 64  # Minimum window size for analysis
+diff --git a/repository_after/detector.py b/repository_after/detector.py
+new file mode 100644
+index 0000000..7033438
+--- /dev/null
++++ b/repository_after/detector.py
+@@ -0,0 +1,220 @@
++"""
++Main payload detector class that orchestrates detection logic.
++"""
++
++from typing import List, Tuple, Optional, Generator
++from .config import (
++    CHUNK_SIZE, WINDOW_SIZE, OVERLAP_SIZE, NOP_CHECK_RANGE, HIGH_ENTROPY_THRESHOLD,
++    CONFIDENCE_HIGH_ENTROPY, CONFIDENCE_NOP_SLED, CONFIDENCE_XOR_PATTERN,
++    CONFIDENCE_GETPC_STUB, CONFIDENCE_THRESHOLD, MIN_WINDOW_SIZE
++)
++from .entropy import calculate_entropy
++from .patterns import detect_nop_sled, detect_xor_patterns, detect_getpc_stub
++from .file_reader import read_file_chunks
++from .formatter import format_output
++
++
++class PayloadDetector:
++    """Detects shellcode payloads using entropy and pattern analysis."""
++    
++    # Class attributes for backward compatibility with tests
++    CHUNK_SIZE = CHUNK_SIZE
++    WINDOW_SIZE = WINDOW_SIZE
++    OVERLAP_SIZE = OVERLAP_SIZE
++    
++    def __init__(self, file_path: str):
++        """Initialize detector with file path."""
++        self.file_path = file_path
++        self.detections: List[Tuple[int, float, str]] = []  # (offset, confidence, reason)
++    
++    # Wrapper methods for backward compatibility with tests
++    def calculate_entropy(self, data: bytes) -> float:
++        """
++        Calculate Shannon entropy of a byte sequence.
++        
++        Wrapper method for backward compatibility.
++        
++        Args:
++            data: Byte sequence to analyze
++            
++        Returns:
++            Entropy value (0-8 scale)
++        """
++        return calculate_entropy(data)
++    
++    def detect_nop_sled(self, data: bytes, start_idx: int) -> Optional[int]:
++        """
++        Detect NOP sled (sequences of 0x90 or other NOP-like bytes).
++        
++        Wrapper method for backward compatibility.
++        
++        Args:
++            data: Byte sequence to analyze
++            start_idx: Starting index in the data
++            
++        Returns:
++            Length of NOP sled if found, None otherwise
++        """
++        return detect_nop_sled(data, start_idx)
++    
++    def detect_xor_patterns(self, data: bytes, start_idx: int) -> bool:
++        """
++        Detect XOR decryption patterns in the data.
++        
++        Wrapper method for backward compatibility.
++        
++        Args:
++            data: Byte sequence to analyze
++            start_idx: Starting index in the data
++            
++        Returns:
++            True if XOR pattern detected, False otherwise
++        """
++        has_xor, _ = detect_xor_patterns(data, start_idx)
++        return has_xor
++    
++    def read_file_chunks(self) -> Generator[Tuple[bytes, int], None, None]:
++        """
++        Read file in chunks with overlap to catch payloads across boundaries.
++        
++        Wrapper method for backward compatibility.
++        
++        Yields:
++            Tuple of (chunk_data, global_offset)
++        """
++        return read_file_chunks(self.file_path)
++    
++    def format_output(self, detections: List[Tuple[int, float, str]]) -> str:
++        """
++        Format detection results for output.
++        
++        Wrapper method for backward compatibility.
++        
++        Args:
++            detections: List of detection tuples (offset, confidence, reason)
++            
++        Returns:
++            Formatted output string
++        """
++        return format_output(detections)
++    
++    def analyze_window(self, data: bytes, global_offset: int, window_start: int) -> Optional[Tuple[int, float, str]]:
++        """
++        Analyze a sliding window for shellcode indicators.
++        
++        Args:
++            data: Current chunk data
++            global_offset: Global file offset of this chunk
++            window_start: Start index within the chunk
++            
++        Returns:
++            Tuple of (offset, confidence, reason) if detected, None otherwise
++        """
++        window_end = min(window_start + WINDOW_SIZE, len(data))
++        window_data = data[window_start:window_end]
++        
++        if len(window_data) < MIN_WINDOW_SIZE:  # Too small to analyze
++            return None
++        
++        # Calculate entropy
++        entropy = calculate_entropy(window_data)
++        
++        # Check for high entropy
++        has_high_entropy = entropy >= HIGH_ENTROPY_THRESHOLD
++        
++        # Check for NOP sled before high entropy region
++        nop_sled_length_before = detect_nop_sled(data, max(0, window_start - NOP_CHECK_RANGE))
++        
++        # Check for NOP sled after high entropy region
++        nop_sled_length_after = None
++        if window_end < len(data):
++            # detect_nop_sled will handle bounds checking internally
++            nop_sled_length_after = detect_nop_sled(data, window_end)
++        
++        # Use the longer NOP sled if both found, otherwise use whichever is available
++        if nop_sled_length_before and nop_sled_length_after:
++            nop_sled_length = max(nop_sled_length_before, nop_sled_length_after)
++        elif nop_sled_length_before:
++            nop_sled_length = nop_sled_length_before
++        elif nop_sled_length_after:
++            nop_sled_length = nop_sled_length_after
++        else:
++            nop_sled_length = None
++        
++        # Check for XOR patterns
++        has_xor_pattern, loop_counter = detect_xor_patterns(data, window_start)
++        
++        # Check for GetPC stub
++        has_getpc_stub = detect_getpc_stub(data, window_start)
++        
++        # Calculate confidence score
++        confidence = 0.0
++        reasons = []
++        
++        if has_high_entropy:
++            confidence += CONFIDENCE_HIGH_ENTROPY
++            reasons.append("high_entropy")
++        
++        if nop_sled_length:
++            confidence += CONFIDENCE_NOP_SLED
++            reasons.append(f"nop_sled_{nop_sled_length}bytes")
++        
++        if has_xor_pattern:
++            confidence += CONFIDENCE_XOR_PATTERN
++            reason_str = "xor_decryption_pattern"
++            if loop_counter is not None:
++                reason_str += f"_loop{loop_counter}"
++            reasons.append(reason_str)
++        
++        if has_getpc_stub:
++            confidence += CONFIDENCE_GETPC_STUB
++            reasons.append("getpc_stub")
++        
++        # Require at least high entropy + one other indicator
++        if confidence >= CONFIDENCE_THRESHOLD:
++            offset = global_offset + window_start
++            reason = "+".join(reasons)
++            return (offset, confidence, reason)
++        
++        return None
++    
++    def detect(self) -> List[Tuple[int, float, str]]:
++        """
++        Main detection method that processes the file and returns detections.
++        
++        Returns:
++            List of tuples: (offset, confidence, reason)
++        """
++        detections = []
++        seen_offsets = set()  # Avoid duplicate detections
++        
++        for chunk_data, global_offset in read_file_chunks(self.file_path):
++            # Slide window across chunk
++            step_size = WINDOW_SIZE // 2  # 50% overlap between windows
++            
++            # Fix: Handle chunks smaller than WINDOW_SIZE
++            max_start = max(0, len(chunk_data) - WINDOW_SIZE + 1)
++            for window_start in range(0, max_start, step_size):
++                result = self.analyze_window(chunk_data, global_offset, window_start)
++                
++                if result:
++                    offset, confidence, reason = result
++                    # Avoid duplicates (within 256 bytes)
++                    if offset not in seen_offsets and not any(abs(offset - s) < 256 for s in seen_offsets):
++                        detections.append((offset, confidence, reason))
++                        seen_offsets.add(offset)
++            
++            # Handle the case where chunk is smaller than WINDOW_SIZE
++            # Analyze the entire chunk as a single window if it's large enough
++            if len(chunk_data) < WINDOW_SIZE and len(chunk_data) >= MIN_WINDOW_SIZE:
++                result = self.analyze_window(chunk_data, global_offset, 0)
++                if result:
++                    offset, confidence, reason = result
++                    if offset not in seen_offsets and not any(abs(offset - s) < 256 for s in seen_offsets):
++                        detections.append((offset, confidence, reason))
++                        seen_offsets.add(offset)
++        
++        # Sort by confidence (highest first)
++        detections.sort(key=lambda x: x[1], reverse=True)
++        
++        return detections
+diff --git a/repository_after/entropy.py b/repository_after/entropy.py
+new file mode 100644
+index 0000000..c4319cc
+--- /dev/null
++++ b/repository_after/entropy.py
+@@ -0,0 +1,36 @@
++"""
++Entropy calculation module for statistical analysis.
++"""
++
++import math
++from typing import Dict
++
++
++def calculate_entropy(data: bytes) -> float:
++    """
++    Calculate Shannon entropy of a byte sequence.
++    
++    Args:
++        data: Byte sequence to analyze
++        
++    Returns:
++        Entropy value (0-8 scale)
++    """
++    if not data:
++        return 0.0
++    
++    # Count byte frequencies
++    byte_counts: Dict[int, int] = {}
++    for byte in data:
++        byte_counts[byte] = byte_counts.get(byte, 0) + 1
++    
++    # Calculate entropy using Shannon entropy formula
++    entropy = 0.0
++    data_len = len(data)
++    
++    for count in byte_counts.values():
++        probability = count / data_len
++        if probability > 0:
++            entropy -= probability * math.log2(probability)
++    
++    return entropy
+diff --git a/repository_after/file_reader.py b/repository_after/file_reader.py
+new file mode 100644
+index 0000000..d1084de
+--- /dev/null
++++ b/repository_after/file_reader.py
+@@ -0,0 +1,49 @@
++"""
++File reading module for chunked streaming of binary files.
++"""
++
++import sys
++from typing import Generator, Tuple
++from .config import CHUNK_SIZE, OVERLAP_SIZE
++
++
++def read_file_chunks(file_path: str) -> Generator[Tuple[bytes, int], None, None]:
++    """
++    Read file in chunks with overlap to catch payloads across boundaries.
++    
++    Args:
++        file_path: Path to the file to read
++        
++    Yields:
++        Tuple of (chunk_data, global_offset)
++    """
++    try:
++        with open(file_path, 'rb') as f:
++            global_offset = 0
++            previous_chunk_tail = b''
++            
++            while True:
++                chunk = f.read(CHUNK_SIZE)
++                if not chunk:
++                    break
++                
++                # Combine with previous chunk's tail for overlap analysis
++                if previous_chunk_tail:
++                    combined = previous_chunk_tail + chunk
++                    yield (combined, global_offset - len(previous_chunk_tail))
++                else:
++                    # First chunk - no overlap yet
++                    yield (chunk, global_offset)
++                
++                # Save tail for next chunk overlap
++                if len(chunk) >= OVERLAP_SIZE:
++                    previous_chunk_tail = chunk[-OVERLAP_SIZE:]
++                else:
++                    # Chunk smaller than overlap - combine with previous tail
++                    previous_chunk_tail = (previous_chunk_tail + chunk)[-OVERLAP_SIZE:]
++                
++                global_offset += len(chunk)
++                
++    except IOError as e:
++        print(f"Error reading file: {e}", file=sys.stderr)
++        sys.exit(1)
+diff --git a/repository_after/formatter.py b/repository_after/formatter.py
+new file mode 100644
+index 0000000..4ca2a25
+--- /dev/null
++++ b/repository_after/formatter.py
+@@ -0,0 +1,26 @@
++"""
++Output formatting module for detection results.
++"""
++
++from typing import List, Tuple
++
++
++def format_output(detections: List[Tuple[int, float, str]]) -> str:
++    """
++    Format detection results for output.
++    
++    Args:
++        detections: List of detection tuples (offset, confidence, reason)
++        
++    Returns:
++        Formatted output string
++    """
++    if not detections:
++        return "No shellcode detected"
++    
++    output_lines = []
++    for offset, confidence, reason in detections:
++        hex_offset = f"0x{offset:08X}"
++        output_lines.append(f"{hex_offset}: {confidence:.2f} ({reason})")
++    
++    return "\n".join(output_lines)
+diff --git a/repository_after/main.py b/repository_after/main.py
+new file mode 100644
+index 0000000..338e273
+--- /dev/null
++++ b/repository_after/main.py
+@@ -0,0 +1,56 @@
++"""
++Main entry point for the payload detector CLI.
++"""
++
++import os
++import sys
++from .detector import PayloadDetector
++from .formatter import format_output
++
++
++def validate_file_path(file_path: str) -> None:
++    """
++    Validate that the file path exists, is a file, and is readable.
++    
++    Args:
++        file_path: Path to validate
++        
++    Raises:
++        SystemExit: If validation fails
++    """
++    if not os.path.exists(file_path):
++        print(f"Error: File not found: {file_path}", file=sys.stderr)
++        sys.exit(1)
++    
++    if not os.path.isfile(file_path):
++        print(f"Error: Path is not a file: {file_path}", file=sys.stderr)
++        sys.exit(1)
++    
++    if not os.access(file_path, os.R_OK):
++        print(f"Error: File is not readable: {file_path}", file=sys.stderr)
++        sys.exit(1)
++
++
++def main():
++    """Main entry point for the detector."""
++    if len(sys.argv) != 2:
++        print("Usage: python -m repository_after <memory_dump_file>", file=sys.stderr)
++        sys.exit(1)
++    
++    file_path = sys.argv[1]
++    
++    # Validate file path
++    validate_file_path(file_path)
++    
++    # Run detection
++    detector = PayloadDetector(file_path)
++    detections = detector.detect()
++    output = format_output(detections)
++    print(output)
++    
++    # Exit with appropriate code
++    sys.exit(0 if detections else 1)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/repository_after/patterns.py b/repository_after/patterns.py
+new file mode 100644
+index 0000000..3109ed0
+--- /dev/null
++++ b/repository_after/patterns.py
+@@ -0,0 +1,129 @@
++"""
++Pattern detection module for identifying shellcode indicators.
++"""
++
++import struct
++from typing import Optional, Tuple
++from .config import WINDOW_SIZE, MIN_NOP_SLED_LENGTH, XOR_PATTERNS
++
++
++def detect_nop_sled(data: bytes, start_idx: int) -> Optional[int]:
++    """
++    Detect NOP sled (sequences of 0x90 or other NOP-like bytes).
++    
++    Args:
++        data: Byte sequence to analyze
++        start_idx: Starting index in the data
++        
++    Returns:
++        Length of NOP sled if found, None otherwise
++    """
++    nop_bytes = [0x90]  # NOP instruction (0x90) - primary NOP sled indicator
++    max_length = 0
++    current_length = 0
++    
++    end_idx = min(start_idx + WINDOW_SIZE, len(data))
++    
++    for i in range(start_idx, end_idx):
++        if data[i] in nop_bytes:
++            current_length += 1
++            max_length = max(max_length, current_length)
++        else:
++            current_length = 0
++    
++    if max_length >= MIN_NOP_SLED_LENGTH:
++        return max_length
++    
++    return None
++
++
++def detect_xor_patterns(data: bytes, start_idx: int) -> Tuple[bool, Optional[int]]:
++    """
++    Detect XOR decryption patterns in the data and extract loop counter if possible.
++    
++    Args:
++        data: Byte sequence to analyze
++        start_idx: Starting index in the data
++        
++    Returns:
++        Tuple of (pattern_detected, loop_counter_value)
++        loop_counter_value is None if not extractable
++    """
++    end_idx = min(start_idx + WINDOW_SIZE, len(data))
++    window = data[start_idx:end_idx]
++    loop_counter = None
++    
++    # Check for XOR patterns
++    for pattern in XOR_PATTERNS:
++        pattern_idx = window.find(pattern)
++        if pattern_idx != -1:
++            # Look for XOR loop structure (XOR followed by increment/loop)
++            if pattern_idx + 2 < len(window):
++                next_bytes = window[pattern_idx + 2:pattern_idx + 10]
++                
++                # Check for increment (0x40-0x47 for registers) or loop (0xE2, 0xE0)
++                has_loop_structure = any(b in next_bytes[:4] for b in [0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0xE2, 0xE0])
++                
++                if has_loop_structure:
++                    # Try to extract loop counter from common patterns
++                    # Pattern: xor reg, reg; mov reg, <counter>; loop/xor
++                    # Look for mov immediate after XOR (common in Metasploit payloads)
++                    for i in range(pattern_idx + 2, min(pattern_idx + 20, len(window) - 4)):
++                        # Check for mov reg, imm32 pattern (0xB8-0xBF for mov eax-edi, imm32)
++                        if 0xB8 <= window[i] <= 0xBF:
++                            try:
++                                # Extract 32-bit immediate value (little-endian)
++                                loop_counter = struct.unpack('<I', window[i+1:i+5])[0]
++                                break
++                            except (IndexError, struct.error):
++                                pass
++                    
++                    return (True, loop_counter)
++    
++    return (False, None)
++
++
++def detect_getpc_stub(data: bytes, start_idx: int) -> bool:
++    """
++    Detect GetPC (Get Program Counter) stub patterns commonly used in shellcode.
++    
++    Common GetPC patterns:
++    1. call $+5; pop (E8 00 00 00 00 followed by 58/59/5A/5B/5C/5D/5E/5F)
++    2. fldz; fnstenv (D9 EE; D9 74 24 F4)
++    3. call next; next: pop (E8 00 00 00 00; 58/59/5A/5B/5C/5D/5E/5F)
++    
++    Args:
++        data: Byte sequence to analyze
++        start_idx: Starting index in the data
++        
++    Returns:
++        True if GetPC stub detected, False otherwise
++    """
++    end_idx = min(start_idx + WINDOW_SIZE, len(data))
++    window = data[start_idx:end_idx]
++    
++    # Pattern 1: call $+5; pop reg
++    # E8 00 00 00 00 = call $+5 (relative call with 0 offset)
++    # 58-5F = pop eax/ecx/edx/ebx/esp/ebp/esi/edi
++    if len(window) >= 6:
++        if window[0:5] == b'\xE8\x00\x00\x00\x00':
++            if 0x58 <= window[5] <= 0x5F:  # pop reg
++                return True
++    
++    # Pattern 2: fldz; fnstenv [esp-0xC]
++    # D9 EE = fldz
++    # D9 74 24 F4 = fnstenv [esp-0xC]
++    if len(window) >= 5:
++        if window[0:2] == b'\xD9\xEE':  # fldz
++            if window[2:5] == b'\xD9\x74\x24':  # fnstenv [esp-...]
++                return True
++    
++    # Pattern 3: call next; next: pop (search for call followed by pop within 10 bytes)
++    for i in range(len(window) - 6):
++        if window[i] == 0xE8:  # call opcode
++            # Check if followed by pop within next 10 bytes
++            for j in range(i + 1, min(i + 11, len(window))):
++                if 0x58 <= window[j] <= 0x5F:  # pop reg
++                    return True
++    
++    return False

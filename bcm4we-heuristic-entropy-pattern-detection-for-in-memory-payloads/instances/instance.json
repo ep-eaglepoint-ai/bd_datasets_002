@@ -1,0 +1,11 @@
+{
+            "instance_id": "bcm4we-heuristic-entropy-pattern-detection-for-in-memory-payloads",
+            "problem_statement": "Offensive payloads often hide in memory using polymorphic encoding, making them invisible to standard string searches. A purely signature-based approach fails because the bytes change every generation. The engineering gap being tested is the ability to combine statistical analysis (Entropy) with structural analysis (Assembly Logic). High-entropy data usually indicates encryption or compression (the payload), while repeating bytes (0x90) indicate a NOP sled used for execution stability. The model must implement a streaming analyzer that flags these anomalies. Mid-tier models typically fail to implement the Sliding Window correctly (loading the whole file into RAM) or hallucinate external libraries like capstone or yara instead of writing the raw heuristic logic manually.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/bcm4we-heuristic-entropy-pattern-detection-for-in-memory-payloads",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
