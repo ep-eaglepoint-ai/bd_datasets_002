@@ -1,0 +1,14 @@
+services:
+  test-after:
+    build: .
+    container_name: test-after
+    command: pytest -v tests
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    container_name: evaluation
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app
