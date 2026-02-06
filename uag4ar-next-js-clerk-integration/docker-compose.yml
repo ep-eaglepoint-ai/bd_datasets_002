@@ -1,0 +1,29 @@
+services:
+  app-before:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - REPO_PATH=repository_before
+      - EXPECT_FAILURE=true
+    command: npm test
+
+  app-after:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - REPO_PATH=repository_after
+    command: npm test
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - REPO_PATH=repository_after
+      - RUN_EVALUATION=true
+    command: npm run evaluate

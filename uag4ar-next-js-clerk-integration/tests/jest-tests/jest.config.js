@@ -1,0 +1,37 @@
+const path = require("path");
+const nextJest = require("next/jest");
+
+const appDir =
+  process.env.NEXT_APP_DIR ||
+  path.resolve(__dirname, "../../repository_after/clerk-app");
+
+const createJestConfig = nextJest({
+  // Provide the path to your Next.js app to load next.config.js and .env files
+  dir: appDir,
+});
+
+// Add any custom config to be passed to Jest
+const customJestConfig = {
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
+  moduleNameMapping: {
+    // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
+    "^@/(.*)$": path.join(appDir, "$1"),
+  },
+  testEnvironment: "jest-environment-jsdom",
+  collectCoverageFrom: [
+    path.join(appDir, "app/**/*.{js,jsx,ts,tsx}"),
+    "!" + path.join(appDir, "app/**/*.d.ts"),
+    "!" + path.join(appDir, "app/**/node_modules/**"),
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
+};
+
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
+module.exports = createJestConfig(customJestConfig);

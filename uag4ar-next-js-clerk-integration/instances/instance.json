@@ -1,0 +1,10 @@
+{
+  "instance_id": "UAG4AR",
+  "problem_statement": "I have an existing Next.js application using the App Router (app/ directory) that was initially created without Clerk or any authentication system. The application currently contains a basic layout, pages, and API routes, but it lacks authentication, user management, and session handling. I now want to correctly integrate Clerk into this existing codebase, strictly following Clerk’s latest official documentation for the Next.js App Router. The goal is to add Clerk authentication without introducing deprecated patterns, legacy APIs, or pages-router assumptions.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/uag4ar-next-js-clerk-integration",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": []
+}
