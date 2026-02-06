@@ -31,6 +31,25 @@ type DatabaseLockHelper struct {
 
 	conn   *sql.Conn
 	locked bool
+
+	backoff        BackoffFunc
+	releaseTimeout time.Duration
+
+	heartbeatInterval time.Duration
+	heartbeatTimeout  time.Duration
+	heartbeatCancel   context.CancelFunc
+	autoReleaseCancel context.CancelFunc
+}
+
+// BackoffFunc computes a deterministic backoff duration for a retry attempt.
+// The attempt parameter is 1-based.
+type BackoffFunc func(attempt int) time.Duration
+
+// HeartbeatConfig configures the optional background heartbeat used to validate
+// connection liveness and lock state. Zero values disable the heartbeat.
+type HeartbeatConfig struct {
+	Interval time.Duration
+	Timeout  time.Duration
 }
 
 // NewDatabaseLockHelper creates a new advisory lock helper for the given
@@ -41,7 +60,44 @@ func NewDatabaseLockHelper(db *sql.DB, lockName string) *DatabaseLockHelper {
 		db:       db,
 		lockName: lockName,
 		lockID:   computeLockID(lockName),
+		backoff:  defaultBackoff,
+		// Default timeout used for auto-release on context cancellation.
+		releaseTimeout: 2 * time.Second,
 	}
+}
+
+// SetBackoff configures the retry backoff strategy. A nil backoff resets to default.
+func (h *DatabaseLockHelper) SetBackoff(backoff BackoffFunc) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if backoff == nil {
+		h.backoff = defaultBackoff
+		return
+	}
+	h.backoff = backoff
+}
+
+// SetHeartbeatConfig configures the optional background heartbeat.
+// Interval <= 0 disables the heartbeat.
+func (h *DatabaseLockHelper) SetHeartbeatConfig(cfg HeartbeatConfig) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.heartbeatInterval = cfg.Interval
+	h.heartbeatTimeout = cfg.Timeout
+}
+
+// SetReleaseTimeout sets the timeout used for auto-release during context cancellation.
+func (h *DatabaseLockHelper) SetReleaseTimeout(timeout time.Duration) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.releaseTimeout = timeout
+}
+
+func defaultBackoff(attempt int) time.Duration {
+	if attempt <= 0 {
+		return 0
+	}
+	return time.Duration(attempt*100) * time.Millisecond
 }
 
 // computeLockID generates a deterministic 64-bit lock identifier from a
@@ -110,6 +166,7 @@ func (h *DatabaseLockHelper) AcquireLock(ctx context.Context, maxRetries int) er
 			} else if acquired {
 				h.conn = conn
 				h.locked = true
+				h.startLifecycleHooks(ctx)
 				return nil
 			}
 		} else {
@@ -119,13 +176,14 @@ func (h *DatabaseLockHelper) AcquireLock(ctx context.Context, maxRetries int) er
 			} else {
 				h.conn = conn
 				h.locked = true
+				h.startLifecycleHooks(ctx)
 				return nil
 			}
 		}
 
-		// Backoff before next retry (linear: attempt * 100ms)
+		// Backoff before next retry
 		if attempt < maxRetries {
-			backoff := time.Duration((attempt+1)*100) * time.Millisecond
+			backoff := h.backoff(attempt + 1)
 			select {
 			case <-ctx.Done():
 				conn.Close()
@@ -195,6 +253,16 @@ func (h *DatabaseLockHelper) releaseLockedUnsafe(ctx context.Context) error {
 
 	var errs error
 
+	// Stop auto-release hook and heartbeat
+	if h.autoReleaseCancel != nil {
+		h.autoReleaseCancel()
+		h.autoReleaseCancel = nil
+	}
+	if h.heartbeatCancel != nil {
+		h.heartbeatCancel()
+		h.heartbeatCancel = nil
+	}
+
 	// Release the advisory lock
 	if h.conn != nil {
 		_, err := h.conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", h.lockID)
@@ -219,4 +287,70 @@ func (h *DatabaseLockHelper) releaseLockedUnsafe(ctx context.Context) error {
 // This is a convenience method for defer patterns.
 func (h *DatabaseLockHelper) Close() error {
 	return h.ReleaseLock(context.Background())
+}
+
+// startLifecycleHooks installs context-driven auto-release and optional heartbeat.
+// Caller must hold h.mu.
+func (h *DatabaseLockHelper) startLifecycleHooks(ctx context.Context) {
+	if ctx == nil {
+		return
+	}
+
+	// Auto-release when the context is canceled or completed.
+	if h.autoReleaseCancel == nil {
+		h.autoReleaseCancel = context.AfterFunc(ctx, func() {
+			releaseCtx := context.Background()
+			if h.releaseTimeout > 0 {
+				var cancel context.CancelFunc
+				releaseCtx, cancel = context.WithTimeout(releaseCtx, h.releaseTimeout)
+				defer cancel()
+			}
+			_ = h.ReleaseLock(releaseCtx)
+		})
+	}
+
+	// Optional heartbeat.
+	if h.heartbeatInterval > 0 && h.heartbeatCancel == nil {
+		heartbeatCtx, cancel := context.WithCancel(ctx)
+		h.heartbeatCancel = cancel
+		go h.runHeartbeat(heartbeatCtx)
+	}
+}
+
+func (h *DatabaseLockHelper) runHeartbeat(ctx context.Context) {
+	ticker := time.NewTicker(h.heartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			h.heartbeatOnce(ctx)
+		}
+	}
+}
+
+func (h *DatabaseLockHelper) heartbeatOnce(ctx context.Context) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if !h.locked || h.conn == nil {
+		return
+	}
+
+	callCtx := ctx
+	if h.heartbeatTimeout > 0 {
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithTimeout(ctx, h.heartbeatTimeout)
+		defer cancel()
+	}
+
+	var acquired bool
+	if err := h.conn.QueryRowContext(callCtx, "SELECT pg_try_advisory_lock($1)", h.lockID).Scan(&acquired); err != nil {
+		return
+	}
+	if acquired {
+		_, _ = h.conn.ExecContext(callCtx, "SELECT pg_advisory_unlock($1)", h.lockID)
+	}
 }
