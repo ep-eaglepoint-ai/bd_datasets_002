@@ -1,0 +1,23 @@
+services:
+  app-before:
+    build: .
+    environment:
+      - REPO=repository_before
+    command: sh -c "npm test || true"
+    volumes:
+      - .:/app
+
+  app-after:
+    build: .
+    environment:
+      - REPO=repository_after
+    command: sh -c "npm test || true"
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: npm run evaluation
+    volumes:
+      - .:/app
+
