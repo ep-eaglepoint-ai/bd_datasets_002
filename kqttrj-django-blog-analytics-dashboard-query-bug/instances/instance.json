@@ -1,0 +1,38 @@
+{
+    "instance_id": "KQTTRJ",
+    "problem_statement": "During QA testing of a blog analytics dashboard, reviewers noticed incorrect statistics being displayed. The \"Top Authors\" widget shows authors with 0 published posts, the \"Recent Comments\" section displays comments from deleted posts, and the \"Category Stats\" panel shows duplicate entries. Users report that filtering by date range returns posts outside the specified period, and the \"draft\" filter includes published articles. The dashboard worked correctly with small datasets but issues emerged after migrating production data with 50,000+ posts. The analytics_views.py file contains the get_dashboard_stats function that aggregates data from Post, Author, Comment, and Category models.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/kqttrj-django-blog-analytics-dashboard-query-bug",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "tests/test_analytics.py::TestTopAuthorsFiltering::test_top_authors_excludes_author_with_only_deleted_posts",
+        "tests/test_analytics.py::TestTopAuthorsFiltering::test_top_authors_excludes_author_with_only_draft_posts",
+        "tests/test_analytics.py::TestTopAuthorsFiltering::test_top_authors_post_count_excludes_deleted_posts",
+        "tests/test_analytics.py::TestTopAuthorsFiltering::test_top_authors_post_count_excludes_draft_posts",
+        "tests/test_analytics.py::TestRecentCommentsFiltering::test_recent_comments_excludes_comments_on_deleted_posts",
+        "tests/test_analytics.py::TestRecentCommentsFiltering::test_recent_comments_excludes_comments_on_draft_posts",
+        "tests/test_analytics.py::TestRecentCommentsFiltering::test_recent_comments_only_shows_comments_on_published_non_deleted",
+        "tests/test_analytics.py::TestCategoryStatsFiltering::test_category_stats_counts_only_published_non_deleted",
+        "tests/test_analytics.py::TestDateRangeFilter::test_date_range_includes_boundary_dates",
+        "tests/test_analytics.py::TestSoftDeleteFilter::test_filtered_posts_excludes_deleted",
+        "tests/test_analytics.py::TestSoftDeleteFilter::test_filtered_posts_total_count_excludes_deleted",
+        "tests/test_analytics.py::TestDraftFilterLogic::test_draft_filter_excludes_published_posts",
+        "tests/test_analytics.py::TestDraftFilterLogic::test_draft_filter_returns_only_drafts",
+        "tests/test_analytics.py::TestAuthorStatsFiltering::test_author_stats_total_excludes_deleted",
+        "tests/test_analytics.py::TestAuthorStatsFiltering::test_author_stats_published_excludes_deleted",
+        "tests/test_analytics.py::TestAuthorStatsFiltering::test_author_stats_comments_excludes_deleted_post_comments"
+    ],
+    "PASS_TO_PASS": [
+        "tests/test_analytics.py::TestResponseStructure::test_dashboard_stats_has_required_keys",
+        "tests/test_analytics.py::TestResponseStructure::test_top_authors_entry_has_correct_fields",
+        "tests/test_analytics.py::TestResponseStructure::test_recent_comments_entry_has_correct_fields",
+        "tests/test_analytics.py::TestResponseStructure::test_category_stats_entry_has_correct_fields",
+        "tests/test_analytics.py::TestResponseStructure::test_filtered_posts_entry_has_correct_fields",
+        "tests/test_analytics.py::TestResponseStructure::test_total_count_is_integer",
+        "tests/test_analytics.py::TestGetAuthorStatsBasic::test_returns_none_for_nonexistent_author",
+        "tests/test_analytics.py::TestGetAuthorStatsBasic::test_author_stats_has_correct_keys",
+        "tests/test_analytics.py::TestPublishedFilter::test_published_filter_returns_published_posts",
+        "tests/test_analytics.py::TestCategoryStatsFiltering::test_category_stats_no_duplicate_entries"
+    ]
+}
