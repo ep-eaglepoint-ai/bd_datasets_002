@@ -1,0 +1,11 @@
+{
+            "instance_id": "2X55NA",
+            "problem_statement": "",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/2x55na-multi-source-inventory-performance-report",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

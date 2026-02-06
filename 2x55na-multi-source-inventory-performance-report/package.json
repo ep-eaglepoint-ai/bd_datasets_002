@@ -1,0 +1,16 @@
+{
+    "name": "2x55na-inventory-performance-report",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "workspaces": [
+        "repository_after"
+    ],
+    "scripts": {
+        "test": "node --test tests/inventory.test.js tests/view.test.js",
+        "evaluate": "node evaluation/evaluation.js"
+    },
+    "devDependencies": {
+        "uuid": "^9.0.0"
+    }
+}
