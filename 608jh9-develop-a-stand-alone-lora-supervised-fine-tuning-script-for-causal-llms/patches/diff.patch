@@ -1,0 +1,373 @@
+diff --git a/repository_before/__init__.py b/repository_after/__init__.py
+index e69de29b..8f83105b 100644
+--- a/repository_before/__init__.py
++++ b/repository_after/__init__.py
+@@ -0,0 +1,17 @@
++from .sft_lora import (
++	SFTConfig,
++	build_prompt,
++	create_tiny_model_and_tokenizer,
++	load_jsonl_dataset,
++	tokenize_dataset,
++	train_sft,
++)
++
++__all__ = [
++	"SFTConfig",
++	"build_prompt",
++	"create_tiny_model_and_tokenizer",
++	"load_jsonl_dataset",
++	"tokenize_dataset",
++	"train_sft",
++]
+diff --git a/repository_after/__pycache__/__init__.cpython-311.pyc b/repository_after/__pycache__/__init__.cpython-311.pyc
+new file mode 100644
+index 00000000..aa185f96
+Binary files /dev/null and b/repository_after/__pycache__/__init__.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/sft_lora.cpython-311.pyc b/repository_after/__pycache__/sft_lora.cpython-311.pyc
+new file mode 100644
+index 00000000..29ad9cab
+Binary files /dev/null and b/repository_after/__pycache__/sft_lora.cpython-311.pyc differ
+diff --git a/repository_after/sft_lora.py b/repository_after/sft_lora.py
+new file mode 100644
+index 00000000..204a4d2d
+--- /dev/null
++++ b/repository_after/sft_lora.py
+@@ -0,0 +1,336 @@
++import argparse
++import importlib.util
++import os
++import random
++from dataclasses import dataclass
++from typing import Iterable, List, Optional
++
++import numpy as np
++import torch
++from datasets import load_dataset
++from peft import LoraConfig, get_peft_model
++from tokenizers import Tokenizer
++from tokenizers.models import WordLevel
++from tokenizers.pre_tokenizers import Whitespace
++from transformers import (
++    AutoModelForCausalLM,
++    AutoTokenizer,
++    BitsAndBytesConfig,
++    DataCollatorForLanguageModeling,
++    GPT2Config,
++    GPT2LMHeadModel,
++    PreTrainedTokenizerFast,
++    Trainer,
++    TrainingArguments,
++)
++
++
++@dataclass
++class SFTConfig:
++    base_model: str
++    data_path: str
++    output_dir: str
++    system_prompt: str = "You are a helpful assistant."
++    max_length: int = 512
++    per_device_train_batch_size: int = 1
++    gradient_accumulation_steps: int = 1
++    num_train_epochs: float = 1.0
++    max_steps: int = -1
++    learning_rate: float = 2e-4
++    logging_steps: int = 5
++    save_steps: int = 50
++    seed: int = 42
++    gradient_checkpointing: bool = False
++    fp16: bool = False
++    bf16: bool = False
++    quantization_bits: Optional[int] = None
++    device_map_auto: bool = True
++    cpu_offload: bool = False
++    lora_r: int = 8
++    lora_alpha: int = 16
++    lora_dropout: float = 0.05
++    lora_target_modules: Optional[str] = None
++    merge_lora: bool = False
++    offline: bool = True
++    tokenizer_path: Optional[str] = None
++
++
++def _disable_external_logging() -> None:
++    os.environ.setdefault("WANDB_DISABLED", "true")
++    os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
++    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
++
++
++def _set_deterministic(seed: int) -> None:
++    random.seed(seed)
++    np.random.seed(seed)
++    torch.manual_seed(seed)
++    torch.cuda.manual_seed_all(seed)
++    torch.use_deterministic_algorithms(True, warn_only=True)
++
++
++def build_prompt(
++    system_prompt: str, instruction: str, input_text: str, output_text: Optional[str]
++) -> str:
++    parts = [f"<|system|>\n{system_prompt}\n", "<|user|>\n"]
++    parts.append(f"Instruction:\n{instruction}\n")
++    if input_text:
++        parts.append(f"Input:\n{input_text}\n")
++    parts.append("<|assistant|>\n")
++    if output_text is not None:
++        parts.append(output_text)
++    return "".join(parts)
++
++
++def load_jsonl_dataset(path: str):
++    return load_dataset("json", data_files=path)["train"]
++
++
++def _format_dataset(dataset, system_prompt: str):
++    def _format(example):
++        return {
++            "text": build_prompt(
++                system_prompt,
++                example["instruction"],
++                example.get("input", ""),
++                example["output"],
++            )
++        }
++
++    return dataset.map(_format, remove_columns=dataset.column_names)
++
++
++def tokenize_dataset(dataset, tokenizer, max_length: int):
++    def _tokenize(batch):
++        output = tokenizer(
++            batch["text"],
++            truncation=True,
++            max_length=max_length,
++        )
++        output["labels"] = output["input_ids"].copy()
++        return output
++
++    return dataset.map(_tokenize, batched=True, remove_columns=dataset.column_names)
++
++
++def _get_lora_targets(model, override: Optional[str]) -> List[str]:
++    if override:
++        return [item.strip() for item in override.split(",") if item.strip()]
++    model_type = getattr(model.config, "model_type", "").lower()
++    if model_type == "gpt2":
++        return ["c_attn"]
++    return ["q_proj", "k_proj", "v_proj", "o_proj"]
++
++
++def _build_quantization_config(bits: Optional[int], cpu_offload: bool):
++    if bits is None:
++        return None
++    if importlib.util.find_spec("bitsandbytes") is None:
++        raise RuntimeError("bitsandbytes is required for quantized loading")
++    if bits == 4:
++        return BitsAndBytesConfig(
++            load_in_4bit=True,
++            bnb_4bit_use_double_quant=True,
++            bnb_4bit_quant_type="nf4",
++            bnb_4bit_compute_dtype=torch.bfloat16,
++        )
++    if bits == 8:
++        return BitsAndBytesConfig(
++            load_in_8bit=True,
++            llm_int8_enable_fp32_cpu_offload=cpu_offload,
++        )
++    raise ValueError("quantization_bits must be 4 or 8")
++
++
++def _resolve_torch_dtype(fp16: bool, bf16: bool):
++    if fp16 and bf16:
++        raise ValueError("fp16 and bf16 cannot both be enabled")
++    if fp16:
++        return torch.float16
++    if bf16:
++        return torch.bfloat16
++    return None
++
++
++def train_sft(config: SFTConfig) -> str:
++    _disable_external_logging()
++    _set_deterministic(config.seed)
++
++    local_files_only = bool(config.offline)
++    tokenizer_source = config.tokenizer_path or config.base_model
++    tokenizer = AutoTokenizer.from_pretrained(
++        tokenizer_source, local_files_only=local_files_only
++    )
++    if tokenizer.pad_token is None:
++        tokenizer.pad_token = tokenizer.eos_token or tokenizer.unk_token
++
++    quant_config = _build_quantization_config(config.quantization_bits, config.cpu_offload)
++    torch_dtype = _resolve_torch_dtype(config.fp16, config.bf16)
++
++    model = AutoModelForCausalLM.from_pretrained(
++        config.base_model,
++        local_files_only=local_files_only,
++        device_map="auto" if config.device_map_auto else None,
++        torch_dtype=torch_dtype,
++        quantization_config=quant_config,
++    )
++
++    if config.gradient_checkpointing:
++        model.gradient_checkpointing_enable()
++        model.config.use_cache = False
++
++    lora_targets = _get_lora_targets(model, config.lora_target_modules)
++    lora_cfg = LoraConfig(
++        r=config.lora_r,
++        lora_alpha=config.lora_alpha,
++        lora_dropout=config.lora_dropout,
++        bias="none",
++        task_type="CAUSAL_LM",
++        target_modules=lora_targets,
++        fan_in_fan_out=True,
++    )
++    model = get_peft_model(model, lora_cfg)
++
++    raw_dataset = load_jsonl_dataset(config.data_path)
++    formatted_dataset = _format_dataset(raw_dataset, config.system_prompt)
++    tokenized_dataset = tokenize_dataset(formatted_dataset, tokenizer, config.max_length)
++
++    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
++
++    training_args = TrainingArguments(
++        output_dir=config.output_dir,
++        per_device_train_batch_size=config.per_device_train_batch_size,
++        gradient_accumulation_steps=config.gradient_accumulation_steps,
++        learning_rate=config.learning_rate,
++        num_train_epochs=config.num_train_epochs,
++        max_steps=config.max_steps,
++        logging_steps=config.logging_steps,
++        save_steps=config.save_steps,
++        save_total_limit=1,
++        fp16=config.fp16,
++        bf16=config.bf16,
++        dataloader_pin_memory=False,
++        report_to=[],
++        optim="adamw_torch",
++    )
++
++    trainer = Trainer(
++        model=model,
++        args=training_args,
++        train_dataset=tokenized_dataset,
++        data_collator=data_collator,
++    )
++    trainer.train()
++
++    model.save_pretrained(config.output_dir)
++    tokenizer.save_pretrained(config.output_dir)
++
++    if config.merge_lora:
++        merged_model = model.merge_and_unload()
++        merged_dir = os.path.join(config.output_dir, "merged")
++        os.makedirs(merged_dir, exist_ok=True)
++        merged_model.save_pretrained(merged_dir)
++        tokenizer.save_pretrained(merged_dir)
++
++    return config.output_dir
++
++
++def create_tiny_model_and_tokenizer(path: str, vocab: Iterable[str]) -> str:
++    vocab_list = list(dict.fromkeys(vocab))
++    tokenizer = Tokenizer(WordLevel({tok: i for i, tok in enumerate(vocab_list)}, "[UNK]"))
++    tokenizer.pre_tokenizer = Whitespace()
++    fast_tokenizer = PreTrainedTokenizerFast(
++        tokenizer_object=tokenizer,
++        unk_token="[UNK]",
++        pad_token="[PAD]",
++        eos_token="</s>",
++        bos_token="<s>",
++    )
++    fast_tokenizer.save_pretrained(path)
++
++    config = GPT2Config(
++        vocab_size=len(vocab_list),
++        n_positions=64,
++        n_ctx=64,
++        n_embd=32,
++        n_layer=1,
++        n_head=2,
++        bos_token_id=fast_tokenizer.bos_token_id,
++        eos_token_id=fast_tokenizer.eos_token_id,
++    )
++    model = GPT2LMHeadModel(config)
++    model.save_pretrained(path)
++    return path
++
++
++def _build_arg_parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(description="LoRA SFT for causal LMs")
++    parser.add_argument("--base_model", required=True)
++    parser.add_argument("--data_path", required=True)
++    parser.add_argument("--output_dir", required=True)
++    parser.add_argument("--system_prompt", default="You are a helpful assistant.")
++    parser.add_argument("--max_length", type=int, default=512)
++    parser.add_argument("--per_device_train_batch_size", type=int, default=1)
++    parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
++    parser.add_argument("--num_train_epochs", type=float, default=1.0)
++    parser.add_argument("--max_steps", type=int, default=-1)
++    parser.add_argument("--learning_rate", type=float, default=2e-4)
++    parser.add_argument("--logging_steps", type=int, default=5)
++    parser.add_argument("--save_steps", type=int, default=50)
++    parser.add_argument("--seed", type=int, default=42)
++    parser.add_argument("--gradient_checkpointing", action="store_true")
++    parser.add_argument("--fp16", action="store_true")
++    parser.add_argument("--bf16", action="store_true")
++    parser.add_argument("--quantization_bits", type=int, choices=[4, 8])
++    parser.add_argument("--no_device_map_auto", action="store_true")
++    parser.add_argument("--cpu_offload", action="store_true")
++    parser.add_argument("--lora_r", type=int, default=8)
++    parser.add_argument("--lora_alpha", type=int, default=16)
++    parser.add_argument("--lora_dropout", type=float, default=0.05)
++    parser.add_argument("--lora_target_modules")
++    parser.add_argument("--merge_lora", action="store_true")
++    parser.add_argument("--online", action="store_true")
++    parser.add_argument("--tokenizer_path")
++    return parser
++
++
++def _config_from_args(args: argparse.Namespace) -> SFTConfig:
++    return SFTConfig(
++        base_model=args.base_model,
++        data_path=args.data_path,
++        output_dir=args.output_dir,
++        system_prompt=args.system_prompt,
++        max_length=args.max_length,
++        per_device_train_batch_size=args.per_device_train_batch_size,
++        gradient_accumulation_steps=args.gradient_accumulation_steps,
++        num_train_epochs=args.num_train_epochs,
++        max_steps=args.max_steps,
++        learning_rate=args.learning_rate,
++        logging_steps=args.logging_steps,
++        save_steps=args.save_steps,
++        seed=args.seed,
++        gradient_checkpointing=args.gradient_checkpointing,
++        fp16=args.fp16,
++        bf16=args.bf16,
++        quantization_bits=args.quantization_bits,
++        device_map_auto=not args.no_device_map_auto,
++        cpu_offload=args.cpu_offload,
++        lora_r=args.lora_r,
++        lora_alpha=args.lora_alpha,
++        lora_dropout=args.lora_dropout,
++        lora_target_modules=args.lora_target_modules,
++        merge_lora=args.merge_lora,
++        offline=not args.online,
++        tokenizer_path=args.tokenizer_path,
++    )
++
++
++def main() -> None:
++    parser = _build_arg_parser()
++    args = parser.parse_args()
++    config = _config_from_args(args)
++    train_sft(config)
++
++
++if __name__ == "__main__":
++    main()
+\ No newline at end of file
