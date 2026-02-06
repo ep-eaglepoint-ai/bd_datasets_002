@@ -1,0 +1,11 @@
+services:
+  evaluation:
+    build: .
+    working_dir: /app
+    command: ["sh", "-c", "sleep 3 && node evaluation/evaluation.js"]
+    volumes:
+      - .:/host:rw
+  test:
+    build: .
+    working_dir: /app
+    command: ["sh", "-c", "sleep 3 && node --experimental-vm-modules node_modules/jest/bin/jest.js"]

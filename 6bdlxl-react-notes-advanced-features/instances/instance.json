@@ -1,0 +1,11 @@
+{
+            "instance_id": "6BDLXL",
+            "problem_statement": "The existing note-taking system allows users to create, edit, delete, and filter notes by tags. Users have requested advanced productivity features, including real-time search, date-based filtering, and robust import/export functionality. Your task is to implement these features while maintaining full compatibility with the existing application. The solution must ensure accurate state management, seamless UI integration, and no regression in existing functionality under complex interactions.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/6bdlxl-react-notes-advanced-features",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
