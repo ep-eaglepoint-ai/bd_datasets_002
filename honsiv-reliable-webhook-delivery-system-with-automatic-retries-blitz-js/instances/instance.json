@@ -1,0 +1,21 @@
+{
+    "instance_id": "HONSIV",
+    "problem_statement": "The objective is to build a reliable, observable, and retryable webhook delivery system for a Blitz.js application. The system must support idempotent delivery per event/endpoint using database unique constraints, automatic retries with exponential backoff and jitter, and configurable maximum retry attempts. It must track delivery status, attempt counts, last errors, and next retry times, while providing a full audit trail of all delivery attempts. The system should handle failures gracefully, marking deliveries as 'DEAD' after max attempts, and distinguish between target endpoint errors (non-2xx responses) and network-level failures. An admin interface is required to manage webhook endpoints (URL, secret, status, event subscriptions) and monitor delivery history. Implementation must ensure bit-level reproducibility using Docker.",
+    "base_commit": "repository_before/",
+    "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/honsiv-reliable-webhook-delivery-system-with-automatic-retries-blitz-js",
+    "category": "sft",
+    "priority": 1,
+    "bucket_tag": "feature",
+    "category_tag": "0_1_gen",
+    "FAIL_TO_PASS": [
+        "Requirement 3: Guarantee idempotent delivery per endpoint and event",
+        "Requirement 4: Automatically retry failures",
+        "Requirement 5: Mark deliveries as permanently failed after max retry attempts",
+        "Requirement 7: Use exponential backoff with jitter between retries",
+        "Requirement 8: Configurable maximum retry attempts (default: 10)",
+        "Requirement 9: Track attempt count, last error, last HTTP status, and next retry time",
+        "Requirement 10: Webhook endpoints with URL, secret, enabled flag, and subscribed event types",
+        "Integration: should maintain complete audit trail through full flow"
+    ],
+    "PASS_TO_PASS": []
+}
