@@ -1,0 +1,43 @@
+{
+  "instance_id": "HIVNNF",
+  "problem_statement": "In a high-traffic PostgreSQL system, aggregating recent user activity using row-by-row loops causes significant performance overhead and inefficient resource usage on large tables. A function is needed that computes login counts, action counts, and the last activity timestamp for a user over a specified number of days using set-based aggregation, while avoiding functions on timestamp columns to ensure efficient index usage. The solution must handle hundreds of millions of rows efficiently, produce deterministic and correct results for all edge cases, preserve exact counts and timestamps, and remain fully compatible with the existing function signature and PL/pgSQL implementation without schema changes, temporary tables, or materialized views.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/hivnnf-user-activity-aggregation",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "test_no_for_loop",
+    "test_uses_aggregation_functions",
+    "test_uses_case_when_for_counts",
+    "test_no_date_function_on_activity_time",
+    "test_sargable_predicate",
+    "test_returns_last_activity",
+    "test_no_record_variable",
+    "test_minimal_variables",
+    "test_handles_null_with_coalesce",
+    "test_returns_zero_for_empty_counts",
+    "test_function_not_too_long",
+    "test_uses_max_for_last_activity"
+  ],
+  "PASS_TO_PASS": [
+    "test_no_cast_on_activity_time_in_where",
+    "test_uses_current_date_subtraction",
+    "test_returns_login_count",
+    "test_returns_action_count",
+    "test_single_table_scan",
+    "test_no_subqueries",
+    "test_proper_indentation",
+    "test_no_random_functions",
+    "test_same_function_name",
+    "test_same_parameters",
+    "test_same_return_type",
+    "test_no_create_index",
+    "test_no_alter_table",
+    "test_no_temp_table",
+    "test_no_materialized_view",
+    "test_filters_by_user_id",
+    "test_filters_by_date_range",
+    "test_counts_login_type",
+    "test_remains_plpgsql"
+  ]
+}
