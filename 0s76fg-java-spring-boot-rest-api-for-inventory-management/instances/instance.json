@@ -1,0 +1,15 @@
+{
+  "instance_id": "0S76FG",
+  "problem_statement": "The warehouse operations team reported stock discrepancies across three distribution centers. Manual spreadsheet tracking fails when multiple terminals process shipments simultaneously, causing overselling and fulfillment delays. Last month, 47 orders shipped incomplete due to phantom inventory. The business needs a centralized inventory system accessible via REST API that integrates with existing ERP. Must handle 500 concurrent stock updates without data loss, provide real-time availability, and maintain complete audit trail of all movements.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/0s76fg-java-spring-boot-rest-api-for-inventory-management",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "TestRequirements::testProductLifecycle",
+    "TestRequirements::testLocationLifecycle",
+    "TestRequirements::testInventoryOperations",
+    "TestRequirements::testValidations"
+  ],
+  "PASS_TO_PASS": []
+}
