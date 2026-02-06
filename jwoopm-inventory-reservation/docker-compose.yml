@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 5432
+      PYTHONPATH: /app
+    volumes:
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+      - ./evaluation:/app/evaluation
+    command: >
+      sh -c "
+        echo 'Waiting for PostgreSQL...' &&
+        sleep 5 &&
+        echo 'Running tests on repository_after implementation...' &&
+        python -m pytest tests/ -v
+      "
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - tests
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 5432
+      PYTHONPATH: /app
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests
+      - ./repository_before:/app/repository_before
+      - ./repository_after:/app/repository_after
+    command: python evaluation/evaluation.py
+
+volumes:
+  postgres_data:
