@@ -1,0 +1,13 @@
+{
+            "instance_id": "ZJQZ0H",
+            "problem_statement": "The file upload service has severe performance issues under load. Large file uploads freeze the entire server, blocking all other API requests. Memory usage spikes to 4GB+ causing crashes when multiple users upload images simultaneously. Image processing takes 30+ seconds and makes the API unresponsive. 
+
+Database connections exhaust after 20 concurrent uploads with "too many connections" errors. Partial files are left on disk after server crashes. Core logic is in server.js, upload.js, storage.js, and database.js.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/zjqz0h-node-js-express-file-upload-service-performance-optimization",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

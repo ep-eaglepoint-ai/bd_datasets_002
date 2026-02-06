@@ -1,0 +1,769 @@
+diff --git a/repository_before/config.js b/repository_after/config.js
+index 203cf06..9ced111 100644
+--- a/repository_before/config.js
++++ b/repository_after/config.js
+@@ -2,16 +2,24 @@ const path = require('path');
+ 
+ module.exports = {
+     port: 3000,
+-    uploadDir: path.join(__dirname, 'uploads'),
+-    thumbnailDir: path.join(__dirname, 'thumbnails'),
++    uploadDir: process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'),
++    tempDir: process.env.TEMP_DIR || path.join(__dirname, 'temp'),
++    thumbnailDir: process.env.THUMBNAIL_DIR || path.join(__dirname, 'thumbnails'),
+     maxFileSize: 100 * 1024 * 1024,
+     allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+     thumbnailSize: { width: 200, height: 200 },
+     database: {
+-        host: 'localhost',
+-        port: 5432,
+-        database: 'uploads_db',
+-        user: 'postgres',
+-        password: 'postgres'
+-    }
++        host: process.env.DB_HOST || 'localhost',
++        port: parseInt(process.env.DB_PORT) || 5432,
++        database: process.env.DB_NAME || 'uploads_db',
++        user: process.env.DB_USER || 'postgres',
++        password: process.env.DB_PASSWORD || 'postgres',
++        max: 20,
++        idleTimeoutMillis: 30000,
++        connectionTimeoutMillis: 2000,
++    },
++    diskSpaceMetadata: {
++        minFreeSpace: 200 * 1024 * 1024
++    },
++    requestTimeout: 600000
+ };
+diff --git a/repository_before/database.js b/repository_after/database.js
+index 0f78952..1e12246 100644
+--- a/repository_before/database.js
++++ b/repository_after/database.js
+@@ -1,16 +1,24 @@
+-const { Client } = require('pg');
++const { Pool } = require('pg');
+ const config = require('./config');
+ 
++const pool = new Pool(config.database);
++
++pool.on('error', (err, client) => {
++    console.error('Unexpected error on idle client', err);
++    process.exit(-1);
++});
++
++async function query(text, params) {
++    return pool.query(text, params);
++}
++
+ async function saveUploadRecord(fileData) {
+-    const client = new Client(config.database);
+-    await client.connect();
+-    
+-    const query = `
++    const queryText = `
+         INSERT INTO uploads (filename, original_name, size, mimetype, path, uploaded_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING id
+     `;
+-    
++
+     const values = [
+         fileData.filename,
+         fileData.originalName,
+@@ -18,42 +26,53 @@ async function saveUploadRecord(fileData) {
+         fileData.mimetype,
+         fileData.path
+     ];
+-    
+-    const result = await client.query(query, values);
++
++    const result = await pool.query(queryText, values);
+     return result.rows[0].id;
+ }
+ 
+ async function getUploadById(id) {
+-    const client = new Client(config.database);
+-    await client.connect();
+-    
+-    const query = 'SELECT * FROM uploads WHERE id = $1';
+-    const result = await client.query(query, [id]);
+-    
++    const queryText = 'SELECT * FROM uploads WHERE id = $1';
++    const result = await pool.query(queryText, [id]);
+     return result.rows[0];
+ }
+ 
+ async function getAllUploads() {
+-    const client = new Client(config.database);
+-    await client.connect();
+-    
+-    const query = 'SELECT * FROM uploads ORDER BY uploaded_at DESC';
+-    const result = await client.query(query);
+-    
++    const queryText = 'SELECT * FROM uploads ORDER BY uploaded_at DESC';
++    const result = await pool.query(queryText);
+     return result.rows;
+ }
+ 
+ async function deleteUploadRecord(id) {
+-    const client = new Client(config.database);
+-    await client.connect();
+-    
+-    const query = 'DELETE FROM uploads WHERE id = $1';
+-    await client.query(query, [id]);
++    const queryText = 'DELETE FROM uploads WHERE id = $1';
++    await pool.query(queryText, [id]);
++}
++
++async function end() {
++    await pool.end();
++}
++
++async function init() {
++    const queryText = `
++        CREATE TABLE IF NOT EXISTS uploads (
++            id SERIAL PRIMARY KEY,
++            filename TEXT NOT NULL,
++            original_name TEXT NOT NULL,
++            size BIGINT NOT NULL,
++            mimetype TEXT NOT NULL,
++            path TEXT NOT NULL,
++            uploaded_at TIMESTAMP DEFAULT NOW()
++        );
++    `;
++    await pool.query(queryText);
+ }
+ 
+ module.exports = {
++    init,
++    query,
+     saveUploadRecord,
+     getUploadById,
+     getAllUploads,
+-    deleteUploadRecord
++    deleteUploadRecord,
++    end
+ };
+diff --git a/repository_before/package.json b/repository_after/package.json
+index 389f5f5..7cec1f9 100644
+--- a/repository_before/package.json
++++ b/repository_after/package.json
+@@ -1,14 +1,20 @@
+ {
+-  "name": "file-upload-service",
++  "name": "file-upload-service-optimized",
+   "version": "1.0.0",
+   "main": "server.js",
+   "scripts": {
+-    "start": "node server.js"
++    "start": "node server.js",
++    "test": "jest"
+   },
+   "dependencies": {
+     "express": "^4.18.2",
+     "multer": "^1.4.5-lts.1",
+     "pg": "^8.11.3",
+-    "sharp": "^0.33.1"
++    "sharp": "^0.33.1",
++    "uuid": "^9.0.1"
++  },
++  "devDependencies": {
++    "jest": "^29.7.0",
++    "supertest": "^6.3.3"
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/repository_before/server.js b/repository_after/server.js
+index 55a7f2c..62cd7fc 100644
+--- a/repository_before/server.js
++++ b/repository_after/server.js
+@@ -7,7 +7,7 @@ const app = express();
+ 
+ app.use(express.json());
+ 
+-storage.ensureDirectories();
++storage.init();
+ 
+ app.use('/uploads', uploadRouter);
+ 
+@@ -16,22 +16,13 @@ app.get('/health', (req, res) => {
+ });
+ 
+ app.get('/stats', async (req, res) => {
+-    const fs = require('fs');
+-    const path = require('path');
+-    
+-    const files = fs.readdirSync(config.uploadDir);
+-    let totalSize = 0;
+-    
+-    for (const file of files) {
+-        const stats = fs.statSync(path.join(config.uploadDir, file));
+-        totalSize += stats.size;
++    try {
++        const stats = await storage.getStats();
++        res.json(stats);
++    } catch (error) {
++        console.error('Stats error:', error);
++        res.status(500).json({ error: 'Failed to get stats' });
+     }
+-    
+-    res.json({
+-        fileCount: files.length,
+-        totalSize: totalSize,
+-        uploadDir: config.uploadDir
+-    });
+ });
+ 
+ app.use((err, req, res, next) => {
+@@ -39,6 +30,21 @@ app.use((err, req, res, next) => {
+     res.status(500).json({ error: 'Internal server error' });
+ });
+ 
+-app.listen(config.port, () => {
+-    console.log(`Server running on port ${config.port}`);
+-});
++module.exports = app;
++
++if (require.main === module) {
++    const database = require('./database');
++
++    database.init().then(() => {
++        const server = app.listen(config.port, () => {
++            console.log(`Server running on port ${config.port}`);
++        });
++
++        server.timeout = config.requestTimeout;
++        server.keepAliveTimeout = config.requestTimeout;
++        server.headersTimeout = config.requestTimeout + 1000;
++    }).catch(err => {
++        console.error('Failed to initialize database:', err);
++        process.exit(1);
++    });
++}
+diff --git a/repository_before/storage.js b/repository_after/storage.js
+index 7e9e53b..d5b5b09 100644
+--- a/repository_before/storage.js
++++ b/repository_after/storage.js
+@@ -1,77 +1,147 @@
+ const fs = require('fs');
++const fsPromises = require('fs').promises;
+ const path = require('path');
+-const sharp = require('sharp');
+ const config = require('./config');
++const { Worker } = require('worker_threads');
+ 
+-function ensureDirectories() {
++let thumbnailWorker;
++
++function init() {
++    ensureDirectoriesSync();
++    if (!thumbnailWorker) {
++        thumbnailWorker = new Worker(path.join(__dirname, 'thumbnailWorker.js'), {
++            env: process.env
++        });
++        thumbnailWorker.unref();
++    }
++}
++
++function ensureDirectoriesSync() {
+     if (!fs.existsSync(config.uploadDir)) {
+         fs.mkdirSync(config.uploadDir, { recursive: true });
+     }
++    if (!fs.existsSync(config.tempDir)) {
++        fs.mkdirSync(config.tempDir, { recursive: true });
++    }
+     if (!fs.existsSync(config.thumbnailDir)) {
+         fs.mkdirSync(config.thumbnailDir, { recursive: true });
+     }
+ }
+ 
+-function saveFile(buffer, filename) {
+-    ensureDirectories();
+-    const filePath = path.join(config.uploadDir, filename);
+-    fs.writeFileSync(filePath, buffer);
+-    return filePath;
++async function checkDiskSpace() {
++    try {
++        const stats = await fsPromises.statfs(config.uploadDir);
++        const available = stats.bavail * stats.bsize;
++        if (available < config.diskSpaceMetadata.minFreeSpace) {
++            throw new Error('Disk space full');
++        }
++        return true;
++    } catch (error) {
++        if (error.code === 'ENOENT') return true;
++        throw error;
++    }
+ }
+ 
+-function readFile(filename) {
+-    const filePath = path.join(config.uploadDir, filename);
+-    return fs.readFileSync(filePath);
+-}
++const MAGIC_NUMBERS = {
++    jpg: [0xFF, 0xD8, 0xFF],
++    png: [0x89, 0x50, 0x4E, 0x47],
++    gif: [0x47, 0x49, 0x46, 0x38],
++    pdf: [0x25, 0x50, 0x44, 0x46],
++    zip: [0x50, 0x4B, 0x03, 0x04]
++};
+ 
+-function deleteFile(filename) {
+-    const filePath = path.join(config.uploadDir, filename);
+-    if (fs.existsSync(filePath)) {
+-        fs.unlinkSync(filePath);
++async function validateFileContent(filePath, mimetype) {
++    const handle = await fsPromises.open(filePath, 'r');
++    const buffer = Buffer.alloc(8);
++    try {
++        await handle.read(buffer, 0, 8, 0);
++    } finally {
++        await handle.close();
+     }
+-}
+ 
+-function generateThumbnail(filename) {
+-    const inputPath = path.join(config.uploadDir, filename);
+-    const outputFilename = `thumb_${filename}`;
+-    const outputPath = path.join(config.thumbnailDir, outputFilename);
+-    
+-    const imageBuffer = fs.readFileSync(inputPath);
+-    
+-    const thumbnailBuffer = sharp(imageBuffer)
+-        .resize(config.thumbnailSize.width, config.thumbnailSize.height, {
+-            fit: 'cover'
+-        })
+-        .toBuffer();
+-    
+-    fs.writeFileSync(outputPath, thumbnailBuffer);
+-    
+-    return outputFilename;
++    let valid = false;
++
++    if (mimetype === 'image/jpeg' || mimetype === 'image/jpg') {
++        if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) valid = true;
++    } else if (mimetype === 'image/png') {
++        if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) valid = true;
++    } else if (mimetype === 'image/gif') {
++        if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) valid = true;
++    } else if (mimetype === 'application/pdf') {
++        if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) valid = true;
++    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
++        if (buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04) valid = true;
++    } else {
++        valid = false;
++    }
++
++    if (!valid) {
++        throw new Error('Invalid file content');
++    }
++    return true;
+ }
+ 
+-function resizeImage(buffer, width, height) {
+-    return sharp(buffer)
+-        .resize(width, height, { fit: 'inside' })
+-        .toBuffer();
++async function moveFromTempToUploads(tempPath, filename) {
++    const targetPath = path.join(config.uploadDir, filename);
++    await fsPromises.rename(tempPath, targetPath);
++    return targetPath;
+ }
+ 
+-function getFileStats(filename) {
++function getReadStream(filename) {
+     const filePath = path.join(config.uploadDir, filename);
+-    return fs.statSync(filePath);
++    return fs.createReadStream(filePath);
+ }
+ 
+-function fileExists(filename) {
++async function deleteFile(filename) {
+     const filePath = path.join(config.uploadDir, filename);
+-    return fs.existsSync(filePath);
++    try {
++        await fsPromises.unlink(filePath);
++    } catch (e) {
++        if (e.code !== 'ENOENT') console.error('Error deleting file', e);
++    }
++    const thumbPath = path.join(config.thumbnailDir, `thumb_${filename}`);
++    try {
++        await fsPromises.unlink(thumbPath);
++    } catch (e) { }
++}
++
++async function deleteTempFile(path) {
++    try {
++        await fsPromises.unlink(path);
++    } catch (e) { }
++}
++
++function triggerThumbnailGeneration(filename) {
++    if (!thumbnailWorker) init();
++    const thumbnailFilename = `thumb_${filename}`;
++    thumbnailWorker.postMessage({ filename, thumbnailFilename });
++    return thumbnailFilename;
++}
++
++async function getStats() {
++    const files = await fsPromises.readdir(config.uploadDir);
++    let totalSize = 0;
++    for (const file of files) {
++        try {
++            const stats = await fsPromises.stat(path.join(config.uploadDir, file));
++            totalSize += stats.size;
++        } catch (e) { }
++    }
++    return {
++        fileCount: files.length,
++        totalSize,
++        uploadDir: config.uploadDir
++    };
+ }
+ 
+ module.exports = {
+-    ensureDirectories,
+-    saveFile,
+-    readFile,
++    init,
++    checkDiskSpace,
++    validateFileContent,
++    moveFromTempToUploads,
++    getReadStream,
+     deleteFile,
+-    generateThumbnail,
+-    resizeImage,
+-    getFileStats,
+-    fileExists
++    deleteTempFile,
++    triggerThumbnailGeneration,
++    getStats
+ };
+diff --git a/repository_after/thumbnailWorker.js b/repository_after/thumbnailWorker.js
+new file mode 100644
+index 0000000..194fe85
+--- /dev/null
++++ b/repository_after/thumbnailWorker.js
+@@ -0,0 +1,23 @@
++const { parentPort } = require('worker_threads');
++const sharp = require('sharp');
++const path = require('path');
++const config = require('./config');
++
++parentPort.on('message', async (task) => {
++    try {
++        const { filename, thumbnailFilename } = task;
++        const inputPath = path.join(config.uploadDir, filename);
++        const outputPath = path.join(config.thumbnailDir, thumbnailFilename);
++
++        await sharp(inputPath)
++            .resize(config.thumbnailSize.width, config.thumbnailSize.height, {
++                fit: 'cover'
++            })
++            .toFile(outputPath);
++
++        parentPort.postMessage({ status: 'done', filename, thumbnailFilename });
++    } catch (error) {
++        console.error('Thumbnail worker error:', error);
++        parentPort.postMessage({ status: 'error', error: error.message });
++    }
++});
+diff --git a/repository_before/upload.js b/repository_after/upload.js
+index 9262165..c8a29c8 100644
+--- a/repository_before/upload.js
++++ b/repository_after/upload.js
+@@ -1,123 +1,170 @@
+ const express = require('express');
+ const multer = require('multer');
+ const path = require('path');
++const { v4: uuidv4 } = require('uuid'); // Req 7
+ const config = require('./config');
+ const storage = require('./storage');
+ const database = require('./database');
+ 
+ const router = express.Router();
+ 
++const multerStorage = multer.diskStorage({
++    destination: (req, file, cb) => {
++        cb(null, config.tempDir);
++    },
++    filename: (req, file, cb) => {
++        const ext = path.extname(file.originalname);
++        const filename = `${uuidv4()}${ext}`;
++        cb(null, filename);
++    }
++});
++
+ const upload = multer({
+-    storage: multer.memoryStorage(),
++    storage: multerStorage,
+     limits: { fileSize: config.maxFileSize }
+ });
+ 
+-function isAllowedType(mimetype) {
+-    return config.allowedTypes.includes(mimetype);
+-}
++const cleanupTemp = async (file) => {
++    if (file && file.path) {
++        await storage.deleteTempFile(file.path);
++    }
++    if (Array.isArray(file)) {
++        for (const f of file) await storage.deleteTempFile(f.path);
++    }
++};
+ 
+-function isImage(mimetype) {
+-    return mimetype.startsWith('image/');
+-}
++const cleanupUpload = async (filename) => {
++    if (filename) await storage.deleteFile(filename);
++};
++
++const checkDiskSpace = async (req, res, next) => {
++    try {
++        await storage.checkDiskSpace();
++        next();
++    } catch (error) {
++        if (error.message === 'Disk space full') {
++            return res.status(507).json({ error: 'Disk space full' });
++        }
++        next(error);
++    }
++};
++
++router.post('/', checkDiskSpace, upload.single('file'), async (req, res) => {
++    let uploadedFilename = null;
+ 
+-router.post('/', upload.single('file'), async (req, res) => {
+     try {
+         if (!req.file) {
+             return res.status(400).json({ error: 'No file uploaded' });
+         }
+-        
+-        if (!isAllowedType(req.file.mimetype)) {
+-            return res.status(400).json({ error: 'File type not allowed' });
++
++        try {
++            await storage.validateFileContent(req.file.path, req.file.mimetype);
++        } catch (e) {
++            await cleanupTemp(req.file);
++            return res.status(400).json({ error: 'File content check failed: ' + e.message });
+         }
+-        
+-        const filename = req.file.originalname;
+-        const filePath = storage.saveFile(req.file.buffer, filename);
+-        
+-        let thumbnailFilename = null;
+-        if (isImage(req.file.mimetype)) {
+-            thumbnailFilename = storage.generateThumbnail(filename);
++
++        const filename = req.file.filename;
++        const finalPath = await storage.moveFromTempToUploads(req.file.path, filename);
++        uploadedFilename = filename;
++        let thumbnailStatus = 'pending';
++        if (req.file.mimetype.startsWith('image/')) {
++            storage.triggerThumbnailGeneration(filename);
++            thumbnailStatus = 'generating';
+         }
+-        
++
+         const uploadId = await database.saveUploadRecord({
+             filename: filename,
+             originalName: req.file.originalname,
+             size: req.file.size,
+             mimetype: req.file.mimetype,
+-            path: filePath
++            path: finalPath
+         });
+-        
++
+         res.json({
+             id: uploadId,
+             filename: filename,
+             size: req.file.size,
+             mimetype: req.file.mimetype,
+-            thumbnail: thumbnailFilename
++            thumbnailStatus: thumbnailStatus
+         });
+-        
++
+     } catch (error) {
+         console.error('Upload error:', error);
++        if (uploadedFilename) {
++            await cleanupUpload(uploadedFilename);
++        } else if (req.file) {
++            await cleanupTemp(req.file);
++        }
+         res.status(500).json({ error: 'Upload failed' });
+     }
+ });
+ 
+-router.post('/multiple', upload.array('files', 10), async (req, res) => {
++router.post('/multiple', checkDiskSpace, upload.array('files', 10), async (req, res) => {
++    const processed = [];
++
+     try {
+         if (!req.files || req.files.length === 0) {
+             return res.status(400).json({ error: 'No files uploaded' });
+         }
+-        
++
+         const results = [];
+-        
++
+         for (const file of req.files) {
+-            if (!isAllowedType(file.mimetype)) {
+-                continue;
++            try {
++                await storage.validateFileContent(file.path, file.mimetype);
++            } catch (e) {
++                throw new Error(`File ${file.originalname} validation failed`);
+             }
+-            
+-            const filename = file.originalname;
+-            const filePath = storage.saveFile(file.buffer, filename);
+-            
+-            let thumbnailFilename = null;
+-            if (isImage(file.mimetype)) {
+-                thumbnailFilename = storage.generateThumbnail(filename);
++
++            const filename = file.filename;
++            const finalPath = await storage.moveFromTempToUploads(file.path, filename);
++            processed.push(filename);
++            let thumbnailStatus = null;
++            if (file.mimetype.startsWith('image/')) {
++                storage.triggerThumbnailGeneration(filename);
++                thumbnailStatus = 'generating';
+             }
+-            
++
+             const uploadId = await database.saveUploadRecord({
+                 filename: filename,
+                 originalName: file.originalname,
+                 size: file.size,
+                 mimetype: file.mimetype,
+-                path: filePath
++                path: finalPath
+             });
+-            
++
+             results.push({
+                 id: uploadId,
+                 filename: filename,
+                 size: file.size,
+                 mimetype: file.mimetype,
+-                thumbnail: thumbnailFilename
++                thumbnailStatus: thumbnailStatus
+             });
+         }
+-        
++
+         res.json({ uploads: results });
+-        
++
+     } catch (error) {
+         console.error('Multiple upload error:', error);
+-        res.status(500).json({ error: 'Upload failed' });
++        for (const f of req.files) {
++            const moved = processed.find(p => p === f.filename);
++            if (moved) {
++                await cleanupUpload(moved);
++            } else {
++                await cleanupTemp(f);
++            }
++        }
++        res.status(500).json({ error: 'Upload failed: ' + error.message });
+     }
+ });
+ 
+ router.get('/:id', async (req, res) => {
+     try {
+         const upload = await database.getUploadById(req.params.id);
+-        
+-        if (!upload) {
+-            return res.status(404).json({ error: 'Upload not found' });
+-        }
+-        
++        if (!upload) return res.status(404).json({ error: 'Upload not found' });
+         res.json(upload);
+-        
+     } catch (error) {
+-        console.error('Get upload error:', error);
+         res.status(500).json({ error: 'Failed to get upload' });
+     }
+ });
+@@ -125,17 +172,19 @@ router.get('/:id', async (req, res) => {
+ router.get('/:id/download', async (req, res) => {
+     try {
+         const upload = await database.getUploadById(req.params.id);
+-        
+-        if (!upload) {
+-            return res.status(404).json({ error: 'Upload not found' });
+-        }
+-        
+-        const fileBuffer = storage.readFile(upload.filename);
+-        
++        if (!upload) return res.status(404).json({ error: 'Upload not found' });
++
++        const stream = storage.getReadStream(upload.filename);
++
+         res.setHeader('Content-Type', upload.mimetype);
+         res.setHeader('Content-Disposition', `attachment; filename="${upload.original_name}"`);
+-        res.send(fileBuffer);
+-        
++        stream.pipe(res);
++
++        stream.on('error', (err) => {
++            console.error('Stream error', err);
++            res.end();
++        });
++
+     } catch (error) {
+         console.error('Download error:', error);
+         res.status(500).json({ error: 'Download failed' });
+@@ -145,16 +194,12 @@ router.get('/:id/download', async (req, res) => {
+ router.delete('/:id', async (req, res) => {
+     try {
+         const upload = await database.getUploadById(req.params.id);
+-        
+-        if (!upload) {
+-            return res.status(404).json({ error: 'Upload not found' });
+-        }
+-        
+-        storage.deleteFile(upload.filename);
++        if (!upload) return res.status(404).json({ error: 'Upload not found' });
++
++        await storage.deleteFile(upload.filename);
+         await database.deleteUploadRecord(req.params.id);
+-        
++
+         res.json({ message: 'Upload deleted' });
+-        
+     } catch (error) {
+         console.error('Delete error:', error);
+         res.status(500).json({ error: 'Delete failed' });
+@@ -166,7 +211,6 @@ router.get('/', async (req, res) => {
+         const uploads = await database.getAllUploads();
+         res.json({ uploads });
+     } catch (error) {
+-        console.error('List uploads error:', error);
+         res.status(500).json({ error: 'Failed to list uploads' });
+     }
+ });
+diff --git a/repository_before/uploads/fake.jpg b/repository_before/uploads/fake.jpg
+deleted file mode 100644
+index fd07df0..0000000
+--- a/repository_before/uploads/fake.jpg
++++ /dev/null
+@@ -1 +0,0 @@
+-This is not a JPG
+\ No newline at end of file
+diff --git a/repository_before/uploads/test.pdf b/repository_before/uploads/test.pdf
+deleted file mode 100644
+index df6387a..0000000
+--- a/repository_before/uploads/test.pdf
++++ /dev/null
+@@ -1,2 +0,0 @@
+-%PDF-1.4
+-%junk
