@@ -1,131 +1,9 @@
-diff --git a/repository_before/README.md b/repository_after/README.md
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/env.d.ts b/repository_after/env.d.ts
 new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/README.md
-@@ -0,0 +1,89 @@
-+# Image to PDF Converter
-+
-+A complete, production-ready client-side Image to PDF Converter built with Vue 3, TypeScript, and modern web technologies. This application allows users to upload multiple images, reorder them via drag-and-drop, customize PDF settings, and generate optimized PDFs entirely in the browser.
-+
-+## Features
-+
-+### Core Functionality
-+- **Multi-image Upload**: Support for JPG, PNG, WEBP formats
-+- **Drag & Drop Interface**: Intuitive file upload and image reordering
-+- **Real-time Preview**: See images before conversion with thumbnail previews
-+- **PDF Customization**: Choose page size (A4, Letter, Auto-fit), orientation, and scaling
-+- **Progress Tracking**: Visual progress indicator during PDF generation
-+- **Memory Optimization**: Automatic image compression and memory management
-+
-+### Technical Features
-+- **100% Client-side**: No backend dependencies, works offline after initial load
-+- **Vue 3 Composition API**: Modern reactive framework with TypeScript
-+- **Responsive Design**: Works seamlessly on desktop and mobile devices
-+- **Error Handling**: Comprehensive validation and user feedback
-+- **Performance Optimized**: Handles large images with automatic compression
-+
-+## Technology Stack
-+
-+- **Framework**: Vue 3 with Composition API
-+- **Language**: TypeScript
-+- **PDF Generation**: jsPDF
-+- **Image Processing**: browser-image-compression
-+- **Drag & Drop**: vuedraggable
-+- **Build Tool**: Vite
-+- **Styling**: Modern CSS with responsive design
-+
-+## Project Structure
-+
-+```
-+src/
-+├── components/           # Vue components
-+│   ├── FileUpload.vue   # Drag & drop file upload
-+│   ├── ImagePreview.vue # Image thumbnails with reordering
-+│   ├── PdfOptions.vue   # PDF customization settings
-+│   └── ConversionProgress.vue # Progress tracking
-+├── composables/         # Vue composition functions
-+│   ├── useImageUpload.ts    # Image upload logic
-+│   └── usePdfGeneration.ts  # PDF generation logic
-+├── utils/              # Utility functions
-+│   ├── imageProcessor.ts    # Image validation & compression
-+│   └── pdfGenerator.ts      # PDF creation logic
-+├── types/              # TypeScript type definitions
-+│   └── index.ts
-+├── App.vue             # Main application component
-+├── main.ts             # Application entry point
-+└── style.css           # Global styles
-+```
-+
-+## Installation & Setup
-+
-+### Prerequisites
-+- Node.js 18+ 
-+- npm or yarn
-+
-+### Development Setup
-+
-+1. **Install Dependencies**
-+   ```bash
-+   npm install
-+   ```
-+
-+2. **Start Development Server**
-+   ```bash
-+   npm run dev
-+   ```
-+
-+3. **Build for Production**
-+   ```bash
-+   npm run build
-+   ```
-+
-+4. **Preview Production Build**
-+   ```bash
-+   npm run preview
-+   ```
-+
-+## Usage
-+
-+1. **Upload Images**: Click the upload area or drag & drop image files
-+2. **Reorder Images**: Drag thumbnails to reorder pages in the final PDF
-+3. **Customize Settings**: Choose page size, orientation, and image scaling
-+4. **Set Filename**: Enter a custom name for your PDF
-+5. **Generate PDF**: Click convert to create and download your PDF
-+
-+## Browser Compatibility
-+
-+- Chrome 88+
-+- Firefox 85+
-+- Safari 14+
-+- Edge 88+
-+
-+## Performance Considerations
-+
-+- **Memory Management**: Large images are automatically compressed
-+- **Batch Processing**: Images processed in chunks to prevent browser freezing
-+- **File Size Limits**: Individual files limited to 50MB for optimal performance
-+- **Format Validation**: Only supported image formats are accepted
-+
-+## Error Handling
-+
-+The application includes comprehensive error handling for:
-+- Unsupported file formats
-+- Oversized files
-+- Memory limitations
-+- Network issues
-+- Browser compatibility
-+
-+## Contributing
-+
-+This is a production-ready implementation following Vue 3 best practices with TypeScript. The codebase is modular, well-documented, and follows modern web development standards.
-+
-+## License
-+
-+MIT License - feel free to use this code for your projects.
-diff --git a/repository_before/env.d.ts b/repository_after/env.d.ts
-new file mode 100644
-index 0000000..0000000
+index 0000000..37dae94
 --- /dev/null
 +++ b/repository_after/env.d.ts
 @@ -0,0 +1,7 @@
@@ -136,12 +14,13 @@ index 0000000..0000000
 +  const component: DefineComponent<{}, {}, any>
 +  export default component
 +}
-diff --git a/repository_before/index.html b/repository_after/index.html
+\ No newline at end of file
+diff --git a/repository_after/index.html b/repository_after/index.html
 new file mode 100644
-index 0000000..0000000
+index 0000000..ecde55c
 --- /dev/null
 +++ b/repository_after/index.html
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,13 @@
 +<!DOCTYPE html>
 +<html lang="en">
 +  <head>
@@ -149,33 +28,31 @@ index 0000000..0000000
 +    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
 +    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 +    <title>Image to PDF Converter</title>
-+    <meta name="description" content="Convert multiple images to PDF with drag-and-drop reordering, customizable settings, and client-side processing." />
-+    <meta name="keywords" content="image to pdf, converter, vue, typescript, client-side" />
 +  </head>
 +  <body>
 +    <div id="app"></div>
 +    <script type="module" src="/src/main.ts"></script>
-+    <noscript>
-+      <p>This application requires JavaScript to function properly.</p>
-+    </noscript>
 +  </body>
 +</html>
-diff --git a/repository_before/package.json b/repository_after/package.json
+\ No newline at end of file
+diff --git a/repository_after/package.json b/repository_after/package.json
 new file mode 100644
-index 0000000..0000000
+index 0000000..c1e372b
 --- /dev/null
 +++ b/repository_after/package.json
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,35 @@
 +{
 +  "name": "image-to-pdf-converter",
-+  "private": true,
 +  "version": "1.0.0",
++  "description": "Client-side deterministic image to PDF converter using Vue 3",
 +  "type": "module",
-+  "description": "Client-side Image to PDF Converter built with Vue 3 and TypeScript",
 +  "scripts": {
 +    "dev": "vite",
 +    "build": "vue-tsc && vite build",
-+    "preview": "vite preview"
++    "preview": "vite preview",
++    "test": "jest --run",
++    "test:watch": "jest --watch",
++    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
 +  },
 +  "dependencies": {
 +    "vue": "^3.4.0",
@@ -184,144 +61,220 @@ index 0000000..0000000
 +    "vuedraggable": "^4.1.0"
 +  },
 +  "devDependencies": {
-+    "@types/node": "^20.11.0",
-+    "@vitejs/plugin-vue": "^5.0.0",
-+    "typescript": "^5.3.0",
++    "@types/node": "^20.10.0",
++    "@vitejs/plugin-vue": "^4.5.0",
++    "@vue/eslint-config-typescript": "^12.0.0",
++    "@vue/tsconfig": "^0.5.0",
++    "eslint": "^8.49.0",
++    "eslint-plugin-vue": "^9.17.0",
++    "typescript": "~5.3.0",
 +    "vite": "^5.0.0",
-+    "vue-tsc": "^1.8.0"
-+  },
-+  "keywords": [
-+    "vue",
-+    "typescript",
-+    "pdf",
-+    "image-converter",
-+    "client-side"
-+  ]
++    "jest": "^29.7.0",
++    "jest-environment-jsdom": "^29.7.0",
++    "vue-tsc": "^1.8.25",
++    "@vue/test-utils": "^2.4.0",
++    "jsdom": "^23.0.0"
++  }
 +}
-diff --git a/repository_before/src/App.vue b/repository_after/src/App.vue
+\ No newline at end of file
+diff --git a/repository_after/src/App.vue b/repository_after/src/App.vue
 new file mode 100644
-index 0000000..0000000
+index 0000000..fb34baa
 --- /dev/null
 +++ b/repository_after/src/App.vue
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,406 @@
 +<template>
 +  <div class="app">
 +    <header class="app-header">
-+      <h1>Image to PDF Converter</h1>
-+      <p>Convert multiple images to PDF with drag-and-drop reordering</p>
++      <h1 class="app-title">
++        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
++          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
++          <polyline points="14,2 14,8 20,8"/>
++          <line x1="16" y1="13" x2="8" y2="13"/>
++          <line x1="16" y1="17" x2="8" y2="17"/>
++          <polyline points="10,9 9,9 8,9"/>
++        </svg>
++        Image to PDF Converter
++      </h1>
++      <p class="app-description">
++        Convert your images to PDF with drag-and-drop simplicity. 
++        Fully client-side, no uploads required.
++      </p>
 +    </header>
 +
 +    <main class="app-main">
 +      <!-- File Upload Section -->
 +      <section class="upload-section">
-+        <FileUpload 
-+          @files-selected="handleFilesSelected"
-+          :disabled="isConverting"
++        <FileUpload
++          :images="images"
++          :is-processing="isProcessing"
++          :processing-progress="processingProgress"
++          :error="uploadError"
++          :formatted-total-size="formattedTotalSize"
++          @upload="handleFileUpload"
 +        />
 +      </section>
 +
 +      <!-- Image Preview Section -->
-+      <section v-if="images.length > 0" class="preview-section">
-+        <h2>Images ({{ images.length }})</h2>
-+        <ImagePreview 
++      <section v-if="hasImages" class="preview-section">
++        <div class="section-header">
++          <h2 class="section-title">Image Preview</h2>
++          <div class="section-actions">
++            <button
++              class="btn btn-secondary"
++              @click="clearImages"
++              :disabled="isProcessing || isGenerating"
++            >
++              Clear All
++            </button>
++          </div>
++        </div>
++        
++        <ImagePreview
 +          :images="images"
-+          @reorder="handleReorder"
-+          @remove="handleRemove"
-+          :disabled="isConverting"
++          @remove="removeImage"
++          @reorder="reorderImages"
 +        />
 +      </section>
 +
 +      <!-- PDF Options Section -->
-+      <section v-if="images.length > 0" class="options-section">
-+        <PdfOptions 
-+          v-model:page-size="pdfOptions.pageSize"
-+          v-model:orientation="pdfOptions.orientation"
-+          v-model:image-fit="pdfOptions.imageFit"
-+          v-model:filename="pdfOptions.filename"
-+          :disabled="isConverting"
++      <section v-if="hasImages" class="options-section">
++        <PdfOptions
++          v-model:options="pdfOptions"
++          :image-count="images.length"
++          :estimated-size="getEstimatedSize(images)"
++        />
++      </section>
++
++      <!-- Conversion Progress -->
++      <section v-if="isGenerating || progress" class="progress-section">
++        <ConversionProgress
++          :progress="progress"
++          :progress-percentage="progressPercentage"
++          :is-generating="isGenerating"
 +        />
 +      </section>
 +
 +      <!-- Convert Button -->
-+      <section v-if="images.length > 0" class="convert-section">
-+        <button 
++      <section v-if="hasImages && !isGenerating" class="convert-section">
++        <button
++          class="btn btn-primary convert-button"
++          :disabled="!canConvert"
 +          @click="handleConvert"
-+          :disabled="isConverting || images.length === 0"
-+          class="convert-btn"
 +        >
-+          {{ isConverting ? 'Converting...' : `Convert ${images.length} Image${images.length > 1 ? 's' : ''} to PDF` }}
++          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
++            <polyline points="7,10 12,15 17,10"/>
++            <line x1="12" y1="15" x2="12" y2="3"/>
++          </svg>
++          Convert to PDF
 +        </button>
-+      </section>
-+
-+      <!-- Progress Section -->
-+      <section v-if="isConverting" class="progress-section">
-+        <ConversionProgress 
-+          :progress="conversionProgress"
-+          :current-step="currentStep"
-+        />
++        
++        <p class="convert-info">
++          {{ images.length }} image{{ images.length !== 1 ? 's' : '' }} will be converted to PDF
++        </p>
 +      </section>
 +
 +      <!-- Error Display -->
-+      <section v-if="error" class="error-section">
++      <section v-if="conversionError" class="error-section">
 +        <div class="error-message">
-+          <strong>Error:</strong> {{ error }}
++          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <circle cx="12" cy="12" r="10"/>
++            <line x1="15" y1="9" x2="9" y2="15"/>
++            <line x1="9" y1="9" x2="15" y2="15"/>
++          </svg>
++          <div>
++            <strong>Conversion Failed</strong>
++            <p>{{ conversionError }}</p>
++          </div>
 +        </div>
++        <button
++          class="btn btn-secondary"
++          @click="resetConversionState"
++        >
++          Try Again
++        </button>
 +      </section>
 +    </main>
 +
 +    <footer class="app-footer">
-+      <p>Built with Vue 3, TypeScript, and jsPDF • 100% Client-side Processing</p>
++      <p>
++        Built with Vue 3 and jsPDF. 
++        <a href="https://github.com" target="_blank" rel="noopener noreferrer">
++          View Source
++        </a>
++      </p>
 +    </footer>
 +  </div>
 +</template>
 +
 +<script setup lang="ts">
-+import { ref } from 'vue'
-+import FileUpload from './components/FileUpload.vue'
-+import ImagePreview from './components/ImagePreview.vue'
-+import PdfOptions from './components/PdfOptions.vue'
-+import ConversionProgress from './components/ConversionProgress.vue'
-+import { useImageUpload } from './composables/useImageUpload'
-+import { usePdfGeneration } from './composables/usePdfGeneration'
-+import type { ImageFile, PdfOptions as PdfOptionsType } from './types'
++import { ref, computed } from 'vue'
++import type { PdfOptions } from '@/types'
++import { useImageUpload } from '@/composables/useImageUpload'
++import { usePdfGeneration } from '@/composables/usePdfGeneration'
++import FileUpload from '@/components/FileUpload.vue'
++import ImagePreview from '@/components/ImagePreview.vue'
++import PdfOptions from '@/components/PdfOptions.vue'
++import ConversionProgress from '@/components/ConversionProgress.vue'
 +
-+// Composables
-+const { images, addImages, reorderImages, removeImage, error } = useImageUpload()
-+const { 
-+  generatePdf, 
-+  isConverting, 
-+  conversionProgress, 
-+  currentStep 
++// Image upload composable
++const {
++  images,
++  isProcessing,
++  processingProgress,
++  error: uploadError,
++  hasImages,
++  formattedTotalSize,
++  addImages,
++  removeImage,
++  clearImages,
++  reorderImages
++} = useImageUpload()
++
++// PDF generation composable
++const {
++  isGenerating,
++  progress,
++  progressPercentage,
++  error: conversionError,
++  generateAndDownloadPDF,
++  getEstimatedSize,
++  resetState: resetConversionState
 +} = usePdfGeneration()
 +
-+// PDF Options
-+const pdfOptions = ref<PdfOptionsType>({
++// PDF options
++const pdfOptions = ref<PdfOptions>({
 +  pageSize: 'A4',
 +  orientation: 'portrait',
-+  imageFit: 'fit',
-+  filename: 'converted-images'
++  scalingMode: 'fit',
++  filename: ''
 +})
 +
-+// Event Handlers
-+const handleFilesSelected = (files: File[]) => {
-+  addImages(files)
++// Computed properties
++const canConvert = computed(() => {
++  return hasImages.value && 
++         !isProcessing.value && 
++         !isGenerating.value && 
++         pdfOptions.value.filename.trim() !== ''
++})
++
++// Event handlers
++async function handleFileUpload(files: File[]) {
++  try {
++    await addImages(files)
++  } catch (error) {
++    console.error('Failed to upload files:', error)
++  }
 +}
 +
-+const handleReorder = (newOrder: ImageFile[]) => {
-+  reorderImages(newOrder)
-+}
-+
-+const handleRemove = (index: number) => {
-+  removeImage(index)
-+}
-+
-+const handleConvert = async () => {
-+  if (images.value.length === 0) return
++async function handleConvert() {
++  if (!canConvert.value) return
 +  
 +  try {
-+    await generatePdf(images.value, pdfOptions.value)
-+  } catch (err) {
-+    error.value = err instanceof Error ? err.message : 'Failed to generate PDF'
++    await generateAndDownloadPDF(images.value, pdfOptions.value)
++  } catch (error) {
++    console.error('Failed to convert to PDF:', error)
 +  }
 +}
 +</script>
@@ -331,1040 +284,340 @@ index 0000000..0000000
 +  min-height: 100vh;
 +  display: flex;
 +  flex-direction: column;
++  max-width: 1200px;
++  margin: 0 auto;
++  padding: 0 1rem;
 +}
 +
 +.app-header {
 +  text-align: center;
-+  padding: 2rem 1rem;
-+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-+  color: white;
++  padding: 2rem 0;
++  border-bottom: 1px solid #e5e7eb;
++  margin-bottom: 2rem;
 +}
 +
-+.app-header h1 {
-+  margin: 0 0 0.5rem 0;
-+  font-size: 2.5rem;
++.app-title {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: 0.75rem;
++  font-size: 2rem;
 +  font-weight: 700;
++  color: #1f2937;
++  margin-bottom: 0.5rem;
 +}
 +
-+.app-header p {
-+  margin: 0;
-+  font-size: 1.1rem;
-+  opacity: 0.9;
++.title-icon {
++  color: #007bff;
++}
++
++.app-description {
++  color: #6b7280;
++  font-size: 1.125rem;
++  max-width: 600px;
++  margin: 0 auto;
++  line-height: 1.6;
 +}
 +
 +.app-main {
 +  flex: 1;
-+  max-width: 1200px;
-+  margin: 0 auto;
-+  padding: 2rem 1rem;
-+  width: 100%;
++  display: flex;
++  flex-direction: column;
++  gap: 2rem;
 +}
 +
-+.upload-section,
-+.preview-section,
-+.options-section,
-+.convert-section,
-+.progress-section,
-+.error-section {
-+  margin-bottom: 2rem;
++.section-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  margin-bottom: 1rem;
 +}
 +
-+.preview-section h2 {
-+  margin: 0 0 1rem 0;
-+  color: #333;
++.section-title {
 +  font-size: 1.5rem;
-+}
-+
-+.convert-btn {
-+  width: 100%;
-+  max-width: 400px;
-+  display: block;
-+  margin: 0 auto;
-+  padding: 1rem 2rem;
-+  font-size: 1.1rem;
 +  font-weight: 600;
-+  color: white;
-+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-+  border: none;
-+  border-radius: 8px;
-+  cursor: pointer;
-+  transition: all 0.3s ease;
++  color: #1f2937;
++  margin: 0;
 +}
 +
-+.convert-btn:hover:not(:disabled) {
-+  transform: translateY(-2px);
-+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
++.section-actions {
++  display: flex;
++  gap: 0.5rem;
 +}
 +
-+.convert-btn:disabled {
-+  opacity: 0.6;
-+  cursor: not-allowed;
-+  transform: none;
++.convert-section {
++  text-align: center;
++  padding: 2rem;
++  background: white;
++  border-radius: 0.5rem;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
++}
++
++.convert-button {
++  display: inline-flex;
++  align-items: center;
++  gap: 0.5rem;
++  font-size: 1.125rem;
++  padding: 1rem 2rem;
++  margin-bottom: 0.5rem;
++}
++
++.convert-info {
++  color: #6b7280;
++  font-size: 0.875rem;
++  margin: 0;
++}
++
++.error-section {
++  text-align: center;
++  padding: 1.5rem;
 +}
 +
 +.error-message {
++  display: flex;
++  align-items: flex-start;
++  gap: 0.75rem;
 +  padding: 1rem;
-+  background: #fee;
-+  border: 1px solid #fcc;
-+  border-radius: 8px;
-+  color: #c33;
++  background-color: #fef2f2;
++  color: #dc2626;
++  border-radius: 0.375rem;
++  margin-bottom: 1rem;
++  text-align: left;
++}
++
++.error-message strong {
++  display: block;
++  margin-bottom: 0.25rem;
++}
++
++.error-message p {
++  margin: 0;
++  font-size: 0.875rem;
 +}
 +
 +.app-footer {
 +  text-align: center;
-+  padding: 1rem;
-+  background: #f8f9fa;
-+  color: #666;
-+  font-size: 0.9rem;
++  padding: 2rem 0;
++  border-top: 1px solid #e5e7eb;
++  margin-top: 2rem;
++  color: #6b7280;
++  font-size: 0.875rem;
++}
++
++.app-footer a {
++  color: #007bff;
++  text-decoration: none;
++}
++
++.app-footer a:hover {
++  text-decoration: underline;
++}
++
++@media (prefers-color-scheme: dark) {
++  .app-header {
++    border-bottom-color: #4b5563;
++  }
++  
++  .app-title {
++    color: #f3f4f6;
++  }
++  
++  .app-description {
++    color: #d1d5db;
++  }
++  
++  .section-title {
++    color: #f3f4f6;
++  }
++  
++  .convert-section {
++    background: #2d3748;
++    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
++  }
++  
++  .convert-info {
++    color: #d1d5db;
++  }
++  
++  .error-message {
++    background-color: #7f1d1d;
++    color: #fca5a5;
++  }
++  
++  .app-footer {
++    border-top-color: #4b5563;
++    color: #d1d5db;
++  }
++  
++  .app-footer a {
++    color: #60a5fa;
++  }
 +}
 +
 +@media (max-width: 768px) {
-+  .app-header h1 {
-+    font-size: 2rem;
++  .app {
++    padding: 0 0.5rem;
 +  }
 +  
-+  .app-header p {
++  .app-header {
++    padding: 1.5rem 0;
++  }
++  
++  .app-title {
++    font-size: 1.5rem;
++    flex-direction: column;
++    gap: 0.5rem;
++  }
++  
++  .app-description {
 +    font-size: 1rem;
 +  }
 +  
-+  .app-main {
-+    padding: 1rem;
++  .section-header {
++    flex-direction: column;
++    align-items: flex-start;
++    gap: 1rem;
++  }
++  
++  .convert-section {
++    padding: 1.5rem 1rem;
++  }
++  
++  .convert-button {
++    font-size: 1rem;
++    padding: 0.875rem 1.5rem;
 +  }
 +}
 +</style>
-diff --git a/repository_before/src/main.ts b/repository_after/src/main.ts
+\ No newline at end of file
+diff --git a/repository_after/src/components/ConversionProgress.vue b/repository_after/src/components/ConversionProgress.vue
 new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/src/main.ts
-@@ -0,0 +1,6 @@
-+import { createApp } from 'vue'
-+import './style.css'
-+import App from './App.vue'
-+
-+const app = createApp(App)
-+app.mount('#app')
-diff --git a/repository_before/src/style.css b/repository_after/src/style.css
-new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/src/style.css
-@@ -0,0 +1,85 @@
-+/* Global Styles */
-+* {
-+  box-sizing: border-box;
-+}
-+
-+body {
-+  margin: 0;
-+  padding: 0;
-+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-+    sans-serif;
-+  -webkit-font-smoothing: antialiased;
-+  -moz-osx-font-smoothing: grayscale;
-+  background-color: #f8f9fa;
-+  color: #333;
-+  line-height: 1.6;
-+}
-+
-+#app {
-+  min-height: 100vh;
-+}
-+
-+/* Typography */
-+h1, h2, h3, h4, h5, h6 {
-+  margin: 0 0 1rem 0;
-+  font-weight: 600;
-+  line-height: 1.2;
-+}
-+
-+p {
-+  margin: 0 0 1rem 0;
-+}
-+
-+/* Buttons */
-+button {
-+  font-family: inherit;
-+  font-size: inherit;
-+  line-height: inherit;
-+  border: none;
-+  border-radius: 6px;
-+  cursor: pointer;
-+  transition: all 0.2s ease;
-+}
-+
-+button:focus {
-+  outline: 2px solid #667eea;
-+  outline-offset: 2px;
-+}
-+
-+/* Form Elements */
-+input, select, textarea {
-+  font-family: inherit;
-+  font-size: inherit;
-+  line-height: inherit;
-+  border: 1px solid #ddd;
-+  border-radius: 6px;
-+  padding: 0.5rem;
-+  transition: border-color 0.2s ease;
-+}
-+
-+input:focus, select:focus, textarea:focus {
-+  outline: none;
-+  border-color: #667eea;
-+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-+}
-+
-+/* Utility Classes */
-+.sr-only {
-+  position: absolute;
-+  width: 1px;
-+  height: 1px;
-+  padding: 0;
-+  margin: -1px;
-+  overflow: hidden;
-+  clip: rect(0, 0, 0, 0);
-+  white-space: nowrap;
-+  border: 0;
-+}
-+
-+/* Responsive Images */
-+img {
-+  max-width: 100%;
-+  height: auto;
-+  display: block;
-+}
-diff --git a/repository_before/src/types/index.ts b/repository_after/src/types/index.ts
-new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/src/types/index.ts
-@@ -0,0 +1,35 @@
-+// Image file with metadata
-+export interface ImageFile {
-+  id: string
-+  file: File
-+  preview: string
-+  name: string
-+  size: number
-+  type: string
-+}
-+
-+// PDF generation options
-+export interface PdfOptions {
-+  pageSize: 'A4' | 'Letter' | 'Auto'
-+  orientation: 'portrait' | 'landscape'
-+  imageFit: 'fit' | 'fill' | 'original'
-+  filename: string
-+}
-+
-+// PDF page dimensions
-+export interface PageDimensions {
-+  width: number
-+  height: number
-+}
-+
-+// Image processing result
-+export interface ProcessedImage {
-+  canvas: HTMLCanvasElement
-+  width: number
-+  height: number
-+}
-+
-+// Conversion progress
-+export interface ConversionProgress {
-+  current: number
-+  total: number
-+  percentage: number
-+}
-diff --git a/repository_before/tsconfig.json b/repository_after/tsconfig.json
-new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/tsconfig.json
-@@ -0,0 +1,25 @@
-+{
-+  "compilerOptions": {
-+    "target": "ES2020",
-+    "useDefineForClassFields": true,
-+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-+    "module": "ESNext",
-+    "skipLibCheck": true,
-+    "moduleResolution": "bundler",
-+    "allowImportingTsExtensions": true,
-+    "resolveJsonModule": true,
-+    "isolatedModules": true,
-+    "noEmit": true,
-+    "jsx": "preserve",
-+    "strict": true,
-+    "noUnusedLocals": true,
-+    "noUnusedParameters": true,
-+    "noFallthroughCasesInSwitch": true
-+  },
-+  "include": [
-+    "src/**/*.ts",
-+    "src/**/*.d.ts",
-+    "src/**/*.tsx",
-+    "src/**/*.vue"
-+  ]
-+}
-diff --git a/repository_before/vite.config.ts b/repository_after/vite.config.ts
-new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/vite.config.ts
-@@ -0,0 +1,8 @@
-+import { defineConfig } from 'vite'
-+import vue from '@vitejs/plugin-vue'
-+
-+export default defineConfig({
-+  plugins: [vue()],
-+  base: './',
-+  build: { outDir: 'dist' }
-+})
-diff --git a/repository_before/src/components/FileUpload.vue b/repository_after/src/components/FileUpload.vue
-new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/src/components/FileUpload.vue
-@@ -0,0 +1,200 @@
-+<template>
-+  <div class="file-upload">
-+    <div 
-+      class="upload-area"
-+      :class="{ 
-+        'drag-over': isDragOver,
-+        'disabled': disabled 
-+      }"
-+      @drop="handleDrop"
-+      @dragover="handleDragOver"
-+      @dragenter="handleDragEnter"
-+      @dragleave="handleDragLeave"
-+      @click="triggerFileInput"
-+    >
-+      <input
-+        ref="fileInput"
-+        type="file"
-+        multiple
-+        accept="image/jpeg,image/jpg,image/png,image/webp"
-+        @change="handleFileSelect"
-+        class="file-input"
-+        :disabled="disabled"
-+      />
-+      
-+      <div class="upload-content">
-+        <div class="upload-icon">
-+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-+            <polyline points="7,10 12,15 17,10"/>
-+            <line x1="12" y1="15" x2="12" y2="3"/>
-+          </svg>
-+        </div>
-+        
-+        <h3>{{ isDragOver ? 'Drop images here' : 'Upload Images' }}</h3>
-+        <p>
-+          {{ isDragOver ? 'Release to upload' : 'Drag & drop images or click to browse' }}
-+        </p>
-+        <p class="file-info">
-+          Supports: JPG, PNG, WEBP • Max 50MB per file
-+        </p>
-+      </div>
-+    </div>
-+  </div>
-+</template>
-+
-+<script setup lang="ts">
-+import { ref } from 'vue'
-+
-+interface Props {
-+  disabled?: boolean
-+}
-+
-+interface Emits {
-+  (e: 'files-selected', files: File[]): void
-+}
-+
-+defineProps<Props>()
-+const emit = defineEmits<Emits>()
-+
-+const fileInput = ref<HTMLInputElement>()
-+const isDragOver = ref(false)
-+
-+const triggerFileInput = () => {
-+  if (fileInput.value && !props.disabled) {
-+    fileInput.value.click()
-+  }
-+}
-+
-+const handleFileSelect = (event: Event) => {
-+  const target = event.target as HTMLInputElement
-+  if (target.files) {
-+    const files = Array.from(target.files)
-+    emit('files-selected', files)
-+    target.value = '' // Reset input
-+  }
-+}
-+
-+const handleDrop = (event: DragEvent) => {
-+  event.preventDefault()
-+  isDragOver.value = false
-+  
-+  if (props.disabled) return
-+  
-+  const files = Array.from(event.dataTransfer?.files || [])
-+  if (files.length > 0) {
-+    emit('files-selected', files)
-+  }
-+}
-+
-+const handleDragOver = (event: DragEvent) => {
-+  event.preventDefault()
-+}
-+
-+const handleDragEnter = (event: DragEvent) => {
-+  event.preventDefault()
-+  if (!props.disabled) {
-+    isDragOver.value = true
-+  }
-+}
-+
-+const handleDragLeave = (event: DragEvent) => {
-+  event.preventDefault()
-+  // Only set to false if leaving the upload area entirely
-+  if (!event.currentTarget?.contains(event.relatedTarget as Node)) {
-+    isDragOver.value = false
-+  }
-+}
-+
-+const props = defineProps<Props>()
-+</script>
-+
-+<style scoped>
-+.file-upload {
-+  width: 100%;
-+}
-+
-+.upload-area {
-+  border: 2px dashed #ddd;
-+  border-radius: 12px;
-+  padding: 3rem 2rem;
-+  text-align: center;
-+  cursor: pointer;
-+  transition: all 0.3s ease;
-+  background: white;
-+  position: relative;
-+  min-height: 200px;
-+  display: flex;
-+  align-items: center;
-+  justify-content: center;
-+}
-+
-+.upload-area:hover:not(.disabled) {
-+  border-color: #667eea;
-+  background: #f8f9ff;
-+}
-+
-+.upload-area.drag-over {
-+  border-color: #667eea;
-+  background: #f0f4ff;
-+  transform: scale(1.02);
-+}
-+
-+.upload-area.disabled {
-+  opacity: 0.6;
-+  cursor: not-allowed;
-+  background: #f5f5f5;
-+}
-+
-+.file-input {
-+  position: absolute;
-+  opacity: 0;
-+  pointer-events: none;
-+}
-+
-+.upload-content {
-+  max-width: 400px;
-+}
-+
-+.upload-icon {
-+  color: #667eea;
-+  margin-bottom: 1rem;
-+}
-+
-+.upload-content h3 {
-+  margin: 0 0 0.5rem 0;
-+  font-size: 1.5rem;
-+  color: #333;
-+  font-weight: 600;
-+}
-+
-+.upload-content p {
-+  margin: 0 0 0.5rem 0;
-+  color: #666;
-+  font-size: 1rem;
-+}
-+
-+.file-info {
-+  font-size: 0.875rem !important;
-+  color: #999 !important;
-+}
-+
-+@media (max-width: 768px) {
-+  .upload-area {
-+    padding: 2rem 1rem;
-+    min-height: 150px;
-+  }
-+  
-+  .upload-content h3 {
-+    font-size: 1.25rem;
-+  }
-+  
-+  .upload-content p {
-+    font-size: 0.9rem;
-+  }
-+  
-+  .upload-icon svg {
-+    width: 36px;
-+    height: 36px;
-+  }
-+}
-+</style>
-diff --git a/repository_before/src/components/ImagePreview.vue b/repository_after/src/components/ImagePreview.vue
-new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/src/components/ImagePreview.vue
-@@ -0,0 +1,250 @@
-+<template>
-+  <div class="image-preview">
-+    <draggable
-+      v-model="localImages"
-+      @end="handleReorder"
-+      :disabled="disabled"
-+      item-key="id"
-+      class="image-grid"
-+      ghost-class="ghost"
-+      chosen-class="chosen"
-+      drag-class="drag"
-+    >
-+      <template #item="{ element: image, index }">
-+        <div class="image-item" :class="{ disabled }">
-+          <div class="image-container">
-+            <img 
-+              :src="image.preview" 
-+              :alt="image.name"
-+              class="image-thumbnail"
-+              loading="lazy"
-+            />
-+            
-+            <div class="image-overlay">
-+              <button
-+                @click="$emit('remove', index)"
-+                class="remove-btn"
-+                :disabled="disabled"
-+                type="button"
-+                :aria-label="`Remove ${image.name}`"
-+              >
-+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-+                  <line x1="18" y1="6" x2="6" y2="18"></line>
-+                  <line x1="6" y1="6" x2="18" y2="18"></line>
-+                </svg>
-+              </button>
-+              
-+              <div class="drag-handle" v-if="!disabled">
-+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-+                  <line x1="3" y1="6" x2="21" y2="6"></line>
-+                  <line x1="3" y1="12" x2="21" y2="12"></line>
-+                  <line x1="3" y1="18" x2="21" y2="18"></line>
-+                </svg>
-+              </div>
-+            </div>
-+            
-+            <div class="page-number">{{ index + 1 }}</div>
-+          </div>
-+          
-+          <div class="image-info">
-+            <p class="image-name" :title="image.name">{{ image.name }}</p>
-+            <p class="image-size">{{ formatFileSize(image.size) }}</p>
-+          </div>
-+        </div>
-+      </template>
-+    </draggable>
-+  </div>
-+</template>
-+
-+<script setup lang="ts">
-+import { computed } from 'vue'
-+import draggable from 'vuedraggable'
-+import type { ImageFile } from '../types'
-+
-+interface Props {
-+  images: ImageFile[]
-+  disabled?: boolean
-+}
-+
-+interface Emits {
-+  (e: 'reorder', images: ImageFile[]): void
-+  (e: 'remove', index: number): void
-+}
-+
-+const props = defineProps<Props>()
-+const emit = defineEmits<Emits>()
-+
-+const localImages = computed({
-+  get: () => props.images,
-+  set: (value) => emit('reorder', value)
-+})
-+
-+const handleReorder = () => {
-+  emit('reorder', localImages.value)
-+}
-+
-+const formatFileSize = (bytes: number): string => {
-+  if (bytes === 0) return '0 Bytes'
-+  
-+  const k = 1024
-+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-+  const i = Math.floor(Math.log(bytes) / Math.log(k))
-+  
-+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-+}
-+</script>
-+
-+<style scoped>
-+.image-preview {
-+  width: 100%;
-+}
-+
-+.image-grid {
-+  display: grid;
-+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-+  gap: 1rem;
-+  padding: 0;
-+}
-+
-+.image-item {
-+  background: white;
-+  border-radius: 12px;
-+  overflow: hidden;
-+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-+  transition: all 0.3s ease;
-+  cursor: grab;
-+}
-+
-+.image-item:hover:not(.disabled) {
-+  transform: translateY(-4px);
-+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-+}
-+
-+.image-item.disabled {
-+  opacity: 0.6;
-+  cursor: not-allowed;
-+}
-+
-+.image-item:active {
-+  cursor: grabbing;
-+}
-+
-+.image-container {
-+  position: relative;
-+  aspect-ratio: 4/3;
-+  overflow: hidden;
-+}
-+
-+.image-thumbnail {
-+  width: 100%;
-+  height: 100%;
-+  object-fit: cover;
-+  transition: transform 0.3s ease;
-+}
-+
-+.image-item:hover .image-thumbnail {
-+  transform: scale(1.05);
-+}
-+
-+.image-overlay {
-+  position: absolute;
-+  top: 0;
-+  left: 0;
-+  right: 0;
-+  bottom: 0;
-+  background: rgba(0, 0, 0, 0.5);
-+  display: flex;
-+  align-items: center;
-+  justify-content: center;
-+  opacity: 0;
-+  transition: opacity 0.3s ease;
-+}
-+
-+.image-item:hover .image-overlay {
-+  opacity: 1;
-+}
-+
-+.remove-btn {
-+  position: absolute;
-+  top: 8px;
-+  right: 8px;
-+  background: rgba(255, 255, 255, 0.9);
-+  border: none;
-+  border-radius: 50%;
-+  width: 32px;
-+  height: 32px;
-+  display: flex;
-+  align-items: center;
-+  justify-content: center;
-+  cursor: pointer;
-+  color: #e74c3c;
-+  transition: all 0.2s ease;
-+}
-+
-+.remove-btn:hover:not(:disabled) {
-+  background: #e74c3c;
-+  color: white;
-+  transform: scale(1.1);
-+}
-+
-+.remove-btn:disabled {
-+  opacity: 0.5;
-+  cursor: not-allowed;
-+}
-+
-+.drag-handle {
-+  position: absolute;
-+  bottom: 8px;
-+  right: 8px;
-+  background: rgba(255, 255, 255, 0.9);
-+  border-radius: 4px;
-+  padding: 4px;
-+  color: #666;
-+  cursor: grab;
-+}
-+
-+.drag-handle:active {
-+  cursor: grabbing;
-+}
-+
-+.page-number {
-+  position: absolute;
-+  top: 8px;
-+  left: 8px;
-+  background: rgba(0, 0, 0, 0.7);
-+  color: white;
-+  padding: 4px 8px;
-+  border-radius: 12px;
-+  font-size: 0.75rem;
-+  font-weight: 600;
-+}
-+
-+.image-info {
-+  padding: 1rem;
-+}
-+
-+.image-name {
-+  margin: 0 0 0.25rem 0;
-+  font-weight: 600;
-+  font-size: 0.9rem;
-+  color: #333;
-+  white-space: nowrap;
-+  overflow: hidden;
-+  text-overflow: ellipsis;
-+}
-+
-+.image-size {
-+  margin: 0;
-+  font-size: 0.8rem;
-+  color: #666;
-+}
-+
-+/* Drag states */
-+.ghost {
-+  opacity: 0.5;
-+  transform: rotate(5deg);
-+}
-+
-+.chosen {
-+  transform: scale(1.05);
-+}
-+
-+.drag {
-+  transform: rotate(5deg);
-+  opacity: 0.8;
-+}
-+
-+@media (max-width: 768px) {
-+  .image-grid {
-+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-+    gap: 0.75rem;
-+  }
-+  
-+  .image-info {
-+    padding: 0.75rem;
-+  }
-+}
-+</style>
-diff --git a/repository_before/src/components/PdfOptions.vue b/repository_after/src/components/PdfOptions.vue
-new file mode 100644
-index 0000000..0000000
---- /dev/null
-+++ b/repository_after/src/components/PdfOptions.vue
-@@ -0,0 +1,200 @@
-+<template>
-+  <div class="pdf-options">
-+    <h3>PDF Settings</h3>
-+    
-+    <div class="options-grid">
-+      <div class="option-group">
-+        <label for="page-size">Page Size</label>
-+        <select 
-+          id="page-size"
-+          :value="pageSize"
-+          @input="$emit('update:pageSize', ($event.target as HTMLSelectElement).value)"
-+          :disabled="disabled"
-+        >
-+          <option value="A4">A4 (210 × 297 mm)</option>
-+          <option value="Letter">Letter (8.5 × 11 in)</option>
-+          <option value="Auto">Auto-fit to images</option>
-+        </select>
-+      </div>
-+      
-+      <div class="option-group">
-+        <label for="orientation">Orientation</label>
-+        <select 
-+          id="orientation"
-+          :value="orientation"
-+          @input="$emit('update:orientation', ($event.target as HTMLSelectElement).value)"
-+          :disabled="disabled"
-+        >
-+          <option value="portrait">Portrait</option>
-+          <option value="landscape">Landscape</option>
-+        </select>
-+      </div>
-+      
-+      <div class="option-group">
-+        <label for="image-fit">Image Scaling</label>
-+        <select 
-+          id="image-fit"
-+          :value="imageFit"
-+          @input="$emit('update:imageFit', ($event.target as HTMLSelectElement).value)"
-+          :disabled="disabled"
-+        >
-+          <option value="fit">Fit to page</option>
-+          <option value="fill">Fill page</option>
-+          <option value="original">Original size</option>
-+        </select>
-+      </div>
-+      
-+      <div class="option-group">
-+        <label for="filename">Filename</label>
-+        <input 
-+          id="filename"
-+          type="text"
-+          :value="filename"
-+          @input="$emit('update:filename', ($event.target as HTMLInputElement).value)"
-+          :disabled="disabled"
-+          placeholder="Enter filename (without .pdf)"
-+        />
-+      </div>
-+    </div>
-+    
-+    <div class="options-info">
-+      <div class="info-item">
-+        <strong>Page Size:</strong> 
-+        <span v-if="pageSize === 'A4'">210 × 297 mm (8.27 × 11.69 in)</span>
-+        <span v-else-if="pageSize === 'Letter'">216 × 279 mm (8.5 × 11 in)</span>
-+        <span v-else>Automatically sized to fit largest image</span>
-+      </div>
-+      
-+      <div class="info-item">
-+        <strong>Image Scaling:</strong>
-+        <span v-if="imageFit === 'fit'">Images will be scaled to fit within page margins</span>
-+        <span v-else-if="imageFit === 'fill'">Images will be scaled to fill the entire page</span>
-+        <span v-else>Images will maintain their original dimensions</span>
-+      </div>
-+    </div>
-+  </div>
-+</template>
-+
-+<script setup lang="ts">
-+interface Props {
-+  pageSize: string
-+  orientation: string
-+  imageFit: string
-+  filename: string
-+  disabled?: boolean
-+}
-+
-+interface Emits {
-+  (e: 'update:pageSize', value: string): void
-+  (e: 'update:orientation', value: string): void
-+  (e: 'update:imageFit', value: string): void
-+  (e: 'update:filename', value: string): void
-+}
-+
-+defineProps<Props>()
-+defineEmits<Emits>()
-+</script>
-+
-+<style scoped>
-+.pdf-options {
-+  background: white;
-+  border-radius: 12px;
-+  padding: 1.5rem;
-+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-+}
-+
-+.pdf-options h3 {
-+  margin: 0 0 1.5rem 0;
-+  color: #333;
-+  font-size: 1.25rem;
-+  font-weight: 600;
-+}
-+
-+.options-grid {
-+  display: grid;
-+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-+  gap: 1rem;
-+  margin-bottom: 1.5rem;
-+}
-+
-+.option-group {
-+  display: flex;
-+  flex-direction: column;
-+}
-+
-+.option-group label {
-+  margin-bottom: 0.5rem;
-+  font-weight: 600;
-+  color: #333;
-+  font-size: 0.9rem;
-+}
-+
-+.option-group select,
-+.option-group input {
-+  padding: 0.75rem;
-+  border: 1px solid #ddd;
-+  border-radius: 8px;
-+  font-size: 0.9rem;
-+  transition: all 0.2s ease;
-+  background: white;
-+}
-+
-+.option-group select:focus,
-+.option-group input:focus {
-+  outline: none;
-+  border-color: #667eea;
-+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-+}
-+
-+.option-group select:disabled,
-+.option-group input:disabled {
-+  background: #f5f5f5;
-+  color: #999;
-+  cursor: not-allowed;
-+}
-+
-+.options-info {
-+  border-top: 1px solid #eee;
-+  padding-top: 1rem;
-+}
-+
-+.info-item {
-+  margin-bottom: 0.75rem;
-+  font-size: 0.875rem;
-+  line-height: 1.4;
-+}
-+
-+.info-item:last-child {
-+  margin-bottom: 0;
-+}
-+
-+.info-item strong {
-+  color: #333;
-+  font-weight: 600;
-+}
-+
-+.info-item span {
-+  color: #666;
-+  margin-left: 0.5rem;
-+}
-+
-+@media (max-width: 768px) {
-+  .pdf-options {
-+    padding: 1rem;
-+  }
-+  
-+  .options-grid {
-+    grid-template-columns: 1fr;
-+    gap: 0.75rem;
-+  }
-+  
-+  .pdf-options h3 {
-+    font-size: 1.1rem;
-+    margin-bottom: 1rem;
-+  }
-+  
-+  .option-group select,
-+  .option-group input {
-+    padding: 0.625rem;
-+  }
-+}
-+</style>
-diff --git a/repository_before/src/components/ConversionProgress.vue b/repository_after/src/components/ConversionProgress.vue
-new file mode 100644
-index 0000000..0000000
+index 0000000..45f8076
 --- /dev/null
 +++ b/repository_after/src/components/ConversionProgress.vue
-@@ -0,0 +1,150 @@
+@@ -0,0 +1,342 @@
 +<template>
-+  <div class="conversion-progress">
++  <div v-if="isVisible" class="conversion-progress">
 +    <div class="progress-header">
-+      <h3>Converting to PDF...</h3>
-+      <span class="progress-text">{{ progress.current }} of {{ progress.total }} images</span>
++      <h3 class="progress-title">
++        {{ progress?.stage === 'complete' ? 'Conversion Complete!' : 'Converting to PDF...' }}
++      </h3>
++      <div class="progress-percentage">
++        {{ progressPercentage }}%
++      </div>
 +    </div>
 +    
 +    <div class="progress-bar-container">
 +      <div 
 +        class="progress-bar"
-+        :style="{ width: `${progress.percentage}%` }"
++        :style="{ width: `${progressPercentage}%` }"
++        :class="{ 'complete': progress?.stage === 'complete' }"
 +      ></div>
 +    </div>
 +    
-+    <div class="progress-percentage">
-+      {{ Math.round(progress.percentage) }}%
++    <div class="progress-details">
++      <p class="progress-message">
++        {{ progress?.message || 'Preparing...' }}
++      </p>
++      <p class="progress-count">
++        {{ progress?.current || 0 }} of {{ progress?.total || 0 }} images
++      </p>
 +    </div>
 +    
-+    <div class="current-step">
-+      <div class="step-icon">
-+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-+          <circle cx="12" cy="12" r="10"/>
-+          <path d="m9 12 2 2 4-4"/>
-+        </svg>
++    <div class="progress-stages">
++      <div 
++        class="stage"
++        :class="{ 
++          'active': progress?.stage === 'compressing',
++          'complete': isStageComplete('compressing')
++        }"
++      >
++        <div class="stage-icon">
++          <svg v-if="isStageComplete('compressing')" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <polyline points="20,6 9,17 4,12"/>
++          </svg>
++          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <circle cx="12" cy="12" r="3"/>
++            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
++          </svg>
++        </div>
++        <span class="stage-label">Compressing Images</span>
 +      </div>
-+      <span>{{ currentStep }}</span>
++      
++      <div 
++        class="stage"
++        :class="{ 
++          'active': progress?.stage === 'generating',
++          'complete': isStageComplete('generating')
++        }"
++      >
++        <div class="stage-icon">
++          <svg v-if="isStageComplete('generating')" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <polyline points="20,6 9,17 4,12"/>
++          </svg>
++          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
++            <polyline points="14,2 14,8 20,8"/>
++            <line x1="16" y1="13" x2="8" y2="13"/>
++            <line x1="16" y1="17" x2="8" y2="17"/>
++            <polyline points="10,9 9,9 8,9"/>
++          </svg>
++        </div>
++        <span class="stage-label">Generating PDF</span>
++      </div>
++      
++      <div 
++        class="stage"
++        :class="{ 
++          'active': progress?.stage === 'complete',
++          'complete': progress?.stage === 'complete'
++        }"
++      >
++        <div class="stage-icon">
++          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
++            <polyline points="7,10 12,15 17,10"/>
++            <line x1="12" y1="15" x2="12" y2="3"/>
++          </svg>
++        </div>
++        <span class="stage-label">Download Ready</span>
++      </div>
 +    </div>
 +  </div>
 +</template>
 +
 +<script setup lang="ts">
-+import type { ConversionProgress } from '../types'
++import { computed } from 'vue'
++import type { ConversionProgress } from '@/types'
 +
 +interface Props {
-+  progress: ConversionProgress
-+  currentStep: string
++  progress: ConversionProgress | null
++  progressPercentage: number
++  isGenerating: boolean
 +}
 +
-+defineProps<Props>()
++const props = defineProps<Props>()
++
++const isVisible = computed(() => props.isGenerating || props.progress?.stage === 'complete')
++
++function isStageComplete(stage: ConversionProgress['stage']): boolean {
++  if (!props.progress) return false
++  
++  const stages: ConversionProgress['stage'][] = ['compressing', 'generating', 'complete']
++  const currentIndex = stages.indexOf(props.progress.stage)
++  const stageIndex = stages.indexOf(stage)
++  
++  return currentIndex > stageIndex || (currentIndex === stageIndex && props.progressPercentage === 100)
++}
 +</script>
 +
 +<style scoped>
 +.conversion-progress {
 +  background: white;
-+  border-radius: 12px;
++  border-radius: 0.5rem;
 +  padding: 1.5rem;
-+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-+  max-width: 500px;
-+  margin: 0 auto;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
++  border: 1px solid #e5e7eb;
 +}
 +
 +.progress-header {
@@ -1374,33 +627,38 @@ index 0000000..0000000
 +  margin-bottom: 1rem;
 +}
 +
-+.progress-header h3 {
-+  margin: 0;
-+  color: #333;
-+  font-size: 1.1rem;
++.progress-title {
++  font-size: 1.125rem;
 +  font-weight: 600;
++  color: #1f2937;
++  margin: 0;
 +}
 +
-+.progress-text {
-+  color: #666;
-+  font-size: 0.9rem;
++.progress-percentage {
++  font-size: 1.5rem;
++  font-weight: 700;
++  color: #007bff;
 +}
 +
 +.progress-bar-container {
 +  width: 100%;
-+  height: 8px;
-+  background: #f0f0f0;
-+  border-radius: 4px;
++  height: 0.75rem;
++  background-color: #e5e7eb;
++  border-radius: 0.375rem;
 +  overflow: hidden;
-+  margin-bottom: 0.75rem;
++  margin-bottom: 1rem;
 +}
 +
 +.progress-bar {
 +  height: 100%;
-+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-+  border-radius: 4px;
++  background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
++  border-radius: 0.375rem;
 +  transition: width 0.3s ease;
 +  position: relative;
++}
++
++.progress-bar.complete {
++  background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
 +}
 +
 +.progress-bar::after {
@@ -1412,9 +670,9 @@ index 0000000..0000000
 +  bottom: 0;
 +  background: linear-gradient(
 +    90deg,
-+    transparent,
-+    rgba(255, 255, 255, 0.3),
-+    transparent
++    transparent 0%,
++    rgba(255, 255, 255, 0.3) 50%,
++    transparent 100%
 +  );
 +  animation: shimmer 2s infinite;
 +}
@@ -1428,25 +686,61 @@ index 0000000..0000000
 +  }
 +}
 +
-+.progress-percentage {
-+  text-align: center;
-+  font-size: 1.25rem;
-+  font-weight: 600;
-+  color: #667eea;
-+  margin-bottom: 1rem;
++.progress-details {
++  margin-bottom: 1.5rem;
 +}
 +
-+.current-step {
++.progress-message {
++  font-weight: 500;
++  color: #374151;
++  margin-bottom: 0.25rem;
++  font-size: 0.875rem;
++}
++
++.progress-count {
++  color: #6b7280;
++  font-size: 0.75rem;
++  margin: 0;
++}
++
++.progress-stages {
++  display: flex;
++  justify-content: space-between;
++  gap: 1rem;
++}
++
++.stage {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  flex: 1;
++  padding: 0.75rem;
++  border-radius: 0.375rem;
++  transition: all 0.3s ease;
++  background-color: #f9fafb;
++  border: 1px solid #e5e7eb;
++}
++
++.stage.active {
++  background-color: #eff6ff;
++  border-color: #007bff;
++  color: #007bff;
++}
++
++.stage.complete {
++  background-color: #f0f9ff;
++  border-color: #28a745;
++  color: #28a745;
++}
++
++.stage-icon {
++  margin-bottom: 0.5rem;
 +  display: flex;
 +  align-items: center;
 +  justify-content: center;
-+  gap: 0.5rem;
-+  color: #666;
-+  font-size: 0.9rem;
 +}
 +
-+.step-icon {
-+  color: #667eea;
++.stage.active .stage-icon svg {
 +  animation: pulse 2s infinite;
 +}
 +
@@ -1459,6 +753,59 @@ index 0000000..0000000
 +  }
 +}
 +
++.stage-label {
++  font-size: 0.75rem;
++  font-weight: 500;
++  text-align: center;
++  line-height: 1.2;
++}
++
++@media (prefers-color-scheme: dark) {
++  .conversion-progress {
++    background: #2d3748;
++    border-color: #4b5563;
++    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
++  }
++  
++  .progress-title {
++    color: #f3f4f6;
++  }
++  
++  .progress-percentage {
++    color: #60a5fa;
++  }
++  
++  .progress-bar-container {
++    background-color: #374151;
++  }
++  
++  .progress-message {
++    color: #d1d5db;
++  }
++  
++  .progress-count {
++    color: #9ca3af;
++  }
++  
++  .stage {
++    background-color: #374151;
++    border-color: #4b5563;
++    color: #d1d5db;
++  }
++  
++  .stage.active {
++    background-color: #1e3a8a;
++    border-color: #3b82f6;
++    color: #93c5fd;
++  }
++  
++  .stage.complete {
++    background-color: #064e3b;
++    border-color: #10b981;
++    color: #6ee7b7;
++  }
++}
++
 +@media (max-width: 768px) {
 +  .conversion-progress {
 +    padding: 1rem;
@@ -1467,7 +814,2041 @@ index 0000000..0000000
 +  .progress-header {
 +    flex-direction: column;
 +    align-items: flex-start;
-+    gap: 0.25rem;
++    gap: 0.5rem;
++  }
++  
++  .progress-percentage {
++    font-size: 1.25rem;
++  }
++  
++  .progress-stages {
++    flex-direction: column;
++    gap: 0.5rem;
++  }
++  
++  .stage {
++    flex-direction: row;
++    justify-content: flex-start;
++    text-align: left;
++  }
++  
++  .stage-icon {
++    margin-bottom: 0;
++    margin-right: 0.75rem;
 +  }
 +}
 +</style>
+\ No newline at end of file
+diff --git a/repository_after/src/components/FileUpload.vue b/repository_after/src/components/FileUpload.vue
+new file mode 100644
+index 0000000..b0a07b3
+--- /dev/null
++++ b/repository_after/src/components/FileUpload.vue
+@@ -0,0 +1,291 @@
++<template>
++  <div class="file-upload">
++    <!-- Drag and Drop Zone -->
++    <div
++      ref="dropZone"
++      class="drop-zone"
++      :class="{ 'drag-over': isDragOver, 'has-files': hasFiles }"
++      @click="triggerFileInput"
++      @dragover.prevent="handleDragOver"
++      @dragleave.prevent="handleDragLeave"
++      @drop.prevent="handleDrop"
++    >
++      <input
++        ref="fileInput"
++        type="file"
++        multiple
++        accept="image/jpeg,image/jpg,image/png,image/webp"
++        class="file-input"
++        @change="handleFileSelect"
++      />
++      
++      <div class="drop-zone-content">
++        <div class="upload-icon">
++          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
++            <polyline points="7,10 12,15 17,10"/>
++            <line x1="12" y1="15" x2="12" y2="3"/>
++          </svg>
++        </div>
++        
++        <h3 class="upload-title">
++          {{ hasFiles ? 'Add More Images' : 'Upload Images' }}
++        </h3>
++        
++        <p class="upload-description">
++          Drag and drop images here, or click to select files
++        </p>
++        
++        <p class="upload-formats">
++          Supports: JPG, PNG, WEBP (max 50MB each)
++        </p>
++      </div>
++    </div>
++    
++    <!-- Processing Progress -->
++    <div v-if="isProcessing" class="processing-status">
++      <div class="progress">
++        <div 
++          class="progress-bar" 
++          :style="{ width: `${processingProgress}%` }"
++        ></div>
++      </div>
++      <p class="processing-text">
++        Processing images... {{ processingProgress }}%
++      </p>
++    </div>
++    
++    <!-- Error Display -->
++    <div v-if="error" class="error-message">
++      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++        <circle cx="12" cy="12" r="10"/>
++        <line x1="15" y1="9" x2="9" y2="15"/>
++        <line x1="9" y1="9" x2="15" y2="15"/>
++      </svg>
++      {{ error }}
++    </div>
++    
++    <!-- File Info -->
++    <div v-if="hasFiles && !isProcessing" class="file-info">
++      <p class="file-count">
++        {{ images.length }} image{{ images.length !== 1 ? 's' : '' }} selected
++      </p>
++      <p class="file-size">
++        Total size: {{ formattedTotalSize }}
++      </p>
++    </div>
++  </div>
++</template>
++
++<script setup lang="ts">
++import { ref, computed } from 'vue'
++
++interface Props {
++  images: any[]
++  isProcessing: boolean
++  processingProgress: number
++  error: string | null
++  formattedTotalSize: string
++}
++
++interface Emits {
++  (e: 'upload', files: File[]): void
++}
++
++const props = defineProps<Props>()
++const emit = defineEmits<Emits>()
++
++const dropZone = ref<HTMLElement>()
++const fileInput = ref<HTMLInputElement>()
++const isDragOver = ref(false)
++
++const hasFiles = computed(() => props.images.length > 0)
++
++function triggerFileInput() {
++  fileInput.value?.click()
++}
++
++function handleFileSelect(event: Event) {
++  const target = event.target as HTMLInputElement
++  if (target.files) {
++    const files = Array.from(target.files)
++    emit('upload', files)
++    // Reset input to allow selecting the same files again
++    target.value = ''
++  }
++}
++
++function handleDragOver(event: DragEvent) {
++  event.preventDefault()
++  isDragOver.value = true
++}
++
++function handleDragLeave(event: DragEvent) {
++  event.preventDefault()
++  // Only set to false if leaving the drop zone itself
++  if (!dropZone.value?.contains(event.relatedTarget as Node)) {
++    isDragOver.value = false
++  }
++}
++
++function handleDrop(event: DragEvent) {
++  event.preventDefault()
++  isDragOver.value = false
++  
++  if (event.dataTransfer?.files) {
++    const files = Array.from(event.dataTransfer.files)
++    emit('upload', files)
++  }
++}
++</script>
++
++<style scoped>
++.file-upload {
++  width: 100%;
++}
++
++.drop-zone {
++  border: 2px dashed #cbd5e0;
++  border-radius: 0.5rem;
++  padding: 3rem 2rem;
++  text-align: center;
++  cursor: pointer;
++  transition: all 0.3s ease;
++  background-color: #f7fafc;
++  position: relative;
++}
++
++.drop-zone:hover {
++  border-color: #007bff;
++  background-color: #ebf8ff;
++}
++
++.drop-zone.drag-over {
++  border-color: #007bff;
++  background-color: #ebf8ff;
++  transform: scale(1.02);
++}
++
++.drop-zone.has-files {
++  border-color: #48bb78;
++  background-color: #f0fff4;
++}
++
++.file-input {
++  display: none;
++}
++
++.drop-zone-content {
++  pointer-events: none;
++}
++
++.upload-icon {
++  color: #718096;
++  margin-bottom: 1rem;
++}
++
++.drop-zone:hover .upload-icon,
++.drop-zone.drag-over .upload-icon {
++  color: #007bff;
++}
++
++.upload-title {
++  font-size: 1.25rem;
++  font-weight: 600;
++  color: #2d3748;
++  margin-bottom: 0.5rem;
++}
++
++.upload-description {
++  color: #718096;
++  margin-bottom: 0.5rem;
++}
++
++.upload-formats {
++  font-size: 0.875rem;
++  color: #a0aec0;
++}
++
++.processing-status {
++  margin-top: 1rem;
++}
++
++.processing-text {
++  text-align: center;
++  color: #718096;
++  margin-top: 0.5rem;
++  font-size: 0.875rem;
++}
++
++.error-message {
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  padding: 0.75rem 1rem;
++  background-color: #fed7d7;
++  color: #c53030;
++  border-radius: 0.375rem;
++  margin-top: 1rem;
++  font-size: 0.875rem;
++}
++
++.file-info {
++  margin-top: 1rem;
++  padding: 1rem;
++  background-color: #edf2f7;
++  border-radius: 0.375rem;
++  text-align: center;
++}
++
++.file-count {
++  font-weight: 600;
++  color: #2d3748;
++  margin-bottom: 0.25rem;
++}
++
++.file-size {
++  color: #718096;
++  font-size: 0.875rem;
++}
++
++@media (prefers-color-scheme: dark) {
++  .drop-zone {
++    background-color: #2d3748;
++    border-color: #4a5568;
++  }
++  
++  .drop-zone:hover,
++  .drop-zone.drag-over {
++    background-color: #2a4365;
++  }
++  
++  .drop-zone.has-files {
++    background-color: #22543d;
++    border-color: #48bb78;
++  }
++  
++  .upload-title {
++    color: #e2e8f0;
++  }
++  
++  .upload-description {
++    color: #a0aec0;
++  }
++  
++  .upload-formats {
++    color: #718096;
++  }
++  
++  .file-info {
++    background-color: #4a5568;
++  }
++  
++  .file-count {
++    color: #e2e8f0;
++  }
++  
++  .file-size {
++    color: #a0aec0;
++  }
++}
++</style>
+\ No newline at end of file
+diff --git a/repository_after/src/components/ImagePreview.vue b/repository_after/src/components/ImagePreview.vue
+new file mode 100644
+index 0000000..894eced
+--- /dev/null
++++ b/repository_after/src/components/ImagePreview.vue
+@@ -0,0 +1,296 @@
++<template>
++  <div class="image-preview-grid">
++    <draggable
++      v-model="localImages"
++      item-key="id"
++      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
++      :animation="200"
++      ghost-class="sortable-ghost"
++      chosen-class="sortable-chosen"
++      drag-class="drag-item"
++      @end="handleDragEnd"
++    >
++      <template #item="{ element: image, index }">
++        <div class="image-card">
++          <div class="image-container">
++            <img
++              :src="image.preview"
++              :alt="image.name"
++              class="preview-image"
++              loading="lazy"
++            />
++            
++            <!-- Remove button -->
++            <button
++              class="remove-button"
++              @click="$emit('remove', image.id)"
++              title="Remove image"
++            >
++              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++                <line x1="18" y1="6" x2="6" y2="18"/>
++                <line x1="6" y1="6" x2="18" y2="18"/>
++              </svg>
++            </button>
++            
++            <!-- Drag handle -->
++            <div class="drag-handle" title="Drag to reorder">
++              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
++                <line x1="3" y1="6" x2="21" y2="6"/>
++                <line x1="3" y1="12" x2="21" y2="12"/>
++                <line x1="3" y1="18" x2="21" y2="18"/>
++              </svg>
++            </div>
++            
++            <!-- Page number -->
++            <div class="page-number">
++              Page {{ index + 1 }}
++            </div>
++          </div>
++          
++          <div class="image-info">
++            <p class="image-name" :title="image.name">
++              {{ truncateName(image.name) }}
++            </p>
++            <p class="image-size">
++              {{ formatFileSize(image.size) }}
++            </p>
++            <p v-if="image.compressed" class="compression-info">
++              Compressed: {{ formatFileSize(image.compressed.size) }}
++            </p>
++          </div>
++        </div>
++      </template>
++    </draggable>
++    
++    <!-- Empty state -->
++    <div v-if="localImages.length === 0" class="empty-state">
++      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
++        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
++        <circle cx="8.5" cy="8.5" r="1.5"/>
++        <polyline points="21,15 16,10 5,21"/>
++      </svg>
++      <p>No images selected</p>
++    </div>
++  </div>
++</template>
++
++<script setup lang="ts">
++import { computed } from 'vue'
++import draggable from 'vuedraggable'
++import type { ImageFile } from '@/types'
++
++interface Props {
++  images: ImageFile[]
++}
++
++interface Emits {
++  (e: 'remove', id: string): void
++  (e: 'reorder', images: ImageFile[]): void
++}
++
++const props = defineProps<Props>()
++const emit = defineEmits<Emits>()
++
++const localImages = computed({
++  get: () => props.images,
++  set: (value) => emit('reorder', value)
++})
++
++function handleDragEnd() {
++  // The v-model will automatically emit the reorder event
++}
++
++function truncateName(name: string, maxLength: number = 25): string {
++  if (name.length <= maxLength) return name
++  const extension = name.split('.').pop()
++  const nameWithoutExt = name.substring(0, name.lastIndexOf('.'))
++  const truncated = nameWithoutExt.substring(0, maxLength - extension!.length - 4)
++  return `${truncated}...${extension}`
++}
++
++function formatFileSize(bytes: number): string {
++  if (bytes === 0) return '0 B'
++  const k = 1024
++  const sizes = ['B', 'KB', 'MB', 'GB']
++  const i = Math.floor(Math.log(bytes) / Math.log(k))
++  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
++}
++</script>
++
++<style scoped>
++.image-preview-grid {
++  width: 100%;
++}
++
++.image-card {
++  background: white;
++  border-radius: 0.5rem;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
++  overflow: hidden;
++  transition: transform 0.2s ease, box-shadow 0.2s ease;
++}
++
++.image-card:hover {
++  transform: translateY(-2px);
++  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
++}
++
++.image-container {
++  position: relative;
++  aspect-ratio: 4/3;
++  overflow: hidden;
++}
++
++.preview-image {
++  width: 100%;
++  height: 100%;
++  object-fit: cover;
++  transition: transform 0.2s ease;
++}
++
++.image-card:hover .preview-image {
++  transform: scale(1.05);
++}
++
++.remove-button {
++  position: absolute;
++  top: 0.5rem;
++  right: 0.5rem;
++  background: rgba(220, 53, 69, 0.9);
++  color: white;
++  border: none;
++  border-radius: 50%;
++  width: 2rem;
++  height: 2rem;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  cursor: pointer;
++  opacity: 0;
++  transition: opacity 0.2s ease;
++}
++
++.image-card:hover .remove-button {
++  opacity: 1;
++}
++
++.remove-button:hover {
++  background: rgba(220, 53, 69, 1);
++}
++
++.drag-handle {
++  position: absolute;
++  top: 0.5rem;
++  left: 0.5rem;
++  background: rgba(0, 0, 0, 0.7);
++  color: white;
++  border-radius: 0.25rem;
++  padding: 0.25rem;
++  cursor: move;
++  opacity: 0;
++  transition: opacity 0.2s ease;
++}
++
++.image-card:hover .drag-handle {
++  opacity: 1;
++}
++
++.page-number {
++  position: absolute;
++  bottom: 0.5rem;
++  left: 0.5rem;
++  background: rgba(0, 0, 0, 0.7);
++  color: white;
++  padding: 0.25rem 0.5rem;
++  border-radius: 0.25rem;
++  font-size: 0.75rem;
++  font-weight: 600;
++}
++
++.image-info {
++  padding: 1rem;
++}
++
++.image-name {
++  font-weight: 600;
++  color: #2d3748;
++  margin-bottom: 0.25rem;
++  font-size: 0.875rem;
++}
++
++.image-size {
++  color: #718096;
++  font-size: 0.75rem;
++  margin-bottom: 0.25rem;
++}
++
++.compression-info {
++  color: #48bb78;
++  font-size: 0.75rem;
++  font-weight: 500;
++}
++
++.empty-state {
++  grid-column: 1 / -1;
++  text-align: center;
++  padding: 3rem 2rem;
++  color: #a0aec0;
++}
++
++.empty-state svg {
++  margin: 0 auto 1rem;
++}
++
++.empty-state p {
++  font-size: 1.125rem;
++  font-weight: 500;
++}
++
++/* Drag and drop styles */
++.sortable-ghost {
++  opacity: 0.5;
++}
++
++.sortable-chosen {
++  transform: scale(1.05);
++}
++
++.drag-item {
++  cursor: move;
++}
++
++@media (prefers-color-scheme: dark) {
++  .image-card {
++    background: #2d3748;
++    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
++  }
++  
++  .image-card:hover {
++    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
++  }
++  
++  .image-name {
++    color: #e2e8f0;
++  }
++  
++  .image-size {
++    color: #a0aec0;
++  }
++  
++  .empty-state {
++    color: #718096;
++  }
++}
++
++@media (max-width: 768px) {
++  .grid {
++    grid-template-columns: repeat(1, minmax(0, 1fr));
++  }
++}
++
++@media (min-width: 768px) and (max-width: 1024px) {
++  .grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++}
++</style>
+\ No newline at end of file
+diff --git a/repository_after/src/components/PdfOptions.vue b/repository_after/src/components/PdfOptions.vue
+new file mode 100644
+index 0000000..d0c3adb
+--- /dev/null
++++ b/repository_after/src/components/PdfOptions.vue
+@@ -0,0 +1,362 @@
++<template>
++  <div class="pdf-options">
++    <h3 class="options-title">PDF Options</h3>
++    
++    <div class="options-grid">
++      <!-- Page Size -->
++      <div class="form-group">
++        <label for="pageSize" class="form-label">Page Size</label>
++        <select
++          id="pageSize"
++          v-model="localOptions.pageSize"
++          class="form-control"
++        >
++          <option value="A4">A4 (210 × 297 mm)</option>
++          <option value="Letter">Letter (8.5 × 11 in)</option>
++          <option value="Auto">Auto-fit to image</option>
++        </select>
++      </div>
++      
++      <!-- Orientation -->
++      <div class="form-group">
++        <label for="orientation" class="form-label">Orientation</label>
++        <select
++          id="orientation"
++          v-model="localOptions.orientation"
++          class="form-control"
++          :disabled="localOptions.pageSize === 'Auto'"
++        >
++          <option value="portrait">Portrait</option>
++          <option value="landscape">Landscape</option>
++        </select>
++      </div>
++      
++      <!-- Scaling Mode -->
++      <div class="form-group">
++        <label for="scalingMode" class="form-label">Image Scaling</label>
++        <select
++          id="scalingMode"
++          v-model="localOptions.scalingMode"
++          class="form-control"
++        >
++          <option value="fit">Fit (maintain aspect ratio)</option>
++          <option value="fill">Fill (may crop image)</option>
++          <option value="original">Original size</option>
++        </select>
++      </div>
++      
++      <!-- Filename -->
++      <div class="form-group filename-group">
++        <label for="filename" class="form-label">Output Filename</label>
++        <div class="filename-input-group">
++          <input
++            id="filename"
++            v-model="localOptions.filename"
++            type="text"
++            class="form-control filename-input"
++            placeholder="Enter filename"
++            @input="validateFilename"
++          />
++          <span class="filename-extension">.pdf</span>
++        </div>
++        <p v-if="filenameError" class="filename-error">
++          {{ filenameError }}
++        </p>
++      </div>
++    </div>
++    
++    <!-- Preview Info -->
++    <div v-if="hasImages" class="preview-info">
++      <div class="info-item">
++        <span class="info-label">Pages:</span>
++        <span class="info-value">{{ imageCount }}</span>
++      </div>
++      <div class="info-item">
++        <span class="info-label">Estimated size:</span>
++        <span class="info-value">{{ estimatedSize }}</span>
++      </div>
++      <div v-if="localOptions.pageSize !== 'Auto'" class="info-item">
++        <span class="info-label">Page format:</span>
++        <span class="info-value">
++          {{ localOptions.pageSize }} {{ localOptions.orientation }}
++        </span>
++      </div>
++    </div>
++  </div>
++</template>
++
++<script setup lang="ts">
++import { ref, computed, watch } from 'vue'
++import type { PdfOptions } from '@/types'
++
++interface Props {
++  options: PdfOptions
++  imageCount: number
++  estimatedSize: string
++}
++
++interface Emits {
++  (e: 'update:options', options: PdfOptions): void
++}
++
++const props = defineProps<Props>()
++const emit = defineEmits<Emits>()
++
++const filenameError = ref<string | null>(null)
++
++const localOptions = computed({
++  get: () => props.options,
++  set: (value) => emit('update:options', value)
++})
++
++const hasImages = computed(() => props.imageCount > 0)
++
++// Watch for page size changes to reset orientation for Auto mode
++watch(
++  () => localOptions.value.pageSize,
++  (newSize) => {
++    if (newSize === 'Auto') {
++      localOptions.value = {
++        ...localOptions.value,
++        orientation: 'portrait'
++      }
++    }
++  }
++)
++
++function validateFilename() {
++  const filename = localOptions.value.filename.trim()
++  
++  if (!filename) {
++    filenameError.value = 'Filename is required'
++    return
++  }
++  
++  // Check for invalid characters
++  const invalidChars = /[<>:"/\\|?*]/
++  if (invalidChars.test(filename)) {
++    filenameError.value = 'Filename contains invalid characters'
++    return
++  }
++  
++  // Check for reserved names (Windows)
++  const reservedNames = [
++    'CON', 'PRN', 'AUX', 'NUL',
++    'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
++    'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
++  ]
++  
++  if (reservedNames.includes(filename.toUpperCase())) {
++    filenameError.value = 'Filename is reserved'
++    return
++  }
++  
++  // Check length
++  if (filename.length > 255) {
++    filenameError.value = 'Filename is too long'
++    return
++  }
++  
++  filenameError.value = null
++}
++
++// Generate default filename based on current date
++function generateDefaultFilename(): string {
++  const now = new Date()
++  const year = now.getFullYear()
++  const month = String(now.getMonth() + 1).padStart(2, '0')
++  const day = String(now.getDate()).padStart(2, '0')
++  const hours = String(now.getHours()).padStart(2, '0')
++  const minutes = String(now.getMinutes()).padStart(2, '0')
++  
++  return `images-to-pdf-${year}${month}${day}-${hours}${minutes}`
++}
++
++// Initialize with default filename if empty
++if (!localOptions.value.filename) {
++  localOptions.value = {
++    ...localOptions.value,
++    filename: generateDefaultFilename()
++  }
++}
++</script>
++
++<style scoped>
++.pdf-options {
++  background: white;
++  border-radius: 0.5rem;
++  padding: 1.5rem;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
++}
++
++.options-title {
++  font-size: 1.25rem;
++  font-weight: 600;
++  color: #2d3748;
++  margin-bottom: 1.5rem;
++}
++
++.options-grid {
++  display: grid;
++  gap: 1.5rem;
++  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
++}
++
++.filename-group {
++  grid-column: 1 / -1;
++}
++
++.form-group {
++  display: flex;
++  flex-direction: column;
++}
++
++.form-label {
++  font-weight: 500;
++  color: #374151;
++  margin-bottom: 0.5rem;
++  font-size: 0.875rem;
++}
++
++.form-control {
++  padding: 0.75rem;
++  border: 1px solid #d1d5db;
++  border-radius: 0.375rem;
++  font-size: 0.875rem;
++  transition: border-color 0.2s ease, box-shadow 0.2s ease;
++}
++
++.form-control:focus {
++  outline: none;
++  border-color: #007bff;
++  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
++}
++
++.form-control:disabled {
++  background-color: #f3f4f6;
++  color: #9ca3af;
++  cursor: not-allowed;
++}
++
++.filename-input-group {
++  display: flex;
++  align-items: center;
++}
++
++.filename-input {
++  flex: 1;
++  border-top-right-radius: 0;
++  border-bottom-right-radius: 0;
++  border-right: none;
++}
++
++.filename-extension {
++  background-color: #f3f4f6;
++  border: 1px solid #d1d5db;
++  border-left: none;
++  border-top-right-radius: 0.375rem;
++  border-bottom-right-radius: 0.375rem;
++  padding: 0.75rem;
++  font-size: 0.875rem;
++  color: #6b7280;
++  font-weight: 500;
++}
++
++.filename-error {
++  color: #dc2626;
++  font-size: 0.75rem;
++  margin-top: 0.25rem;
++}
++
++.preview-info {
++  margin-top: 1.5rem;
++  padding-top: 1.5rem;
++  border-top: 1px solid #e5e7eb;
++}
++
++.info-item {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  margin-bottom: 0.5rem;
++}
++
++.info-item:last-child {
++  margin-bottom: 0;
++}
++
++.info-label {
++  font-weight: 500;
++  color: #6b7280;
++  font-size: 0.875rem;
++}
++
++.info-value {
++  font-weight: 600;
++  color: #1f2937;
++  font-size: 0.875rem;
++}
++
++@media (prefers-color-scheme: dark) {
++  .pdf-options {
++    background: #2d3748;
++    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
++  }
++  
++  .options-title {
++    color: #e2e8f0;
++  }
++  
++  .form-label {
++    color: #d1d5db;
++  }
++  
++  .form-control {
++    background-color: #374151;
++    border-color: #4b5563;
++    color: #f3f4f6;
++  }
++  
++  .form-control:focus {
++    border-color: #3b82f6;
++    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
++  }
++  
++  .form-control:disabled {
++    background-color: #1f2937;
++    color: #6b7280;
++  }
++  
++  .filename-extension {
++    background-color: #374151;
++    border-color: #4b5563;
++    color: #9ca3af;
++  }
++  
++  .filename-error {
++    color: #f87171;
++  }
++  
++  .preview-info {
++    border-top-color: #4b5563;
++  }
++  
++  .info-label {
++    color: #9ca3af;
++  }
++  
++  .info-value {
++    color: #f3f4f6;
++  }
++}
++
++@media (max-width: 768px) {
++  .options-grid {
++    grid-template-columns: 1fr;
++  }
++  
++  .pdf-options {
++    padding: 1rem;
++  }
++}
++</style>
+\ No newline at end of file
+diff --git a/repository_after/src/composables/useImageUpload.ts b/repository_after/src/composables/useImageUpload.ts
+new file mode 100644
+index 0000000..8fa6699
+--- /dev/null
++++ b/repository_after/src/composables/useImageUpload.ts
+@@ -0,0 +1,107 @@
++import { ref, computed } from 'vue'
++import type { ImageFile } from '@/types'
++import { processImageFiles } from '@/utils/imageProcessor'
++
++export function useImageUpload() {
++  const images = ref<ImageFile[]>([])
++  const isProcessing = ref(false)
++  const processingProgress = ref(0)
++  const error = ref<string | null>(null)
++  
++  const hasImages = computed(() => images.value.length > 0)
++  const totalSize = computed(() => 
++    images.value.reduce((sum, img) => sum + img.size, 0)
++  )
++  const formattedTotalSize = computed(() => {
++    const bytes = totalSize.value
++    if (bytes === 0) return '0 B'
++    const k = 1024
++    const sizes = ['B', 'KB', 'MB', 'GB']
++    const i = Math.floor(Math.log(bytes) / Math.log(k))
++    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
++  })
++  
++  /**
++   * Adds new image files to the collection
++   */
++  async function addImages(files: File[]): Promise<void> {
++    if (files.length === 0) return
++    
++    isProcessing.value = true
++    processingProgress.value = 0
++    error.value = null
++    
++    try {
++      const processedImages = await processImageFiles(
++        files,
++        (current, total) => {
++          processingProgress.value = Math.round((current / total) * 100)
++        }
++      )
++      
++      images.value.push(...processedImages)
++    } catch (err) {
++      error.value = err instanceof Error ? err.message : 'Failed to process images'
++      throw err
++    } finally {
++      isProcessing.value = false
++      processingProgress.value = 0
++    }
++  }
++  
++  /**
++   * Removes an image by ID
++   */
++  function removeImage(id: string): void {
++    const index = images.value.findIndex(img => img.id === id)
++    if (index !== -1) {
++      // Revoke preview URL to prevent memory leaks
++      URL.revokeObjectURL(images.value[index].preview)
++      images.value.splice(index, 1)
++    }
++  }
++  
++  /**
++   * Clears all images
++   */
++  function clearImages(): void {
++    // Revoke all preview URLs
++    images.value.forEach(img => {
++      URL.revokeObjectURL(img.preview)
++    })
++    images.value = []
++    error.value = null
++  }
++  
++  /**
++   * Reorders images (for drag and drop)
++   */
++  function reorderImages(newOrder: ImageFile[]): void {
++    images.value = newOrder
++  }
++  
++  /**
++   * Moves an image to a new position
++   */
++  function moveImage(fromIndex: number, toIndex: number): void {
++    if (fromIndex === toIndex) return
++    
++    const item = images.value.splice(fromIndex, 1)[0]
++    images.value.splice(toIndex, 0, item)
++  }
++  
++  return {
++    images,
++    isProcessing,
++    processingProgress,
++    error,
++    hasImages,
++    totalSize,
++    formattedTotalSize,
++    addImages,
++    removeImage,
++    clearImages,
++    reorderImages,
++    moveImage
++  }
++}
+\ No newline at end of file
+diff --git a/repository_after/src/composables/usePdfGeneration.ts b/repository_after/src/composables/usePdfGeneration.ts
+new file mode 100644
+index 0000000..45cec44
+--- /dev/null
++++ b/repository_after/src/composables/usePdfGeneration.ts
+@@ -0,0 +1,87 @@
++import { ref, computed } from 'vue'
++import type { ImageFile, PdfOptions, ConversionProgress } from '@/types'
++import { generatePDF, downloadBlob, estimatePDFSize } from '@/utils/pdfGenerator'
++
++export function usePdfGeneration() {
++  const isGenerating = ref(false)
++  const progress = ref<ConversionProgress | null>(null)
++  const error = ref<string | null>(null)
++  
++  const progressPercentage = computed(() => {
++    if (!progress.value) return 0
++    return Math.round((progress.value.current / progress.value.total) * 100)
++  })
++  
++  /**
++   * Generates and downloads a PDF from images
++   */
++  async function generateAndDownloadPDF(
++    images: ImageFile[],
++    options: PdfOptions
++  ): Promise<void> {
++    if (images.length === 0) {
++      throw new Error('No images to convert')
++    }
++    
++    isGenerating.value = true
++    error.value = null
++    progress.value = {
++      current: 0,
++      total: images.length,
++      stage: 'compressing',
++      message: 'Starting conversion...'
++    }
++    
++    try {
++      const pdfBlob = await generatePDF(
++        images,
++        options,
++        (progressUpdate) => {
++          progress.value = progressUpdate
++        }
++      )
++      
++      // Download the generated PDF
++      downloadBlob(pdfBlob, options.filename)
++      
++    } catch (err) {
++      error.value = err instanceof Error ? err.message : 'Failed to generate PDF'
++      throw err
++    } finally {
++      isGenerating.value = false
++      progress.value = null
++    }
++  }
++  
++  /**
++   * Estimates the final PDF file size
++   */
++  function getEstimatedSize(images: ImageFile[]): string {
++    const bytes = estimatePDFSize(images)
++    if (bytes === 0) return '0 B'
++    
++    const k = 1024
++    const sizes = ['B', 'KB', 'MB', 'GB']
++    const i = Math.floor(Math.log(bytes) / Math.log(k))
++    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
++  }
++  
++  /**
++   * Resets the generation state
++   */
++  function resetState(): void {
++    isGenerating.value = false
++    progress.value = null
++    error.value = null
++  }
++  
++  return {
++    isGenerating,
++    progress,
++    progressPercentage,
++    error,
++    generateAndDownloadPDF,
++    getEstimatedSize,
++    resetState
++  }
++}
+\ No newline at end of file
+diff --git a/repository_after/src/main.ts b/repository_after/src/main.ts
+new file mode 100644
+index 0000000..5a6e246
+--- /dev/null
++++ b/repository_after/src/main.ts
+@@ -0,0 +1,5 @@
++import { createApp } from 'vue'
++import './style.css'
++import App from './App.vue'
++
++createApp(App).mount('#app')
+\ No newline at end of file
+diff --git a/repository_after/src/style.css b/repository_after/src/style.css
+new file mode 100644
+index 0000000..b910262
+--- /dev/null
++++ b/repository_after/src/style.css
+@@ -0,0 +1,236 @@
++:root {
++  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
++  line-height: 1.5;
++  font-weight: 400;
++  color-scheme: light dark;
++  color: rgba(255, 255, 255, 0.87);
++  background-color: #242424;
++  font-synthesis: none;
++  text-rendering: optimizeLegibility;
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++  -webkit-text-size-adjust: 100%;
++}
++
++* {
++  box-sizing: border-box;
++}
++
++body {
++  margin: 0;
++  display: flex;
++  place-items: center;
++  min-width: 320px;
++  min-height: 100vh;
++}
++
++#app {
++  max-width: 1280px;
++  margin: 0 auto;
++  padding: 2rem;
++  text-align: center;
++  width: 100%;
++}
++
++@media (prefers-color-scheme: light) {
++  :root {
++    color: #213547;
++    background-color: #ffffff;
++  }
++}
++
++/* Drag and drop styles */
++.drag-over {
++  border: 2px dashed #007bff !important;
++  background-color: rgba(0, 123, 255, 0.1) !important;
++}
++
++.drag-item {
++  cursor: move;
++  transition: transform 0.2s ease;
++}
++
++.drag-item:hover {
++  transform: scale(1.02);
++}
++
++.sortable-ghost {
++  opacity: 0.5;
++}
++
++.sortable-chosen {
++  transform: scale(1.05);
++}
++
++/* Button styles */
++.btn {
++  display: inline-block;
++  padding: 0.75rem 1.5rem;
++  margin: 0.25rem;
++  border: none;
++  border-radius: 0.375rem;
++  font-size: 1rem;
++  font-weight: 500;
++  text-align: center;
++  text-decoration: none;
++  cursor: pointer;
++  transition: all 0.2s ease;
++}
++
++.btn:disabled {
++  opacity: 0.6;
++  cursor: not-allowed;
++}
++
++.btn-primary {
++  background-color: #007bff;
++  color: white;
++}
++
++.btn-primary:hover:not(:disabled) {
++  background-color: #0056b3;
++}
++
++.btn-secondary {
++  background-color: #6c757d;
++  color: white;
++}
++
++.btn-secondary:hover:not(:disabled) {
++  background-color: #545b62;
++}
++
++.btn-danger {
++  background-color: #dc3545;
++  color: white;
++}
++
++.btn-danger:hover:not(:disabled) {
++  background-color: #c82333;
++}
++
++/* Form styles */
++.form-group {
++  margin-bottom: 1rem;
++  text-align: left;
++}
++
++.form-label {
++  display: block;
++  margin-bottom: 0.5rem;
++  font-weight: 500;
++}
++
++.form-control {
++  display: block;
++  width: 100%;
++  padding: 0.5rem 0.75rem;
++  font-size: 1rem;
++  border: 1px solid #ced4da;
++  border-radius: 0.375rem;
++  background-color: #fff;
++  color: #495057;
++}
++
++@media (prefers-color-scheme: dark) {
++  .form-control {
++    background-color: #2d3748;
++    border-color: #4a5568;
++    color: #e2e8f0;
++  }
++}
++
++/* Progress bar */
++.progress {
++  width: 100%;
++  height: 1rem;
++  background-color: #e9ecef;
++  border-radius: 0.375rem;
++  overflow: hidden;
++}
++
++.progress-bar {
++  height: 100%;
++  background-color: #007bff;
++  transition: width 0.3s ease;
++}
++
++/* Grid layout */
++.grid {
++  display: grid;
++  gap: 1rem;
++}
++
++.grid-cols-1 {
++  grid-template-columns: repeat(1, minmax(0, 1fr));
++}
++
++.grid-cols-2 {
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++}
++
++.grid-cols-3 {
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++}
++
++@media (min-width: 768px) {
++  .md\\:grid-cols-2 {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++  
++  .md\\:grid-cols-3 {
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++  }
++  
++  .md\\:grid-cols-4 {
++    grid-template-columns: repeat(4, minmax(0, 1fr));
++  }
++}
++
++/* Card styles */
++.card {
++  background: white;
++  border-radius: 0.5rem;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
++  overflow: hidden;
++}
++
++@media (prefers-color-scheme: dark) {
++  .card {
++    background: #2d3748;
++    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
++  }
++}
++
++.card-body {
++  padding: 1rem;
++}
++
++/* Utility classes */
++.text-center {
++  text-align: center;
++}
++
++.text-left {
++  text-align: left;
++}
++
++.mb-4 {
++  margin-bottom: 1rem;
++}
++
++.mt-4 {
++  margin-top: 1rem;
++}
++
++.p-4 {
++  padding: 1rem;
++}
++
++.rounded {
++  border-radius: 0.375rem;
++}
++
++.shadow {
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
++}
+\ No newline at end of file
+diff --git a/repository_after/src/types/index.ts b/repository_after/src/types/index.ts
+new file mode 100644
+index 0000000..f593700
+--- /dev/null
++++ b/repository_after/src/types/index.ts
+@@ -0,0 +1,30 @@
++export interface ImageFile {
++  id: string
++  file: File
++  preview: string
++  name: string
++  size: number
++  type: string
++  compressed?: File
++}
++
++export interface PdfOptions {
++  pageSize: 'A4' | 'Letter' | 'Auto'
++  orientation: 'portrait' | 'landscape'
++  scalingMode: 'fit' | 'fill' | 'original'
++  filename: string
++}
++
++export interface ConversionProgress {
++  current: number
++  total: number
++  stage: 'compressing' | 'generating' | 'complete'
++  message: string
++}
++
++export interface CompressionOptions {
++  maxSizeMB: number
++  maxWidthOrHeight: number
++  useWebWorker: boolean
++  quality: number
++}
+\ No newline at end of file
+diff --git a/repository_after/src/utils/imageProcessor.ts b/repository_after/src/utils/imageProcessor.ts
+new file mode 100644
+index 0000000..0bd8eff
+--- /dev/null
++++ b/repository_after/src/utils/imageProcessor.ts
+@@ -0,0 +1,213 @@
++import imageCompression from 'browser-image-compression'
++import type { ImageFile, CompressionOptions } from '@/types'
++
++/**
++ * Validates if a file is a supported image type
++ */
++export function isValidImageFile(file: File): boolean {
++  const supportedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
++  return supportedTypes.includes(file.type.toLowerCase())
++}
++
++/**
++ * Validates file size (max 50MB per requirement)
++ */
++export function isValidFileSize(file: File): boolean {
++  const maxSizeBytes = 50 * 1024 * 1024 // 50MB
++  return file.size <= maxSizeBytes
++}
++
++/**
++ * Creates a preview URL for an image file
++ */
++export function createImagePreview(file: File): Promise<string> {
++  return new Promise((resolve, reject) => {
++    const reader = new FileReader()
++    reader.onload = (e) => {
++      if (e.target?.result) {
++        resolve(e.target.result as string)
++      } else {
++        reject(new Error('Failed to create preview'))
++      }
++    }
++    reader.onerror = () => reject(new Error('Failed to read file'))
++    reader.readAsDataURL(file)
++  })
++}
++
++/**
++ * Compresses an image file to optimize memory usage
++ */
++export async function compressImage(
++  file: File,
++  options: CompressionOptions = {
++    maxSizeMB: 5,
++    maxWidthOrHeight: 2048,
++    useWebWorker: true,
++    quality: 0.8
++  }
++): Promise<File> {
++  try {
++    // If file is already small enough, return as-is
++    if (file.size <= options.maxSizeMB * 1024 * 1024) {
++      return file
++    }
++
++    const compressedFile = await imageCompression(file, {
++      maxSizeMB: options.maxSizeMB,
++      maxWidthOrHeight: options.maxWidthOrHeight,
++      useWebWorker: options.useWebWorker,
++      initialQuality: options.quality
++    })
++
++    return compressedFile
++  } catch (error) {
++    console.warn('Compression failed, using original file:', error)
++    return file
++  }
++}
++
++/**
++ * Processes multiple image files with compression and validation
++ */
++export async function processImageFiles(
++  files: File[],
++  onProgress?: (current: number, total: number) => void
++): Promise<ImageFile[]> {
++  const processedImages: ImageFile[] = []
++  
++  for (let i = 0; i < files.length; i++) {
++    const file = files[i]
++    
++    // Validate file type
++    if (!isValidImageFile(file)) {
++      throw new Error(`Unsupported file type: ${file.name}`)
++    }
++    
++    // Validate file size
++    if (!isValidFileSize(file)) {
++      throw new Error(`File too large (max 50MB): ${file.name}`)
++    }
++    
++    try {
++      // Create preview
++      const preview = await createImagePreview(file)
++      
++      // Compress image
++      const compressed = await compressImage(file)
++      
++      // Create ImageFile object
++      const imageFile: ImageFile = {
++        id: `${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
++        file,
++        preview,
++        name: file.name,
++        size: file.size,
++        type: file.type,
++        compressed
++      }
++      
++      processedImages.push(imageFile)
++      
++      // Report progress
++      if (onProgress) {
++        onProgress(i + 1, files.length)
++      }
++    } catch (error) {
++      throw new Error(`Failed to process ${file.name}: ${error}`)
++    }
++  }
++  
++  return processedImages
++}
++
++/**
++ * Gets image dimensions from a file
++ */
++export function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
++  return new Promise((resolve, reject) => {
++    const img = new Image()
++    const url = URL.createObjectURL(file)
++    
++    img.onload = () => {
++      URL.revokeObjectURL(url)
++      resolve({
++        width: img.naturalWidth,
++        height: img.naturalHeight
++      })
++    }
++    
++    img.onerror = () => {
++      URL.revokeObjectURL(url)
++      reject(new Error('Failed to load image'))
++    }
++    
++    img.src = url
++  })
++}
++
++/**
++ * Resizes an image using canvas to fit within specified dimensions
++ */
++export function resizeImage(
++  file: File,
++  maxWidth: number,
++  maxHeight: number,
++  quality: number = 0.8
++): Promise<File> {
++  return new Promise((resolve, reject) => {
++    const img = new Image()
++    const canvas = document.createElement('canvas')
++    const ctx = canvas.getContext('2d')
++    
++    if (!ctx) {
++      reject(new Error('Canvas context not available'))
++      return
++    }
++    
++    img.onload = () => {
++      const { width, height } = img
++      
++      // Calculate new dimensions maintaining aspect ratio
++      let newWidth = width
++      let newHeight = height
++      
++      if (width > maxWidth) {
++        newWidth = maxWidth
++        newHeight = (height * maxWidth) / width
++      }
++      
++      if (newHeight > maxHeight) {
++        newHeight = maxHeight
++        newWidth = (width * maxHeight) / height
++      }
++      
++      // Set canvas dimensions
++      canvas.width = newWidth
++      canvas.height = newHeight
++      
++      // Draw resized image
++      ctx.drawImage(img, 0, 0, newWidth, newHeight)
++      
++      // Convert to blob
++      canvas.toBlob(
++        (blob) => {
++          if (blob) {
++            const resizedFile = new File([blob], file.name, {
++              type: file.type,
++              lastModified: Date.now()
++            })
++            resolve(resizedFile)
++          } else {
++            reject(new Error('Failed to create resized image'))
++          }
++        },
++        file.type,
++        quality
++      )
++    }
++    
++    img.onerror = () => reject(new Error('Failed to load image'))
++    img.src = URL.createObjectURL(file)
++  })
++}
+\ No newline at end of file
+diff --git a/repository_after/src/utils/pdfGenerator.ts b/repository_after/src/utils/pdfGenerator.ts
+new file mode 100644
+index 0000000..b2acf3a
+--- /dev/null
++++ b/repository_after/src/utils/pdfGenerator.ts
+@@ -0,0 +1,264 @@
++import jsPDF from 'jspdf'
++import type { ImageFile, PdfOptions, ConversionProgress } from '@/types'
++import { getImageDimensions } from './imageProcessor'
++
++/**
++ * Page size configurations in mm
++ */
++const PAGE_SIZES = {
++  A4: { width: 210, height: 297 },
++  Letter: { width: 216, height: 279 }
++} as const
++
++/**
++ * Converts an image file to base64 data URL
++ */
++function fileToBase64(file: File): Promise<string> {
++  return new Promise((resolve, reject) => {
++    const reader = new FileReader()
++    reader.onload = () => {
++      if (reader.result && typeof reader.result === 'string') {
++        resolve(reader.result)
++      } else {
++        reject(new Error('Failed to convert file to base64'))
++      }
++    }
++    reader.onerror = () => reject(new Error('File reading failed'))
++    reader.readAsDataURL(file)
++  })
++}
++
++/**
++ * Calculates optimal image dimensions based on scaling mode
++ */
++function calculateImageDimensions(
++  imageWidth: number,
++  imageHeight: number,
++  pageWidth: number,
++  pageHeight: number,
++  scalingMode: PdfOptions['scalingMode']
++): { width: number; height: number; x: number; y: number } {
++  const margin = 10 // 10mm margin
++  const availableWidth = pageWidth - (margin * 2)
++  const availableHeight = pageHeight - (margin * 2)
++  
++  let width: number
++  let height: number
++  
++  switch (scalingMode) {
++    case 'original':
++      // Use original dimensions, but scale down if too large
++      const mmPerPixel = 0.264583 // Convert pixels to mm (96 DPI)
++      width = Math.min(imageWidth * mmPerPixel, availableWidth)
++      height = Math.min(imageHeight * mmPerPixel, availableHeight)
++      break
++      
++    case 'fill':
++      // Fill the entire page, may crop image
++      const scaleX = availableWidth / imageWidth
++      const scaleY = availableHeight / imageHeight
++      const scale = Math.max(scaleX, scaleY)
++      width = imageWidth * scale
++      height = imageHeight * scale
++      break
++      
++    case 'fit':
++    default:
++      // Fit entire image within page, maintain aspect ratio
++      const fitScaleX = availableWidth / imageWidth
++      const fitScaleY = availableHeight / imageHeight
++      const fitScale = Math.min(fitScaleX, fitScaleY)
++      width = imageWidth * fitScale
++      height = imageHeight * fitScale
++      break
++  }
++  
++  // Center the image on the page
++  const x = (pageWidth - width) / 2
++  const y = (pageHeight - height) / 2
++  
++  return { width, height, x, y }
++}
++
++/**
++ * Processes images in chunks to avoid blocking the UI
++ */
++async function processImagesInChunks<T>(
++  items: T[],
++  processor: (item: T, index: number) => Promise<void>,
++  chunkSize: number = 5,
++  onProgress?: (current: number, total: number) => void
++): Promise<void> {
++  for (let i = 0; i < items.length; i += chunkSize) {
++    const chunk = items.slice(i, i + chunkSize)
++    
++    // Process chunk
++    await Promise.all(
++      chunk.map((item, chunkIndex) => processor(item, i + chunkIndex))
++    )
++    
++    // Report progress
++    if (onProgress) {
++      onProgress(Math.min(i + chunkSize, items.length), items.length)
++    }
++    
++    // Yield control to prevent UI blocking
++    if (i + chunkSize < items.length) {
++      await new Promise(resolve => {
++        if (window.requestIdleCallback) {
++          window.requestIdleCallback(resolve)
++        } else {
++          setTimeout(resolve, 0)
++        }
++      })
++    }
++  }
++}
++
++/**
++ * Generates PDF from image files with progress tracking
++ */
++export async function generatePDF(
++  images: ImageFile[],
++  options: PdfOptions,
++  onProgress?: (progress: ConversionProgress) => void
++): Promise<Blob> {
++  if (images.length === 0) {
++    throw new Error('No images provided')
++  }
++  
++  // Determine page dimensions
++  let pageWidth: number
++  let pageHeight: number
++  
++  if (options.pageSize === 'Auto') {
++    // Use dimensions of first image
++    const firstImage = images[0]
++    const dimensions = await getImageDimensions(firstImage.compressed || firstImage.file)
++    const mmPerPixel = 0.264583 // Convert pixels to mm (96 DPI)
++    pageWidth = dimensions.width * mmPerPixel
++    pageHeight = dimensions.height * mmPerPixel
++  } else {
++    const size = PAGE_SIZES[options.pageSize]
++    pageWidth = options.orientation === 'landscape' ? size.height : size.width
++    pageHeight = options.orientation === 'landscape' ? size.width : size.height
++  }
++  
++  // Create PDF document
++  const pdf = new jsPDF({
++    orientation: options.orientation,
++    unit: 'mm',
++    format: options.pageSize === 'Auto' ? [pageWidth, pageHeight] : options.pageSize.toLowerCase() as any
++  })
++  
++  // Process images with progress tracking
++  let processedCount = 0
++  
++  await processImagesInChunks(
++    images,
++    async (imageFile, index) => {
++      try {
++        // Report compression progress
++        if (onProgress) {
++          onProgress({
++            current: processedCount,
++            total: images.length,
++            stage: 'compressing',
++            message: `Processing ${imageFile.name}...`
++          })
++        }
++        
++        // Use compressed file if available, otherwise original
++        const fileToUse = imageFile.compressed || imageFile.file
++        
++        // Convert to base64
++        const base64 = await fileToBase64(fileToUse)
++        
++        // Get image dimensions
++        const dimensions = await getImageDimensions(fileToUse)
++        
++        // Calculate placement
++        const placement = calculateImageDimensions(
++          dimensions.width,
++          dimensions.height,
++          pageWidth,
++          pageHeight,
++          options.scalingMode
++        )
++        
++        // Add new page for subsequent images
++        if (index > 0) {
++          pdf.addPage()
++        }
++        
++        // Add image to PDF
++        pdf.addImage(
++          base64,
++          fileToUse.type === 'image/png' ? 'PNG' : 'JPEG',
++          placement.x,
++          placement.y,
++          placement.width,
++          placement.height
++        )
++        
++        processedCount++
++        
++        // Report generation progress
++        if (onProgress) {
++          onProgress({
++            current: processedCount,
++            total: images.length,
++            stage: 'generating',
++            message: `Added ${imageFile.name} to PDF`
++          })
++        }
++      } catch (error) {
++        throw new Error(`Failed to process ${imageFile.name}: ${error}`)
++      }
++    },
++    images.length > 10 ? 3 : 5 // Smaller chunks for many images
++  )
++  
++  // Final progress update
++  if (onProgress) {
++    onProgress({
++      current: images.length,
++      total: images.length,
++      stage: 'complete',
++      message: 'PDF generation complete'
++    })
++  }
++  
++  // Generate PDF blob
++  const pdfBlob = pdf.output('blob')
++  return pdfBlob
++}
++
++/**
++ * Downloads a blob as a file
++ */
++export function downloadBlob(blob: Blob, filename: string): void {
++  const url = URL.createObjectURL(blob)
++  const link = document.createElement('a')
++  link.href = url
++  link.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
++  document.body.appendChild(link)
++  link.click()
++  document.body.removeChild(link)
++  URL.revokeObjectURL(url)
++}
++
++/**
++ * Estimates PDF file size based on images
++ */
++export function estimatePDFSize(images: ImageFile[]): number {
++  // Rough estimation: compressed image size + PDF overhead
++  const totalImageSize = images.reduce((sum, img) => {
++    const fileToUse = img.compressed || img.file
++    return sum + fileToUse.size
++  }, 0)
++  
++  // PDF overhead is roughly 10-20% of image data
++  const overhead = totalImageSize * 0.15
++  return totalImageSize + overhead
++}
+\ No newline at end of file
+diff --git a/repository_after/tsconfig.json b/repository_after/tsconfig.json
+new file mode 100644
+index 0000000..428d89b
+--- /dev/null
++++ b/repository_after/tsconfig.json
+@@ -0,0 +1,22 @@
++{
++  "extends": "@vue/tsconfig/tsconfig.dom.json",
++  "include": [
++    "env.d.ts",
++    "src/**/*",
++    "src/**/*.vue"
++  ],
++  "exclude": [
++    "src/**/__tests__/*"
++  ],
++  "compilerOptions": {
++    "composite": true,
++    "baseUrl": ".",
++    "paths": {
++      "@/*": ["./src/*"]
++    },
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "exactOptionalPropertyTypes": true
++  }
++}
+\ No newline at end of file
+diff --git a/repository_after/vite.config.ts b/repository_after/vite.config.ts
+new file mode 100644
+index 0000000..342e5ba
+--- /dev/null
++++ b/repository_after/vite.config.ts
+@@ -0,0 +1,16 @@
++import { defineConfig } from 'vite'
++import vue from '@vitejs/plugin-vue'
++import { resolve } from 'path'
++
++export default defineConfig({
++  plugins: [vue()],
++  resolve: {
++    alias: {
++      '@': resolve(__dirname, 'src')
++    }
++  },
++  test: {
++    globals: true,
++    environment: 'jsdom'
++  }
++})
+\ No newline at end of file
