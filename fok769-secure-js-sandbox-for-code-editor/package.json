@@ -1,0 +1,30 @@
+{
+  "name": "fok769-secure-js-sandbox-for-code-editor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/test-runner.js",
+    "evaluation": "node evaluation/evaluation.js"
+  },
+  "dependencies": {
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "tailwindcss": "^3.4.19"
+  },
+  "jest": {
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/"
+    ]
+  }
+}

@@ -67,22 +67,6 @@ export function useSecureSandbox() {
       delete window.eval;
       delete window.Function;
       
-      // Block access to parent
-      try {
-        Object.defineProperty(window, 'parent', {
-          get: function() { return window; },
-          configurable: false
-        });
-        Object.defineProperty(window, 'top', {
-          get: function() { return window; },
-          configurable: false
-        });
-        Object.defineProperty(window, 'frameElement', {
-          get: function() { return null; },
-          configurable: false
-        });
-      } catch (e) {}
-      
       // Block localStorage and sessionStorage
       // In sandboxed iframe, these may not exist, but we block them anyway
       const blockStorage = (name) => {
@@ -119,6 +103,24 @@ export function useSecureSandbox() {
       
       blockStorage('localStorage');
       blockStorage('sessionStorage');
+
+      // Block network APIs
+      const blockNetworkApi = (name) => {
+        try {
+          delete window[name];
+        } catch (e) {}
+        try {
+          Object.defineProperty(window, name, {
+            get: function() { throw new Error(name + ' access denied'); },
+            set: function() { throw new Error(name + ' access denied'); },
+            configurable: false,
+            enumerable: false
+          });
+        } catch (e) {}
+      };
+
+      blockNetworkApi('fetch');
+      blockNetworkApi('XMLHttpRequest');
       
       // Block document access to sensitive APIs
       if (document) {
@@ -134,6 +136,33 @@ export function useSecureSandbox() {
       let executionResult = null;
       let executionError = null;
       let resultSent = false;
+
+      function parseStackLocation(stack, lineOffset) {
+        if (!stack) return null;
+        const lines = String(stack).split('\n');
+        const matchLine = lines.find(line => line.includes('sandbox_user_code.js'));
+        if (!matchLine) return null;
+        const match = matchLine.match(/sandbox_user_code\.js:(\d+):(\d+)/);
+        if (!match) return null;
+        const rawLine = parseInt(match[1], 10);
+        const rawColumn = parseInt(match[2], 10);
+        return {
+          line: Math.max(1, rawLine - lineOffset),
+          column: rawColumn
+        };
+      }
+
+      function serializeError(err, lineOffset) {
+        const message = err && err.message ? err.message : String(err);
+        const stack = err && err.stack ? String(err.stack) : '';
+        const location = parseStackLocation(stack, lineOffset);
+        return {
+          message,
+          stack,
+          line: location ? location.line : null,
+          column: location ? location.column : null
+        };
+      }
       
       // Function to send result (only once)
       function sendResult() {
@@ -165,24 +194,30 @@ export function useSecureSandbox() {
         // Wrap user code in IIFE to prevent global pollution
         // Use script tag injection instead of eval/Function
         const script = document.createElement('script');
-        const wrappedCode = \`
+        const wrappedCode = `
           (function() {
             'use strict';
+            let __returnValue;
+            const __return = (value) => {
+              __returnValue = value;
+              return value;
+            };
             try {
-              \${userCode}
+              /*__USER_CODE_START__*/
+              ${userCode}
+              /*__USER_CODE_END__*/
             } catch (err) {
-              // Capture all types of errors including SecurityError from localStorage
+              window.__sandboxError = serializeError(err, window.__sandboxLineOffset || 0);
               const errorMsg = err.message || err.name || String(err);
-              window.__sandboxError = {
-                message: errorMsg,
-                stack: err.stack || '',
-                name: err.name || 'Error'
-              };
-              // Also log to console so it's captured
               console.error('Error:', errorMsg);
             }
+            window.__sandboxResult = __returnValue;
           })();
-        \`;
+          //# sourceURL=sandbox_user_code.js
+        `;
+
+        const userCodeStartLine = wrappedCode.split('\n').findIndex(line => line.includes('__USER_CODE_START__')) + 1;
+        window.__sandboxLineOffset = Math.max(0, userCodeStartLine);
         
         script.textContent = wrappedCode;
         
@@ -206,11 +241,13 @@ export function useSecureSandbox() {
           // Use microtask to ensure script execution completes
           Promise.resolve().then(() => {
             if (window.__sandboxError) {
-              executionError = {
-                message: window.__sandboxError.message || 'Unknown error',
-                stack: window.__sandboxError.stack || ''
-              };
+              executionError = window.__sandboxError;
               delete window.__sandboxError;
+            }
+
+            if (window.__sandboxResult !== undefined) {
+              executionResult = window.__sandboxResult;
+              delete window.__sandboxResult;
             }
             
             // Remove script after execution
@@ -227,10 +264,7 @@ export function useSecureSandbox() {
         // Also catch any unhandled errors that might occur
         window.addEventListener('error', function(event) {
           if (!resultSent) {
-            executionError = {
-              message: event.message || 'Unhandled error',
-              stack: event.error ? event.error.stack : ''
-            };
+            executionError = serializeError(event.error || event.message || 'Unhandled error', window.__sandboxLineOffset || 0);
             sendResult();
           }
         }, { once: true });
@@ -276,6 +310,10 @@ export function useSecureSandbox() {
     
     messageHandler = (event) => {
       // Verify message is from our iframe (basic security check)
+      const iframeWindow = iframeRef.current ? iframeRef.current.contentWindow : null;
+      if (event.source !== iframeWindow) {
+        return;
+      }
       if (event.data && event.data.type === 'sandbox-result') {
         if (!handlerRemoved) {
           handlerRemoved = true;
@@ -284,7 +322,7 @@ export function useSecureSandbox() {
           onResult({
             logs: event.data.logs || [],
             result: event.data.result,
-            error: event.data.error ? event.data.error.message : null
+            error: event.data.error || null
           });
         }
       }
