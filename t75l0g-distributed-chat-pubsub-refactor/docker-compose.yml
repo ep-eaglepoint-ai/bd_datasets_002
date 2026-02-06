@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    # NOW: Running Node directly
+    command: node evaluation/evaluation.js
+    volumes:
+      - .:/app
+      - /app/node_modules  
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"

@@ -1,0 +1,11 @@
+{
+            "instance_id": "T75L0G",
+            "problem_statement": "The current Node.js chat service is designed as a monolithic, stateful application where all room memberships and message broadcasts are handled within the local memory of a single process. This implementation prevents horizontal scaling; if the application is deployed across multiple containers or nodes, users connected to 'Server A' cannot receive messages sent by users on 'Server B'. To support a multi-node production environment, the messaging logic must be decoupled from the local instance state. You are required to refactor the provided code to use a Redis-based Publish/Subscribe (Pub/Sub) architecture, ensuring that messages are correctly propagated across the entire cluster regardless of which instance a client is connected to.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/t75l0g-distributed-chat-pubsub-refactor",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
