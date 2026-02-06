@@ -1,0 +1,11 @@
+services:
+  test:
+    build: .
+    working_dir: /app
+    command: pytest tests/test_main.py -v
+  evaluation:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app:z
+    command: python evaluation/evaluation.py
