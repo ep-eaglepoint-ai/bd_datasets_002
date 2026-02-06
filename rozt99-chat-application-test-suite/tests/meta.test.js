@@ -2,9 +2,15 @@ const fs = require("fs");
 const path = require("path");
 
 describe("Meta Tests - Test Suite Quality", () => {
-  const testFilePath = path.join(__dirname, "../repository_after/App.test.js");
-  const setupFilePath = path.join(__dirname, "../repository_after/setupTests.js");
-  
+  const testFilePath = path.join(
+    __dirname,
+    "../repository_after/src/App.test.js",
+  );
+  const setupFilePath = path.join(
+    __dirname,
+    "../repository_after/src/setupTests.js",
+  );
+
   let testContent;
   let setupContent;
 

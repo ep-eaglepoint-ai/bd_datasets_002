@@ -5,6 +5,7 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import App from "./App";
 
 describe("Chat Application Test Suite", () => {
@@ -46,6 +47,17 @@ describe("Chat Application Test Suite", () => {
       expect(
         userMessage.closest('div[class*="from-blue-500"]'),
       ).toBeInTheDocument();
+    });
+
+    test("sending a message clears the input field", () => {
+      render(<App />);
+      const input = screen.getByPlaceholderText(/type your message/i);
+      const sendButton = screen.getByRole("button", { name: /send/i });
+
+      fireEvent.change(input, { target: { value: "Clear Me" } });
+      fireEvent.click(sendButton);
+
+      expect(input).toHaveValue("");
     });
 
     test("message IDs are unique", async () => {
@@ -97,6 +109,17 @@ describe("Chat Application Test Suite", () => {
 
       const messages = screen.getAllByTestId(/^message-/);
       expect(messages).toHaveLength(1);
+    });
+
+    test("send button is disabled when input is empty or whitespace", () => {
+      render(<App />);
+      const input = screen.getByPlaceholderText(/type your message/i);
+      const sendButton = screen.getByRole("button", { name: /send/i });
+
+      expect(sendButton).toBeDisabled();
+
+      fireEvent.change(input, { target: { value: "   " } });
+      expect(sendButton).toBeDisabled();
     });
   });
 
@@ -167,6 +190,7 @@ describe("Chat Application Test Suite", () => {
   describe("Response Generation (Keywords)", () => {
     const cases = [
       ["hello", "Hello! How can I assist you today?"],
+      ["hi", "Hello! How can I assist you today?"],
       ["weather check", "I recommend checking a weather service"],
       ["time", "The current time is"],
       ["date", "Today's date is"],
@@ -215,28 +239,26 @@ describe("Chat Application Test Suite", () => {
   });
 
   describe("Keyboard Event Handling", () => {
-    test("Enter key sends message", () => {
+    test("Enter key sends message", async () => {
       render(<App />);
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
       const input = screen.getByPlaceholderText(/type your message/i);
-      fireEvent.change(input, { target: { value: "Enter Key Test" } });
-      fireEvent.keyPress(input, { key: "Enter", code: "Enter", charCode: 13 });
+
+      await user.type(input, "Enter Key Test{enter}");
 
       expect(screen.getByText("Enter Key Test")).toBeInTheDocument();
       expect(input).toHaveValue("");
     });
 
-    test("Shift+Enter does not send message", () => {
+    test("Shift+Enter creates a new line and does not send", async () => {
       render(<App />);
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
       const input = screen.getByPlaceholderText(/type your message/i);
-      fireEvent.change(input, { target: { value: "Shift Enter" } });
-      fireEvent.keyPress(input, {
-        key: "Enter",
-        code: "Enter",
-        charCode: 13,
-        shiftKey: true,
-      });
 
-      expect(input).toHaveValue("Shift Enter");
+      await user.type(input, "Shift{shift>}{enter}{/shift}Enter");
+
+      expect(input).toHaveValue("Shift\nEnter");
+      expect(screen.queryByTestId("message-user")).not.toBeInTheDocument();
     });
   });
 
@@ -276,6 +298,19 @@ describe("Chat Application Test Suite", () => {
 
       expect(input).toBeDisabled();
       expect(sendButton).toBeDisabled();
+    });
+
+    test("typing indicator only shows when isTyping is true", () => {
+      render(<App />);
+      const input = screen.getByPlaceholderText(/type your message/i);
+      const sendButton = screen.getByRole("button", { name: /send/i });
+
+      expect(document.querySelector(".animate-bounce")).not.toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: "Typing" } });
+      fireEvent.click(sendButton);
+
+      expect(document.querySelector(".animate-bounce")).toBeInTheDocument();
     });
   });
 
@@ -318,6 +353,28 @@ describe("Chat Application Test Suite", () => {
       await waitFor(() => {
         expect(screen.getByText(/Hello! How can I assist/)).toBeInTheDocument();
         expect(input).not.toBeDisabled();
+      });
+    });
+
+    test("multiple message exchange receives all responses", async () => {
+      render(<App />);
+      const input = screen.getByPlaceholderText(/type your message/i);
+      const sendButton = screen.getByRole("button", { name: /send/i });
+
+      fireEvent.change(input, { target: { value: "hello" } });
+      fireEvent.click(sendButton);
+
+      act(() => jest.advanceTimersByTime(2500));
+      await waitFor(() => expect(input).not.toBeDisabled());
+
+      fireEvent.change(input, { target: { value: "help" } });
+      fireEvent.click(sendButton);
+
+      act(() => jest.advanceTimersByTime(2500));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Hello! How can I assist/)).toBeInTheDocument();
+        expect(screen.getByText(/I'm here to help!/)).toBeInTheDocument();
       });
     });
   });

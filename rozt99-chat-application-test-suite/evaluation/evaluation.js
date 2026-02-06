@@ -295,9 +295,11 @@ function runJestTestsAdapated(testProject, testName, expectSuccess = true) {
   }
 }
 
-const metaResults = runJestTests(
-  "tests",
-  "Meta Tests",
+const metaResults = runJestTests("tests", "Meta Tests", true);
+
+const afterResults = runJestTestsAdapated(
+  "repository_after",
+  "Repository After Tests",
   true,
 );
 
@@ -315,24 +317,33 @@ function mapTestsToPythonic(tests, repoName) {
 
 const allTests = [
   ...mapTestsToPythonic(metaResults.tests, "tests"),
+  ...mapTestsToPythonic(afterResults.tests, "repository_after"),
 ];
 
+const combinedSummary = {
+  total: metaResults.summary.total + afterResults.summary.total,
+  passed: metaResults.summary.passed + afterResults.summary.passed,
+  failed: metaResults.summary.failed + afterResults.summary.failed,
+  errors: metaResults.summary.errors + afterResults.summary.errors,
+  skipped: metaResults.summary.skipped + afterResults.summary.skipped,
+};
+
 const unit_tests = {
-  success: metaResults.success,
-  exit_code: metaResults.success ? 0 : 1,
+  success: metaResults.success && afterResults.success,
+  exit_code: metaResults.success && afterResults.success ? 0 : 1,
   tests: allTests,
-  summary: {
-    total: metaResults.summary.total,
-    passed: metaResults.summary.passed,
-    failed: metaResults.summary.failed,
-    errors: metaResults.summary.errors,
-    skipped: metaResults.summary.skipped,
-  },
+  summary: combinedSummary,
   meta_tests: {
     expected: "PASS",
     actual: metaResults.summary.failed === 0 ? "PASS" : "FAIL",
     met_expectation: metaResults.success,
     summary: metaResults.summary,
+  },
+  repository_after_tests: {
+    expected: "PASS",
+    actual: afterResults.summary.failed === 0 ? "PASS" : "FAIL",
+    met_expectation: afterResults.success,
+    summary: afterResults.summary,
   },
   stdout: "",
   stderr: "",
@@ -355,7 +366,7 @@ const algorithm_validation = {
   },
 };
 
-const overallSuccess = metaResults.success;
+const overallSuccess = metaResults.success && afterResults.success;
 const summary = {
   unit_tests_passed: unit_tests.success,
   validation_passed: algorithm_validation.success,
@@ -404,6 +415,12 @@ console.log(
   `  Tests: ${metaResults.summary.passed} passed, ${metaResults.summary.failed} failed`,
 );
 console.log(`  Met expectation: ${metaResults.success ? "✅ YES" : "❌ NO"}`);
+
+console.log(`\nRepository After Tests (expected to PASS):`);
+console.log(
+  `  Tests: ${afterResults.summary.passed} passed, ${afterResults.summary.failed} failed`,
+);
+console.log(`  Met expectation: ${afterResults.success ? "✅ YES" : "❌ NO"}`);
 
 console.log("\n" + "=".repeat(60));
 console.log("EVALUATION COMPLETE");
