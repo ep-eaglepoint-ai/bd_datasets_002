@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    working_dir: /app/repository_after
+    ports:
+      - "3000:3000"
+    environment:
+      - HOST=0.0.0.0
+
+  test-after:
+    build: .
+    working_dir: /app/repository_after
+    command: npm test
+
+  evaluation:
+    build: .
+    working_dir: /app
+    command: sh -c "cd repository_after && npx nuxt prepare && npx tsx ../evaluation/evaluation.ts --output ../evaluation/report.json"
+    volumes:
+      - ./evaluation:/app/evaluation
