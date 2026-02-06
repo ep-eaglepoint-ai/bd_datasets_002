@@ -1,0 +1,11 @@
+{
+            "instance_id": "ROZT99",
+            "problem_statement": "You are a QA Engineer tasked with writing test suites for a React-based Chat Application. The app handles user and AI messages, displays typing indicators, auto-scrolls, and generates responses based on keyword patterns. Tests must cover critical functionality, async behavior, edge cases, and UI consistency.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/rozt99-chat-application-test-suite",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
