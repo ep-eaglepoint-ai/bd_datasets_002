@@ -1,7 +1,8 @@
 import os
 import importlib
 import unittest
-import time
+import inspect
+import sys
 
 target_repository = os.environ.get("TARGET_REPOSITORY", "repository_after")
 module = importlib.import_module(f"{target_repository}.max_non_decreasing_array_length")
@@ -9,6 +10,24 @@ module = importlib.import_module(f"{target_repository}.max_non_decreasing_array_
 maxNonDecreasingLength = getattr(module, "maxNonDecreasingLength")
 # --- Test Cases ---
 class TestMaxNonDecreasingLength(unittest.TestCase):
+
+    def _count_lines_executed(self, nums):
+        target_file = inspect.getsourcefile(maxNonDecreasingLength)
+        line_count = 0
+
+        def tracer(frame, event, arg):
+            nonlocal line_count
+            if event == "line" and frame.f_code.co_filename == target_file:
+                line_count += 1
+            return tracer
+
+        sys.settrace(tracer)
+        try:
+            result = maxNonDecreasingLength(nums)
+        finally:
+            sys.settrace(None)
+
+        return result, line_count
 
     def test_single_element(self):
         """Edge Case: Single element arrays (return 1)"""
@@ -32,34 +51,33 @@ class TestMaxNonDecreasingLength(unittest.TestCase):
         """Logic: Arrays with multiple optimal merge strategies"""
         self.assertEqual(maxNonDecreasingLength([11, 7, 5, 12]), 3)
 
-    def test_performance_decreasing(self):
-        """Performance: N=10^5 fully decreasing must complete in < 2s"""
-        n = 100000
-        # Worst-case for simple greedy approaches
+    def test_complexity_scaling_decreasing(self):
+        """Complexity: scaling on decreasing input should be subquadratic."""
+        n = 2000
         nums = list(range(n, 0, -1))
+        _, count_n = self._count_lines_executed(nums)
 
-        start_time = time.time()
-        result = maxNonDecreasingLength(nums)
-        duration = time.time() - start_time
+        nums_2n = list(range(2 * n, 0, -1))
+        _, count_2n = self._count_lines_executed(nums_2n)
 
-        print(f"\nPerformance (Decreasing N={n}): {duration:.4f}s")
+        ratio = count_2n / max(count_n, 1)
+        # O(n log n) should stay well below 3.5x for doubling n at this size
+        self.assertLess(ratio, 3.5)
 
-        self.assertLess(duration, 2.0, "Algorithm too slow for worst-case input")
-        self.assertGreater(result, 0)
-
-    def test_performance_constant(self):
-        """Performance: N=10^5 constant values"""
-        n = 100000
+    def test_complexity_scaling_constant(self):
+        """Complexity: scaling on constant input should be subquadratic."""
+        n = 2000
         nums = [10] * n
+        result_n, count_n = self._count_lines_executed(nums)
 
-        start_time = time.time()
-        result = maxNonDecreasingLength(nums)
-        duration = time.time() - start_time
+        nums_2n = [10] * (2 * n)
+        result_2n, count_2n = self._count_lines_executed(nums_2n)
 
-        print(f"Performance (Constant N={n}): {duration:.4f}s")
+        self.assertEqual(result_n, n)
+        self.assertEqual(result_2n, 2 * n)
 
-        self.assertLess(duration, 2.0)
-        self.assertEqual(result, n)
+        ratio = count_2n / max(count_n, 1)
+        self.assertLess(ratio, 3.5)
 
     # --- Additional Edge Cases ---
 
@@ -73,19 +91,20 @@ class TestMaxNonDecreasingLength(unittest.TestCase):
         self.assertEqual(maxNonDecreasingLength([5, 3]), 1)
         self.assertEqual(maxNonDecreasingLength([100, 1]), 1)
 
-    def test_performance_increasing(self):
-        """Performance: N=10^5 already sorted (best case)"""
-        n = 100000
+    def test_complexity_scaling_increasing(self):
+        """Complexity: scaling on increasing input should be subquadratic."""
+        n = 2000
         nums = list(range(1, n + 1))
+        result_n, count_n = self._count_lines_executed(nums)
 
-        start_time = time.time()
-        result = maxNonDecreasingLength(nums)
-        duration = time.time() - start_time
+        nums_2n = list(range(1, 2 * n + 1))
+        result_2n, count_2n = self._count_lines_executed(nums_2n)
 
-        print(f"\nPerformance (Increasing N={n}): {duration:.4f}s")
+        self.assertEqual(result_n, n)
+        self.assertEqual(result_2n, 2 * n)
 
-        self.assertLess(duration, 2.0)
-        self.assertEqual(result, n)
+        ratio = count_2n / max(count_n, 1)
+        self.assertLess(ratio, 3.5)
 
     def test_partial_merge_simple(self):
         """Logic: Partial merges - some elements need combining"""
@@ -175,20 +194,18 @@ class TestMaxNonDecreasingLength(unittest.TestCase):
         self.assertGreaterEqual(result, 1)
         self.assertLessEqual(result, 8)
 
-    def test_performance_random_like(self):
-        """Performance: Large array with structured pattern"""
-        n = 100000
-        # Create a pattern that exercises the algorithm
-        nums = [(i % 1000) + 1 for i in range(n)]
+    def test_complexity_scaling_structured(self):
+        """Complexity: scaling on structured input should be subquadratic."""
+        n = 2000
+        nums = [(i % 100) + 1 for i in range(n)]
+        _, count_n = self._count_lines_executed(nums)
 
-        start_time = time.time()
-        result = maxNonDecreasingLength(nums)
-        duration = time.time() - start_time
+        nums_2n = [(i % 100) + 1 for i in range(2 * n)]
+        _, count_2n = self._count_lines_executed(nums_2n)
 
-        print(f"\nPerformance (Structured N={n}): {duration:.4f}s")
+        ratio = count_2n / max(count_n, 1)
+        self.assertLess(ratio, 3.5)
 
-        self.assertLess(duration, 2.0)
-        self.assertGreater(result, 0)
 
 if __name__ == '__main__':
     # Verbosity=2 gives detailed output for every test case
