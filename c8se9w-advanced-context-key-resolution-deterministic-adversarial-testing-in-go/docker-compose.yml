@@ -1,0 +1,22 @@
+services:
+  test-before:
+    build: .
+    working_dir: /app/tests
+    command: sh -c "/usr/local/bin/run-tests.sh /app/repository_before || true"
+    volumes:
+      - .:/app
+  test-after:
+    build: .
+    working_dir: /app/tests
+    command: /usr/local/bin/run-tests.sh /app/repository_after
+    volumes:
+      - .:/app
+  evaluate:
+    build: .
+    working_dir: /app
+    command: /usr/local/bin/run-evaluation.sh
+    volumes:
+      - .:/app
+    environment:
+      - PROJECT_ROOT=/app
+
