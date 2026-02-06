@@ -1,0 +1,20 @@
+{
+  "instance_id": "D079L4",
+  "problem_statement": "Teams and individuals need a way to reuse standardized checklists while tracking completion separately for each use.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/d079l4-reusable-checklist-manager-next-js",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "tests/checklist.test.ts::Checklist Manager Integration::Req 2: Should create a reusable checklist template",
+    "tests/checklist.test.ts::Checklist Manager Integration::Req 3 & 4: Should create checklist instance from template (independent)",
+    "tests/checklist.test.ts::Checklist Manager Integration::Req 6: Should allow marking items done/undone",
+    "tests/checklist.test.ts::Checklist Manager Integration::Req 5 & 7 & 8: Support required vs optional and completion status",
+    "tests/checklist.test.ts::Checklist Manager Integration::Req 8: Allow archiving checklists",
+    "tests/checklist.test.ts::Checklist Manager Integration::Req 4: Template edits must not affect existing instances",
+    "tests/ui-accessibility.test.ts::UI Components and Accessibility (Req 11)::Loading States::should have Suspense boundaries in pages",
+    "tests/ui-accessibility.test.ts::UI Components and Accessibility (Req 11)::Loading States::should have loading.tsx or Suspense in template routes",
+    "tests/ui-accessibility.test.ts::UI Components and Accessibility (Req 11)::Progress and Status Display::should display progress in instance detail page"
+  ],
+  "PASS_TO_PASS": []
+}

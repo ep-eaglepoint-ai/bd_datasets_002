@@ -1,0 +1,9 @@
+repository_after/node_modules
+tests/node_modules
+evaluation/node_modules
+node_modules
+dist
+.env
+.git
+.idea
+.vscode

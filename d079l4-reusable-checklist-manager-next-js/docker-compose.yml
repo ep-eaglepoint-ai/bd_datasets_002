@@ -1,0 +1,26 @@
+services:
+  test:
+    image: checklist-app
+    build: .
+    volumes:
+      - ./repository_after:/app
+      - ./tests:/app/tests
+      - /app/node_modules
+    environment:
+      DATABASE_URL: "file:./dev.db"
+    command: sh -c "npx prisma db push && npm test"
+
+  evaluation:
+    image: checklist-app
+    depends_on:
+      test:
+        condition: service_completed_successfully
+    volumes:
+      - ./repository_after:/app
+      - ./tests:/app/tests
+      - ./evaluation:/app/evaluation
+      - /app/node_modules
+    environment:
+      DATABASE_URL: "file:./dev.db"
+    # Install tsx to run the typescript evaluation script, then run it
+    command: sh -c "npm install -g tsx && tsx evaluation/evaluation.ts"
