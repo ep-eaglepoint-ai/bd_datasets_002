@@ -1,0 +1,14 @@
+services:
+  test:
+    build: .
+    command: sh -lc "TARGET=after npx ts-node tests/test_requirements.ts"
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  evaluation:
+    build: .
+    command: sh -lc "npx ts-node evaluation/evaluation.ts"
+    volumes:
+      - .:/app
+      - /app/node_modules
