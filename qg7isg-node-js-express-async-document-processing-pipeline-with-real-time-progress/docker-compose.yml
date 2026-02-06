@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: processing_pipeline_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: processing_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d processing_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: processing_pipeline_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: processing_pipeline_app
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/processing_db
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      UPLOAD_DIR: /app/uploads
+      WORKER_CONCURRENCY: "5"
+    volumes:
+      - app_uploads:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: processing_pipeline_worker
+    command: ["node", "dist/worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/processing_db
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      UPLOAD_DIR: /app/uploads
+      WORKER_CONCURRENCY: "5"
+    volumes:
+      - app_uploads:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      app: { condition: service_healthy }
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    container_name: processing_pipeline_test
+    command: ["sh", "-c", "cd /app/repository_after && npx prisma migrate deploy && cd /app && npx jest --config jest.config.js --runInBand"]
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/processing_db
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      UPLOAD_DIR: /app/tests/test-files
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    container_name: processing_pipeline_evaluation
+    command: ["sh", "-c", "cd /app/repository_after && npx prisma migrate deploy && cd /app && npm run evaluate"]
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/processing_db
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      UPLOAD_DIR: /app/tests/test-files
+    volumes:
+      - ./evaluation:/app/evaluation
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  postgres_data:
+  redis_data:
+  app_uploads:

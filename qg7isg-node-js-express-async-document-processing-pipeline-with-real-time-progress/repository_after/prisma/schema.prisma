@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Partner {
+  id          String   @id @default(uuid())
+  name        String
+  apiKey      String   @unique @map("api_key")
+  webhookUrl  String?  @map("webhook_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  schemas     Schema[]
+  jobs        Job[]
+
+  @@map("partners")
+}
+
+model Schema {
+  id              String   @id @default(uuid())
+  partnerId       String   @map("partner_id")
+  name            String
+  version         String
+  fields          Json
+  validationRules Json     @map("validation_rules")
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  partner         Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  jobs            Job[]
+
+  @@map("schemas")
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Job {
+  id                String    @id @default(uuid())
+  partnerId         String    @map("partner_id")
+  schemaId          String    @map("schema_id")
+  filename          String
+  fileSize          BigInt    @map("file_size")
+  fileType          String    @map("file_type")
+  status            JobStatus @default(PENDING)
+  progress          Int       @default(0)
+  recordsTotal      Int       @default(0) @map("records_total")
+  recordsProcessed  Int       @default(0) @map("records_processed")
+  recordsFailed     Int       @default(0) @map("records_failed")
+  errorMessage      String?   @map("error_message")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  startedAt         DateTime? @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  
+  partner           Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  schema            Schema    @relation(fields: [schemaId], references: [id], onDelete: Cascade)
+  processingErrors  ProcessingError[]
+  processedRecords  ProcessedRecord[]
+
+  @@map("jobs")
+}
+
+model ProcessingError {
+  id           String   @id @default(uuid())
+  jobId        String   @map("job_id")
+  recordIndex  Int      @map("record_index")
+  fieldName    String?  @map("field_name")
+  errorCode    String   @map("error_code")
+  errorMessage String   @map("error_message")
+  rawValue     String?  @map("raw_value")
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("processing_errors")
+}
+
+model ProcessedRecord {
+  id          String   @id @default(uuid())
+  jobId       String   @map("job_id")
+  recordIndex Int      @map("record_index")
+  data        Json
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("processed_records")
+}
