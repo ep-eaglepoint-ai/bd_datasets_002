@@ -1,0 +1,45 @@
+# dependencies
+repository_after/node_modules
+repository_after/.pnp
+repository_after/.pnp.*
+repository_after/.yarn/*
+repository_after/.yarn/patches
+repository_after/.yarn/plugins
+repository_after/.yarn/releases
+repository_after/.yarn/versions
+
+# testing
+repository_after/coverage
+
+# next.js
+repository_after/.next/
+repository_after/out/
+
+# production
+repository_after/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+repository_after/npm-debug.log*
+repository_after/yarn-debug.log*
+repository_after/yarn-error.log*
+repository_after/.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+repository_after/.env*
+
+# vercel
+repository_after/.vercel
+
+# typescript
+repository_after/*.tsbuildinfo
+repository_after/next-env.d.ts
+
+# OS
+.DS_Store
+
+
+evaluation/reports

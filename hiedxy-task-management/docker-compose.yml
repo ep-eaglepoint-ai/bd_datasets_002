@@ -1,0 +1,27 @@
+services:
+  test:
+    build: .
+    image: task-app-image
+    volumes:
+      - .:/app
+      - node_modules_cache:/app/repository_after/node_modules
+      - /app/repository_after/.next
+    working_dir: /app/repository_after
+    # Installation happens here if needed.
+    command: sh -c "npm install --force && npm test"
+
+  evaluation:
+    image: task-app-image
+    build: .
+    volumes:
+      - .:/app
+      - node_modules_cache:/app/repository_after/node_modules
+      - /app/repository_after/.next
+    working_dir: /app
+    environment:
+      - NODE_ENV=test
+    # Reuses the node_modules from the 'test' run
+    command: sh -c "npx -y tsx evaluation/evaluation.ts"
+
+volumes:
+  node_modules_cache:
