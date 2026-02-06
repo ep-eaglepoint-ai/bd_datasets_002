@@ -1,0 +1,628 @@
+diff --git a/repository_after/ai_provider.py b/repository_after/ai_provider.py
+new file mode 100644
+index 0000000..866b3f1
+--- /dev/null
++++ b/repository_after/ai_provider.py
+@@ -0,0 +1,14 @@
++"""
++Simulated AI provider with configurable latency and failure rate.
++"""
++
++import asyncio
++import random
++
++
++async def call_ai_provider(chunk: str) -> str:
++    """Simulate external AI API call with latency and flakiness."""
++    await asyncio.sleep(random.uniform(0.05, 0.15))
++    if random.random() < 0.18:
++        raise Exception("Upstream AI Provider: Connection Reset")
++    return f"Summary: {chunk[:50]}..."
+diff --git a/repository_after/alembic_migration.py b/repository_after/alembic_migration.py
+new file mode 100644
+index 0000000..0e7d9ba
+--- /dev/null
++++ b/repository_after/alembic_migration.py
+@@ -0,0 +1,70 @@
++"""
++Alembic Migration Steps (Logical)
++
++This file documents the logical migration from the original monolith schema
++to the new chunk-based architecture. In a production environment, these would
++be generated via `alembic revision --autogenerate`.
++
++Migration: Add chunk-level tracking and job lifecycle state
++Revision ID: 001_add_chunk_tracking
++"""
++
++
++UPGRADE_SQL = """
++-- Step 1: Add lifecycle columns to analysis_jobs
++ALTER TABLE analysis_jobs ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'PENDING';
++ALTER TABLE analysis_jobs ADD COLUMN total_chunks INTEGER NOT NULL DEFAULT 0;
++ALTER TABLE analysis_jobs ADD COLUMN chunks_completed INTEGER NOT NULL DEFAULT 0;
++ALTER TABLE analysis_jobs ADD COLUMN chunks_failed INTEGER NOT NULL DEFAULT 0;
++ALTER TABLE analysis_jobs ADD COLUMN max_chunk_chars INTEGER NOT NULL DEFAULT 1000;
++ALTER TABLE analysis_jobs ADD COLUMN error_summary TEXT;
++
++-- Step 2: Create chunk_records table for granular tracking
++CREATE TABLE chunk_records (
++    id INTEGER PRIMARY KEY AUTOINCREMENT,
++    job_id INTEGER NOT NULL,
++    chunk_index INTEGER NOT NULL,
++    chunk_text TEXT NOT NULL,
++    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
++    result TEXT,
++    error TEXT,
++    retries INTEGER NOT NULL DEFAULT 0,
++    FOREIGN KEY (job_id) REFERENCES analysis_jobs(id)
++);
++
++-- Step 3: Create indexes for efficient querying
++CREATE INDEX ix_chunk_records_job_id ON chunk_records(job_id);
++CREATE INDEX ix_chunk_records_status ON chunk_records(status);
++CREATE INDEX ix_analysis_jobs_status ON analysis_jobs(status);
++"""
++
++DOWNGRADE_SQL = """
++-- Reverse: drop chunk_records and remove new columns
++DROP TABLE IF EXISTS chunk_records;
++
++-- SQLite does not support DROP COLUMN; in production (PostgreSQL),
++-- you would run:
++-- ALTER TABLE analysis_jobs DROP COLUMN status;
++-- ALTER TABLE analysis_jobs DROP COLUMN total_chunks;
++-- ALTER TABLE analysis_jobs DROP COLUMN chunks_completed;
++-- ALTER TABLE analysis_jobs DROP COLUMN chunks_failed;
++-- ALTER TABLE analysis_jobs DROP COLUMN max_chunk_chars;
++-- ALTER TABLE analysis_jobs DROP COLUMN error_summary;
++"""
++
++
++def upgrade():
++    """Apply migration."""
++    print("Migration: Adding chunk-level tracking to analysis_jobs")
++    print("Migration: Creating chunk_records table")
++    print(UPGRADE_SQL)
++
++
++def downgrade():
++    """Reverse migration."""
++    print("Downgrade: Removing chunk tracking")
++    print(DOWNGRADE_SQL)
++
++
++if __name__ == "__main__":
++    upgrade()
+diff --git a/repository_before/database.py b/repository_after/database.py
+index 4155cc5..6adc5dd 100644
+--- a/repository_before/database.py
++++ b/repository_after/database.py
+@@ -1,12 +1,24 @@
+-# database.py
++"""
++Database configuration for async-resilient chunked AI analysis service.
++Uses SQLite with proper thread isolation for background tasks.
++"""
++
+ from sqlalchemy import create_engine
+-from sqlalchemy.ext.declarative import declarative_base
+-from sqlalchemy.orm import sessionmaker
++from sqlalchemy.orm import sessionmaker, DeclarativeBase
+ 
+ SQLALCHEMY_DATABASE_URL = "sqlite:///./document_analysis.db"
+-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
++
++engine = create_engine(
++    SQLALCHEMY_DATABASE_URL,
++    connect_args={"check_same_thread": False},
++    pool_pre_ping=True,
++)
++
+ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+-Base = declarative_base()
++
++
++class Base(DeclarativeBase):
++    pass
+ 
+ 
+ def get_db():
+@@ -19,5 +31,6 @@ def get_db():
+ 
+ 
+ def get_background_db():
+-    """Create an isolated database session for background tasks."""
+-    return SessionLocal()
+\ No newline at end of file
++    """Create an isolated database session for background tasks.
++    Caller is responsible for closing."""
++    return SessionLocal()
+diff --git a/repository_before/main.py b/repository_after/main.py
+index 03e111b..beb0e98 100644
+--- a/repository_before/main.py
++++ b/repository_after/main.py
+@@ -1,36 +1,84 @@
+-# main.py
+-import time
+-import random
++"""
++FastAPI application for async resilient chunked AI document analysis.
++
++POST /v1/analyze  -> Returns 202 Accepted with job_id immediately
++GET  /v1/analyze/{job_id} -> Returns job status, progress, and errors
++"""
++
++import asyncio
+ from fastapi import FastAPI, Depends, HTTPException
++from fastapi.responses import JSONResponse
+ from sqlalchemy.orm import Session
+-from . import models, database
+-
+-models.Base.metadata.create_all(bind=database.engine)
+-app = FastAPI()
+-
+-def get_db():
+-    db = database.SessionLocal()
+-    try:
+-        yield db
+-    finally:
+-        db.close()
+-
+-def call_ai_provider(chunk: str):
+-    # Simulate external API latency and flakiness
+-    time.sleep(random.uniform(1.5, 4.0))
+-    if random.random() < 0.18:
+-        raise Exception("Upstream AI Provider: Connection Reset")
+-    return f"Summary: {chunk[:50]}..."
+-
+-@app.post("/v1/analyze")
+-def analyze_document(text: str, db: Session = Depends(get_db)):
+-    # PROBLEM: Synchronous execution blocks the event loop.
+-    # PROBLEM: No progress visibility or persistence for failures.
+-    try:
+-        summary = call_ai_provider(text)
+-        job = models.AnalysisJob(raw_text=text, analysis_result=summary)
+-        db.add(job)
+-        db.commit()
+-        return {"job_id": job.id, "result": job.analysis_result}
+-    except Exception as e:
+-        raise HTTPException(status_code=500, detail=str(e))
+\ No newline at end of file
++
++from . import models
++from . import database as db_module
++from .database import get_db
++from .models import AnalysisJob, ChunkRecord, JobStatus, ChunkStatus
++from .schemas import AnalyzeRequest, AnalyzeResponse, JobStatusResponse, ChunkError
++from .processor import process_job
++
++models.Base.metadata.create_all(bind=db_module.engine)
++
++app = FastAPI(title="Document Analysis Service")
++
++
++@app.post("/v1/analyze", status_code=202, response_model=AnalyzeResponse)
++async def analyze_document(
++    request: AnalyzeRequest,
++    db: Session = Depends(get_db),
++):
++    """
++    Submit a document for analysis. Returns 202 Accepted immediately
++    with a job_id for status polling.
++    """
++    job = AnalysisJob(
++        raw_text=request.text,
++        status=JobStatus.PENDING.value,
++        max_chunk_chars=request.max_chunk_chars,
++    )
++    db.add(job)
++    db.commit()
++    db.refresh(job)
++
++    # Fire background processing (non-blocking)
++    asyncio.create_task(process_job(job.id))
++
++    return AnalyzeResponse(job_id=job.id, status=job.status)
++
++
++@app.get("/v1/analyze/{job_id}", response_model=JobStatusResponse)
++def get_job_status(job_id: int, db: Session = Depends(get_db)):
++    """
++    Poll job status. Returns progress percentage, chunk errors,
++    and final result when complete.
++    """
++    job = db.query(AnalysisJob).filter(AnalysisJob.id == job_id).first()
++    if not job:
++        raise HTTPException(status_code=404, detail="Job not found")
++
++    # Calculate progress
++    total = job.total_chunks
++    done = job.chunks_completed + job.chunks_failed
++    progress_pct = (done / total * 100.0) if total > 0 else 0.0
++
++    # Collect chunk-level errors
++    chunk_errors = []
++    failed_chunks = (
++        db.query(ChunkRecord)
++        .filter(ChunkRecord.job_id == job_id, ChunkRecord.status == ChunkStatus.FAILED.value)
++        .order_by(ChunkRecord.chunk_index)
++        .all()
++    )
++    for c in failed_chunks:
++        chunk_errors.append(ChunkError(chunk_index=c.chunk_index, error=c.error or "Unknown error"))
++
++    return JobStatusResponse(
++        job_id=job.id,
++        status=job.status,
++        total_chunks=job.total_chunks,
++        chunks_completed=job.chunks_completed,
++        chunks_failed=job.chunks_failed,
++        progress_pct=round(progress_pct, 2),
++        analysis_result=job.analysis_result,
++        chunk_errors=chunk_errors,
++    )
+diff --git a/repository_before/models.py b/repository_after/models.py
+index 7dfe56c..63859d9 100644
+--- a/repository_before/models.py
++++ b/repository_after/models.py
+@@ -1,10 +1,58 @@
+-# models.py
+-from sqlalchemy import Column, Integer, String, Text
++"""
++SQLAlchemy models for document analysis with chunk-level tracking.
++
++State Machine:
++    PENDING -> PROCESSING -> COMPLETED | FAILED | PARTIAL_SUCCESS
++"""
++
++from sqlalchemy import Column, Integer, String, Text, Float, ForeignKey, Enum as SAEnum
++from sqlalchemy.orm import relationship
++import enum
++
+ from .database import Base
+ 
++
++class JobStatus(str, enum.Enum):
++    PENDING = "PENDING"
++    PROCESSING = "PROCESSING"
++    COMPLETED = "COMPLETED"
++    FAILED = "FAILED"
++    PARTIAL_SUCCESS = "PARTIAL_SUCCESS"
++
++
++class ChunkStatus(str, enum.Enum):
++    PENDING = "PENDING"
++    PROCESSING = "PROCESSING"
++    COMPLETED = "COMPLETED"
++    FAILED = "FAILED"
++
++
+ class AnalysisJob(Base):
+     __tablename__ = "analysis_jobs"
++
+     id = Column(Integer, primary_key=True, index=True)
+-    raw_text = Column(Text)
++    raw_text = Column(Text, nullable=False)
++    status = Column(String(20), default=JobStatus.PENDING.value, nullable=False)
+     analysis_result = Column(Text, nullable=True)
+-    # TODO: Expand schema to support chunk-based state tracking and error handling
+\ No newline at end of file
++    total_chunks = Column(Integer, default=0, nullable=False)
++    chunks_completed = Column(Integer, default=0, nullable=False)
++    chunks_failed = Column(Integer, default=0, nullable=False)
++    max_chunk_chars = Column(Integer, default=1000, nullable=False)
++    error_summary = Column(Text, nullable=True)
++
++    chunks = relationship("ChunkRecord", back_populates="job", order_by="ChunkRecord.chunk_index")
++
++
++class ChunkRecord(Base):
++    __tablename__ = "chunk_records"
++
++    id = Column(Integer, primary_key=True, index=True)
++    job_id = Column(Integer, ForeignKey("analysis_jobs.id"), nullable=False)
++    chunk_index = Column(Integer, nullable=False)
++    chunk_text = Column(Text, nullable=False)
++    status = Column(String(20), default=ChunkStatus.PENDING.value, nullable=False)
++    result = Column(Text, nullable=True)
++    error = Column(Text, nullable=True)
++    retries = Column(Integer, default=0, nullable=False)
++
++    job = relationship("AnalysisJob", back_populates="chunks")
+diff --git a/repository_after/processor.py b/repository_after/processor.py
+new file mode 100644
+index 0000000..6549f70
+--- /dev/null
++++ b/repository_after/processor.py
+@@ -0,0 +1,252 @@
++"""
++Background orchestration logic for chunked document analysis.
++
++Handles:
++- Document chunking by max_chunk_chars
++- Per-chunk retry with exponential backoff
++- Atomic database counter updates with row-level locking
++- Ordered result reassembly
++- State machine transitions
++"""
++
++import asyncio
++import logging
++from typing import Callable, Awaitable, Optional
++
++from sqlalchemy import update, select
++from sqlalchemy.orm import Session
++
++from .database import get_background_db
++from .models import AnalysisJob, ChunkRecord, JobStatus, ChunkStatus
++from .ai_provider import call_ai_provider
++
++logger = logging.getLogger(__name__)
++
++MAX_RETRIES = 3
++BASE_BACKOFF_SECONDS = 0.5
++
++
++def chunk_text(text: str, max_chunk_chars: int) -> list[str]:
++    """Split text into chunks of at most max_chunk_chars characters."""
++    if max_chunk_chars <= 0:
++        raise ValueError("max_chunk_chars must be positive")
++    chunks = []
++    for i in range(0, len(text), max_chunk_chars):
++        chunks.append(text[i:i + max_chunk_chars])
++    return chunks
++
++
++async def process_single_chunk(
++    job_id: int,
++    chunk_id: int,
++    chunk_index: int,
++    chunk_text_content: str,
++    ai_fn: Optional[Callable[[str], Awaitable[str]]] = None,
++) -> bool:
++    """
++    Process a single chunk with retry and exponential backoff.
++    Returns True if successful, False if all retries exhausted.
++    Uses its own isolated DB session.
++    """
++    if ai_fn is None:
++        ai_fn = call_ai_provider
++
++    for attempt in range(1, MAX_RETRIES + 1):
++        db = get_background_db()
++        try:
++            # Mark chunk as processing
++            db.execute(
++                update(ChunkRecord)
++                .where(ChunkRecord.id == chunk_id)
++                .values(status=ChunkStatus.PROCESSING.value, retries=attempt)
++            )
++            db.commit()
++
++            # Call AI provider
++            result = await ai_fn(chunk_text_content)
++
++            # Mark chunk as completed
++            db.execute(
++                update(ChunkRecord)
++                .where(ChunkRecord.id == chunk_id)
++                .values(status=ChunkStatus.COMPLETED.value, result=result)
++            )
++            db.commit()
++            return True
++
++        except Exception as e:
++            db.rollback()
++            logger.warning(
++                f"Chunk {chunk_index} of job {job_id} failed attempt {attempt}/{MAX_RETRIES}: {e}"
++            )
++
++            if attempt < MAX_RETRIES:
++                backoff = BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
++                await asyncio.sleep(backoff)
++            else:
++                # All retries exhausted — mark as failed
++                try:
++                    db.execute(
++                        update(ChunkRecord)
++                        .where(ChunkRecord.id == chunk_id)
++                        .values(
++                            status=ChunkStatus.FAILED.value,
++                            error=str(e),
++                            retries=attempt,
++                        )
++                    )
++                    db.commit()
++                except Exception:
++                    db.rollback()
++                return False
++        finally:
++            db.close()
++
++    return False
++
++
++def _atomic_increment_completed(db: Session, job_id: int) -> int:
++    """Atomically increment chunks_completed using row-level locking and return new value."""
++    # Use SELECT ... FOR UPDATE equivalent via with_for_update()
++    stmt = (
++        select(AnalysisJob)
++        .where(AnalysisJob.id == job_id)
++        .with_for_update()
++    )
++    job = db.execute(stmt).scalar_one()
++    job.chunks_completed += 1
++    new_val = job.chunks_completed
++    db.commit()
++    return new_val
++
++
++def _atomic_increment_failed(db: Session, job_id: int) -> int:
++    """Atomically increment chunks_failed using row-level locking and return new value."""
++    stmt = (
++        select(AnalysisJob)
++        .where(AnalysisJob.id == job_id)
++        .with_for_update()
++    )
++    job = db.execute(stmt).scalar_one()
++    job.chunks_failed += 1
++    new_val = job.chunks_failed
++    db.commit()
++    return new_val
++
++
++def _finalize_job(db: Session, job_id: int) -> None:
++    """
++    Finalize the job after all chunks are processed.
++    Determines final status and assembles results in order.
++    """
++    stmt = (
++        select(AnalysisJob)
++        .where(AnalysisJob.id == job_id)
++        .with_for_update()
++    )
++    job = db.execute(stmt).scalar_one()
++
++    # Fetch all chunks in order
++    chunks = (
++        db.query(ChunkRecord)
++        .filter(ChunkRecord.job_id == job_id)
++        .order_by(ChunkRecord.chunk_index)
++        .all()
++    )
++
++    failed_chunks = [c for c in chunks if c.status == ChunkStatus.FAILED.value]
++    completed_chunks = [c for c in chunks if c.status == ChunkStatus.COMPLETED.value]
++
++    # Reassemble results in original order
++    ordered_results = []
++    for c in chunks:
++        if c.status == ChunkStatus.COMPLETED.value and c.result:
++            ordered_results.append(c.result)
++
++    if ordered_results:
++        job.analysis_result = "\n\n".join(ordered_results)
++
++    # Collect error summary
++    if failed_chunks:
++        errors = []
++        for c in failed_chunks:
++            errors.append(f"chunk_{c.chunk_index}: {c.error}")
++        job.error_summary = "; ".join(errors)
++
++    # Determine final status
++    if len(failed_chunks) == 0:
++        job.status = JobStatus.COMPLETED.value
++    elif len(completed_chunks) == 0:
++        job.status = JobStatus.FAILED.value
++    else:
++        job.status = JobStatus.PARTIAL_SUCCESS.value
++
++    db.commit()
++
++
++async def process_job(
++    job_id: int,
++    ai_fn: Optional[Callable[[str], Awaitable[str]]] = None,
++) -> None:
++    """
++    Orchestrate the full processing of a job.
++    Creates chunks, processes them independently, and finalizes.
++    """
++    db = get_background_db()
++    try:
++        # Transition to PROCESSING
++        job = db.query(AnalysisJob).filter(AnalysisJob.id == job_id).first()
++        if not job:
++            logger.error(f"Job {job_id} not found")
++            return
++
++        job.status = JobStatus.PROCESSING.value
++
++        # Chunk the text
++        chunks = chunk_text(job.raw_text, job.max_chunk_chars)
++        job.total_chunks = len(chunks)
++
++        # Create chunk records
++        chunk_records = []
++        for idx, text in enumerate(chunks):
++            record = ChunkRecord(
++                job_id=job_id,
++                chunk_index=idx,
++                chunk_text=text,
++                status=ChunkStatus.PENDING.value,
++            )
++            db.add(record)
++            chunk_records.append(record)
++
++        db.commit()
++
++        # Refresh to get IDs
++        for r in chunk_records:
++            db.refresh(r)
++
++        chunk_ids = [(r.id, r.chunk_index, r.chunk_text) for r in chunk_records]
++    finally:
++        db.close()
++
++    # Process each chunk independently
++    for chunk_id, chunk_index, chunk_text_content in chunk_ids:
++        success = await process_single_chunk(
++            job_id, chunk_id, chunk_index, chunk_text_content, ai_fn
++        )
++
++        # Atomically update counters
++        counter_db = get_background_db()
++        try:
++            if success:
++                _atomic_increment_completed(counter_db, job_id)
++            else:
++                _atomic_increment_failed(counter_db, job_id)
++        finally:
++            counter_db.close()
++
++    # Finalize
++    final_db = get_background_db()
++    try:
++        _finalize_job(final_db, job_id)
++    finally:
++        final_db.close()
+diff --git a/repository_after/schemas.py b/repository_after/schemas.py
+new file mode 100644
+index 0000000..574000f
+--- /dev/null
++++ b/repository_after/schemas.py
+@@ -0,0 +1,32 @@
++"""
++Pydantic schemas for request/response models.
++"""
++
++from pydantic import BaseModel, Field
++from typing import Optional, List
++
++
++class AnalyzeRequest(BaseModel):
++    text: str
++    max_chunk_chars: int = Field(default=1000, gt=0)
++
++
++class AnalyzeResponse(BaseModel):
++    job_id: int
++    status: str
++
++
++class ChunkError(BaseModel):
++    chunk_index: int
++    error: str
++
++
++class JobStatusResponse(BaseModel):
++    job_id: int
++    status: str
++    total_chunks: int
++    chunks_completed: int
++    chunks_failed: int
++    progress_pct: float
++    analysis_result: Optional[str] = None
++    chunk_errors: List[ChunkError] = []
