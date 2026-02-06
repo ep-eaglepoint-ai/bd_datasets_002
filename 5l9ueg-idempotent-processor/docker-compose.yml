@@ -1,0 +1,19 @@
+services:
+  test:
+    build: .
+    image: idempotent-processor:latest
+    # Force execution of the specific test class
+    command: mvn -f repository_after/pom.xml -Dtest=IdempotentRequestProcessorTest test
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+
+  evaluation:
+    image: idempotent-processor:latest
+    command: python3 evaluation/evaluation.py
+    volumes:
+      - .:/workspace
+      - ./evaluation/reports:/workspace/evaluation/reports
+    working_dir: /workspace
+    environment:
+      - PYTHONUNBUFFERED=1
