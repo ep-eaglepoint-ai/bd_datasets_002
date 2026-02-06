@@ -19,38 +19,197 @@ function parseTestOutput(output, expectedFailure = false) {
   let xfailed = 0;
   const tests = [];
 
-  // Look for test results in output
-  for (const line of lines) {
-    if (line.startsWith('✓ ')) {
-      passed++;
-      const testName = line.substring(2);
-      tests.push({
-        fullName: testName,
-        status: 'passed',
-        title: testName.split(': ').pop(),
-        failureMessages: [],
-        location: { column: 0, line: 0 }
-      });
-    } else if (line.startsWith('✗ ')) {
-      const testName = line.substring(2);
-      if (expectedFailure) {
-        xfailed++; // Count as xfailed only, not failed
+  // Look for structured evaluation results first
+  const evalStartIndex = lines.findIndex(line => line.includes('=== EVALUATION RESULTS ==='));
+  const evalEndIndex = lines.findIndex(line => line.includes('=== END EVALUATION RESULTS ==='));
+  
+  if (evalStartIndex !== -1 && evalEndIndex !== -1) {
+    // Parse structured results
+    for (let i = evalStartIndex; i <= evalEndIndex; i++) {
+      const line = lines[i];
+      if (line.includes('STATIC_PASSED:')) {
+        const value = parseInt(line.split(':')[1]);
+        passed += value;
+        for (let j = 0; j < value; j++) {
+          tests.push({
+            fullName: `Static Analysis Test ${j + 1}`,
+            status: 'passed',
+            title: `Static Analysis Test ${j + 1}`,
+            failureMessages: [],
+            location: { column: 0, line: 0 }
+          });
+        }
+      } else if (line.includes('STATIC_FAILED:')) {
+        const value = parseInt(line.split(':')[1]);
+        if (expectedFailure) {
+          xfailed += value;
+        } else {
+          failed += value;
+        }
+        for (let j = 0; j < value; j++) {
+          tests.push({
+            fullName: `Static Analysis Test ${j + 1}`,
+            status: expectedFailure ? 'xfailed' : 'failed',
+            title: `Static Analysis Test ${j + 1}`,
+            failureMessages: ['Static analysis test failed'],
+            location: { column: 0, line: 0 }
+          });
+        }
+      } else if (line.includes('JEST_PASSED:')) {
+        const value = parseInt(line.split(':')[1]);
+        passed += value;
+        for (let j = 0; j < value; j++) {
+          tests.push({
+            fullName: `Jest Test Suite ${j + 1}`,
+            status: 'passed',
+            title: `Jest Test Suite ${j + 1}`,
+            failureMessages: [],
+            location: { column: 0, line: 0 }
+          });
+        }
+      } else if (line.includes('JEST_FAILED:')) {
+        const value = parseInt(line.split(':')[1]);
+        if (expectedFailure) {
+          xfailed += value;
+        } else {
+          failed += value;
+        }
+        for (let j = 0; j < value; j++) {
+          tests.push({
+            fullName: `Jest Test Suite ${j + 1}`,
+            status: expectedFailure ? 'xfailed' : 'failed',
+            title: `Jest Test Suite ${j + 1}`,
+            failureMessages: ['Jest test suite failed'],
+            location: { column: 0, line: 0 }
+          });
+        }
+      }
+    }
+  } else {
+    // Fallback to original parsing logic
+    for (const line of lines) {
+      // Original format: ✓ Test Name
+      if (line.startsWith('✓ ')) {
+        passed++;
+        const testName = line.substring(2);
         tests.push({
           fullName: testName,
-          status: 'xfailed',
+          status: 'passed',
           title: testName.split(': ').pop(),
-          failureMessages: [line],
+          failureMessages: [],
           location: { column: 0, line: 0 }
         });
-      } else {
-        failed++;
+      } 
+      // Original format: ✗ Test Name
+      else if (line.startsWith('✗ ')) {
+        const testName = line.substring(2);
+        if (expectedFailure) {
+          xfailed++;
+          tests.push({
+            fullName: testName,
+            status: 'xfailed',
+            title: testName.split(': ').pop(),
+            failureMessages: [line],
+            location: { column: 0, line: 0 }
+          });
+        } else {
+          failed++;
+          tests.push({
+            fullName: testName,
+            status: 'failed',
+            title: testName.split(': ').pop(),
+            failureMessages: [line],
+            location: { column: 0, line: 0 }
+          });
+        }
+      }
+      // New format: ✅ PASSED
+      else if (line.includes('✅ PASSED')) {
+        passed++;
+        const testName = line.includes('Static Analysis') ? 'Static Analysis Tests' : 
+                        line.includes('App Router') ? 'App Router Structure Tests' :
+                        line.includes('Clerk Components') ? 'Clerk Components Tests' :
+                        line.includes('Integration') ? 'Integration Tests' :
+                        line.includes('Middleware') ? 'Middleware Tests' :
+                        'Unknown Test Suite';
         tests.push({
           fullName: testName,
-          status: 'failed',
-          title: testName.split(': ').pop(),
-          failureMessages: [line],
+          status: 'passed',
+          title: testName,
+          failureMessages: [],
           location: { column: 0, line: 0 }
         });
+      }
+      // New format: ❌ FAILED
+      else if (line.includes('❌ FAILED')) {
+        const testName = line.includes('Static Analysis') ? 'Static Analysis Tests' : 
+                        line.includes('App Router') ? 'App Router Structure Tests' :
+                        line.includes('Clerk Components') ? 'Clerk Components Tests' :
+                        line.includes('Integration') ? 'Integration Tests' :
+                        line.includes('Middleware') ? 'Middleware Tests' :
+                        'Unknown Test Suite';
+        
+        if (expectedFailure) {
+          xfailed++;
+          tests.push({
+            fullName: testName,
+            status: 'xfailed',
+            title: testName,
+            failureMessages: [line],
+            location: { column: 0, line: 0 }
+          });
+        } else {
+          failed++;
+          tests.push({
+            fullName: testName,
+            status: 'failed',
+            title: testName,
+            failureMessages: [line],
+            location: { column: 0, line: 0 }
+          });
+        }
+      }
+      // Jest format: Test Suites summary
+      else if (line.includes('Test Suites:') && line.includes('total')) {
+        const suiteMatch = line.match(/Test Suites: (\d+) failed, (\d+) passed, (\d+) total/);
+        if (suiteMatch) {
+          const failedSuites = parseInt(suiteMatch[1]);
+          const passedSuites = parseInt(suiteMatch[2]);
+          
+          // Add individual test suite results
+          if (failedSuites > 0) {
+            failed += failedSuites;
+            for (let i = 0; i < failedSuites; i++) {
+              tests.push({
+                fullName: `Jest Test Suite ${i + 1}`,
+                status: 'failed',
+                title: `Jest Test Suite ${i + 1}`,
+                failureMessages: ['Test suite failed'],
+                location: { column: 0, line: 0 }
+              });
+            }
+          }
+          if (passedSuites > 0) {
+            passed += passedSuites;
+            for (let i = 0; i < passedSuites; i++) {
+              tests.push({
+                fullName: `Jest Test Suite ${passedSuites - i}`,
+                status: 'passed',
+                title: `Jest Test Suite ${passedSuites - i}`,
+                failureMessages: [],
+                location: { column: 0, line: 0 }
+              });
+            }
+          }
+        }
+      }
+      // Jest format: Tests summary
+      else if (line.includes('Tests:') && line.includes('total')) {
+        const testMatch = line.match(/Tests:\s+(\d+) failed, (\d+) passed, (\d+) total/);
+        if (testMatch) {
+          failed += parseInt(testMatch[1]);
+          passed += parseInt(testMatch[2]);
+        }
       }
     }
   }
@@ -65,20 +224,21 @@ function runTests(repoPath, expectedFailure = false) {
   let returnCode = 0;
 
   try {
-    // Check if we're running inside Docker (by checking for .dockerenv file or cgroup)
+    // Check if we're running inside Docker
     const isInDocker = fs.existsSync('/.dockerenv') || fs.readFileSync('/proc/1/cgroup', 'utf8').includes('docker');
-
+    
     if (isInDocker) {
-      // Running inside container, run tests directly
+      // We're already inside Docker, run the tests directly
       output = execSync(`node tests/run-tests.js`, {
         encoding: 'utf8',
-        cwd: process.cwd(),
+        cwd: '/app',
         env: { ...process.env, REPO_PATH: repoPath },
         stdio: 'pipe'
       });
     } else {
-      // Running on host, use Docker
-      output = execSync(`docker compose run --rm -e REPO_PATH=${repoPath} app npm test`, {
+      // Running on host, use the working docker commands
+      const serviceName = repoPath.includes('before') ? 'app-before' : 'app-after';
+      output = execSync(`docker compose run --rm ${serviceName}`, {
         encoding: 'utf8',
         cwd: process.cwd(),
         stdio: 'pipe'
@@ -86,7 +246,7 @@ function runTests(repoPath, expectedFailure = false) {
     }
   } catch (error) {
     // Capture output even on failure
-    output = error.stdout || error.message || '';
+    output = error.stdout || error.stderr || error.message || '';
     returnCode = error.status || 1;
   }
 
@@ -98,7 +258,7 @@ function runTests(repoPath, expectedFailure = false) {
   // If expectedFailure is true, we consider the run successful if there are failures (which are now xfailures)
   // and no unexpected failures (though strict 'failed' count should be 0 if all were expected).
   // However, often 'xfailed' implies the test suite "passed" in the sense of configuration.
-  const isSuccess = failed === 0 && (returnCode === 0 || expectedFailure);
+  const isSuccess = expectedFailure ? xfailed > 0 : failed === 0 && returnCode === 0;
 
   return {
     passed: isSuccess,
