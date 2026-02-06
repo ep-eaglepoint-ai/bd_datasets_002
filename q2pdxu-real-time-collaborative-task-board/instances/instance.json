@@ -1,0 +1,22 @@
+{
+            "instance_id": "Q2PDXU",
+            "problem_statement": "Noticed a need for real-time collaboration when testing a team productivity tool. 
+The existing task management solutions require manual page refreshes to see updates 
+from other team members, causing confusion during sprint planning and daily standups. 
+Teams need a Trello-like task board where multiple users can view and edit the same 
+board simultaneously, with changes appearing instantly for all viewers. The system 
+must handle users joining and leaving boards, support drag-and-drop task movement 
+between columns, and maintain data consistency when two users move the same task 
+at the same time. 
+
+The application needs a Go backend with WebSocket support, a React 
+frontend with drag-and-drop functionality, PostgreSQL for persistence, and JWT 
+authentication — all deployable via Docker Compose for local development.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/q2pdxu-real-time-collaborative-task-board",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

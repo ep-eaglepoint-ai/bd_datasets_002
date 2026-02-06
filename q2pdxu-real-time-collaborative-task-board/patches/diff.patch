@@ -1,0 +1,1797 @@
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/client/eslint.config.js b/repository_after/client/eslint.config.js
+new file mode 100644
+index 0000000..5e6b472
+--- /dev/null
++++ b/repository_after/client/eslint.config.js
+@@ -0,0 +1,23 @@
++import js from '@eslint/js'
++import globals from 'globals'
++import reactHooks from 'eslint-plugin-react-hooks'
++import reactRefresh from 'eslint-plugin-react-refresh'
++import tseslint from 'typescript-eslint'
++import { defineConfig, globalIgnores } from 'eslint/config'
++
++export default defineConfig([
++  globalIgnores(['dist']),
++  {
++    files: ['**/*.{ts,tsx}'],
++    extends: [
++      js.configs.recommended,
++      tseslint.configs.recommended,
++      reactHooks.configs.flat.recommended,
++      reactRefresh.configs.vite,
++    ],
++    languageOptions: {
++      ecmaVersion: 2020,
++      globals: globals.browser,
++    },
++  },
++])
+diff --git a/repository_after/client/index.html b/repository_after/client/index.html
+new file mode 100644
+index 0000000..32058a6
+--- /dev/null
++++ b/repository_after/client/index.html
+@@ -0,0 +1,13 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>repository_after</title>
++  </head>
++  <body>
++    <div id="root"></div>
++    <script type="module" src="/src/main.tsx"></script>
++  </body>
++</html>
+diff --git a/repository_after/client/package.json b/repository_after/client/package.json
+new file mode 100644
+index 0000000..5bf63c4
+--- /dev/null
++++ b/repository_after/client/package.json
+@@ -0,0 +1,33 @@
++{
++  "name": "repository_after",
++  "private": true,
++  "version": "0.0.0",
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "tsc -b && vite build",
++    "lint": "eslint .",
++    "preview": "vite preview"
++  },
++  "dependencies": {
++    "react": "^19.2.0",
++    "react-dom": "^19.2.0",
++    "@dnd-kit/core": "^6.1.0",
++    "@dnd-kit/sortable": "^8.0.0",
++    "@dnd-kit/utilities": "^3.2.2"
++  },
++  "devDependencies": {
++    "@eslint/js": "^9.39.1",
++    "@types/node": "^24.10.1",
++    "@types/react": "^19.2.5",
++    "@types/react-dom": "^19.2.3",
++    "@vitejs/plugin-react-swc": "^4.2.2",
++    "eslint": "^9.39.1",
++    "eslint-plugin-react-hooks": "^7.0.1",
++    "eslint-plugin-react-refresh": "^0.4.24",
++    "globals": "^16.5.0",
++    "typescript": "~5.9.3",
++    "typescript-eslint": "^8.46.4",
++    "vite": "^7.2.4"
++  }
++}
+diff --git a/repository_after/client/public/vite.svg b/repository_after/client/public/vite.svg
+new file mode 100644
+index 0000000..e7b8dfb
+--- /dev/null
++++ b/repository_after/client/public/vite.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+\ No newline at end of file
+diff --git a/repository_after/client/src/App.css b/repository_after/client/src/App.css
+new file mode 100644
+index 0000000..a80197c
+--- /dev/null
++++ b/repository_after/client/src/App.css
+@@ -0,0 +1,94 @@
++.app-header {
++  border-bottom: 4px solid var(--black);
++  padding: 20px 0;
++  margin-bottom: 40px;
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++}
++
++.logo {
++  font-size: 1.5rem;
++  font-weight: 900;
++  text-transform: uppercase;
++  background: var(--black);
++  color: var(--white);
++  padding: 4px 12px;
++}
++
++.board-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
++  gap: 24px;
++}
++
++.column-container {
++  display: flex;
++  gap: 24px;
++  overflow-x: auto;
++  padding-bottom: 20px;
++  align-items: flex-start;
++}
++
++.column {
++  min-width: 320px;
++  border: 4px solid var(--black);
++  background: var(--white);
++  padding: 16px;
++  box-shadow: 4px 4px 0px var(--black);
++}
++
++.column-header {
++  border-bottom: 4px solid var(--black);
++  padding-bottom: 12px;
++  margin-bottom: 20px;
++}
++
++.task-card {
++  border: 2px solid var(--black);
++  padding: 16px;
++  margin-bottom: 16px;
++  background: var(--white);
++  transition: var(--transition);
++  cursor: grab;
++}
++
++.task-card:hover {
++  transform: translate(-2px, -2px);
++  box-shadow: 4px 4px 0px var(--black);
++}
++
++.task-card:active {
++  cursor: grabbing;
++}
++
++.error-message {
++  border: 2px solid var(--black);
++  background: var(--black);
++  color: var(--white);
++  padding: 8px 12px;
++  margin-bottom: 16px;
++  font-weight: 600;
++  text-transform: uppercase;
++  font-size: 0.75rem;
++}
++
++.active-users {
++  font-size: 0.8rem;
++  font-weight: 600;
++  text-transform: uppercase;
++  margin-bottom: 20px;
++  border: 2px solid var(--black);
++  padding: 8px 12px;
++  display: inline-block;
++}
++
++.input-group {
++  display: flex;
++  gap: 12px;
++  margin-bottom: 32px;
++}
++
++.input-group input, .input-group select {
++  flex: 1;
++}
+diff --git a/repository_after/client/src/App.tsx b/repository_after/client/src/App.tsx
+new file mode 100644
+index 0000000..ed8b0ec
+--- /dev/null
++++ b/repository_after/client/src/App.tsx
+@@ -0,0 +1,40 @@
++import { useState } from "react";
++import { Auth } from "./components/Auth";
++import { BoardList } from "./components/BoardList";
++import { Board } from "./components/Board";
++import "./App.css";
++
++function App() {
++  const [token, setToken] = useState<string | null>(
++    localStorage.getItem("token"),
++  );
++  const [selectedBoard, setSelectedBoard] = useState<number | null>(null);
++
++  const handleLogout = () => {
++    localStorage.removeItem("token");
++    setToken(null);
++    setSelectedBoard(null);
++  };
++
++  if (!token) {
++    return <Auth onLogin={setToken} />;
++  }
++
++  if (selectedBoard) {
++    return (
++      <Board boardId={selectedBoard} onBack={() => setSelectedBoard(null)} />
++    );
++  }
++
++  return (
++    <div className="container">
++      <header className="app-header">
++        <div className="logo">TaskBoard</div>
++        <button onClick={handleLogout}>Logout</button>
++      </header>
++      <BoardList onSelectBoard={setSelectedBoard} />
++    </div>
++  );
++}
++
++export default App;
+diff --git a/repository_after/client/src/assets/react.svg b/repository_after/client/src/assets/react.svg
+new file mode 100644
+index 0000000..6c87de9
+--- /dev/null
++++ b/repository_after/client/src/assets/react.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="35.93" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 228"><path fill="#00D8FF" d="M210.483 73.824a171.49 171.49 0 0 0-8.24-2.597c.465-1.9.893-3.777 1.273-5.621c6.238-30.281 2.16-54.676-11.769-62.708c-13.355-7.7-35.196.329-57.254 19.526a171.23 171.23 0 0 0-6.375 5.848a155.866 155.866 0 0 0-4.241-3.917C100.759 3.829 77.587-4.822 63.673 3.233C50.33 10.957 46.379 33.89 51.995 62.588a170.974 170.974 0 0 0 1.892 8.48c-3.28.932-6.445 1.924-9.474 2.98C17.309 83.498 0 98.307 0 113.668c0 15.865 18.582 31.778 46.812 41.427a145.52 145.52 0 0 0 6.921 2.165a167.467 167.467 0 0 0-2.01 9.138c-5.354 28.2-1.173 50.591 12.134 58.266c13.744 7.926 36.812-.22 59.273-19.855a145.567 145.567 0 0 0 5.342-4.923a168.064 168.064 0 0 0 6.92 6.314c21.758 18.722 43.246 26.282 56.54 18.586c13.731-7.949 18.194-32.003 12.4-61.268a145.016 145.016 0 0 0-1.535-6.842c1.62-.48 3.21-.974 4.76-1.488c29.348-9.723 48.443-25.443 48.443-41.52c0-15.417-17.868-30.326-45.517-39.844Zm-6.365 70.984c-1.4.463-2.836.91-4.3 1.345c-3.24-10.257-7.612-21.163-12.963-32.432c5.106-11 9.31-21.767 12.459-31.957c2.619.758 5.16 1.557 7.61 2.4c23.69 8.156 38.14 20.213 38.14 29.504c0 9.896-15.606 22.743-40.946 31.14Zm-10.514 20.834c2.562 12.94 2.927 24.64 1.23 33.787c-1.524 8.219-4.59 13.698-8.382 15.893c-8.067 4.67-25.32-1.4-43.927-17.412a156.726 156.726 0 0 1-6.437-5.87c7.214-7.889 14.423-17.06 21.459-27.246c12.376-1.098 24.068-2.894 34.671-5.345a134.17 134.17 0 0 1 1.386 6.193ZM87.276 214.515c-7.882 2.783-14.16 2.863-17.955.675c-8.075-4.657-11.432-22.636-6.853-46.752a156.923 156.923 0 0 1 1.869-8.499c10.486 2.32 22.093 3.988 34.498 4.994c7.084 9.967 14.501 19.128 21.976 27.15a134.668 134.668 0 0 1-4.877 4.492c-9.933 8.682-19.886 14.842-28.658 17.94ZM50.35 144.747c-12.483-4.267-22.792-9.812-29.858-15.863c-6.35-5.437-9.555-10.836-9.555-15.216c0-9.322 13.897-21.212 37.076-29.293c2.813-.98 5.757-1.905 8.812-2.773c3.204 10.42 7.406 21.315 12.477 32.332c-5.137 11.18-9.399 22.249-12.634 32.792a134.718 134.718 0 0 1-6.318-1.979Zm12.378-84.26c-4.811-24.587-1.616-43.134 6.425-47.789c8.564-4.958 27.502 2.111 47.463 19.835a144.318 144.318 0 0 1 3.841 3.545c-7.438 7.987-14.787 17.08-21.808 26.988c-12.04 1.116-23.565 2.908-34.161 5.309a160.342 160.342 0 0 1-1.76-7.887Zm110.427 27.268a347.8 347.8 0 0 0-7.785-12.803c8.168 1.033 15.994 2.404 23.343 4.08c-2.206 7.072-4.956 14.465-8.193 22.045a381.151 381.151 0 0 0-7.365-13.322Zm-45.032-43.861c5.044 5.465 10.096 11.566 15.065 18.186a322.04 322.04 0 0 0-30.257-.006c4.974-6.559 10.069-12.652 15.192-18.18ZM82.802 87.83a323.167 323.167 0 0 0-7.227 13.238c-3.184-7.553-5.909-14.98-8.134-22.152c7.304-1.634 15.093-2.97 23.209-3.984a321.524 321.524 0 0 0-7.848 12.897Zm8.081 65.352c-8.385-.936-16.291-2.203-23.593-3.793c2.26-7.3 5.045-14.885 8.298-22.6a321.187 321.187 0 0 0 7.257 13.246c2.594 4.48 5.28 8.868 8.038 13.147Zm37.542 31.03c-5.184-5.592-10.354-11.779-15.403-18.433c4.902.192 9.899.29 14.978.29c5.218 0 10.376-.117 15.453-.343c-4.985 6.774-10.018 12.97-15.028 18.486Zm52.198-57.817c3.422 7.8 6.306 15.345 8.596 22.52c-7.422 1.694-15.436 3.058-23.88 4.071a382.417 382.417 0 0 0 7.859-13.026a347.403 347.403 0 0 0 7.425-13.565Zm-16.898 8.101a358.557 358.557 0 0 1-12.281 19.815a329.4 329.4 0 0 1-23.444.823c-7.967 0-15.716-.248-23.178-.732a310.202 310.202 0 0 1-12.513-19.846h.001a307.41 307.41 0 0 1-10.923-20.627a310.278 310.278 0 0 1 10.89-20.637l-.001.001a307.318 307.318 0 0 1 12.413-19.761c7.613-.576 15.42-.876 23.31-.876H128c7.926 0 15.743.303 23.354.883a329.357 329.357 0 0 1 12.335 19.695a358.489 358.489 0 0 1 11.036 20.54a329.472 329.472 0 0 1-11 20.722Zm22.56-122.124c8.572 4.944 11.906 24.881 6.52 51.026c-.344 1.668-.73 3.367-1.15 5.09c-10.622-2.452-22.155-4.275-34.23-5.408c-7.034-10.017-14.323-19.124-21.64-27.008a160.789 160.789 0 0 1 5.888-5.4c18.9-16.447 36.564-22.941 44.612-18.3ZM128 90.808c12.625 0 22.86 10.235 22.86 22.86s-10.235 22.86-22.86 22.86s-22.86-10.235-22.86-22.86s10.235-22.86 22.86-22.86Z"></path></svg>
+\ No newline at end of file
+diff --git a/repository_after/client/src/components/Auth.tsx b/repository_after/client/src/components/Auth.tsx
+new file mode 100644
+index 0000000..c00e13d
+--- /dev/null
++++ b/repository_after/client/src/components/Auth.tsx
+@@ -0,0 +1,79 @@
++import { useState } from "react";
++import { api } from "../services/api";
++
++interface AuthProps {
++  onLogin: (token: string) => void;
++}
++
++export const Auth = ({ onLogin }: AuthProps) => {
++  const [isLogin, setIsLogin] = useState(true);
++  const [email, setEmail] = useState("");
++  const [password, setPassword] = useState("");
++  const [error, setError] = useState("");
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    setError("");
++    try {
++      const data = isLogin
++        ? await api.login(email, password)
++        : await api.register(email, password);
++      localStorage.setItem("token", data.token);
++      onLogin(data.token);
++    } catch (err) {
++      setError("Authentication failed");
++    }
++  };
++
++  return (
++    <div
++      className="container"
++      style={{
++        display: "flex",
++        justifyContent: "center",
++        alignItems: "center",
++        minHeight: "80vh",
++      }}
++    >
++      <div className="card" style={{ width: "100%", maxWidth: "400px" }}>
++        <h2 style={{ marginBottom: "24px" }}>
++          {isLogin ? "Login" : "Register"}
++        </h2>
++        {error && <div className="error-message">{error}</div>}
++        <form
++          onSubmit={handleSubmit}
++          style={{ display: "flex", flexDirection: "column", gap: "16px" }}
++        >
++          <input
++            type="email"
++            placeholder="Email"
++            value={email}
++            onChange={(e) => setEmail(e.target.value)}
++            required
++          />
++          <input
++            type="password"
++            placeholder="Password"
++            value={password}
++            onChange={(e) => setPassword(e.target.value)}
++            required
++          />
++          <button type="submit" style={{ padding: "12px" }}>
++            {isLogin ? "Login" : "Register"}
++          </button>
++        </form>
++        <button
++          onClick={() => setIsLogin(!isLogin)}
++          style={{
++            width: "100%",
++            marginTop: "16px",
++            background: "white",
++            color: "black",
++          }}
++        >
++          {isLogin ? "Switch to Register" : "Switch to Login"}
++        </button>
++      </div>
++    </div>
++  );
++};
+diff --git a/repository_after/client/src/components/Board.tsx b/repository_after/client/src/components/Board.tsx
+new file mode 100644
+index 0000000..ec03785
+--- /dev/null
++++ b/repository_after/client/src/components/Board.tsx
+@@ -0,0 +1,177 @@
++import { useState, useEffect, useCallback } from "react";
++import {
++  DndContext,
++  type DragEndEvent,
++  DragOverlay,
++  closestCorners,
++} from "@dnd-kit/core";
++import { api } from "../services/api";
++import { useWebSocket } from "../hooks/useWebSocket";
++import type { Column, Task, WSMessage } from "../types";
++import { TaskCard } from "./TaskCard";
++import { ColumnView } from "./ColumnView";
++
++interface BoardProps {
++  boardId: number;
++  onBack: () => void;
++}
++
++export const Board = ({ boardId, onBack }: BoardProps) => {
++  const [columns, setColumns] = useState<Column[]>([]);
++  const [tasks, setTasks] = useState<Task[]>([]);
++  const [activeUsers, setActiveUsers] = useState<string[]>([]);
++  const [activeTask, setActiveTask] = useState<Task | null>(null);
++  const [newTaskTitle, setNewTaskTitle] = useState("");
++  const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
++
++  const loadBoard = useCallback(async () => {
++    try {
++      const data = await api.getBoard(boardId);
++      setColumns(data.columns || []);
++      setTasks(data.tasks || []);
++    } catch (err) {
++      console.error("Failed to load board");
++    }
++  }, [boardId]);
++
++  useEffect(() => {
++    loadBoard();
++  }, [loadBoard]);
++
++  const handleWSMessage = useCallback((msg: WSMessage) => {
++    switch (msg.type) {
++      case "board_state":
++        setColumns(msg.data.columns || []);
++        setTasks(msg.data.tasks || []);
++        break;
++      case "task_created":
++        setTasks((prev) => [...prev, msg.data]);
++        break;
++      case "task_updated":
++        setTasks((prev) =>
++          prev.map((t) => (t.id === msg.data.id ? msg.data : t)),
++        );
++        break;
++      case "task_moved":
++        setTasks((prev) =>
++          prev.map((t) => (t.id === msg.data.id ? msg.data : t)),
++        );
++        break;
++      case "task_deleted":
++        setTasks((prev) => prev.filter((t) => t.id !== msg.data.id));
++        break;
++      case "user_joined":
++        setActiveUsers((prev) => [...prev, msg.data.email]);
++        break;
++      case "user_left":
++        setActiveUsers((prev) => prev.filter((u) => u !== msg.data.email));
++        break;
++    }
++  }, []);
++
++  useWebSocket(boardId, handleWSMessage);
++
++  const handleCreateTask = async (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!newTaskTitle.trim() || !selectedColumn) return;
++    try {
++      await api.createTask(boardId, selectedColumn, newTaskTitle, "");
++      setNewTaskTitle("");
++      setSelectedColumn(null);
++    } catch (err) {
++      console.error("Failed to create task");
++    }
++  };
++
++  const handleDeleteTask = async (taskId: number) => {
++    try {
++      await api.deleteTask(taskId);
++    } catch (err) {
++      console.error("Failed to delete task");
++    }
++  };
++
++  const handleDragEnd = async (event: DragEndEvent) => {
++    const { active, over } = event;
++    setActiveTask(null);
++
++    if (!over) return;
++
++    const taskId = Number(active.id);
++    const task = tasks.find((t) => t.id === taskId);
++    if (!task) return;
++
++    // Determine target column: either dropped on a column or on a task within a column
++    let overColumnId: number;
++    const overId = over.id.toString();
++
++    if (overId.startsWith("column-")) {
++      // Dropped on a column directly
++      overColumnId = Number(overId.split("-")[1]);
++    } else {
++      // Dropped on a task - find which column that task belongs to
++      const overTask = tasks.find((t) => t.id === Number(overId));
++      if (!overTask) return;
++      overColumnId = overTask.column_id;
++    }
++
++    const tasksInColumn = tasks.filter((t) => t.column_id === overColumnId);
++    const newPosition = tasksInColumn.length;
++
++    if (task.column_id !== overColumnId || task.position !== newPosition) {
++      try {
++        await api.moveTask(taskId, overColumnId, newPosition);
++      } catch (err) {
++        console.error("Failed to move task");
++      }
++    }
++  };
++
++  return (
++    <div>
++      <div className="app-header" style={{ marginBottom: "32px" }}>
++        <button onClick={onBack}>← Back</button>
++        <div className="active-users">
++          Users: {activeUsers.join(", ") || "Just you"}
++        </div>
++      </div>
++
++      <form onSubmit={handleCreateTask} className="input-group">
++        <select
++          value={selectedColumn || ""}
++          onChange={(e) => setSelectedColumn(Number(e.target.value))}
++        >
++          <option value="">Select column...</option>
++          {columns.map((col) => (
++            <option key={col.id} value={col.id}>
++              {col.name}
++            </option>
++          ))}
++        </select>
++        <input
++          type="text"
++          placeholder="Task title"
++          value={newTaskTitle}
++          onChange={(e) => setNewTaskTitle(e.target.value)}
++        />
++        <button type="submit">Add Task</button>
++      </form>
++
++      <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
++        <div className="column-container">
++          {columns.map((column) => (
++            <ColumnView
++              key={column.id}
++              column={column}
++              tasks={tasks.filter((t) => t.column_id === column.id)}
++              onDeleteTask={handleDeleteTask}
++            />
++          ))}
++        </div>
++        <DragOverlay>
++          {activeTask && <TaskCard task={activeTask} />}
++        </DragOverlay>
++      </DndContext>
++    </div>
++  );
++};
+diff --git a/repository_after/client/src/components/BoardList.tsx b/repository_after/client/src/components/BoardList.tsx
+new file mode 100644
+index 0000000..7c56450
+--- /dev/null
++++ b/repository_after/client/src/components/BoardList.tsx
+@@ -0,0 +1,64 @@
++import { useState, useEffect } from "react";
++import { api } from "../services/api";
++import type { Board } from "../types";
++
++interface BoardListProps {
++  onSelectBoard: (boardId: number) => void;
++}
++
++export const BoardList = ({ onSelectBoard }: BoardListProps) => {
++  const [boards, setBoards] = useState<Board[]>([]);
++  const [newBoardName, setNewBoardName] = useState("");
++
++  useEffect(() => {
++    loadBoards();
++  }, []);
++
++  const loadBoards = async () => {
++    try {
++      const data = await api.getBoards();
++      setBoards(data.boards || []);
++    } catch (err) {
++      console.error("Failed to load boards");
++    }
++  };
++
++  const handleCreateBoard = async (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!newBoardName.trim()) return;
++    try {
++      await api.createBoard(newBoardName);
++      setNewBoardName("");
++      loadBoards();
++    } catch (err) {
++      console.error("Failed to create board");
++    }
++  };
++
++  return (
++    <div>
++      <h2 style={{ marginBottom: "24px" }}>My Boards</h2>
++      <form onSubmit={handleCreateBoard} className="input-group">
++        <input
++          type="text"
++          placeholder="New board name"
++          value={newBoardName}
++          onChange={(e) => setNewBoardName(e.target.value)}
++        />
++        <button type="submit">Create Board</button>
++      </form>
++      <div className="board-grid">
++        {boards.map((board) => (
++          <div
++            key={board.id}
++            onClick={() => onSelectBoard(board.id)}
++            className="card"
++            style={{ cursor: "pointer" }}
++          >
++            <h3>{board.name}</h3>
++          </div>
++        ))}
++      </div>
++    </div>
++  );
++};
+diff --git a/repository_after/client/src/components/ColumnView.tsx b/repository_after/client/src/components/ColumnView.tsx
+new file mode 100644
+index 0000000..a3ba0a7
+--- /dev/null
++++ b/repository_after/client/src/components/ColumnView.tsx
+@@ -0,0 +1,41 @@
++import { useDroppable } from "@dnd-kit/core";
++import {
++  SortableContext,
++  verticalListSortingStrategy,
++} from "@dnd-kit/sortable";
++import type { Column, Task } from "../types";
++import { TaskCard } from "./TaskCard";
++
++interface ColumnViewProps {
++  column: Column;
++  tasks: Task[];
++  onDeleteTask: (id: number) => void;
++}
++
++export const ColumnView = ({
++  column,
++  tasks,
++  onDeleteTask,
++}: ColumnViewProps) => {
++  const { setNodeRef } = useDroppable({
++    id: `column-${column.id}`,
++  });
++
++  return (
++    <div ref={setNodeRef} className="column">
++      <div className="column-header">
++        <h3>{column.name}</h3>
++      </div>
++      <SortableContext
++        items={tasks.map((t) => t.id)}
++        strategy={verticalListSortingStrategy}
++      >
++        <div style={{ minHeight: "100px" }}>
++          {tasks.map((task) => (
++            <TaskCard key={task.id} task={task} onDelete={onDeleteTask} />
++          ))}
++        </div>
++      </SortableContext>
++    </div>
++  );
++};
+diff --git a/repository_after/client/src/components/TaskCard.tsx b/repository_after/client/src/components/TaskCard.tsx
+new file mode 100644
+index 0000000..e105d0d
+--- /dev/null
++++ b/repository_after/client/src/components/TaskCard.tsx
+@@ -0,0 +1,70 @@
++import { useSortable } from "@dnd-kit/sortable";
++import { CSS } from "@dnd-kit/utilities";
++import type { Task } from "../types";
++
++interface TaskCardProps {
++  task: Task;
++  onDelete?: (id: number) => void;
++}
++
++export const TaskCard = ({ task, onDelete }: TaskCardProps) => {
++  const {
++    attributes,
++    listeners,
++    setNodeRef,
++    transform,
++    transition,
++    isDragging,
++  } = useSortable({
++    id: task.id,
++  });
++
++  const style = {
++    transform: CSS.Transform.toString(transform),
++    transition,
++    opacity: isDragging ? 0.5 : 1,
++  };
++
++  return (
++    <div
++      ref={setNodeRef}
++      style={style}
++      className="task-card"
++      {...attributes}
++      {...listeners}
++    >
++      <div
++        style={{
++          fontWeight: "800",
++          marginBottom: "8px",
++          textTransform: "uppercase",
++          fontSize: "0.9rem",
++        }}
++      >
++        {task.title}
++      </div>
++      {task.description && (
++        <div
++          style={{
++            fontSize: "0.8rem",
++            marginBottom: "12px",
++            lineHeight: "1.4",
++          }}
++        >
++          {task.description}
++        </div>
++      )}
++      {onDelete && (
++        <button
++          onClick={(e) => {
++            e.stopPropagation();
++            onDelete(task.id);
++          }}
++          style={{ fontSize: "0.7rem", padding: "4px 8px" }}
++        >
++          Delete
++        </button>
++      )}
++    </div>
++  );
++};
+diff --git a/repository_after/client/src/hooks/useWebSocket.ts b/repository_after/client/src/hooks/useWebSocket.ts
+new file mode 100644
+index 0000000..5840f8e
+--- /dev/null
++++ b/repository_after/client/src/hooks/useWebSocket.ts
+@@ -0,0 +1,46 @@
++import { useEffect, useRef, useCallback } from 'react';
++import type { WSMessage } from '../types';
++
++const WS_URL = import.meta.env.VITE_API_URL?.replace('http', 'ws') || 'ws://localhost:8080';
++
++export const useWebSocket = (boardId: number | null, onMessage: (msg: WSMessage) => void) => {
++  const ws = useRef<WebSocket | null>(null);
++  const reconnectTimeout = useRef<number | undefined>(undefined);
++
++  const connect = useCallback(() => {
++    if (!boardId) return;
++
++    const token = localStorage.getItem('token');
++    if (!token) return;
++
++    ws.current = new WebSocket(`${WS_URL}/ws/board/${boardId}?token=${token}`);
++
++    ws.current.onopen = () => {
++      console.log('WebSocket connected');
++    };
++
++    ws.current.onmessage = (event) => {
++      const msg: WSMessage = JSON.parse(event.data);
++      onMessage(msg);
++    };
++
++    ws.current.onclose = () => {
++      console.log('WebSocket disconnected, reconnecting...');
++      reconnectTimeout.current = window.setTimeout(connect, 2000);
++    };
++
++    ws.current.onerror = (error) => {
++      console.error('WebSocket error:', error);
++    };
++  }, [boardId, onMessage]);
++
++  useEffect(() => {
++    connect();
++    return () => {
++      if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
++      if (ws.current) ws.current.close();
++    };
++  }, [connect]);
++
++  return ws;
++};
+diff --git a/repository_after/client/src/index.css b/repository_after/client/src/index.css
+new file mode 100644
+index 0000000..c82c24c
+--- /dev/null
++++ b/repository_after/client/src/index.css
+@@ -0,0 +1,101 @@
++@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap");
++
++:root {
++  --black: #000000;
++  --white: #ffffff;
++  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
++}
++
++* {
++  box-sizing: border-box;
++  margin: 0;
++  padding: 0;
++}
++
++body {
++  font-family:
++    "Inter",
++    -apple-system,
++    BlinkMacSystemFont,
++    "Segoe UI",
++    Roboto,
++    sans-serif;
++  background-color: var(--white);
++  color: var(--black);
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++}
++
++#root {
++  min-height: 100vh;
++}
++
++h1,
++h2,
++h3,
++h4,
++h5,
++h6 {
++  text-transform: uppercase;
++  letter-spacing: -0.02em;
++  font-weight: 800;
++}
++
++button {
++  cursor: pointer;
++  background: var(--black);
++  color: var(--white);
++  border: 2px solid var(--black);
++  padding: 8px 16px;
++  font-weight: 600;
++  text-transform: uppercase;
++  font-size: 0.8rem;
++  letter-spacing: 0.05em;
++  transition: var(--transition);
++}
++
++button:hover {
++  background: var(--white);
++  color: var(--black);
++}
++
++button:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++input,
++select,
++textarea {
++  border: 2px solid var(--black);
++  padding: 10px 14px;
++  font-family: inherit;
++  font-size: 1rem;
++  background: var(--white);
++  color: var(--black);
++  transition: var(--transition);
++  outline: none;
++}
++
++input:focus {
++  box-shadow: 4px 4px 0px var(--black);
++}
++
++.container {
++  max-width: 1200px;
++  margin: 0 auto;
++  padding: 40px 20px;
++}
++
++.card {
++  border: 4px solid var(--black);
++  padding: 24px;
++  background: var(--white);
++  box-shadow: 8px 8px 0px var(--black);
++  transition: var(--transition);
++}
++
++.card:hover {
++  transform: translate(-2px, -2px);
++  box-shadow: 10px 10px 0px var(--black);
++}
+diff --git a/repository_after/client/src/main.tsx b/repository_after/client/src/main.tsx
+new file mode 100644
+index 0000000..bef5202
+--- /dev/null
++++ b/repository_after/client/src/main.tsx
+@@ -0,0 +1,10 @@
++import { StrictMode } from 'react'
++import { createRoot } from 'react-dom/client'
++import './index.css'
++import App from './App.tsx'
++
++createRoot(document.getElementById('root')!).render(
++  <StrictMode>
++    <App />
++  </StrictMode>,
++)
+diff --git a/repository_after/client/src/services/api.ts b/repository_after/client/src/services/api.ts
+new file mode 100644
+index 0000000..151ad1f
+--- /dev/null
++++ b/repository_after/client/src/services/api.ts
+@@ -0,0 +1,67 @@
++const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
++
++const getToken = () => localStorage.getItem('token');
++
++const request = async (url: string, options: RequestInit = {}) => {
++  const token = getToken();
++  const headers: HeadersInit = {
++    'Content-Type': 'application/json',
++    ...(token && { Authorization: `Bearer ${token}` }),
++    ...options.headers,
++  };
++
++  const response = await fetch(`${API_URL}${url}`, { ...options, headers });
++  if (!response.ok) {
++    if (response.status === 401) {
++      localStorage.removeItem('token');
++      window.location.href = '/';
++    }
++    throw new Error(`HTTP ${response.status}`);
++  }
++  return response.json();
++};
++
++export const api = {
++  register: (email: string, password: string) =>
++    request('/api/auth/register', {
++      method: 'POST',
++      body: JSON.stringify({ email, password }),
++    }),
++
++  login: (email: string, password: string) =>
++    request('/api/auth/login', {
++      method: 'POST',
++      body: JSON.stringify({ email, password }),
++    }),
++
++  getBoards: () => request('/api/boards'),
++
++  getBoard: (id: number) => request(`/api/boards/${id}`),
++
++  createBoard: (name: string) =>
++    request('/api/boards', {
++      method: 'POST',
++      body: JSON.stringify({ name }),
++    }),
++
++  createTask: (boardId: number, columnId: number, title: string, description: string) =>
++    request(`/api/boards/${boardId}/tasks`, {
++      method: 'POST',
++      body: JSON.stringify({ column_id: columnId, title, description }),
++    }),
++
++  updateTask: (id: number, title: string, description: string) =>
++    request(`/api/tasks/${id}`, {
++      method: 'PUT',
++      body: JSON.stringify({ title, description }),
++    }),
++
++  deleteTask: (id: number) =>
++    request(`/api/tasks/${id}`, { method: 'DELETE' }),
++
++  moveTask: (id: number, columnId: number, position: number) =>
++    request(`/api/tasks/${id}/move`, {
++      method: 'PUT',
++      body: JSON.stringify({ column_id: columnId, position }),
++    }),
++};
+diff --git a/repository_after/client/src/types/index.ts b/repository_after/client/src/types/index.ts
+new file mode 100644
+index 0000000..de77cb1
+--- /dev/null
++++ b/repository_after/client/src/types/index.ts
+@@ -0,0 +1,31 @@
++export interface User {
++  id: number;
++  email: string;
++}
++
++export interface Board {
++  id: number;
++  name: string;
++  owner_id: number;
++  created_at: string;
++}
++
++export interface Column {
++  id: number;
++  board_id: number;
++  name: string;
++  position: number;
++}
++
++export interface Task {
++  id: number;
++  column_id: number;
++  title: string;
++  description: string;
++  position: number;
++}
++
++export interface WSMessage {
++  type: 'task_created' | 'task_updated' | 'task_moved' | 'task_deleted' | 'user_joined' | 'user_left' | 'board_state';
++  data: any;
++}
+diff --git a/repository_after/client/tsconfig.app.json b/repository_after/client/tsconfig.app.json
+new file mode 100644
+index 0000000..a9b5a59
+--- /dev/null
++++ b/repository_after/client/tsconfig.app.json
+@@ -0,0 +1,28 @@
++{
++  "compilerOptions": {
++    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
++    "target": "ES2022",
++    "useDefineForClassFields": true,
++    "lib": ["ES2022", "DOM", "DOM.Iterable"],
++    "module": "ESNext",
++    "types": ["vite/client"],
++    "skipLibCheck": true,
++
++    /* Bundler mode */
++    "moduleResolution": "bundler",
++    "allowImportingTsExtensions": true,
++    "verbatimModuleSyntax": true,
++    "moduleDetection": "force",
++    "noEmit": true,
++    "jsx": "react-jsx",
++
++    /* Linting */
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "erasableSyntaxOnly": true,
++    "noFallthroughCasesInSwitch": true,
++    "noUncheckedSideEffectImports": true
++  },
++  "include": ["src"]
++}
+diff --git a/repository_after/client/tsconfig.json b/repository_after/client/tsconfig.json
+new file mode 100644
+index 0000000..1ffef60
+--- /dev/null
++++ b/repository_after/client/tsconfig.json
+@@ -0,0 +1,7 @@
++{
++  "files": [],
++  "references": [
++    { "path": "./tsconfig.app.json" },
++    { "path": "./tsconfig.node.json" }
++  ]
++}
+diff --git a/repository_after/client/tsconfig.node.json b/repository_after/client/tsconfig.node.json
+new file mode 100644
+index 0000000..8a67f62
+--- /dev/null
++++ b/repository_after/client/tsconfig.node.json
+@@ -0,0 +1,26 @@
++{
++  "compilerOptions": {
++    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
++    "target": "ES2023",
++    "lib": ["ES2023"],
++    "module": "ESNext",
++    "types": ["node"],
++    "skipLibCheck": true,
++
++    /* Bundler mode */
++    "moduleResolution": "bundler",
++    "allowImportingTsExtensions": true,
++    "verbatimModuleSyntax": true,
++    "moduleDetection": "force",
++    "noEmit": true,
++
++    /* Linting */
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "erasableSyntaxOnly": true,
++    "noFallthroughCasesInSwitch": true,
++    "noUncheckedSideEffectImports": true
++  },
++  "include": ["vite.config.ts"]
++}
+diff --git a/repository_after/client/vite.config.ts b/repository_after/client/vite.config.ts
+new file mode 100644
+index 0000000..2328e17
+--- /dev/null
++++ b/repository_after/client/vite.config.ts
+@@ -0,0 +1,7 @@
++import { defineConfig } from 'vite'
++import react from '@vitejs/plugin-react-swc'
++
++// https://vite.dev/config/
++export default defineConfig({
++  plugins: [react()],
++})
+diff --git a/repository_after/server/auth.go b/repository_after/server/auth.go
+new file mode 100644
+index 0000000..af59ff6
+--- /dev/null
++++ b/repository_after/server/auth.go
+@@ -0,0 +1,48 @@
++package main
++
++import (
++	"os"
++	"time"
++
++	"github.com/golang-jwt/jwt/v5"
++	"golang.org/x/crypto/bcrypt"
++)
++
++var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
++
++func hashPassword(password string) (string, error) {
++	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
++	return string(bytes), err
++}
++
++func checkPassword(password, hash string) bool {
++	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
++	return err == nil
++}
++
++func generateToken(userID int, email string) (string, error) {
++	claims := jwt.MapClaims{
++		"user_id": userID,
++		"email":   email,
++		"exp":     time.Now().Add(time.Hour * 24).Unix(),
++	}
++
++	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
++	return token.SignedString(jwtSecret)
++}
++
++func validateToken(tokenString string) (int, string, error) {
++	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
++		return jwtSecret, nil
++	})
++
++	if err != nil || !token.Valid {
++		return 0, "", err
++	}
++
++	claims := token.Claims.(jwt.MapClaims)
++	userID := int(claims["user_id"].(float64))
++	email := claims["email"].(string)
++
++	return userID, email, nil
++}
+diff --git a/repository_after/server/database.go b/repository_after/server/database.go
+new file mode 100644
+index 0000000..ec02734
+--- /dev/null
++++ b/repository_after/server/database.go
+@@ -0,0 +1,76 @@
++package main
++
++import (
++	"database/sql"
++	"fmt"
++	"log"
++	"os"
++
++	_ "github.com/lib/pq"
++)
++
++func initDB() *sql.DB {
++	host := os.Getenv("DB_HOST")
++	port := os.Getenv("DB_PORT")
++	user := os.Getenv("DB_USER")
++	password := os.Getenv("DB_PASSWORD")
++	dbname := os.Getenv("DB_NAME")
++
++	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
++		host, port, user, password, dbname)
++
++	db, err := sql.Open("postgres", connStr)
++	if err != nil {
++		log.Fatal(err)
++	}
++
++	if err = db.Ping(); err != nil {
++		log.Fatal(err)
++	}
++
++	createTables(db)
++	return db
++}
++
++func createTables(db *sql.DB) {
++	schema := `
++	CREATE TABLE IF NOT EXISTS users (
++		id SERIAL PRIMARY KEY,
++		email VARCHAR(255) UNIQUE NOT NULL,
++		password VARCHAR(255) NOT NULL,
++		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++	);
++
++	CREATE TABLE IF NOT EXISTS boards (
++		id SERIAL PRIMARY KEY,
++		name VARCHAR(255) NOT NULL,
++		owner_id INTEGER REFERENCES users(id),
++		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++	);
++
++	CREATE TABLE IF NOT EXISTS columns (
++		id SERIAL PRIMARY KEY,
++		board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
++		name VARCHAR(255) NOT NULL,
++		position INTEGER NOT NULL
++	);
++
++	CREATE TABLE IF NOT EXISTS tasks (
++		id SERIAL PRIMARY KEY,
++		column_id INTEGER REFERENCES columns(id) ON DELETE CASCADE,
++		title VARCHAR(255) NOT NULL,
++		description TEXT,
++		position INTEGER NOT NULL
++	);
++
++	CREATE TABLE IF NOT EXISTS board_members (
++		board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
++		user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
++		PRIMARY KEY (board_id, user_id)
++	);
++	`
++
++	if _, err := db.Exec(schema); err != nil {
++		log.Fatal(err)
++	}
++}
+diff --git a/repository_after/server/go.mod b/repository_after/server/go.mod
+new file mode 100644
+index 0000000..a223377
+--- /dev/null
++++ b/repository_after/server/go.mod
+@@ -0,0 +1,13 @@
++module taskboard
++
++go 1.21
++
++require (
++	github.com/golang-jwt/jwt/v5 v5.2.0
++	github.com/gorilla/mux v1.8.1
++	github.com/gorilla/websocket v1.5.1
++	github.com/lib/pq v1.10.9
++	golang.org/x/crypto v0.18.0
++)
++
++require golang.org/x/net v0.20.0 // indirect
+diff --git a/repository_after/server/go.sum b/repository_after/server/go.sum
+new file mode 100644
+index 0000000..53007ea
+--- /dev/null
++++ b/repository_after/server/go.sum
+@@ -0,0 +1,12 @@
++github.com/golang-jwt/jwt/v5 v5.2.0 h1:d/ix8ftRUorsN+5eMIlF4T6J8CAt9rch3My2winC1Jw=
++github.com/golang-jwt/jwt/v5 v5.2.0/go.mod h1:pqrtFR0X4osieyHYxtmOUWsAWrfe1Q5UVIyoH402zdk=
++github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
++github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
++github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=
++github.com/gorilla/websocket v1.5.1/go.mod h1:x3kM2JMyaluk02fnUJpQuwD2dCS5NDG2ZHL0uE0tcaY=
++github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
++github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
++golang.org/x/crypto v0.18.0 h1:PGVlW0xEltQnzFZ55hkuX5+KLyrMYhHld1YHO4AKcdc=
++golang.org/x/crypto v0.18.0/go.mod h1:R0j02AL6hcrfOiy9T4ZYp/rcWeMxM3L6QYxlOuEG1mg=
++golang.org/x/net v0.20.0 h1:aCL9BSgETF1k+blQaYUBx9hJ9LOGP3gAVemcZlf1Kpo=
++golang.org/x/net v0.20.0/go.mod h1:z8BVo6PvndSri0LbOE3hAn0apkU+1YvI6E70E9jsnvY=
+diff --git a/repository_after/server/handlers.go b/repository_after/server/handlers.go
+new file mode 100644
+index 0000000..badf6d4
+--- /dev/null
++++ b/repository_after/server/handlers.go
+@@ -0,0 +1,308 @@
++package main
++
++import (
++	"database/sql"
++	"encoding/json"
++	"net/http"
++	"strconv"
++	"strings"
++
++	"github.com/gorilla/mux"
++	"github.com/gorilla/websocket"
++)
++
++type Server struct {
++	db  *sql.DB
++	hub *Hub
++}
++
++var upgrader = websocket.Upgrader{
++	CheckOrigin: func(r *http.Request) bool { return true },
++}
++
++func (s *Server) register(w http.ResponseWriter, r *http.Request) {
++	var req struct {
++		Email    string `json:"email"`
++		Password string `json:"password"`
++	}
++	json.NewDecoder(r.Body).Decode(&req)
++
++	hash, _ := hashPassword(req.Password)
++	var userID int
++	err := s.db.QueryRow("INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id",
++		req.Email, hash).Scan(&userID)
++
++	if err != nil {
++		http.Error(w, "Registration failed", http.StatusBadRequest)
++		return
++	}
++
++	token, _ := generateToken(userID, req.Email)
++	json.NewEncoder(w).Encode(map[string]string{"token": token})
++}
++
++func (s *Server) login(w http.ResponseWriter, r *http.Request) {
++	var req struct {
++		Email    string `json:"email"`
++		Password string `json:"password"`
++	}
++	json.NewDecoder(r.Body).Decode(&req)
++
++	var user User
++	err := s.db.QueryRow("SELECT id, email, password FROM users WHERE email = $1", req.Email).
++		Scan(&user.ID, &user.Email, &user.Password)
++
++	if err != nil || !checkPassword(req.Password, user.Password) {
++		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
++		return
++	}
++
++	token, _ := generateToken(user.ID, user.Email)
++	json.NewEncoder(w).Encode(map[string]string{"token": token})
++}
++
++func (s *Server) getBoards(w http.ResponseWriter, r *http.Request) {
++	userID := r.Context().Value("user_id").(int)
++
++	rows, _ := s.db.Query(`
++		SELECT DISTINCT b.id, b.name, b.owner_id, b.created_at 
++		FROM boards b 
++		LEFT JOIN board_members bm ON b.id = bm.board_id 
++		WHERE b.owner_id = $1 OR bm.user_id = $1
++		ORDER BY b.created_at DESC`, userID)
++	defer rows.Close()
++
++	boards := []Board{}
++	for rows.Next() {
++		var b Board
++		rows.Scan(&b.ID, &b.Name, &b.OwnerID, &b.CreatedAt)
++		boards = append(boards, b)
++	}
++
++	json.NewEncoder(w).Encode(map[string]interface{}{"boards": boards})
++}
++
++func (s *Server) createBoard(w http.ResponseWriter, r *http.Request) {
++	userID := r.Context().Value("user_id").(int)
++	var req struct {
++		Name string `json:"name"`
++	}
++	json.NewDecoder(r.Body).Decode(&req)
++
++	var boardID int
++	err := s.db.QueryRow("INSERT INTO boards (name, owner_id) VALUES ($1, $2) RETURNING id",
++		req.Name, userID).Scan(&boardID)
++
++	if err != nil {
++		http.Error(w, "Failed to create board", http.StatusInternalServerError)
++		return
++	}
++
++	columns := []string{"To Do", "In Progress", "Done"}
++	for i, name := range columns {
++		s.db.Exec("INSERT INTO columns (board_id, name, position) VALUES ($1, $2, $3)",
++			boardID, name, i)
++	}
++
++	json.NewEncoder(w).Encode(map[string]int{"id": boardID})
++}
++
++func (s *Server) getBoard(w http.ResponseWriter, r *http.Request) {
++	boardID, _ := strconv.Atoi(mux.Vars(r)["id"])
++
++	columns := []Column{}
++	rows, _ := s.db.Query("SELECT id, board_id, name, position FROM columns WHERE board_id = $1 ORDER BY position", boardID)
++	for rows.Next() {
++		var c Column
++		rows.Scan(&c.ID, &c.BoardID, &c.Name, &c.Position)
++		columns = append(columns, c)
++	}
++	rows.Close()
++
++	tasks := []Task{}
++	rows, _ = s.db.Query("SELECT id, column_id, title, description, position FROM tasks WHERE column_id IN (SELECT id FROM columns WHERE board_id = $1) ORDER BY position", boardID)
++	for rows.Next() {
++		var t Task
++		rows.Scan(&t.ID, &t.ColumnID, &t.Title, &t.Description, &t.Position)
++		tasks = append(tasks, t)
++	}
++	rows.Close()
++
++	json.NewEncoder(w).Encode(map[string]interface{}{
++		"columns": columns,
++		"tasks":   tasks,
++	})
++}
++
++func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
++	boardID, _ := strconv.Atoi(mux.Vars(r)["id"])
++	var req struct {
++		ColumnID    int    `json:"column_id"`
++		Title       string `json:"title"`
++		Description string `json:"description"`
++	}
++	json.NewDecoder(r.Body).Decode(&req)
++
++	var position int
++	s.db.QueryRow("SELECT COALESCE(MAX(position), -1) + 1 FROM tasks WHERE column_id = $1", req.ColumnID).Scan(&position)
++
++	var task Task
++	err := s.db.QueryRow("INSERT INTO tasks (column_id, title, description, position) VALUES ($1, $2, $3, $4) RETURNING id, column_id, title, description, position",
++		req.ColumnID, req.Title, req.Description, position).Scan(&task.ID, &task.ColumnID, &task.Title, &task.Description, &task.Position)
++
++	if err != nil {
++		http.Error(w, "Failed to create task", http.StatusInternalServerError)
++		return
++	}
++
++	s.hub.broadcastToBoard(boardID, WSMessage{Type: "task_created", Data: task})
++	json.NewEncoder(w).Encode(task)
++}
++
++func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
++	taskID, _ := strconv.Atoi(mux.Vars(r)["id"])
++	var req struct {
++		Title       string `json:"title"`
++		Description string `json:"description"`
++	}
++	json.NewDecoder(r.Body).Decode(&req)
++
++	var task Task
++	err := s.db.QueryRow("UPDATE tasks SET title = $1, description = $2 WHERE id = $3 RETURNING id, column_id, title, description, position",
++		req.Title, req.Description, taskID).Scan(&task.ID, &task.ColumnID, &task.Title, &task.Description, &task.Position)
++
++	if err != nil {
++		http.Error(w, "Failed to update task", http.StatusInternalServerError)
++		return
++	}
++
++	var boardID int
++	s.db.QueryRow("SELECT board_id FROM columns WHERE id = $1", task.ColumnID).Scan(&boardID)
++	s.hub.broadcastToBoard(boardID, WSMessage{Type: "task_updated", Data: task})
++
++	json.NewEncoder(w).Encode(task)
++}
++
++func (s *Server) deleteTask(w http.ResponseWriter, r *http.Request) {
++	taskID, _ := strconv.Atoi(mux.Vars(r)["id"])
++
++	var columnID int
++	s.db.QueryRow("SELECT column_id FROM tasks WHERE id = $1", taskID).Scan(&columnID)
++
++	s.db.Exec("DELETE FROM tasks WHERE id = $1", taskID)
++
++	var boardID int
++	s.db.QueryRow("SELECT board_id FROM columns WHERE id = $1", columnID).Scan(&boardID)
++	s.hub.broadcastToBoard(boardID, WSMessage{Type: "task_deleted", Data: map[string]int{"id": taskID}})
++
++	w.WriteHeader(http.StatusNoContent)
++}
++
++func (s *Server) moveTask(w http.ResponseWriter, r *http.Request) {
++	taskID, _ := strconv.Atoi(mux.Vars(r)["id"])
++	var req struct {
++		ColumnID int `json:"column_id"`
++		Position int `json:"position"`
++	}
++	json.NewDecoder(r.Body).Decode(&req)
++
++	var task Task
++	err := s.db.QueryRow("UPDATE tasks SET column_id = $1, position = $2 WHERE id = $3 RETURNING id, column_id, title, description, position",
++		req.ColumnID, req.Position, taskID).Scan(&task.ID, &task.ColumnID, &task.Title, &task.Description, &task.Position)
++
++	if err != nil {
++		http.Error(w, "Failed to move task", http.StatusInternalServerError)
++		return
++	}
++
++	var boardID int
++	s.db.QueryRow("SELECT board_id FROM columns WHERE id = $1", task.ColumnID).Scan(&boardID)
++	s.hub.broadcastToBoard(boardID, WSMessage{Type: "task_moved", Data: task})
++
++	json.NewEncoder(w).Encode(task)
++}
++
++func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
++	boardID, _ := strconv.Atoi(mux.Vars(r)["id"])
++	token := r.URL.Query().Get("token")
++
++	userID, email, err := validateToken(token)
++	if err != nil {
++		http.Error(w, "Unauthorized", http.StatusUnauthorized)
++		return
++	}
++
++	conn, err := upgrader.Upgrade(w, r, nil)
++	if err != nil {
++		return
++	}
++
++	client := &Client{
++		conn:    conn,
++		boardID: boardID,
++		userID:  userID,
++		email:   email,
++		hub:     s.hub,
++	}
++
++	s.hub.register <- client
++
++	columns := []Column{}
++	rows, _ := s.db.Query("SELECT id, board_id, name, position FROM columns WHERE board_id = $1 ORDER BY position", boardID)
++	for rows.Next() {
++		var c Column
++		rows.Scan(&c.ID, &c.BoardID, &c.Name, &c.Position)
++		columns = append(columns, c)
++	}
++	rows.Close()
++
++	tasks := []Task{}
++	rows, _ = s.db.Query("SELECT id, column_id, title, description, position FROM tasks WHERE column_id IN (SELECT id FROM columns WHERE board_id = $1) ORDER BY position", boardID)
++	for rows.Next() {
++		var t Task
++		rows.Scan(&t.ID, &t.ColumnID, &t.Title, &t.Description, &t.Position)
++		tasks = append(tasks, t)
++	}
++	rows.Close()
++
++	stateMsg := WSMessage{
++		Type: "board_state",
++		Data: map[string]interface{}{
++			"columns": columns,
++			"tasks":   tasks,
++		},
++	}
++	data, _ := json.Marshal(stateMsg)
++	conn.WriteMessage(websocket.TextMessage, data)
++
++	go func() {
++		defer func() {
++			s.hub.unregister <- client
++		}()
++		for {
++			if _, _, err := conn.ReadMessage(); err != nil {
++				break
++			}
++		}
++	}()
++}
++
++func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
++	return func(w http.ResponseWriter, r *http.Request) {
++		authHeader := r.Header.Get("Authorization")
++		if authHeader == "" {
++			http.Error(w, "Unauthorized", http.StatusUnauthorized)
++			return
++		}
++
++		token := strings.TrimPrefix(authHeader, "Bearer ")
++		userID, _, err := validateToken(token)
++		if err != nil {
++			http.Error(w, "Unauthorized", http.StatusUnauthorized)
++			return
++		}
++
++		w.Header().Set("X-User-ID", strconv.Itoa(userID))
++		next(w, r)
++	}
++}
+diff --git a/repository_after/server/hub.go b/repository_after/server/hub.go
+new file mode 100644
+index 0000000..e4a3e5b
+--- /dev/null
++++ b/repository_after/server/hub.go
+@@ -0,0 +1,88 @@
++package main
++
++import (
++	"encoding/json"
++	"sync"
++
++	"github.com/gorilla/websocket"
++)
++
++type Client struct {
++	conn    *websocket.Conn
++	boardID int
++	userID  int
++	email   string
++	hub     *Hub
++}
++
++type Hub struct {
++	clients    map[int]map[*Client]bool
++	broadcast  chan WSMessage
++	register   chan *Client
++	unregister chan *Client
++	mu         sync.RWMutex
++}
++
++func newHub() *Hub {
++	return &Hub{
++		clients:    make(map[int]map[*Client]bool),
++		broadcast:  make(chan WSMessage, 256),
++		register:   make(chan *Client),
++		unregister: make(chan *Client),
++	}
++}
++
++func (h *Hub) run() {
++	for {
++		select {
++		case client := <-h.register:
++			h.mu.Lock()
++			if h.clients[client.boardID] == nil {
++				h.clients[client.boardID] = make(map[*Client]bool)
++			}
++			h.clients[client.boardID][client] = true
++			h.mu.Unlock()
++
++			h.broadcastToBoard(client.boardID, WSMessage{
++				Type: "user_joined",
++				Data: map[string]interface{}{"email": client.email},
++			})
++
++		case client := <-h.unregister:
++			h.mu.Lock()
++			if clients, ok := h.clients[client.boardID]; ok {
++				if _, ok := clients[client]; ok {
++					delete(clients, client)
++					client.conn.Close()
++					if len(clients) == 0 {
++						delete(h.clients, client.boardID)
++					}
++				}
++			}
++			h.mu.Unlock()
++
++			h.broadcastToBoard(client.boardID, WSMessage{
++				Type: "user_left",
++				Data: map[string]interface{}{"email": client.email},
++			})
++
++		case message := <-h.broadcast:
++			if boardID, ok := message.Data.(map[string]interface{})["board_id"].(int); ok {
++				h.broadcastToBoard(boardID, message)
++			}
++		}
++	}
++}
++
++func (h *Hub) broadcastToBoard(boardID int, message WSMessage) {
++	h.mu.RLock()
++	clients := h.clients[boardID]
++	h.mu.RUnlock()
++
++	data, _ := json.Marshal(message)
++	for client := range clients {
++		if err := client.conn.WriteMessage(websocket.TextMessage, data); err != nil {
++			h.unregister <- client
++		}
++	}
++}
+diff --git a/repository_after/server/main.go b/repository_after/server/main.go
+new file mode 100644
+index 0000000..dc30ccd
+--- /dev/null
++++ b/repository_after/server/main.go
+@@ -0,0 +1,77 @@
++package main
++
++import (
++	"context"
++	"log"
++	"net/http"
++	"os"
++	"strings"
++
++	"github.com/gorilla/mux"
++)
++
++func corsMiddleware(next http.Handler) http.Handler {
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Access-Control-Allow-Origin", "*")
++		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
++		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
++
++		if r.Method == "OPTIONS" {
++			w.WriteHeader(http.StatusOK)
++			return
++		}
++
++		next.ServeHTTP(w, r)
++	})
++}
++
++func authMiddlewareCtx(next http.HandlerFunc) http.HandlerFunc {
++	return func(w http.ResponseWriter, r *http.Request) {
++		authHeader := r.Header.Get("Authorization")
++		if authHeader == "" {
++			http.Error(w, "Unauthorized", http.StatusUnauthorized)
++			return
++		}
++
++		token := strings.TrimPrefix(authHeader, "Bearer ")
++		userID, _, err := validateToken(token)
++		if err != nil {
++			http.Error(w, "Unauthorized", http.StatusUnauthorized)
++			return
++		}
++
++		ctx := context.WithValue(r.Context(), "user_id", userID)
++		next(w, r.WithContext(ctx))
++	}
++}
++
++func main() {
++	db := initDB()
++	defer db.Close()
++
++	hub := newHub()
++	go hub.run()
++
++	server := &Server{db: db, hub: hub}
++
++	r := mux.NewRouter()
++
++	r.HandleFunc("/api/auth/register", server.register).Methods("POST")
++	r.HandleFunc("/api/auth/login", server.login).Methods("POST")
++	r.HandleFunc("/api/boards", authMiddlewareCtx(server.getBoards)).Methods("GET")
++	r.HandleFunc("/api/boards", authMiddlewareCtx(server.createBoard)).Methods("POST")
++	r.HandleFunc("/api/boards/{id}", authMiddlewareCtx(server.getBoard)).Methods("GET")
++	r.HandleFunc("/api/boards/{id}/tasks", authMiddlewareCtx(server.createTask)).Methods("POST")
++	r.HandleFunc("/api/tasks/{id}", authMiddlewareCtx(server.updateTask)).Methods("PUT")
++	r.HandleFunc("/api/tasks/{id}", authMiddlewareCtx(server.deleteTask)).Methods("DELETE")
++	r.HandleFunc("/api/tasks/{id}/move", authMiddlewareCtx(server.moveTask)).Methods("PUT")
++	r.HandleFunc("/ws/board/{id}", server.handleWebSocket)
++
++	port := os.Getenv("PORT")
++	if port == "" {
++		port = "8080"
++	}
++
++	log.Printf("Server starting on port %s", port)
++	log.Fatal(http.ListenAndServe(":"+port, corsMiddleware(r)))
++}
+diff --git a/repository_after/server/models.go b/repository_after/server/models.go
+new file mode 100644
+index 0000000..9190c08
+--- /dev/null
++++ b/repository_after/server/models.go
+@@ -0,0 +1,37 @@
++package main
++
++import "time"
++
++type User struct {
++	ID        int       `json:"id"`
++	Email     string    `json:"email"`
++	Password  string    `json:"-"`
++	CreatedAt time.Time `json:"created_at"`
++}
++
++type Board struct {
++	ID        int       `json:"id"`
++	Name      string    `json:"name"`
++	OwnerID   int       `json:"owner_id"`
++	CreatedAt time.Time `json:"created_at"`
++}
++
++type Column struct {
++	ID       int    `json:"id"`
++	BoardID  int    `json:"board_id"`
++	Name     string `json:"name"`
++	Position int    `json:"position"`
++}
++
++type Task struct {
++	ID          int    `json:"id"`
++	ColumnID    int    `json:"column_id"`
++	Title       string `json:"title"`
++	Description string `json:"description"`
++	Position    int    `json:"position"`
++}
++
++type WSMessage struct {
++	Type string      `json:"type"`
++	Data interface{} `json:"data"`
++}
