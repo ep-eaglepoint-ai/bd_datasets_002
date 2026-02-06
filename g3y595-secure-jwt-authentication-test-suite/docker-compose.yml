@@ -1,0 +1,13 @@
+services:
+  js-tests:
+    build:
+      context: .
+      target: node-tests
+    working_dir: /app/repository_after
+    environment:
+      - CI=true
+      - INSIDE_DOCKER=true
+      - APP_MODULE_PATH=/app/repository_before/src/App.tsx
+    volumes:
+      - ./evaluation/reports:/app/evaluation/reports
+    command: ["npm", "test"]
