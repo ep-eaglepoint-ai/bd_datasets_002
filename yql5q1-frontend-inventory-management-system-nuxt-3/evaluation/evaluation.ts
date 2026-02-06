@@ -115,7 +115,10 @@ function getEnvironmentInfo(): EnvironmentInfo {
   };
 }
 
-function parseVitestJson(jsonPath: string): { summary: TestSummary; tests: TestResult[] } {
+function parseVitestJson(jsonPath: string): {
+  summary: TestSummary;
+  tests: TestResult[];
+} {
   const raw = fs.readFileSync(jsonPath, "utf-8");
   const data = JSON.parse(raw);
 
@@ -138,7 +141,9 @@ function parseVitestJson(jsonPath: string): { summary: TestSummary; tests: TestR
 
       const name = assertion.title || assertion.fullName || "unknown";
       const ancestor = assertion.ancestorTitles || assertion.ancestor || [];
-      const fullName = Array.isArray(ancestor) ? [...ancestor, name].join(" > ") : name;
+      const fullName = Array.isArray(ancestor)
+        ? [...ancestor, name].join(" > ")
+        : name;
 
       tests.push({
         nodeid: fullName,
@@ -181,9 +186,11 @@ function runVitestTests(repositoryPath: string, label: string): TestRunResult {
       encoding: "utf-8",
       timeout: 60000,
     });
-    
+
     if (prepareResult.status !== 0) {
-      console.log(`Warning: nuxt prepare exited with code ${prepareResult.status}`);
+      console.log(
+        `Warning: nuxt prepare exited with code ${prepareResult.status}`,
+      );
       console.log(`stdout: ${prepareResult.stdout}`);
       console.log(`stderr: ${prepareResult.stderr}`);
     }
@@ -193,10 +200,14 @@ function runVitestTests(repositoryPath: string, label: string): TestRunResult {
   }
 
   // Step 2: Run tests
+  const configPath = path.join(projectRoot, "vitest.config.ts");
+
   const cmd = [
     "npx",
     "vitest",
     "run",
+    "--config",
+    configPath,
     "--reporter=json",
     `--outputFile=${outputFile}`,
   ];
@@ -232,9 +243,16 @@ function runVitestTests(repositoryPath: string, label: string): TestRunResult {
 
     const { summary, tests } = parseVitestJson(outputFile);
 
-    console.log(`\nResults: ${summary.passed} passed, ${summary.failed} failed (total: ${summary.total})`);
+    console.log(
+      `\nResults: ${summary.passed} passed, ${summary.failed} failed (total: ${summary.total})`,
+    );
     for (const test of tests) {
-      const statusIcon = test.outcome === "passed" ? "✅" : test.outcome === "skipped" ? "⏭️" : "❌";
+      const statusIcon =
+        test.outcome === "passed"
+          ? "✅"
+          : test.outcome === "skipped"
+            ? "⏭️"
+            : "❌";
       console.log(`  ${statusIcon} ${test.nodeid}`);
     }
 
@@ -248,13 +266,23 @@ function runVitestTests(repositoryPath: string, label: string): TestRunResult {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes("TIMEOUT") || errorMessage.includes("timed out")) {
+    if (
+      errorMessage.includes("TIMEOUT") ||
+      errorMessage.includes("timed out")
+    ) {
       console.log("❌ Test execution timed out");
       return {
         success: false,
         exit_code: -1,
         tests: [],
-        summary: { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0, error: "Test execution timed out" },
+        summary: {
+          total: 0,
+          passed: 0,
+          failed: 0,
+          errors: 0,
+          skipped: 0,
+          error: "Test execution timed out",
+        },
         stdout: "",
         stderr: "",
       };
@@ -264,7 +292,14 @@ function runVitestTests(repositoryPath: string, label: string): TestRunResult {
       success: false,
       exit_code: -1,
       tests: [],
-      summary: { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0, error: errorMessage },
+      summary: {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        errors: 0,
+        skipped: 0,
+        error: errorMessage,
+      },
       stdout: "",
       stderr: "",
     };
@@ -279,23 +314,36 @@ function runEvaluation(): EvaluationResults {
   console.log(`\n${"=".repeat(60)}`);
   console.log("RUNNING TESTS: BEFORE (repository_before)");
   console.log("=".repeat(60));
-  console.log("Skipping Before tests as only After implementation is deployed for testing.");
+  console.log(
+    "Skipping Before tests as only After implementation is deployed for testing.",
+  );
 
   const beforeResults: TestRunResult = {
     success: false,
     exit_code: -1,
     tests: [],
-    summary: { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0, note: "Skipped" },
+    summary: {
+      total: 0,
+      passed: 0,
+      failed: 0,
+      errors: 0,
+      skipped: 0,
+      note: "Skipped",
+    },
     stdout: "",
     stderr: "",
   };
 
-  const afterResults = runVitestTests("repository_after", "after (repository_after)");
+  const afterResults = runVitestTests(
+    "repository_after",
+    "after (repository_after)",
+  );
 
   const comparison: ComparisonResult = {
     before_tests_passed: beforeResults.success,
     after_tests_passed: afterResults.success,
-    after_all_tests_passed: afterResults.summary.total > 0 && afterResults.summary.failed === 0,
+    after_all_tests_passed:
+      afterResults.summary.total > 0 && afterResults.summary.failed === 0,
     before_total: beforeResults.summary.total,
     before_passed: beforeResults.summary.passed,
     before_failed: beforeResults.summary.failed,
@@ -309,12 +357,18 @@ function runEvaluation(): EvaluationResults {
   console.log("=".repeat(60));
 
   console.log(`\nBefore Implementation (repository_before):`);
-  console.log(`  Overall: ${beforeResults.success ? "✅ PASSED" : "⏭️ SKIPPED/FAILED"}`);
-  console.log(`  Tests: ${comparison.before_passed}/${comparison.before_total} passed`);
+  console.log(
+    `  Overall: ${beforeResults.success ? "✅ PASSED" : "⏭️ SKIPPED/FAILED"}`,
+  );
+  console.log(
+    `  Tests: ${comparison.before_passed}/${comparison.before_total} passed`,
+  );
 
   console.log(`\nAfter Implementation (repository_after):`);
   console.log(`  Overall: ${afterResults.success ? "✅ PASSED" : "❌ FAILED"}`);
-  console.log(`  Tests: ${comparison.after_passed}/${comparison.after_total} passed`);
+  console.log(
+    `  Tests: ${comparison.after_passed}/${comparison.after_total} passed`,
+  );
 
   console.log(`\n${"=".repeat(60)}`);
   console.log("EXPECTED BEHAVIOR CHECK");
@@ -323,7 +377,9 @@ function runEvaluation(): EvaluationResults {
   if (afterResults.success) {
     console.log("✅ After implementation: All tests passed (expected)");
   } else {
-    console.log("❌ After implementation: Some tests failed (unexpected - should pass all)");
+    console.log(
+      "❌ After implementation: Some tests failed (unexpected - should pass all)",
+    );
   }
 
   return {

@@ -1,11 +1,20 @@
 {
-            "instance_id": "YQL5Q1",
-            "problem_statement": "Managing product inventory manually or without a centralized interface leads to inaccurate stock tracking, poor visibility, and inefficient product management.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/yql5q1-frontend-inventory-management-system-nuxt-3",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "YQL5Q1",
+  "problem_statement": "Managing product inventory manually or without a centralized interface leads to inaccurate stock tracking, poor visibility, and inefficient product management.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/yql5q1-frontend-inventory-management-system-nuxt-3",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "tests/pages/products-page.spec.ts",
+    "tests/components/product-form.spec.ts",
+    "tests/stores/products.spec.ts",
+    "tests/composables/confirm-dialog.spec.ts",
+    "tests/composables/toasts.spec.ts"
+  ],
+  "PASS_TO_PASS": [
+    "tests/pages/dashboard-page.spec.ts",
+    "tests/components/status-badge.spec.ts",
+    "tests/components/pagination-control.spec.ts"
+  ]
+}

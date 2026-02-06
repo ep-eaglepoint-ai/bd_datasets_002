@@ -9,15 +9,15 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      "~/": resolveDir("./"),
-      "@/": resolveDir("./"),
+      "~/": resolveDir("./repository_after/"),
+      "@/": resolveDir("./repository_after/"),
     },
   },
   test: {
     globals: true,
     environment: "jsdom",
-    include: ["../tests/**/*.spec.ts"],
-    setupFiles: ["../tests/setup.ts"],
+    include: ["./tests/**/*.spec.ts"],
+    setupFiles: ["./tests/setup.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

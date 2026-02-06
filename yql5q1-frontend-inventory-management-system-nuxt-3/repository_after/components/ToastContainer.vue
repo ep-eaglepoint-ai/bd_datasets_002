@@ -13,12 +13,15 @@
               :class="{
                 'text-emerald-600': toast.type === 'success',
                 'text-rose-600': toast.type === 'error',
-                'text-sky-600': toast.type === 'info'
+                'text-amber-600': toast.type === 'warning',
+                'text-sky-600': toast.type === 'info',
               }"
             >
               {{ toast.type }}
             </p>
-            <p class="mt-1 text-slate-700 dark:text-slate-200">{{ toast.message }}</p>
+            <p class="mt-1 text-slate-700 dark:text-slate-200">
+              {{ toast.message }}
+            </p>
           </div>
           <button
             type="button"
@@ -34,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-const { toasts, removeToast } = useToasts()
+const { toasts, removeToast } = useToasts();
 </script>
 
 <style scoped>

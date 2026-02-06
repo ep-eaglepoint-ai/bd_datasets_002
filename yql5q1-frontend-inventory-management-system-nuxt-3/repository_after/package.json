@@ -6,8 +6,8 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "start": "nuxt start",
-    "test": "vitest run",
-    "evaluation": "vitest run"
+    "test": "vitest run --config ../vitest.config.ts",
+    "evaluation": "vitest run --config ../vitest.config.ts"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.5.1",
