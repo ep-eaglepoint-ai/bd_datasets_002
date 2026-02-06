@@ -1,0 +1,11 @@
+{
+            "instance_id": "U1BQ7B",
+            "problem_statement": "Distributed Go services that rely on database-level advisory locks often fail under real-world concurrency due to subtle race conditions, context misuse, connection mismanagement, and blocking database calls that interact poorly with Go’s synchronization primitives. While such systems may appear correct in low-load or single-threaded environments, they can silently degrade or catastrophically deadlock under high throughput, network latency, or partial failures. A robust database lock manager must therefore balance correctness, observability, and performance while operating safely across context cancellations, retry loops, and connection pooling without leaking resources or compromising system stability",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/u1bq7b-zero-failure-database-advisory-lock-manager-for-high-concurrency-go-systems",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
