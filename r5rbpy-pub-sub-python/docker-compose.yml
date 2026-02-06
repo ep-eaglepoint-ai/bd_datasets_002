@@ -1,0 +1,12 @@
+services:
+  test-after:
+    build: .
+    volumes:
+      - .:/app
+    command: pytest tests/test_solution.py
+
+  evaluation:
+    build: .
+    volumes:
+      - .:/app
+    command: python evaluation/evaluation.py
