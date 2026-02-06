@@ -1,0 +1,17 @@
+{
+            "instance_id": "YRTVSD",
+            "problem_statement": "Standard recursive regex engines suffer from exponential ReDoS vulnerabilities on pathological patterns. This benchmark targets the shift to a linear-time O(N) Automata strategy using Thompson's Construction. The core challenge is the full compilation pipeline: parsing infix patterns with strict operator precedence (where * binds tighter than concatenation), constructing a cyclic NFA graph, and implementing a non-recursive "Lockstep Simulation" to track active states. Failures typically involve reverting to backtracking logic, misinterpreting operator binding strength, or mishandling epsilon loops in the graph traversal.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/yrtvsd-linear-time-regex-engine-via-thompson-s-nfa-construction",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [
+                "tests/test_regex.py::test_basic_literals",
+                "tests/test_regex.py::test_precedence",
+                "tests/test_regex.py::test_epsilon_loops",
+                "tests/test_regex.py::test_shunting_yard_ir",
+                "tests/test_regex.py::test_no_re_import"
+            ],
+            "PASS_TO_PASS": []
+        }
+        
