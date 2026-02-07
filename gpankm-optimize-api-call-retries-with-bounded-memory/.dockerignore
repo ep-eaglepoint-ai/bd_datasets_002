@@ -1,0 +1,14 @@
+node_modules
+.git
+.gitignore
+*.log
+.DS_Store
+evaluation/**/report.json
+patches
+trajectory
+instances
+.env
+.venv
+__pycache__
+scripts
+.dockerignore

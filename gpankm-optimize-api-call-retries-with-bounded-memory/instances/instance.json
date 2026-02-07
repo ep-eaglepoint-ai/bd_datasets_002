@@ -1,0 +1,25 @@
+{
+            "instance_id": "GPANKM",
+            "problem_statement": "Required Constraints that are NOT met:
+
+1. No external libraries beyond axios/moment → violated (jest)
+
+2. Thread-safe under 100 concurrent calls → mutex broken
+
+3. Deterministic behavior across servers → JSON stringify nondeterminism
+
+4. Benchmarks valid → benchmarks are artificial and misleading
+
+5. High load behavior realistic → Promise.all(50k) is not realistic
+
+6. API contract preserved → function now throws instead of returns
+
+7.  Memory bounded per call → logs store full body/response",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/gpankm-optimize-api-call-retries-with-bounded-memory",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

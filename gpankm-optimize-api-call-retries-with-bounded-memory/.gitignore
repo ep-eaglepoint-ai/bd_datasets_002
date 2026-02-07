@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+evaluation/reports/*
+# OS
+.DS_Store
+/dist/*
+/logs/*

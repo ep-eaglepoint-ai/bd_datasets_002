@@ -1,0 +1,17 @@
+{
+  "name": "gpankm-optimize-api-call-retries",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "ts-node tests/test.ts"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "moment": "^2.29.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0"
+  }
+}

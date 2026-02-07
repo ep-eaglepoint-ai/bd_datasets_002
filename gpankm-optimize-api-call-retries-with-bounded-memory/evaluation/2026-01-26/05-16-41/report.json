@@ -1,0 +1,37 @@
+{
+  "run_id": "izwfeqt5",
+  "started_at": "2026-01-26T05:15:43.243Z",
+  "finished_at": "2026-01-26T05:16:41.786Z",
+  "duration_seconds": 58.543,
+  "environment": {
+    "node_version": "v18.20.8",
+    "platform": "linux-x64"
+  },
+  "before": {
+    "tests": {
+      "passed": false,
+      "return_code": 1,
+      "output": "=== Functional Tests ===\nerror: Failed {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: {},\n  response: 'getaddrinfo ENOTFOUND api.example.com',\n  headers: {}\n}\nError: empty body: expected status 400, got 500 {\"status\":500,\"message\":\"getaddrinfo ENOTFOUND api.example.com\"}\n    at testEmptyBody (/app/dist/tests/test.js:64:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async main (/app/dist/tests/test.js:274:5)\n"
+    },
+    "metrics": {
+      "duration_sec": 2.246
+    }
+  },
+  "after": {
+    "tests": {
+      "passed": false,
+      "return_code": 1,
+      "output": "=== Functional Tests ===\n2026-01-26T05:15:47.053Z [ERROR] Empty body {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 400,\n  request: {},\n  response: 'Empty body',\n  headers: {}\n}\n  OK empty body -> 400\n2026-01-26T05:15:47.378Z [INFO] Success {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 200,\n  request: { amount: 100 },\n  response: { transactionId: 'T1' },\n  headers: {}\n}\n  OK 200 -> returns { status, data }\n2026-01-26T05:15:47.478Z [WARN] Retry 1/5 after 1125ms {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n2026-01-26T05:15:48.616Z [WARN] Retry 2/5 after 2389ms {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n2026-01-26T05:15:51.016Z [INFO] Success {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 200,\n  request: { amount: 100 },\n  response: { transactionId: 'T2' },\n  headers: {}\n}\n  OK 500,500,200 -> retries then 200\n2026-01-26T05:15:51.048Z [WARN] Retry 1/5 after 1125ms {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n2026-01-26T05:15:52.181Z [WARN] Retry 2/5 after 2389ms {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n2026-01-26T05:15:54.579Z [WARN] Retry 3/5 after 4688ms {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n2026-01-26T05:15:59.275Z [WARN] Retry 4/5 after 8934ms {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n2026-01-26T05:16:08.223Z [WARN] Retry 5/5 after 18718ms {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n2026-01-26T05:16:27.084Z [ERROR] Final Failure {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 500,\n  request: { amount: 100 },\n  response: 'Request failed with status code 500',\n  headers: {}\n}\n  OK always 500 -> returns { status: 500, message }, no throw\n2026-01-26T05:16:27.116Z [ERROR] Final Failure {\n  APIEndpoint: 'TopUp',\n  method: 'POST',\n  HTTPStatusCode: 400,\n  request: { amount: 100 },\n  response: 'Request failed with status code 400',\n  headers: {}\n}\n  OK 400 -> no retry, single attempt\n\nAll functional tests passed.\n\n--- Benchmark: 1000 calls, 30% failures, <10s ---\nDuration: 14.49s | Peak heap: 10.02MB | OK: 1000 | Fail: 0\nError: Benchmark: duration 14.495s >= 10s\n    at testBenchmark (/app/dist/tests/test.js:264:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async main (/app/dist/tests/test.js:280:5)\n"
+    },
+    "metrics": {
+      "duration_sec": 56.249,
+      "phase1_duration": 14.49
+    }
+  },
+  "comparison": {
+    "passed_gate": false,
+    "improvement_summary": "After implementation failed to meet all benchmarks."
+  },
+  "success": false,
+  "error": "After implementation failed tests"
+}
