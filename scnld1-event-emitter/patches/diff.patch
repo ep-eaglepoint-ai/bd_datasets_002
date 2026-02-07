@@ -1,0 +1,91 @@
+diff --git a/repository_before/__init__.py b/repository_after/__init__.py
+index e69de29..d32afe4 100644
+--- a/repository_before/__init__.py
++++ b/repository_after/__init__.py
+@@ -0,0 +1 @@
++from .event_emitter import EventEmitter
+diff --git a/repository_after/__pycache__/__init__.cpython-311.pyc b/repository_after/__pycache__/__init__.cpython-311.pyc
+new file mode 100644
+index 0000000..7c2b401
+Binary files /dev/null and b/repository_after/__pycache__/__init__.cpython-311.pyc differ
+diff --git a/repository_after/__pycache__/event_emitter.cpython-311.pyc b/repository_after/__pycache__/event_emitter.cpython-311.pyc
+new file mode 100644
+index 0000000..eb7fb21
+Binary files /dev/null and b/repository_after/__pycache__/event_emitter.cpython-311.pyc differ
+diff --git a/repository_after/event_emitter.py b/repository_after/event_emitter.py
+new file mode 100644
+index 0000000..d359caa
+--- /dev/null
++++ b/repository_after/event_emitter.py
+@@ -0,0 +1,71 @@
++class EventEmitter:
++    def __init__(self):
++        self._events = {}
++
++    def on(self, event_name, callback):
++        if event_name not in self._events:
++            self._events[event_name] = []
++        self._events[event_name].append(callback)
++        return self
++
++    def emit(self, event_name, *args, **kwargs):
++        listeners = self._events.get(event_name, [])
++        if not listeners:
++            return False
++        
++        # Call callbacks in registration order
++        # Use a copy of the list to allow listeners to modify the list (e.g., remove themselves)
++        # without affecting the current emission loop
++        for listener in listeners[:]:
++            try:
++                listener(*args, **kwargs)
++            except Exception:
++                # We do not catch exceptions to allow them to propagate, 
++                # unless requirements said otherwise. "Minimal" usually implies no extra error handling.
++                # However, if one listener fails, should others run? 
++                # Standard Node.js behavior: "If an invalid parameter... or exception... it is thrown."
++                # The loop is interrupted.
++                raise 
++        return True
++
++    def once(self, event_name, callback):
++        def wrapper(*args, **kwargs):
++            self.off(event_name, wrapper)
++            return callback(*args, **kwargs)
++        
++        wrapper._original_callback = callback
++        return self.on(event_name, wrapper)
++
++    def off(self, event_name, callback=None):
++        if event_name not in self._events:
++            return self
++        
++        if callback is None:
++            del self._events[event_name]
++            return self
++        
++        listeners = self._events[event_name]
++        
++        # Remove the specific callback (first occurrence)
++        for i, listener in enumerate(listeners):
++            if listener == callback or getattr(listener, '_original_callback', None) == callback:
++                listeners.pop(i)
++                # Cleanup empty event list to prevent memory leaks
++                if not listeners:
++                    del self._events[event_name]
++                break
++        
++        return self
++
++    def remove_all_listeners(self):
++        self._events.clear()
++        return self
++
++    def listeners(self, event_name):
++        return self._events.get(event_name, [])[:]
++
++    def listener_count(self, event_name):
++        return len(self._events.get(event_name, []))
++
++    def event_names(self):
++        return list(self._events.keys())

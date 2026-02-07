@@ -1,0 +1,12 @@
+{
+            "instance_id": "SCNLD1",
+            "problem_statement": "Implement a Python EventEmitter class supporting the pub/sub pattern with methods to register, emit, and remove listeners, handling multiple listeners per event and one‑time listeners that auto‑remove after firing. The solution must prevent memory leaks through proper cleanup, allow event data passing, and ensure listeners are called in registration order during emission. The implementation should be minimal, thread‑unsafe, and suitable for decoupled communication in GUI frameworks or reactive programming contexts.
+",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/scnld1-event-emitter",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

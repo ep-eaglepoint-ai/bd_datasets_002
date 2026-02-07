@@ -1,0 +1,13 @@
+services:
+  tests:
+    build: .
+    command: pytest -q tests
+    volumes:
+      - .:/app
+  evaluation:
+    build: .
+    command: python3 evaluation/evaluation.py
+    volumes:
+      - .:/app
+    environment:
+      - DOCKER_CONTAINER=true
