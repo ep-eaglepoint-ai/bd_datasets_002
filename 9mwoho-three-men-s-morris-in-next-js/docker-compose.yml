@@ -1,0 +1,31 @@
+services:
+  test-before:
+    build: .
+    working_dir: /app
+    environment:
+      - TARGET_REPO=repository_before
+    command: npm test
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+
+  test-after:
+    build: .
+    working_dir: /app
+    environment:
+      - TARGET_REPO=repository_after
+    command: npm test
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+
+  evaluation:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    command: npm run evaluate
+
+volumes:
+  node_modules:

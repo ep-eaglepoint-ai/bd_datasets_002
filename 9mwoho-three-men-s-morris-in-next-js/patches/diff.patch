@@ -1,0 +1,1538 @@
+diff --git a/repository_before/__init__.py b/repository_before/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/three-mens-morris/eslint.config.mjs b/repository_after/three-mens-morris/eslint.config.mjs
+new file mode 100644
+index 0000000..05e726d
+--- /dev/null
++++ b/repository_after/three-mens-morris/eslint.config.mjs
+@@ -0,0 +1,18 @@
++import { defineConfig, globalIgnores } from "eslint/config";
++import nextVitals from "eslint-config-next/core-web-vitals";
++import nextTs from "eslint-config-next/typescript";
++
++const eslintConfig = defineConfig([
++  ...nextVitals,
++  ...nextTs,
++  // Override default ignores of eslint-config-next.
++  globalIgnores([
++    // Default ignores of eslint-config-next:
++    ".next/**",
++    "out/**",
++    "build/**",
++    "next-env.d.ts",
++  ]),
++]);
++
++export default eslintConfig;
+diff --git a/repository_after/three-mens-morris/next.config.ts b/repository_after/three-mens-morris/next.config.ts
+new file mode 100644
+index 0000000..e9ffa30
+--- /dev/null
++++ b/repository_after/three-mens-morris/next.config.ts
+@@ -0,0 +1,7 @@
++import type { NextConfig } from "next";
++
++const nextConfig: NextConfig = {
++  /* config options here */
++};
++
++export default nextConfig;
+diff --git a/repository_after/three-mens-morris/package.json b/repository_after/three-mens-morris/package.json
+new file mode 100644
+index 0000000..631c9c0
+--- /dev/null
++++ b/repository_after/three-mens-morris/package.json
+@@ -0,0 +1,26 @@
++{
++  "name": "three-mens-morris",
++  "version": "0.1.0",
++  "private": true,
++  "scripts": {
++    "dev": "next dev",
++    "build": "next build",
++    "start": "next start",
++    "lint": "eslint"
++  },
++  "dependencies": {
++    "next": "16.1.4",
++    "react": "19.2.3",
++    "react-dom": "19.2.3"
++  },
++  "devDependencies": {
++    "@tailwindcss/postcss": "^4",
++    "@types/node": "^20",
++    "@types/react": "^19",
++    "@types/react-dom": "^19",
++    "eslint": "^9",
++    "eslint-config-next": "16.1.4",
++    "tailwindcss": "^4",
++    "typescript": "^5"
++  }
++}
+diff --git a/repository_after/three-mens-morris/postcss.config.mjs b/repository_after/three-mens-morris/postcss.config.mjs
+new file mode 100644
+index 0000000..61e3684
+--- /dev/null
++++ b/repository_after/three-mens-morris/postcss.config.mjs
+@@ -0,0 +1,7 @@
++const config = {
++  plugins: {
++    "@tailwindcss/postcss": {},
++  },
++};
++
++export default config;
+diff --git a/repository_after/three-mens-morris/public/file.svg b/repository_after/three-mens-morris/public/file.svg
+new file mode 100644
+index 0000000..004145c
+--- /dev/null
++++ b/repository_after/three-mens-morris/public/file.svg
+@@ -0,0 +1 @@
++<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+\ No newline at end of file
+diff --git a/repository_after/three-mens-morris/public/globe.svg b/repository_after/three-mens-morris/public/globe.svg
+new file mode 100644
+index 0000000..567f17b
+--- /dev/null
++++ b/repository_after/three-mens-morris/public/globe.svg
+@@ -0,0 +1 @@
++<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+\ No newline at end of file
+diff --git a/repository_after/three-mens-morris/public/next.svg b/repository_after/three-mens-morris/public/next.svg
+new file mode 100644
+index 0000000..5174b28
+--- /dev/null
++++ b/repository_after/three-mens-morris/public/next.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+\ No newline at end of file
+diff --git a/repository_after/three-mens-morris/public/vercel.svg b/repository_after/three-mens-morris/public/vercel.svg
+new file mode 100644
+index 0000000..7705396
+--- /dev/null
++++ b/repository_after/three-mens-morris/public/vercel.svg
+@@ -0,0 +1 @@
++<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+\ No newline at end of file
+diff --git a/repository_after/three-mens-morris/public/window.svg b/repository_after/three-mens-morris/public/window.svg
+new file mode 100644
+index 0000000..b2b2a44
+--- /dev/null
++++ b/repository_after/three-mens-morris/public/window.svg
+@@ -0,0 +1 @@
++<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+\ No newline at end of file
+diff --git a/repository_after/three-mens-morris/src/app/favicon.ico b/repository_after/three-mens-morris/src/app/favicon.ico
+new file mode 100644
+index 0000000..718d6fe
+Binary files /dev/null and b/repository_after/three-mens-morris/src/app/favicon.ico differ
+diff --git a/repository_after/three-mens-morris/src/app/globals.css b/repository_after/three-mens-morris/src/app/globals.css
+new file mode 100644
+index 0000000..0e3dcd0
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/app/globals.css
+@@ -0,0 +1,68 @@
++@import "tailwindcss";
++
++:root {
++  --background: #0f172a;
++  --foreground: #e2e8f0;
++  --card-bg: #1e293b;
++  --border-color: #334155;
++}
++
++@theme inline {
++  --color-background: var(--background);
++  --color-foreground: var(--foreground);
++  --font-sans: var(--font-geist-sans);
++  --font-mono: var(--font-geist-mono);
++}
++
++body {
++  background: var(--background);
++  color: var(--foreground);
++  font-family: Arial, Helvetica, sans-serif;
++  min-height: 100vh;
++}
++
++/* Game-specific animations */
++@keyframes pulse-glow {
++  0%, 100% {
++    box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
++  }
++  50% {
++    box-shadow: 0 0 25px rgba(168, 85, 247, 0.5);
++  }
++}
++
++@keyframes bounce-in {
++  0% {
++    transform: scale(0);
++    opacity: 0;
++  }
++  50% {
++    transform: scale(1.1);
++  }
++  100% {
++    transform: scale(1);
++    opacity: 1;
++  }
++}
++
++.animate-bounce-in {
++  animation: bounce-in 0.3s ease-out;
++}
++
++/* Custom scrollbar */
++::-webkit-scrollbar {
++  width: 8px;
++}
++
++::-webkit-scrollbar-track {
++  background: var(--card-bg);
++}
++
++::-webkit-scrollbar-thumb {
++  background: var(--border-color);
++  border-radius: 4px;
++}
++
++::-webkit-scrollbar-thumb:hover {
++  background: #475569;
++}
+diff --git a/repository_after/three-mens-morris/src/app/layout.tsx b/repository_after/three-mens-morris/src/app/layout.tsx
+new file mode 100644
+index 0000000..db36d81
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/app/layout.tsx
+@@ -0,0 +1,35 @@
++import type { Metadata } from "next";
++import { Geist, Geist_Mono } from "next/font/google";
++import "./globals.css";
++
++const geistSans = Geist({
++  variable: "--font-geist-sans",
++  subsets: ["latin"],
++});
++
++const geistMono = Geist_Mono({
++  variable: "--font-geist-mono",
++  subsets: ["latin"],
++});
++
++export const metadata: Metadata = {
++  title: "Three Men's Morris | Ancient Strategy Game",
++  description: "Play the ancient board game Three Men's Morris. A strategic two-player game where each player has three pieces to align on a 3×3 board.",
++  keywords: ["Three Men's Morris", "board game", "strategy game", "ancient game", "two player"],
++};
++
++export default function RootLayout({
++  children,
++}: Readonly<{
++  children: React.ReactNode;
++}>) {
++  return (
++    <html lang="en">
++      <body
++        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
++      >
++        {children}
++      </body>
++    </html>
++  );
++}
+diff --git a/repository_after/three-mens-morris/src/app/page.tsx b/repository_after/three-mens-morris/src/app/page.tsx
+new file mode 100644
+index 0000000..40032af
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/app/page.tsx
+@@ -0,0 +1,77 @@
++'use client';
++
++import { useGameState } from '@/hooks/useGameState';
++import { GameBoard, GameStatus, GameControls } from '@/components';
++
++/**
++ * Three Men's Morris - Main Game Page
++ * 
++ * An ancient strategy board game for two players. Each player has three pieces
++ * that they must first place on the board, then move to adjacent positions
++ * to form a line of three and win.
++ */
++export default function Home() {
++  const {
++    gameState,
++    handleCellClick,
++    resetGame,
++    toggleDiagonalMovement,
++    toggleDiagonalWin,
++    getSelectedPieceLegalMoves,
++  } = useGameState();
++
++  const legalMoves = getSelectedPieceLegalMoves();
++  const isGameOver = gameState.status !== 'playing';
++
++  return (
++    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-4 sm:p-8">
++      {/* Header */}
++      <header className="text-center mb-6 sm:mb-8">
++        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-rose-400 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
++          Three Men&apos;s Morris
++        </h1>
++        <p className="text-slate-400 text-sm sm:text-base">
++          Ancient Strategy Board Game
++        </p>
++      </header>
++
++      {/* Game Status */}
++      <GameStatus gameState={gameState} />
++
++      {/* Game Board */}
++      <div className="my-6 sm:my-8 bg-slate-800/50 rounded-2xl border border-slate-700 shadow-2xl shadow-black/50">
++        <GameBoard
++          gameState={gameState}
++          onCellClick={handleCellClick}
++          legalMoves={legalMoves}
++        />
++      </div>
++
++      {/* Game Controls */}
++      <GameControls
++        ruleVariants={gameState.ruleVariants}
++        onReset={resetGame}
++        onToggleDiagonalMovement={toggleDiagonalMovement}
++        onToggleDiagonalWin={toggleDiagonalWin}
++        isGameOver={isGameOver}
++      />
++
++      {/* Game Instructions (collapsible on mobile) */}
++      <details className="mt-6 sm:mt-8 w-full max-w-md text-slate-400 text-sm">
++        <summary className="cursor-pointer hover:text-slate-200 transition-colors">
++          📖 How to Play
++        </summary>
++        <div className="mt-3 p-4 bg-slate-800/50 rounded-xl border border-slate-700 space-y-2">
++          <p><strong className="text-slate-200">Placement Phase:</strong> Players take turns placing their 3 pieces on empty positions.</p>
++          <p><strong className="text-slate-200">Movement Phase:</strong> Once all pieces are placed, players move their pieces to adjacent empty positions.</p>
++          <p><strong className="text-slate-200">Winning:</strong> Form a line of 3 pieces (horizontal, vertical, or diagonal if enabled).</p>
++        </div>
++      </details>
++
++      {/* Footer */}
++      <footer className="mt-8 text-center text-slate-500 text-xs">
++        <p>An educational implementation of the historical Three Men&apos;s Morris game</p>
++      </footer>
++    </main>
++  );
++}
+diff --git a/repository_after/three-mens-morris/src/components/Cell.tsx b/repository_after/three-mens-morris/src/components/Cell.tsx
+new file mode 100644
+index 0000000..638361d
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/components/Cell.tsx
+@@ -0,0 +1,115 @@
++'use client';
++
++import { CellValue, Player } from '@/types/game';
++import { getLegalMoves, getAdjacentCells } from '@/utils/gameLogic';
++
++interface CellProps {
++  index: number;
++  value: CellValue;
++  isSelected: boolean;
++  isLegalMove: boolean;
++  onClick: () => void;
++  disabled: boolean;
++  currentPlayer: Player;
++  phase: 'placement' | 'movement';
++  diagonalMovement: boolean;
++}
++
++/**
++ * Cell component represents a single position on the game board.
++ * Shows pieces, selection state, and legal move hints.
++ */
++export function Cell({
++  index,
++  value,
++  isSelected,
++  isLegalMove,
++  onClick,
++  disabled,
++  currentPlayer,
++  phase,
++}: CellProps) {
++  // Determine cell styling based on state
++  const baseClasses = `
++    relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24
++    rounded-xl
++    flex items-center justify-center
++    transition-all duration-200 ease-out
++    cursor-pointer
++    border-2
++  `;
++
++  const getStateClasses = () => {
++    if (disabled) {
++      return 'bg-slate-800/50 border-slate-700/50 cursor-not-allowed';
++    }
++
++    if (isSelected) {
++      return value === 'X'
++        ? 'bg-rose-500/20 border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)] scale-105'
++        : 'bg-blue-500/20 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)] scale-105';
++    }
++
++    if (isLegalMove) {
++      return 'bg-emerald-500/20 border-emerald-400 hover:bg-emerald-500/30 hover:scale-105';
++    }
++
++    if (value) {
++      return value === 'X'
++        ? 'bg-slate-800 border-slate-600 hover:border-rose-400/50'
++        : 'bg-slate-800 border-slate-600 hover:border-blue-400/50';
++    }
++
++    // Empty cell (can be played on in placement phase)
++    if (phase === 'placement') {
++      return currentPlayer === 'X'
++        ? 'bg-slate-800 border-slate-600 hover:bg-rose-500/10 hover:border-rose-400/50 hover:scale-105'
++        : 'bg-slate-800 border-slate-600 hover:bg-blue-500/10 hover:border-blue-400/50 hover:scale-105';
++    }
++
++    return 'bg-slate-800 border-slate-600';
++  };
++
++  return (
++    <button
++      onClick={onClick}
++      disabled={disabled}
++      className={`${baseClasses} ${getStateClasses()}`}
++      aria-label={`Cell ${index}: ${value || 'empty'}${isSelected ? ' (selected)' : ''}${isLegalMove ? ' (legal move)' : ''}`}
++      data-testid={`cell-${index}`}
++    >
++      {/* Piece display */}
++      {value && (
++        <div
++          className={`
++            w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14
++            rounded-full
++            flex items-center justify-center
++            text-2xl sm:text-3xl md:text-4xl font-bold
++            transition-all duration-300
++            ${value === 'X'
++              ? 'bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]'
++              : 'bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]'
++            }
++            ${isSelected ? 'animate-pulse scale-110' : ''}
++          `}
++          data-testid={`piece-${value}`}
++        >
++          {value}
++        </div>
++      )}
++
++      {/* Legal move indicator */}
++      {isLegalMove && !value && (
++        <div className="absolute inset-0 flex items-center justify-center">
++          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-emerald-400/40 border-2 border-emerald-400 animate-pulse" />
++        </div>
++      )}
++
++      {/* Corner position indicator for debugging/education */}
++      <span className="absolute bottom-1 right-2 text-[10px] text-slate-500 font-mono opacity-50">
++        {index}
++      </span>
++    </button>
++  );
++}
+diff --git a/repository_after/three-mens-morris/src/components/GameBoard.tsx b/repository_after/three-mens-morris/src/components/GameBoard.tsx
+new file mode 100644
+index 0000000..0a4fe19
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/components/GameBoard.tsx
+@@ -0,0 +1,66 @@
++'use client';
++
++import { GameState } from '@/types/game';
++import { Cell } from './Cell';
++import { getLegalMoves } from '@/utils/gameLogic';
++
++interface GameBoardProps {
++  gameState: GameState;
++  onCellClick: (index: number) => void;
++  legalMoves: number[];
++}
++
++/**
++ * GameBoard component renders the 3x3 board with connecting lines.
++ */
++export function GameBoard({ gameState, onCellClick, legalMoves }: GameBoardProps) {
++  const { board, currentPlayer, selectedPiece, status, phase, ruleVariants } = gameState;
++  const isGameOver = status !== 'playing';
++
++  return (
++    <div className="relative p-4 sm:p-6 md:p-8">
++      {/* SVG Lines connecting the cells */}
++      <svg
++        className="absolute inset-0 w-full h-full pointer-events-none"
++        viewBox="0 0 300 300"
++        preserveAspectRatio="xMidYMid meet"
++      >
++        {/* Horizontal lines */}
++        <line x1="50" y1="50" x2="250" y2="50" className="stroke-slate-600" strokeWidth="3" />
++        <line x1="50" y1="150" x2="250" y2="150" className="stroke-slate-600" strokeWidth="3" />
++        <line x1="50" y1="250" x2="250" y2="250" className="stroke-slate-600" strokeWidth="3" />
++        
++        {/* Vertical lines */}
++        <line x1="50" y1="50" x2="50" y2="250" className="stroke-slate-600" strokeWidth="3" />
++        <line x1="150" y1="50" x2="150" y2="250" className="stroke-slate-600" strokeWidth="3" />
++        <line x1="250" y1="50" x2="250" y2="250" className="stroke-slate-600" strokeWidth="3" />
++        
++        {/* Diagonal lines (shown when diagonal movement is enabled) */}
++        {ruleVariants.diagonalMovement && (
++          <>
++            <line x1="50" y1="50" x2="250" y2="250" className="stroke-purple-500/50" strokeWidth="2" strokeDasharray="8,4" />
++            <line x1="250" y1="50" x2="50" y2="250" className="stroke-purple-500/50" strokeWidth="2" strokeDasharray="8,4" />
++          </>
++        )}
++      </svg>
++
++      {/* Board grid */}
++      <div className="relative grid grid-cols-3 gap-3 sm:gap-4 md:gap-6">
++        {board.map((cellValue, index) => (
++          <Cell
++            key={index}
++            index={index}
++            value={cellValue}
++            isSelected={selectedPiece === index}
++            isLegalMove={legalMoves.includes(index)}
++            onClick={() => onCellClick(index)}
++            disabled={isGameOver}
++            currentPlayer={currentPlayer}
++            phase={phase}
++            diagonalMovement={ruleVariants.diagonalMovement}
++          />
++        ))}
++      </div>
++    </div>
++  );
++}
+diff --git a/repository_after/three-mens-morris/src/components/GameControls.tsx b/repository_after/three-mens-morris/src/components/GameControls.tsx
+new file mode 100644
+index 0000000..c4230b2
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/components/GameControls.tsx
+@@ -0,0 +1,96 @@
++'use client';
++
++import { RuleVariants } from '@/types/game';
++
++interface GameControlsProps {
++  ruleVariants: RuleVariants;
++  onReset: () => void;
++  onToggleDiagonalMovement: () => void;
++  onToggleDiagonalWin: () => void;
++  isGameOver: boolean;
++}
++
++/**
++ * GameControls component provides reset and rule toggle controls.
++ */
++export function GameControls({
++  ruleVariants,
++  onReset,
++  onToggleDiagonalMovement,
++  onToggleDiagonalWin,
++  isGameOver,
++}: GameControlsProps) {
++  return (
++    <div className="w-full max-w-md space-y-4">
++      {/* Reset button */}
++      <button
++        onClick={onReset}
++        className={`
++          w-full py-3 px-6 rounded-xl
++          font-semibold text-lg
++          transition-all duration-300
++          ${isGameOver
++            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-400 hover:to-emerald-500 shadow-lg shadow-emerald-500/25'
++            : 'bg-slate-700 text-slate-200 hover:bg-slate-600 border border-slate-600'
++          }
++        `}
++        data-testid="reset-button"
++      >
++        {isGameOver ? '🎮 Play Again' : '🔄 Reset Game'}
++      </button>
++
++      {/* Rule toggles */}
++      <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700 space-y-3">
++        <h3 className="text-sm font-semibold text-slate-300 mb-3">Rule Variants</h3>
++        
++        {/* Diagonal Movement Toggle */}
++        <label className="flex items-center justify-between cursor-pointer group">
++          <div className="flex items-center gap-2">
++            <span className="text-slate-400 group-hover:text-slate-200 transition-colors">
++              Diagonal Movement
++            </span>
++            <span className="text-xs text-purple-400 px-2 py-0.5 bg-purple-500/10 rounded">
++              Advanced
++            </span>
++          </div>
++          <div className="relative">
++            <input
++              type="checkbox"
++              checked={ruleVariants.diagonalMovement}
++              onChange={onToggleDiagonalMovement}
++              className="sr-only peer"
++              data-testid="toggle-diagonal-movement"
++            />
++            <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
++          </div>
++        </label>
++
++        {/* Diagonal Win Toggle */}
++        <label className="flex items-center justify-between cursor-pointer group">
++          <div className="flex items-center gap-2">
++            <span className="text-slate-400 group-hover:text-slate-200 transition-colors">
++              Diagonal Wins
++            </span>
++            <span className="text-xs text-amber-400 px-2 py-0.5 bg-amber-500/10 rounded">
++              Classic
++            </span>
++          </div>
++          <div className="relative">
++            <input
++              type="checkbox"
++              checked={ruleVariants.diagonalWin}
++              onChange={onToggleDiagonalWin}
++              className="sr-only peer"
++              data-testid="toggle-diagonal-win"
++            />
++            <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
++          </div>
++        </label>
++
++        <p className="text-xs text-slate-500 mt-2">
++          Diagonal movement allows pieces to move to diagonally adjacent cells (corners ↔ center).
++        </p>
++      </div>
++    </div>
++  );
++}
+diff --git a/repository_after/three-mens-morris/src/components/GameStatus.tsx b/repository_after/three-mens-morris/src/components/GameStatus.tsx
+new file mode 100644
+index 0000000..bd1fcf2
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/components/GameStatus.tsx
+@@ -0,0 +1,85 @@
++'use client';
++
++import { GameState } from '@/types/game';
++
++interface GameStatusProps {
++  gameState: GameState;
++}
++
++/**
++ * GameStatus component displays current player, phase, and game status.
++ */
++export function GameStatus({ gameState }: GameStatusProps) {
++  const { currentPlayer, phase, status, winner, piecesPlaced, message } = gameState;
++
++  return (
++    <div className="w-full max-w-md space-y-4">
++      {/* Status message */}
++      <div
++        className={`
++          text-center text-lg sm:text-xl font-semibold p-4 rounded-xl
++          transition-all duration-300
++          ${status === 'won'
++            ? winner === 'X'
++              ? 'bg-gradient-to-r from-rose-500/20 to-rose-600/20 text-rose-300 border border-rose-500/30'
++              : 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-500/30'
++            : status === 'draw'
++              ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/30'
++              : 'bg-slate-800/50 text-slate-200 border border-slate-700'
++          }
++        `}
++        data-testid="game-message"
++      >
++        {message}
++      </div>
++
++      {/* Game info grid */}
++      <div className="grid grid-cols-3 gap-3">
++        {/* Current Player indicator */}
++        <div
++          className={`
++            p-3 rounded-xl text-center transition-all duration-300
++            ${status === 'playing'
++              ? currentPlayer === 'X'
++                ? 'bg-rose-500/10 border border-rose-500/30'
++                : 'bg-blue-500/10 border border-blue-500/30'
++              : 'bg-slate-800/50 border border-slate-700'
++            }
++          `}
++          data-testid="current-player"
++        >
++          <div className="text-xs text-slate-400 mb-1">Current</div>
++          <div
++            className={`
++              text-2xl font-bold
++              ${currentPlayer === 'X' ? 'text-rose-400' : 'text-blue-400'}
++            `}
++          >
++            {currentPlayer}
++          </div>
++        </div>
++
++        {/* Phase indicator */}
++        <div
++          className="p-3 rounded-xl text-center bg-slate-800/50 border border-slate-700"
++          data-testid="game-phase"
++        >
++          <div className="text-xs text-slate-400 mb-1">Phase</div>
++          <div className="text-sm font-semibold text-slate-200 capitalize">
++            {phase}
++          </div>
++        </div>
++
++        {/* Pieces count */}
++        <div className="p-3 rounded-xl text-center bg-slate-800/50 border border-slate-700">
++          <div className="text-xs text-slate-400 mb-1">Pieces</div>
++          <div className="flex justify-center gap-2 text-sm font-semibold">
++            <span className="text-rose-400">{piecesPlaced.X}/3</span>
++            <span className="text-slate-500">|</span>
++            <span className="text-blue-400">{piecesPlaced.O}/3</span>
++          </div>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/repository_after/three-mens-morris/src/components/index.ts b/repository_after/three-mens-morris/src/components/index.ts
+new file mode 100644
+index 0000000..fe844ca
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/components/index.ts
+@@ -0,0 +1,5 @@
++// Component exports
++export { Cell } from './Cell';
++export { GameBoard } from './GameBoard';
++export { GameStatus } from './GameStatus';
++export { GameControls } from './GameControls';
+diff --git a/repository_after/three-mens-morris/src/hooks/useGameState.ts b/repository_after/three-mens-morris/src/hooks/useGameState.ts
+new file mode 100644
+index 0000000..6eaba27
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/hooks/useGameState.ts
+@@ -0,0 +1,407 @@
++"use client";
++
++/**
++ * Three Men's Morris Game State Management Hook
++ *
++ * Custom React hook that manages all game state and provides actions
++ * for game interaction. Uses React hooks only (no external state libraries).
++ */
++
++import { useState, useCallback } from "react";
++import { GameState, Player, createInitialState } from "@/types/game";
++import {
++  checkWinner,
++  isValidPlacement,
++  isValidMovement,
++  getLegalMoves,
++  hasLegalMoves,
++  isPlacementComplete,
++  getOpponent,
++  getAdjacentCells,
++} from "@/utils/gameLogic";
++
++/**
++ * Custom hook for managing Three Men's Morris game state.
++ * @returns Game state and action handlers
++ */
++export function useGameState() {
++  const [gameState, setGameState] = useState<GameState>(createInitialState);
++
++  /**
++   * Generate status message based on game state.
++   */
++  const getMessage = useCallback((state: GameState): string => {
++    if (state.status === "won") {
++      return `🎉 Player ${state.winner} wins!`;
++    }
++
++    if (state.status === "draw") {
++      return "It's a draw! No valid moves available.";
++    }
++
++    const playerName = `Player ${state.currentPlayer}`;
++
++    if (state.phase === "placement") {
++      const remaining = 3 - state.piecesPlaced[state.currentPlayer];
++      return `${playerName}'s turn - Place a piece (${remaining} remaining)`;
++    }
++
++    if (state.selectedPiece !== null) {
++      return `${playerName}'s turn - Select destination (or click piece again to deselect)`;
++    }
++
++    return `${playerName}'s turn - Select a piece to move`;
++  }, []);
++
++  /**
++   * Handle cell click with validation, messaging, and phase-aware routing.
++   */
++  const handleCellClick = useCallback(
++    (cellIndex: number) => {
++      setGameState((prevState) => {
++        // Disallow interaction after game end
++        if (prevState.status !== "playing") {
++          return {
++            ...prevState,
++            message: "Game over. Reset to play again.",
++          };
++        }
++
++        // Placement phase
++        if (prevState.phase === "placement") {
++          if (!isValidPlacement(prevState, cellIndex)) {
++            const occupied = prevState.board[cellIndex] !== null;
++            return {
++              ...prevState,
++              message: occupied
++                ? "Invalid placement: cell is occupied."
++                : "Invalid placement for this phase.",
++            };
++          }
++
++          const newBoard = [...prevState.board];
++          newBoard[cellIndex] = prevState.currentPlayer;
++
++          const newPiecesPlaced = {
++            ...prevState.piecesPlaced,
++            [prevState.currentPlayer]:
++              prevState.piecesPlaced[prevState.currentPlayer] + 1,
++          };
++
++          const winner = checkWinner(
++            newBoard,
++            prevState.ruleVariants.diagonalWin,
++          );
++          if (winner) {
++            const finalState: GameState = {
++              ...prevState,
++              board: newBoard,
++              piecesPlaced: newPiecesPlaced,
++              status: "won",
++              winner,
++              selectedPiece: null,
++              message: "",
++            };
++            return { ...finalState, message: getMessage(finalState) };
++          }
++
++          const placementComplete = isPlacementComplete(newPiecesPlaced);
++          const nextPlayer = getOpponent(prevState.currentPlayer);
++          const nextPhase = placementComplete ? "movement" : "placement";
++
++          const intermediateState: GameState = {
++            ...prevState,
++            board: newBoard,
++            piecesPlaced: newPiecesPlaced,
++            currentPlayer: nextPlayer,
++            phase: nextPhase,
++            selectedPiece: null,
++            message: "",
++          };
++
++          if (nextPhase === "movement" && !hasLegalMoves(intermediateState)) {
++            const drawState = {
++              ...intermediateState,
++              status: "draw" as const,
++              message: "It's a draw! No valid moves available.",
++            };
++            return drawState;
++          }
++
++          return {
++            ...intermediateState,
++            message: getMessage(intermediateState),
++          };
++        }
++
++        // Movement phase
++        const clickedCell = prevState.board[cellIndex];
++
++        // No piece selected yet: must pick own piece with moves
++        if (prevState.selectedPiece === null) {
++          if (clickedCell === prevState.currentPlayer) {
++            const legalMoves = getLegalMoves(prevState, cellIndex);
++            if (legalMoves.length > 0) {
++              const selectedState = {
++                ...prevState,
++                selectedPiece: cellIndex,
++                message: getMessage({ ...prevState, selectedPiece: cellIndex }),
++              };
++              return selectedState;
++            }
++            return {
++              ...prevState,
++              message: "No legal moves for that piece.",
++            };
++          }
++          return {
++            ...prevState,
++            message: "Select one of your own pieces to move.",
++          };
++        }
++
++        // Clicking the same piece deselects
++        if (cellIndex === prevState.selectedPiece) {
++          const deselectedState = {
++            ...prevState,
++            selectedPiece: null,
++            message: getMessage({ ...prevState, selectedPiece: null }),
++          };
++          return deselectedState;
++        }
++
++        // Switching selection to another own piece
++        if (clickedCell === prevState.currentPlayer) {
++          const legalMoves = getLegalMoves(prevState, cellIndex);
++          if (legalMoves.length > 0) {
++            const newSelection = {
++              ...prevState,
++              selectedPiece: cellIndex,
++              message: getMessage({ ...prevState, selectedPiece: cellIndex }),
++            };
++            return newSelection;
++          }
++          return {
++            ...prevState,
++            message: "No legal moves for that piece.",
++          };
++        }
++
++        // Attempting to move to a target cell
++        if (!isValidMovement(prevState, prevState.selectedPiece, cellIndex)) {
++          const occupied = prevState.board[cellIndex] !== null;
++          const adjacent =
++            prevState.selectedPiece !== null
++              ? getAdjacentCells(
++                  prevState.selectedPiece,
++                  prevState.ruleVariants.diagonalMovement,
++                ).includes(cellIndex)
++              : false;
++          const reason = occupied
++            ? "Invalid move: destination occupied."
++            : adjacent
++              ? "Invalid move for this phase."
++              : "Invalid move: destination must be adjacent.";
++          return {
++            ...prevState,
++            message: reason,
++          };
++        }
++
++        // Execute the move
++        const newBoard = [...prevState.board];
++        newBoard[prevState.selectedPiece] = null;
++        newBoard[cellIndex] = prevState.currentPlayer;
++
++        const winner = checkWinner(
++          newBoard,
++          prevState.ruleVariants.diagonalWin,
++        );
++        if (winner) {
++          const finalState: GameState = {
++            ...prevState,
++            board: newBoard,
++            selectedPiece: null,
++            status: "won",
++            winner,
++            message: "",
++          };
++          return { ...finalState, message: getMessage(finalState) };
++        }
++
++        const nextPlayer = getOpponent(prevState.currentPlayer);
++        const nextState: GameState = {
++          ...prevState,
++          board: newBoard,
++          currentPlayer: nextPlayer,
++          selectedPiece: null,
++          message: "",
++        };
++
++        if (!hasLegalMoves(nextState)) {
++          const drawState = {
++            ...nextState,
++            status: "draw" as const,
++            message: "It's a draw! No valid moves available.",
++          };
++          return drawState;
++        }
++
++        return { ...nextState, message: getMessage(nextState) };
++      };);
++    },
++    [getMessage],
++  );
++
++  /**
++   * Reset the game to initial state.
++   */
++  const resetGame = useCallback(() => {
++    setGameState(createInitialState());
++  }, []);
++
++  /**
++   * Toggle diagonal movement rule and reconcile state.
++   */
++  const toggleDiagonalMovement = useCallback(() => {
++    setGameState((prevState) => {
++      const newRuleVariants = {
++        ...prevState.ruleVariants,
++        diagonalMovement: !prevState.ruleVariants.diagonalMovement,
++      };
++
++      const recomputedWinner = checkWinner(
++        prevState.board,
++        newRuleVariants.diagonalWin,
++      );
++
++      let nextStatus: GameState["status"] = prevState.status;
++      let nextWinner: Player | null = prevState.winner;
++
++      if (recomputedWinner) {
++        nextStatus = "won";
++        nextWinner = recomputedWinner;
++      } else if (prevState.status === "won") {
++        nextStatus = "playing";
++        nextWinner = null;
++      }
++
++      const interimState: GameState = {
++        ...prevState,
++        ruleVariants: newRuleVariants,
++        status: nextStatus,
++        winner: nextWinner,
++        message: "",
++      };
++
++      const playableNow =
++        interimState.phase === "movement" && hasLegalMoves(interimState);
++
++      if (interimState.status === "draw" && playableNow) {
++        const resumedState = {
++          ...interimState,
++          status: "playing" as const,
++          message: "",
++        };
++        return { ...resumedState, message: getMessage(resumedState) };
++      }
++
++      if (
++        interimState.status === "playing" &&
++        interimState.phase === "movement" &&
++        !hasLegalMoves(interimState)
++      ) {
++        const drawState = {
++          ...interimState,
++          status: "draw" as const,
++          message: "It's a draw! No valid moves available.",
++        };
++        return drawState;
++      }
++
++      return { ...interimState, message: getMessage(interimState) };
++    });
++  }, [getMessage]);
++
++  /**
++   * Toggle diagonal win rule and reconcile state.
++   */
++  const toggleDiagonalWin = useCallback(() => {
++    setGameState((prevState) => {
++      const newRuleVariants = {
++        ...prevState.ruleVariants,
++        diagonalWin: !prevState.ruleVariants.diagonalWin,
++      };
++
++      const recomputedWinner = checkWinner(
++        prevState.board,
++        newRuleVariants.diagonalWin,
++      );
++
++      let nextStatus: GameState["status"] = prevState.status;
++      let nextWinner: Player | null = prevState.winner;
++
++      if (recomputedWinner) {
++        nextStatus = "won";
++        nextWinner = recomputedWinner;
++      } else if (prevState.status === "won") {
++        nextStatus = "playing";
++        nextWinner = null;
++      }
++
++      const interimState: GameState = {
++        ...prevState,
++        ruleVariants: newRuleVariants,
++        status: nextStatus,
++        winner: nextWinner,
++        message: "",
++      };
++
++      const playableNow =
++        interimState.phase === "movement" && hasLegalMoves(interimState);
++
++      if (interimState.status === "draw" && playableNow) {
++        const resumedState = {
++          ...interimState,
++          status: "playing" as const,
++          message: "",
++        };
++        return { ...resumedState, message: getMessage(resumedState) };
++      }
++
++      if (
++        interimState.status === "playing" &&
++        interimState.phase === "movement" &&
++        !hasLegalMoves(interimState)
++      ) {
++        const drawState = {
++          ...interimState,
++          status: "draw" as const,
++          message: "It's a draw! No valid moves available.",
++        };
++        return drawState;
++      }
++
++      return { ...interimState, message: getMessage(interimState) };
++    });
++  }, [getMessage]);
++
++  /**
++   * Get legal moves for the currently selected piece.
++   */
++  const getSelectedPieceLegalMoves = useCallback((): number[] => {
++    if (gameState.selectedPiece === null) {
++      return [];
++    }
++    return getLegalMoves(gameState, gameState.selectedPiece);
++  }, [gameState]);
++
++  return {
++    gameState,
++    handleCellClick,
++    resetGame,
++    toggleDiagonalMovement,
++    toggleDiagonalWin,
++    getSelectedPieceLegalMoves,
++  };
++}
+diff --git a/repository_after/three-mens-morris/src/types/game.ts b/repository_after/three-mens-morris/src/types/game.ts
+new file mode 100644
+index 0000000..b7c5276
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/types/game.ts
+@@ -0,0 +1,69 @@
++/**
++ * Three Men's Morris Game Types
++ * 
++ * This file defines all TypeScript types and interfaces for the game state management.
++ */
++
++/** Player identifiers - X always goes first */
++export type Player = 'X' | 'O';
++
++/** Cell can be empty (null) or occupied by a player */
++export type CellValue = Player | null;
++
++/** Game phases */
++export type GamePhase = 'placement' | 'movement';
++
++/** Game status */
++export type GameStatus = 'playing' | 'won' | 'draw';
++
++/** Rule variants configuration */
++export interface RuleVariants {
++  /** Allow diagonal movement in movement phase */
++  diagonalMovement: boolean;
++  /** Allow diagonal lines for winning */
++  diagonalWin: boolean;
++}
++
++/** Pieces placed counter for each player */
++export interface PiecesPlaced {
++  X: number;
++  O: number;
++}
++
++/** Complete game state */
++export interface GameState {
++  /** 9 cells representing the 3x3 board (indices 0-8) */
++  board: CellValue[];
++  /** Current player's turn */
++  currentPlayer: Player;
++  /** Current game phase */
++  phase: GamePhase;
++  /** Current game status */
++  status: GameStatus;
++  /** Winner if game is won */
++  winner: Player | null;
++  /** Currently selected piece index for movement phase */
++  selectedPiece: number | null;
++  /** Number of pieces placed by each player */
++  piecesPlaced: PiecesPlaced;
++  /** Rule variant settings */
++  ruleVariants: RuleVariants;
++  /** Status message to display to user */
++  message: string;
++}
++
++/** Initial game state factory */
++export const createInitialState = (): GameState => ({
++  board: Array(9).fill(null),
++  currentPlayer: 'X',
++  phase: 'placement',
++  status: 'playing',
++  winner: null,
++  selectedPiece: null,
++  piecesPlaced: { X: 0, O: 0 },
++  ruleVariants: {
++    diagonalMovement: false,
++    diagonalWin: true,
++  },
++  message: "Player X's turn - Place a piece",
++});
+diff --git a/repository_after/three-mens-morris/src/utils/gameLogic.ts b/repository_after/three-mens-morris/src/utils/gameLogic.ts
+new file mode 100644
+index 0000000..66d35e6
+--- /dev/null
++++ b/repository_after/three-mens-morris/src/utils/gameLogic.ts
+@@ -0,0 +1,280 @@
++/**
++ * Three Men's Morris Game Logic Utilities
++ * 
++ * Pure functions for game logic including adjacency calculation,
++ * win detection, and move validation.
++ * 
++ * Board Layout (indices 0-8):
++ * 
++ *   0 --- 1 --- 2
++ *   |     |     |
++ *   3 --- 4 --- 5
++ *   |     |     |
++ *   6 --- 7 --- 8
++ */
++
++import { CellValue, GameState, Player } from '@/types/game';
++
++/**
++ * Adjacency map for orthogonal (non-diagonal) movement.
++ * Each key is a cell index, value is array of adjacent cell indices.
++ */
++const ORTHOGONAL_ADJACENCY: Record<number, number[]> = {
++  0: [1, 3],
++  1: [0, 2, 4],
++  2: [1, 5],
++  3: [0, 4, 6],
++  4: [1, 3, 5, 7],
++  5: [2, 4, 8],
++  6: [3, 7],
++  7: [4, 6, 8],
++  8: [5, 7],
++};
++
++/**
++ * Diagonal adjacency additions.
++ * The center (4) can reach all corners, corners can reach center.
++ */
++const DIAGONAL_ADJACENCY: Record<number, number[]> = {
++  0: [4],
++  1: [],
++  2: [4],
++  3: [],
++  4: [0, 2, 6, 8],
++  5: [],
++  6: [4],
++  7: [],
++  8: [4],
++};
++
++/**
++ * Winning lines - horizontal, vertical, and diagonal patterns.
++ */
++const HORIZONTAL_LINES: number[][] = [
++  [0, 1, 2],
++  [3, 4, 5],
++  [6, 7, 8],
++];
++
++const VERTICAL_LINES: number[][] = [
++  [0, 3, 6],
++  [1, 4, 7],
++  [2, 5, 8],
++];
++
++const DIAGONAL_LINES: number[][] = [
++  [0, 4, 8],
++  [2, 4, 6],
++];
++
++/**
++ * Get all adjacent cells for a given position.
++ * @param index - Cell index (0-8)
++ * @param allowDiagonal - Whether to include diagonal adjacencies
++ * @returns Array of adjacent cell indices
++ */
++export function getAdjacentCells(index: number, allowDiagonal: boolean = false): number[] {
++  const orthogonal = ORTHOGONAL_ADJACENCY[index] || [];
++  
++  if (!allowDiagonal) {
++    return orthogonal;
++  }
++  
++  const diagonal = DIAGONAL_ADJACENCY[index] || [];
++  return [...orthogonal, ...diagonal].sort((a, b) => a - b);
++}
++
++/**
++ * Check if two cells are adjacent.
++ * @param from - Source cell index
++ * @param to - Target cell index
++ * @param allowDiagonal - Whether to allow diagonal movement
++ * @returns True if cells are adjacent
++ */
++export function areAdjacent(from: number, to: number, allowDiagonal: boolean = false): boolean {
++  return getAdjacentCells(from, allowDiagonal).includes(to);
++}
++
++/**
++ * Check if a player has won by forming a line of three.
++ * @param board - Current board state
++ * @param allowDiagonalWin - Whether diagonal lines count for winning
++ * @returns The winning player or null if no winner
++ */
++export function checkWinner(board: CellValue[], allowDiagonalWin: boolean = true): Player | null {
++  const linesToCheck = [...HORIZONTAL_LINES, ...VERTICAL_LINES];
++  
++  if (allowDiagonalWin) {
++    linesToCheck.push(...DIAGONAL_LINES);
++  }
++  
++  for (const line of linesToCheck) {
++    const [a, b, c] = line;
++    if (board[a] && board[a] === board[b] && board[b] === board[c]) {
++      return board[a];
++    }
++  }
++  
++  return null;
++}
++
++/**
++ * Get all winning lines.
++ * @param allowDiagonalWin - Whether to include diagonal lines
++ * @returns Array of winning line patterns
++ */
++export function getWinningLines(allowDiagonalWin: boolean = true): number[][] {
++  const lines = [...HORIZONTAL_LINES, ...VERTICAL_LINES];
++  if (allowDiagonalWin) {
++    lines.push(...DIAGONAL_LINES);
++  }
++  return lines;
++}
++
++/**
++ * Check if a placement is valid.
++ * @param state - Current game state
++ * @param cellIndex - Target cell index
++ * @returns True if placement is valid
++ */
++export function isValidPlacement(state: GameState, cellIndex: number): boolean {
++  // Must be in placement phase
++  if (state.phase !== 'placement') {
++    return false;
++  }
++  
++  // Game must be ongoing
++  if (state.status !== 'playing') {
++    return false;
++  }
++  
++  // Cell index must be valid
++  if (cellIndex < 0 || cellIndex > 8) {
++    return false;
++  }
++  
++  // Cell must be empty
++  if (state.board[cellIndex] !== null) {
++    return false;
++  }
++  
++  return true;
++}
++
++/**
++ * Check if a movement is valid.
++ * @param state - Current game state
++ * @param from - Source cell index
++ * @param to - Target cell index
++ * @returns True if movement is valid
++ */
++export function isValidMovement(state: GameState, from: number, to: number): boolean {
++  // Must be in movement phase
++  if (state.phase !== 'movement') {
++    return false;
++  }
++  
++  // Game must be ongoing
++  if (state.status !== 'playing') {
++    return false;
++  }
++  
++  // Indices must be valid
++  if (from < 0 || from > 8 || to < 0 || to > 8) {
++    return false;
++  }
++  
++  // Source must be current player's piece
++  if (state.board[from] !== state.currentPlayer) {
++    return false;
++  }
++  
++  // Target must be empty
++  if (state.board[to] !== null) {
++    return false;
++  }
++  
++  // Cells must be adjacent
++  if (!areAdjacent(from, to, state.ruleVariants.diagonalMovement)) {
++    return false;
++  }
++  
++  return true;
++}
++
++/**
++ * Get all legal moves for a piece at given position.
++ * @param state - Current game state
++ * @param pieceIndex - Index of the piece to move
++ * @returns Array of valid target cell indices
++ */
++export function getLegalMoves(state: GameState, pieceIndex: number): number[] {
++  if (state.phase !== 'movement' || state.status !== 'playing') {
++    return [];
++  }
++  
++  if (state.board[pieceIndex] !== state.currentPlayer) {
++    return [];
++  }
++  
++  const adjacent = getAdjacentCells(pieceIndex, state.ruleVariants.diagonalMovement);
++  return adjacent.filter(index => state.board[index] === null);
++}
++
++/**
++ * Check if the current player has any legal moves.
++ * @param state - Current game state
++ * @returns True if player has at least one legal move
++ */
++export function hasLegalMoves(state: GameState): boolean {
++  if (state.status !== 'playing') {
++    return false;
++  }
++  
++  if (state.phase === 'placement') {
++    // In placement phase, any empty cell is valid
++    return state.board.some(cell => cell === null);
++  }
++  
++  // In movement phase, check if current player has any valid moves
++  for (let i = 0; i < 9; i++) {
++    if (state.board[i] === state.currentPlayer) {
++      const moves = getLegalMoves(state, i);
++      if (moves.length > 0) {
++        return true;
++      }
++    }
++  }
++  
++  return false;
++}
++
++/**
++ * Get all pieces belonging to a player.
++ * @param board - Current board state
++ * @param player - Player to find pieces for
++ * @returns Array of cell indices containing player's pieces
++ */
++export function getPlayerPieces(board: CellValue[], player: Player): number[] {
++  return board
++    .map((cell, index) => (cell === player ? index : -1))
++    .filter(index => index !== -1);
++}
++
++/**
++ * Check if all pieces have been placed (6 total - 3 per player).
++ * @param piecesPlaced - Current pieces placed count
++ * @returns True if placement phase is complete
++ */
++export function isPlacementComplete(piecesPlaced: { X: number; O: number }): boolean {
++  return piecesPlaced.X === 3 && piecesPlaced.O === 3;
++}
++
++/**
++ * Get the opponent player.
++ * @param player - Current player
++ * @returns Opponent player
++ */
++export function getOpponent(player: Player): Player {
++  return player === 'X' ? 'O' : 'X';
++}
+diff --git a/repository_after/three-mens-morris/tsconfig.json b/repository_after/three-mens-morris/tsconfig.json
+new file mode 100644
+index 0000000..cf9c65d
+--- /dev/null
++++ b/repository_after/three-mens-morris/tsconfig.json
+@@ -0,0 +1,34 @@
++{
++  "compilerOptions": {
++    "target": "ES2017",
++    "lib": ["dom", "dom.iterable", "esnext"],
++    "allowJs": true,
++    "skipLibCheck": true,
++    "strict": true,
++    "noEmit": true,
++    "esModuleInterop": true,
++    "module": "esnext",
++    "moduleResolution": "bundler",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "jsx": "react-jsx",
++    "incremental": true,
++    "plugins": [
++      {
++        "name": "next"
++      }
++    ],
++    "paths": {
++      "@/*": ["./src/*"]
++    }
++  },
++  "include": [
++    "next-env.d.ts",
++    "**/*.ts",
++    "**/*.tsx",
++    ".next/types/**/*.ts",
++    ".next/dev/types/**/*.ts",
++    "**/*.mts"
++  ],
++  "exclude": ["node_modules"]
++}

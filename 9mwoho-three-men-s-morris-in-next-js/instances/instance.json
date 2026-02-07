@@ -1,0 +1,11 @@
+{
+            "instance_id": "9MWOHO",
+            "problem_statement": "Design and implement a fully functional digital version of the ancient board game Three Men’s Morris that faithfully follows its historical rules while providing a clear, interactive user experience. The game must support two players, enforce correct placement and movement phases, validate legal moves based on board adjacency, detect winning alignments accurately, and present game state feedback in real time within a modern web application",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/9mwoho-three-men-s-morris-in-next-js",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        
