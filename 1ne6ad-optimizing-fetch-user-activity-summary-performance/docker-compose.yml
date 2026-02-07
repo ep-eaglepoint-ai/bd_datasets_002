@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: eventsdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d eventsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: eventsdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - .:/app
+    profiles:
+      - default
+
+  test-before:
+    extends: app
+    command: python tests/test_before.py
+    profiles:
+      - test
+
+  test-after:
+    extends: app
+    command: python -m pytest tests/test_after.py -v
+    profiles:
+      - test
+
+  evaluation:
+    extends: app
+    command: python evaluation/evaluation.py
+    profiles:
+      - eval
+
+volumes:
+  pgdata:

@@ -1,0 +1,95 @@
+diff --git a/repository_before/fetch_user_activity_summary.py b/repository_after/fetch_user_activity_summary.py
+index 1234567..abcdefg 100644
+--- a/repository_before/fetch_user_activity_summary.py
++++ b/repository_after/fetch_user_activity_summary.py
+@@ -1,50 +1,33 @@
+-from repository_before.db import DB
++from repository_after.db import DB
+ 
+ db = DB()
+ 
+ def fetch_user_activity_summary(user_id):
+     """
+-    INEFFICIENT IMPLEMENTATION - Demonstrates performance issues:
+-    - Fetches ALL event data into memory (O(N) memory growth)
+-    - Manual de-duplication using Python sets (CPU intensive)
+-    - Multiple loops and type conversions (high overhead)
+-    - Network I/O scales linearly with event count
++    OPTIMIZED IMPLEMENTATION - Addresses all performance requirements:
++    - Uses database-level aggregation to eliminate O(N) memory growth
++    - Single SQL query reduces network I/O from O(N) to O(1)
++    - Eliminates manual de-duplication and type casting overhead
++    - Achieves constant memory usage regardless of event count
+     """
+     
+-    # INEFFICIENT: Fetch ALL columns and ALL rows into memory
+-    sql = "SELECT id, type, metadata FROM events WHERE user_id = %s"
+-    all_events = db.query(sql, (user_id,))
++    # Single optimized SQL query handles de-duplication and aggregation at database level
++    # This reduces network transfer from O(N) rows to exactly 1 row
++    sql = """
++        SELECT 
++            COUNT(CASE WHEN type = 'click' THEN 1 END) as click,
++            COUNT(CASE WHEN type = 'view' THEN 1 END) as view,
++            COUNT(CASE WHEN type = 'purchase' THEN 1 END) as purchase,
++            SUM(CASE WHEN type = 'purchase' THEN CAST(metadata->>'price' AS NUMERIC) ELSE 0 END) as total_value
++        FROM (
++            -- Handle de-duplication at the database level to prevent O(N) memory in Python
++            SELECT DISTINCT id, type, metadata 
++            FROM events 
++            WHERE user_id = %s
++        ) AS unique_events
++    """
+     
+-    if not all_events:
++    # Execute query - result is a single small dictionary, not O(N) rows
++    result = db.query(sql, (user_id,))
++    
++    if not result:
+         return {'click': 0, 'view': 0, 'purchase': 0, 'total_value': 0.0}
+     
+-    # INEFFICIENT: Manual de-duplication using Python set (O(N) memory + CPU)
+-    seen_ids = set()
+-    unique_events = []
+-    for event in all_events:
+-        if event['id'] not in seen_ids:
+-            seen_ids.add(event['id'])
+-            unique_events.append(event)
+-    
+-    # INEFFICIENT: Manual aggregation with multiple loops
+-    click_count = 0
+-    view_count = 0
+-    purchase_count = 0
+-    total_value = 0.0
+-    
+-    # INEFFICIENT: Loop through events multiple times
+-    for event in unique_events:
+-        if event['type'] == 'click':
+-            click_count += 1
+-        elif event['type'] == 'view':
+-            view_count += 1
+-        elif event['type'] == 'purchase':
+-            purchase_count += 1
+-            # INEFFICIENT: JSON parsing and type conversion in loop
+-            import json
+-            try:
+-                metadata = json.loads(event['metadata']) if event['metadata'] else {}
+-                price = metadata.get('price', 0)
+-                if price:
+-                    total_value += float(price)
+-            except (json.JSONDecodeError, ValueError, TypeError):
+-                pass
++    summary = result[0]
+     
+-    # INEFFICIENT: Multiple type conversions
++    # Direct type conversion without loops - O(1) operation
+     return {
+-        'click': int(click_count),
+-        'view': int(view_count), 
+-        'purchase': int(purchase_count),
+-        'total_value': float(total_value)
++        'click': int(summary['click']),
++        'view': int(summary['view']),
++        'purchase': int(summary['purchase']),
++        'total_value': float(summary['total_value'] or 0.0)
+     }
