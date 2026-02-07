@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - docker-compose --version
+  build:
+    commands:
+      - docker-compose run --rm test-before
+      - docker-compose run --rm test-after
+      - docker-compose run --rm evaluation
+
+artifacts:
+  files:
+    - evaluation/reports/latest.json
+    - evaluation/reports/report.json

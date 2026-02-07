@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./repository_after/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  test-before:
+    build: .
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - TEST_REPO_PATH=/app/repository_before
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=inventory_db
+      - DB_USER=inventory_user
+      - DB_PASSWORD=inventory_pass
+    volumes:
+      - .:/app
+    command: sh -c "cd repository_before && npm install && npm run build 2>/dev/null || true && cd ../tests && node test-runner.js"
+
+  test-after:
+    build: .
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - TEST_REPO_PATH=/app/repository_after
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=inventory_db
+      - DB_USER=inventory_user
+      - DB_PASSWORD=inventory_pass
+    volumes:
+      - .:/app
+    command: sh -c "cd repository_after && npm install && npm run build 2>/dev/null || true && cd ../tests && node test-runner.js"
+
+  evaluation:
+    build: .
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=inventory_db
+      - DB_USER=inventory_user
+      - DB_PASSWORD=inventory_pass
+    volumes:
+      - .:/app
+      - ./evaluation/reports:/app/evaluation/reports
+    command: node evaluation/evaluation.js
+
+volumes:
+  redis_data:
+  postgres_data:

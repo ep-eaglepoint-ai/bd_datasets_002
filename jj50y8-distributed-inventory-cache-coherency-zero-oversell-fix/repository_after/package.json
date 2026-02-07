@@ -1,0 +1,33 @@
+{
+  "name": "inventory-cache-bug",
+  "version": "1.0.0",
+  "description": "Bug Scenario 001: Distributed Cache Coherency Failure",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "ts-node src/test-race-condition.ts",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": [
+    "bug",
+    "race-condition",
+    "cache",
+    "redis",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ioredis": "^5.3.2",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/pg": "^8.10.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
