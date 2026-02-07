@@ -1,0 +1,11 @@
+{
+  "name": "attendance-resilience-tests",
+  "version": "1.0.0",
+  "description": "Test suite for Attendance Resilience Vue 2 Application",
+  "scripts": {
+    "test": "node run_tests.js",
+    "test:store": "node test_attendance_store.js",
+    "test:ui": "node test_ui_resilience.js",
+    "evaluate": "node ../evaluation/evaluation.js"
+  }
+}
