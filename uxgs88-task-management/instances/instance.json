@@ -1,0 +1,11 @@
+{
+            "instance_id": "uxgs88-task-management",
+            "problem_statement": "This project requires designing a highly optimized task assignment system to count and enumerate valid distributions of up to 1,000 tasks among up to 20 workers, where each worker can perform only specific qualified tasks and assignments are one-to-one. The solution must efficiently handle varying qualification densities and provide multiple output modes: calculating the total number of valid distributions, enumerating them with pagination for large sets, and finding the distribution that maximizes a skill score objective. The system should also support optional constraints like worker availability windows, task dependencies, and team constraints, making it scalable and flexible for complex real-world scheduling scenarios.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/uxgs88-task-management",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

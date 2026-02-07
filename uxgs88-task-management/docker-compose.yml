@@ -1,0 +1,20 @@
+services:
+  test-before:
+    build: .
+    command: bash -c "PYTHONPATH=/app/repository_before pytest -q tests || true"
+    volumes:
+      - .:/app
+    environment:
+      - TEST_REPO_PATH=/app/repository_before
+
+  test-after:
+    build: .
+    command: pytest -q tests
+    volumes:
+      - .:/app
+
+  evaluation:
+    build: .
+    command: python evaluation/evaluation.py
+    volumes:
+      - .:/app
