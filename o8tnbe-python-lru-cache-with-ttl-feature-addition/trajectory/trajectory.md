@@ -3,6 +3,7 @@
 ## Analysis: Deconstructing the Prompt
 
 ### Requirements Breakdown
+
 The task required implementing a comprehensive LRU (Least Recently Used) cache with TTL (Time-To-Live) functionality. I identified 8 distinct requirements:
 
 1. **LRU Eviction Policy**: Implement proper least-recently-used eviction with recency tracking
@@ -15,6 +16,7 @@ The task required implementing a comprehensive LRU (Least Recently Used) cache w
 8. **Metadata Preservation**: Maintain original function attributes
 
 ### Key Challenges Identified
+
 - **Concurrency**: Balancing thread safety with performance
 - **Cache Key Generation**: Handling complex argument patterns and defaults
 - **Expiration Strategy**: Efficient per-key TTL checking without bulk cleanup
@@ -24,7 +26,9 @@ The task required implementing a comprehensive LRU (Least Recently Used) cache w
 ## Strategy: Algorithm and Pattern Selection
 
 ### Core Data Structure Choice: OrderedDict
+
 **Rationale**: Python's `collections.OrderedDict` provides O(1) operations for:
+
 - Moving items to end (LRU tracking)
 - Key-based access and deletion
 - Insertion order maintenance
@@ -33,7 +37,9 @@ The task required implementing a comprehensive LRU (Least Recently Used) cache w
 **Decision**: OrderedDict offers cleaner implementation with equivalent performance
 
 ### TTL Implementation Strategy
+
 **Approach**: Lazy expiration with per-access checking
+
 - Store timestamp with each cache entry
 - Check expiration on every cache access
 - Increment expiration counter when removing expired entries
@@ -42,13 +48,17 @@ The task required implementing a comprehensive LRU (Least Recently Used) cache w
 **Decision**: Per-access checking is simpler and avoids thread management complexity
 
 ### Thread Safety Pattern
+
 **Approach**: Fine-grained locking with minimal critical sections
+
 - Single `threading.Lock` for all cache operations
 - Release lock before function execution to prevent blocking
 - Protect all statistics updates within critical sections
 
 ### Argument Normalization Strategy
+
 **Approach**: `inspect.signature` with `bind()` and `apply_defaults()`
+
 - Normalize all argument combinations to consistent format
 - Handle default parameters correctly
 - Generate hashable keys from normalized arguments
@@ -56,6 +66,7 @@ The task required implementing a comprehensive LRU (Least Recently Used) cache w
 ## Execution: Step-by-Step Implementation
 
 ### Phase 1: Core Data Structures
+
 ```python
 @dataclass
 class CacheStats:
@@ -73,12 +84,13 @@ class CacheEntry:
 **Decision**: Separate dataclasses for clean separation of concerns and type safety.
 
 ### Phase 2: Cache Key Generation
+
 ```python
 def _make_key(*args, **kwargs):
     try:
         bound = sig.bind(*args, **kwargs)
         bound.apply_defaults()
-        
+
         key_parts = []
         for name, value in bound.arguments.items():
             try:
@@ -86,18 +98,20 @@ def _make_key(*args, **kwargs):
                 key_parts.append((name, value))
             except TypeError:
                 return None  # Unhashable argument
-        
+
         return tuple(key_parts)
     except (TypeError, ValueError):
         return None
 ```
 
 **Key Decisions**:
+
 - Use signature binding for consistent argument handling
 - Test hashability before key generation
 - Return None for unhashable arguments to trigger bypass
 
 ### Phase 3: LRU Implementation
+
 ```python
 # Cache hit - move to end (most recently used)
 cache.move_to_end(cache_key)
@@ -111,11 +125,13 @@ while len(cache) >= maxsize:
 ```
 
 **Key Decisions**:
+
 - `move_to_end()` for O(1) LRU tracking
 - `popitem(last=False)` for O(1) LRU eviction
 - Update statistics within critical sections
 
 ### Phase 4: TTL Expiration
+
 ```python
 def _is_expired(entry: CacheEntry) -> bool:
     return time.time() - entry.timestamp > ttl_seconds
@@ -129,17 +145,19 @@ else:
 ```
 
 **Key Decisions**:
+
 - Per-access expiration checking for accuracy
 - Immediate removal of expired entries
 - Separate expiration counter tracking
 
 ### Phase 5: Thread Safety Implementation
+
 ```python
 # Check cache for existing entry
 with lock:
     if cache_key in cache:
         entry = cache[cache_key]
-        
+
         if _is_expired(entry):
             del cache[cache_key]
             stats.expirations += 1
@@ -147,7 +165,7 @@ with lock:
             cache.move_to_end(cache_key)
             stats.hits += 1
             return entry.value
-    
+
     stats.misses += 1
 
 # Compute value outside of lock
@@ -159,11 +177,13 @@ with lock:
 ```
 
 **Key Decisions**:
+
 - Minimal critical sections to reduce contention
 - Function execution outside lock to prevent blocking
 - Separate lock acquisitions for read and write operations
 
 ### Phase 6: API Methods Implementation
+
 ```python
 def cache_info():
     with lock:
@@ -184,21 +204,24 @@ def cache_clear():
 ```
 
 **Key Decisions**:
+
 - Return copies of statistics for thread safety
 - Atomic clear operations with full statistics reset
 - Consistent locking pattern across all methods
 
 ### Phase 7: Decorator Integration
+
 ```python
 @wraps(func)
 def wrapper(*args, **kwargs):
     # Implementation logic
-    
+
 wrapper.cache_info = cache_info
 wrapper.cache_clear = cache_clear
 ```
 
 **Key Decisions**:
+
 - `functools.wraps` for metadata preservation
 - Method attachment for clean API
 - Closure-based state management
@@ -206,21 +229,25 @@ wrapper.cache_clear = cache_clear
 ## Testing Strategy
 
 ### Test Structure Design
+
 - **test_before.py**: Verify missing functionality (should fail)
 - **test_after.py**: Verify complete implementation (should pass)
-- **test_meta.py**: Infrastructure and comparison tests
 - **resources/**: Shared test implementations
 
 ### Test Count Alignment
+
 **Issue Identified**: Original implementation had mismatched test counts (16 vs 22)
 **Solution Applied**: Added missing tests to ensure equal coverage:
+
 - `test_thread_safety_missing`: Validates thread safety is not implemented
 - `test_metadata_preservation_missing`: Validates function metadata preservation
 - `test_complex_arguments_missing`: Validates complex argument handling
 
 ### Exit Code Handling
+
 **Issue Identified**: Test failures caused exit code 1, indicating command errors rather than expected test failures
 **Solution Applied**: Modified test runners to exit with code 0 while preserving test failure output:
+
 ```python
 if __name__ == "__main__":
     print("Running before implementation tests (these should FAIL)...")
@@ -230,14 +257,18 @@ if __name__ == "__main__":
 ```
 
 ### Docker Compose Integration
+
 **Improvements Made**:
+
 - Simplified commands without quotes to avoid YAML parsing issues
 - Added service profiles for organized test execution
 - Removed problematic `test-all` service
 - Added dedicated `evaluation` service
 
 ### Comprehensive Test Coverage
+
 Each requirement tested with multiple scenarios:
+
 - Basic functionality verification
 - Edge case handling
 - Concurrency testing
@@ -247,11 +278,13 @@ Each requirement tested with multiple scenarios:
 ## Results and Validation
 
 ### Performance Characteristics
+
 - **Cache Operations**: O(1) for hits, misses, and evictions
 - **Memory Usage**: Minimal overhead with OrderedDict
 - **Thread Contention**: Minimized with fine-grained locking
 
 ### Test Results
+
 - **Before Implementation**: 18 failed, 4 passed (proving missing functionality)
 - **After Implementation**: 22 passed (proving complete implementation)
 - **Requirements Compliance**: 100% (8/8 requirements fulfilled)
@@ -259,6 +292,7 @@ Each requirement tested with multiple scenarios:
 - **Exit Code Handling**: Tests properly exit with code 0 to distinguish test failures from command errors
 
 ### Key Success Metrics
+
 - All 8 requirements fully implemented and tested
 - Thread-safe operations with minimal performance impact
 - Comprehensive error handling and edge case coverage
@@ -278,6 +312,7 @@ Each requirement tested with multiple scenarios:
 ## Future Enhancements
 
 Potential improvements for production use:
+
 - **Memory Limits**: Size-based eviction in addition to count-based
 - **Metrics Export**: Integration with monitoring systems
 - **Async Support**: Compatibility with asyncio patterns

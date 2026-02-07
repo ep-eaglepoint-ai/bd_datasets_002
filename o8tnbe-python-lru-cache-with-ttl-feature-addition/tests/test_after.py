@@ -76,6 +76,24 @@ def test_complex_arguments():
     test_instance.test_complex_arguments()
 
 
+def test_maxsize_zero_disables_cache():
+    """Test maxsize=0 disables caching - SHOULD PASS."""
+    test_instance = TestAfterImplementation()
+    test_instance.test_maxsize_zero_disables_cache()
+
+
+def test_ttl_zero_expires_immediately():
+    """Test ttl_seconds=0 expires immediately - SHOULD PASS."""
+    test_instance = TestAfterImplementation()
+    test_instance.test_ttl_zero_expires_immediately()
+
+
+def test_negative_values_raise():
+    """Test negative maxsize or ttl_seconds raises - SHOULD PASS."""
+    test_instance = TestAfterImplementation()
+    test_instance.test_negative_values_raise()
+
+
 if __name__ == "__main__":
     print("Running after implementation tests (these should PASS)...")
     exit_code = pytest.main([__file__, "-v"])

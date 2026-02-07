@@ -23,21 +23,26 @@ class CacheEntry:
 
 
 def lru_cache_with_ttl(maxsize: int = 128, ttl_seconds: float = 300.0):
+    if maxsize < 0:
+        raise ValueError("maxsize must be non-negative")
+    if ttl_seconds < 0:
+        raise ValueError("ttl_seconds must be non-negative")
+
     def decorator(func: Callable) -> Callable:
         cache = OrderedDict()
         stats = CacheStats()
         lock = threading.Lock()
-        
+
         # Get function signature for argument normalization
         sig = inspect.signature(func)
-        
+
         def _make_key(*args, **kwargs):
             """Generate cache key from function arguments."""
             try:
                 # Bind arguments to signature and apply defaults
                 bound = sig.bind(*args, **kwargs)
                 bound.apply_defaults()
-                
+
                 # Create hashable key from normalized arguments
                 key_parts = []
                 for name, value in bound.arguments.items():
@@ -48,32 +53,39 @@ def lru_cache_with_ttl(maxsize: int = 128, ttl_seconds: float = 300.0):
                     except TypeError:
                         # Value is not hashable, cannot cache
                         return None
-                
+
                 return tuple(key_parts)
             except (TypeError, ValueError):
                 # Arguments cannot be hashed or bound
                 return None
-        
+
         def _is_expired(entry: CacheEntry) -> bool:
             """Check if cache entry is expired."""
-            return time.time() - entry.timestamp > ttl_seconds
-        
+            if ttl_seconds == 0:
+                return True
+            return time.time() - entry.timestamp >= ttl_seconds
+
         @wraps(func)
         def wrapper(*args, **kwargs):
+            if maxsize == 0:
+                with lock:
+                    stats.misses += 1
+                return func(*args, **kwargs)
+
             # Generate cache key
             cache_key = _make_key(*args, **kwargs)
-            
+
             # If key cannot be generated, bypass cache
             if cache_key is None:
                 with lock:
                     stats.misses += 1
                 return func(*args, **kwargs)
-            
+
             # Check cache for existing entry
             with lock:
                 if cache_key in cache:
                     entry = cache[cache_key]
-                    
+
                     # Check if entry is expired
                     if _is_expired(entry):
                         # Remove expired entry
@@ -84,28 +96,33 @@ def lru_cache_with_ttl(maxsize: int = 128, ttl_seconds: float = 300.0):
                         cache.move_to_end(cache_key)
                         stats.hits += 1
                         return entry.value
-                
+
                 # Cache miss - will need to compute value
                 stats.misses += 1
-            
+
             # Compute value outside of lock to avoid blocking
             result = func(*args, **kwargs)
-            
+
             # Store result in cache
             with lock:
+                if cache_key in cache:
+                    cache[cache_key] = CacheEntry(result, time.time())
+                    cache.move_to_end(cache_key)
+                    return result
+
                 # Check if we need to evict entries
                 while len(cache) >= maxsize:
                     # Remove least recently used entry
                     cache.popitem(last=False)
                     stats.evictions += 1
-                
+
                 # Add new entry
                 cache[cache_key] = CacheEntry(result, time.time())
                 # Move to end (most recently used)
                 cache.move_to_end(cache_key)
-            
+
             return result
-        
+
         def cache_info():
             """Return current cache statistics."""
             with lock:
@@ -115,7 +132,7 @@ def lru_cache_with_ttl(maxsize: int = 128, ttl_seconds: float = 300.0):
                     evictions=stats.evictions,
                     expirations=stats.expirations
                 )
-        
+
         def cache_clear():
             """Clear all cache entries and reset statistics."""
             with lock:
@@ -124,11 +141,11 @@ def lru_cache_with_ttl(maxsize: int = 128, ttl_seconds: float = 300.0):
                 stats.misses = 0
                 stats.evictions = 0
                 stats.expirations = 0
-        
+
         # Attach methods to wrapper function
         wrapper.cache_info = cache_info
         wrapper.cache_clear = cache_clear
-        
+
         return wrapper
     return decorator
 

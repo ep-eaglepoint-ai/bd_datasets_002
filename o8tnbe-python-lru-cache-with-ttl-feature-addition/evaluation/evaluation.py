@@ -3,8 +3,6 @@
 
 import sys
 import os
-import time
-import threading
 import json
 import uuid
 import platform
