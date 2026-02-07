@@ -1,6 +1,11 @@
-diff -ruN repository_before/package.json repository_after/package.json
---- repository_before/package.json	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/package.json	2026-01-23 11:16:37.000000000 +0300
+diff --git a/repository_before/.gitkeep b/repository_before/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/repository_after/package.json b/repository_after/package.json
+new file mode 100644
+index 0000000..47450aa
+--- /dev/null
++++ b/repository_after/package.json
 @@ -0,0 +1,50 @@
 +{
 +  "name": "attendance-resilience-vue2",
@@ -53,9 +58,11 @@ diff -ruN repository_before/package.json repository_after/package.json
 +  }
 +}
 \ No newline at end of file
-diff -ruN repository_before/public/index.html repository_after/public/index.html
---- repository_before/public/index.html	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/public/index.html	2026-01-23 10:38:31.000000000 +0300
+diff --git a/repository_after/public/index.html b/repository_after/public/index.html
+new file mode 100644
+index 0000000..c31738e
+--- /dev/null
++++ b/repository_after/public/index.html
 @@ -0,0 +1,18 @@
 +<!DOCTYPE html>
 +<html lang="en">
@@ -76,9 +83,11 @@ diff -ruN repository_before/public/index.html repository_after/public/index.html
 +  </body>
 +</html>
 \ No newline at end of file
-diff -ruN repository_before/src/App.vue repository_after/src/App.vue
---- repository_before/src/App.vue	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/App.vue	2026-01-26 22:42:16.956517920 +0300
+diff --git a/repository_after/src/App.vue b/repository_after/src/App.vue
+new file mode 100644
+index 0000000..4610a6a
+--- /dev/null
++++ b/repository_after/src/App.vue
 @@ -0,0 +1,187 @@
 +<template>
 +  <v-app>
@@ -268,9 +277,11 @@ diff -ruN repository_before/src/App.vue repository_after/src/App.vue
 +}
 +</style>
 \ No newline at end of file
-diff -ruN repository_before/src/components/AttendanceList.vue repository_after/src/components/AttendanceList.vue
---- repository_before/src/components/AttendanceList.vue	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/components/AttendanceList.vue	2026-01-26 22:41:28.607813330 +0300
+diff --git a/repository_after/src/components/AttendanceList.vue b/repository_after/src/components/AttendanceList.vue
+new file mode 100644
+index 0000000..fe39cfc
+--- /dev/null
++++ b/repository_after/src/components/AttendanceList.vue
 @@ -0,0 +1,320 @@
 +<template>
 +  <v-row>
@@ -593,9 +604,11 @@ diff -ruN repository_before/src/components/AttendanceList.vue repository_after/s
 +}
 +</style>
 \ No newline at end of file
-diff -ruN repository_before/src/components/BulkOperations.vue repository_after/src/components/BulkOperations.vue
---- repository_before/src/components/BulkOperations.vue	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/components/BulkOperations.vue	2026-01-23 10:41:46.000000000 +0300
+diff --git a/repository_after/src/components/BulkOperations.vue b/repository_after/src/components/BulkOperations.vue
+new file mode 100644
+index 0000000..bd6623b
+--- /dev/null
++++ b/repository_after/src/components/BulkOperations.vue
 @@ -0,0 +1,295 @@
 +<template>
 +  <v-row class="mt-4">
@@ -893,9 +906,11 @@ diff -ruN repository_before/src/components/BulkOperations.vue repository_after/s
 +}
 +</style>
 \ No newline at end of file
-diff -ruN repository_before/src/components/FilterPanel.vue repository_after/src/components/FilterPanel.vue
---- repository_before/src/components/FilterPanel.vue	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/components/FilterPanel.vue	2026-01-26 22:39:11.801586885 +0300
+diff --git a/repository_after/src/components/FilterPanel.vue b/repository_after/src/components/FilterPanel.vue
+new file mode 100644
+index 0000000..96ac0d4
+--- /dev/null
++++ b/repository_after/src/components/FilterPanel.vue
 @@ -0,0 +1,278 @@
 +<template>
 +  <v-card class="mb-4">
@@ -1176,9 +1191,11 @@ diff -ruN repository_before/src/components/FilterPanel.vue repository_after/src/
 +}
 +</style>
 \ No newline at end of file
-diff -ruN repository_before/src/components/NotificationSystem.vue repository_after/src/components/NotificationSystem.vue
---- repository_before/src/components/NotificationSystem.vue	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/components/NotificationSystem.vue	2026-01-23 10:42:15.000000000 +0300
+diff --git a/repository_after/src/components/NotificationSystem.vue b/repository_after/src/components/NotificationSystem.vue
+new file mode 100644
+index 0000000..85d01c4
+--- /dev/null
++++ b/repository_after/src/components/NotificationSystem.vue
 @@ -0,0 +1,198 @@
 +<template>
 +  <div>
@@ -1379,9 +1396,11 @@ diff -ruN repository_before/src/components/NotificationSystem.vue repository_aft
 +}
 +</style>
 \ No newline at end of file
-diff -ruN repository_before/src/components/RetryDialog.vue repository_after/src/components/RetryDialog.vue
---- repository_before/src/components/RetryDialog.vue	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/components/RetryDialog.vue	2026-01-23 10:42:40.000000000 +0300
+diff --git a/repository_after/src/components/RetryDialog.vue b/repository_after/src/components/RetryDialog.vue
+new file mode 100644
+index 0000000..9531461
+--- /dev/null
++++ b/repository_after/src/components/RetryDialog.vue
 @@ -0,0 +1,152 @@
 +<template>
 +  <v-dialog
@@ -1536,9 +1555,11 @@ diff -ruN repository_before/src/components/RetryDialog.vue repository_after/src/
 +}
 +</style>
 \ No newline at end of file
-diff -ruN repository_before/src/main.js repository_after/src/main.js
---- repository_before/src/main.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/main.js	2026-01-23 10:38:39.000000000 +0300
+diff --git a/repository_after/src/main.js b/repository_after/src/main.js
+new file mode 100644
+index 0000000..fdc2a1a
+--- /dev/null
++++ b/repository_after/src/main.js
 @@ -0,0 +1,12 @@
 +import Vue from 'vue'
 +import App from './App.vue'
@@ -1553,9 +1574,11 @@ diff -ruN repository_before/src/main.js repository_after/src/main.js
 +  render: h => h(App)
 +}).$mount('#app')
 \ No newline at end of file
-diff -ruN repository_before/src/plugins/vuetify.js repository_after/src/plugins/vuetify.js
---- repository_before/src/plugins/vuetify.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/plugins/vuetify.js	2026-01-23 11:16:01.000000000 +0300
+diff --git a/repository_after/src/plugins/vuetify.js b/repository_after/src/plugins/vuetify.js
+new file mode 100644
+index 0000000..9fa72c7
+--- /dev/null
++++ b/repository_after/src/plugins/vuetify.js
 @@ -0,0 +1,21 @@
 +import Vue from 'vue'
 +import Vuetify from 'vuetify'
@@ -1579,9 +1602,11 @@ diff -ruN repository_before/src/plugins/vuetify.js repository_after/src/plugins/
 +  }
 +})
 \ No newline at end of file
-diff -ruN repository_before/src/services/mockApi.js repository_after/src/services/mockApi.js
---- repository_before/src/services/mockApi.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/services/mockApi.js	2026-01-26 22:42:48.960679395 +0300
+diff --git a/repository_after/src/services/mockApi.js b/repository_after/src/services/mockApi.js
+new file mode 100644
+index 0000000..fc228be
+--- /dev/null
++++ b/repository_after/src/services/mockApi.js
 @@ -0,0 +1,302 @@
 +/**
 + * Mock API service that simulates network conditions with configurable delays and failure rates
@@ -1886,9 +1911,11 @@ diff -ruN repository_before/src/services/mockApi.js repository_after/src/service
 +// Export singleton instance
 +export default new MockApiService()
 \ No newline at end of file
-diff -ruN repository_before/src/store/index.js repository_after/src/store/index.js
---- repository_before/src/store/index.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/store/index.js	2026-01-23 10:39:24.000000000 +0300
+diff --git a/repository_after/src/store/index.js b/repository_after/src/store/index.js
+new file mode 100644
+index 0000000..cb3add1
+--- /dev/null
++++ b/repository_after/src/store/index.js
 @@ -0,0 +1,12 @@
 +import Vue from 'vue'
 +import Vuex from 'vuex'
@@ -1903,9 +1930,11 @@ diff -ruN repository_before/src/store/index.js repository_after/src/store/index.
 +  strict: process.env.NODE_ENV !== 'production'
 +})
 \ No newline at end of file
-diff -ruN repository_before/src/store/modules/attendance.js repository_after/src/store/modules/attendance.js
---- repository_before/src/store/modules/attendance.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/src/store/modules/attendance.js	2026-01-26 22:43:11.934914933 +0300
+diff --git a/repository_after/src/store/modules/attendance.js b/repository_after/src/store/modules/attendance.js
+new file mode 100644
+index 0000000..df0e0c8
+--- /dev/null
++++ b/repository_after/src/store/modules/attendance.js
 @@ -0,0 +1,608 @@
 +import mockApi from '@/services/mockApi'
 +
@@ -2516,9 +2545,11 @@ diff -ruN repository_before/src/store/modules/attendance.js repository_after/src
 +  actions
 +}
 \ No newline at end of file
-diff -ruN repository_before/vue.config.js repository_after/vue.config.js
---- repository_before/vue.config.js	1970-01-01 03:00:00.000000000 +0300
-+++ repository_after/vue.config.js	2026-01-23 11:16:15.000000000 +0300
+diff --git a/repository_after/vue.config.js b/repository_after/vue.config.js
+new file mode 100644
+index 0000000..9d9ef8f
+--- /dev/null
++++ b/repository_after/vue.config.js
 @@ -0,0 +1,15 @@
 +const { defineConfig } = require('@vue/cli-service')
 +
