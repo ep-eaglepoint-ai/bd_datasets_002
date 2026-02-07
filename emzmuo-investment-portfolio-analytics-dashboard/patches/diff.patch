@@ -1,0 +1,2341 @@
+diff --git a/repository_before/README.md b/repository_before/README.md
+deleted file mode 100644
+index 983cdda..0000000
+--- a/repository_before/README.md
++++ /dev/null
+@@ -1,3 +0,0 @@
+-# Investment Portfolio Analytics Dashboard
+-
+-This project will implement a standalone, browser-only React investment portfolio analytics dashboard.
+\ No newline at end of file
+diff --git a/repository_after/index.html b/repository_after/index.html
+new file mode 100644
+index 0000000..ad8785a
+--- /dev/null
++++ b/repository_after/index.html
+@@ -0,0 +1,14 @@
++<!DOCTYPE html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>Investment Portfolio Analytics Dashboard</title>
++    <meta name="description" content="Standalone browser-only investment portfolio analytics dashboard with realistic market simulation" />
++  </head>
++  <body>
++    <div id="root"></div>
++    <script type="module" src="/src/main.jsx"></script>
++  </body>
++</html>
+\ No newline at end of file
+diff --git a/repository_before/package.json b/repository_after/package.json
+index 077e7f1..f0a3c4d 100644
+--- a/repository_before/package.json
++++ b/repository_after/package.json
+@@ -2,5 +2,28 @@
+   "name": "investment-portfolio-dashboard",
+   "version": "1.0.0",
+   "private": true,
+-  "description": "Investment Portfolio Analytics Dashboard - Initial State"
++  "type": "module",
++  "description": "Standalone browser-only React investment portfolio analytics dashboard",
++  "dependencies": {
++    "react": "^18.2.0",
++    "react-dom": "^18.2.0",
++    "recharts": "^2.8.0"
++  },
++  "devDependencies": {
++    "@vitejs/plugin-react": "^4.0.0",
++    "vite": "^4.4.0"
++  },
++  "scripts": {
++    "dev": "vite",
++    "build": "vite build",
++    "preview": "vite preview"
++  },
++  "keywords": [
++    "react",
++    "investment",
++    "portfolio",
++    "analytics",
++    "dashboard",
++    "browser-only"
++  ]
+ }
+\ No newline at end of file
+diff --git a/repository_after/src/App.jsx b/repository_after/src/App.jsx
+new file mode 100644
+index 0000000..7e075dd
+--- /dev/null
++++ b/repository_after/src/App.jsx
+@@ -0,0 +1,175 @@
++import React, { useState, useEffect, useMemo } from 'react';
++import { PortfolioEngine } from './utils/portfolioEngine.js';
++import { SECTOR_COLORS } from './utils/marketData.js';
++import MarketDataProvider, { useMarketData } from './components/MarketDataProvider.jsx';
++import PortfolioSummary from './components/PortfolioSummary.jsx';
++import HoldingsTable from './components/HoldingsTable.jsx';
++import HistoricalChart from './components/HistoricalChart.jsx';
++import SectorAllocation from './components/SectorAllocation.jsx';
++import TransactionHistory from './components/TransactionHistory.jsx';
++import PerformanceMetrics from './components/PerformanceMetrics.jsx';
++
++// Main dashboard component that uses market data
++function Dashboard() {
++  const [isLoading, setIsLoading] = useState(true);
++  const marketData = useMarketData();
++  
++  // Initialize portfolio engine with market data
++  const portfolioEngine = useMemo(() => {
++    console.log('Initializing portfolio engine...');
++    
++    const engine = new PortfolioEngine();
++    engine.setMarketData(
++      marketData.transactions, 
++      marketData.dividends, 
++      marketData.stockSplits, 
++      marketData.currentPrices
++    );
++    
++    return engine;
++  }, [marketData]);
++  
++  // Calculate all portfolio metrics (memoized for performance)
++  const portfolioMetrics = useMemo(() => {
++    if (!portfolioEngine) return null;
++    
++    console.log('Calculating portfolio metrics...');
++    
++    const holdings = portfolioEngine.getCurrentHoldings();
++    const summary = portfolioEngine.getPortfolioSummary();
++    const sectorAllocation = portfolioEngine.getSectorAllocation();
++    const historicalData = portfolioEngine.getHistoricalData(365);
++    const performanceMetrics = portfolioEngine.getPerformanceMetrics();
++    
++    return {
++      holdings,
++      summary,
++      sectorAllocation: sectorAllocation.map(sector => ({
++        ...sector,
++        color: SECTOR_COLORS[sector.sector] || '#666666'
++      })),
++      historicalData,
++      performanceMetrics
++    };
++  }, [portfolioEngine]);
++  
++  // Simulate loading delay to show the app is working
++  useEffect(() => {
++    const timer = setTimeout(() => {
++      setIsLoading(false);
++    }, 1000);
++    
++    return () => clearTimeout(timer);
++  }, []);
++  
++  if (isLoading) {
++    return (
++      <div className="dashboard">
++        <div className="dashboard-header">
++          <h1>Investment Portfolio Analytics</h1>
++          <p>Loading portfolio data...</p>
++        </div>
++        <div style={{ textAlign: 'center', padding: '50px' }}>
++          <div style={{ 
++            display: 'inline-block', 
++            width: '50px', 
++            height: '50px', 
++            border: '3px solid #f3f3f3',
++            borderTop: '3px solid #667eea',
++            borderRadius: '50%',
++            animation: 'spin 1s linear infinite'
++          }}></div>
++          <style>{`
++            @keyframes spin {
++              0% { transform: rotate(0deg); }
++              100% { transform: rotate(360deg); }
++            }
++          `}</style>
++        </div>
++      </div>
++    );
++  }
++  
++  if (!portfolioMetrics) {
++    return (
++      <div className="dashboard">
++        <div className="dashboard-header">
++          <h1>Investment Portfolio Analytics</h1>
++          <p>Error loading portfolio data</p>
++        </div>
++      </div>
++    );
++  }
++  
++  return (
++    <div className="dashboard">
++      <div className="dashboard-header">
++        <h1>Investment Portfolio Analytics Dashboard</h1>
++        <p>Real-time portfolio analysis with FIFO lot tracking and performance metrics</p>
++      </div>
++      
++      <div className="dashboard-grid">
++        {/* Portfolio Summary - Section 1 */}
++        <div className="dashboard-section">
++          <h2 className="section-title">Portfolio Summary</h2>
++          <PortfolioSummary summary={portfolioMetrics.summary} />
++        </div>
++        
++        {/* Performance Metrics - Section 2 */}
++        <div className="dashboard-section">
++          <h2 className="section-title">Performance Metrics</h2>
++          <PerformanceMetrics metrics={portfolioMetrics.performanceMetrics} />
++        </div>
++        
++        {/* Holdings Table - Section 3 */}
++        <div className="dashboard-section" style={{ gridColumn: '1 / -1' }}>
++          <h2 className="section-title">Current Holdings</h2>
++          <HoldingsTable 
++            holdings={portfolioMetrics.holdings} 
++            currentPrices={marketData.currentPrices}
++          />
++        </div>
++        
++        {/* Historical Chart - Section 4 */}
++        <div className="dashboard-section" style={{ gridColumn: '1 / -1' }}>
++          <h2 className="section-title">Portfolio Value History</h2>
++          <HistoricalChart data={portfolioMetrics.historicalData} />
++        </div>
++        
++        {/* Sector Allocation - Section 5 */}
++        <div className="dashboard-section">
++          <h2 className="section-title">Sector Allocation</h2>
++          <SectorAllocation sectors={portfolioMetrics.sectorAllocation} />
++        </div>
++        
++        {/* Transaction History - Section 6 */}
++        <div className="dashboard-section">
++          <h2 className="section-title">Recent Transactions</h2>
++          <TransactionHistory 
++            transactions={marketData.transactions.slice(-10)} 
++            dividends={marketData.dividends.slice(-5)}
++          />
++        </div>
++      </div>
++      
++      <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '0.9rem' }}>
++        <p>
++          All data is simulated and generated in-memory. No external APIs or storage used.
++          <br />
++          FIFO lot tracking • Real-time calculations • Responsive design
++        </p>
++      </div>
++    </div>
++  );
++}
++
++// Main App component with MarketDataProvider wrapper
++function App() {
++  return (
++    <MarketDataProvider>
++      <Dashboard />
++    </MarketDataProvider>
++  );
++}
++
++export default App;
+\ No newline at end of file
+diff --git a/repository_after/src/components/HistoricalChart.jsx b/repository_after/src/components/HistoricalChart.jsx
+new file mode 100644
+index 0000000..a06e2bb
+--- /dev/null
++++ b/repository_after/src/components/HistoricalChart.jsx
+@@ -0,0 +1,123 @@
++import React from 'react';
++import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
++import { formatCurrency, formatChartDate } from '../utils/formatters.js';
++
++function HistoricalChart({ data }) {
++  
++  // Prepare data for chart (sample every 7 days for performance)
++  const chartData = data
++    .filter((_, index) => index % 7 === 0 || index === data.length - 1)
++    .map(point => ({
++      date: point.date.toISOString(),
++      value: point.value,
++      formattedDate: formatChartDate(point.date)
++    }));
++  
++  const CustomTooltip = ({ active, payload, label }) => {
++    if (active && payload && payload.length) {
++      const data = payload[0];
++      const date = new Date(label);
++      
++      return (
++        <div style={{
++          backgroundColor: 'white',
++          border: '1px solid #ccc',
++          borderRadius: '4px',
++          padding: '10px',
++          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
++        }}>
++          <p style={{ margin: 0, fontWeight: 'bold' }}>
++            {date.toLocaleDateString('en-US', { 
++              weekday: 'short',
++              year: 'numeric', 
++              month: 'short', 
++              day: 'numeric' 
++            })}
++          </p>
++          <p style={{ margin: '5px 0 0 0', color: '#667eea' }}>
++            Portfolio Value: {formatCurrency(data.value)}
++          </p>
++        </div>
++      );
++    }
++    return null;
++  };
++  
++  if (!data || data.length === 0) {
++    return (
++      <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
++        No historical data available
++      </div>
++    );
++  }
++  
++  const minValue = Math.min(...data.map(d => d.value));
++  const maxValue = Math.max(...data.map(d => d.value));
++  const padding = (maxValue - minValue) * 0.1;
++  
++  return (
++    <div className="chart-container">
++      <ResponsiveContainer width="100%" height="100%">
++        <LineChart
++          data={chartData}
++          margin={{
++            top: 20,
++            right: 30,
++            left: 20,
++            bottom: 20,
++          }}
++        >
++          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
++          <XAxis 
++            dataKey="formattedDate"
++            stroke="#666"
++            fontSize={12}
++            interval="preserveStartEnd"
++          />
++          <YAxis 
++            stroke="#666"
++            fontSize={12}
++            tickFormatter={(value) => formatCurrency(value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
++            domain={[minValue - padding, maxValue + padding]}
++          />
++          <Tooltip content={<CustomTooltip />} />
++          <Line 
++            type="monotone" 
++            dataKey="value" 
++            stroke="#667eea" 
++            strokeWidth={2}
++            dot={false}
++            activeDot={{ r: 4, fill: '#667eea' }}
++          />
++        </LineChart>
++      </ResponsiveContainer>
++      
++      <style jsx>{`
++        .chart-container {
++          height: 400px;
++          width: 100%;
++          background: white;
++          border-radius: 8px;
++          padding: 20px;
++          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
++        }
++        
++        @media (max-width: 768px) {
++          .chart-container {
++            height: 300px;
++            padding: 15px;
++          }
++        }
++        
++        @media (max-width: 480px) {
++          .chart-container {
++            height: 250px;
++            padding: 10px;
++          }
++        }
++      `}</style>
++    </div>
++  );
++}
++
++export default HistoricalChart;
+\ No newline at end of file
+diff --git a/repository_after/src/components/HoldingsTable.jsx b/repository_after/src/components/HoldingsTable.jsx
+new file mode 100644
+index 0000000..d403720
+--- /dev/null
++++ b/repository_after/src/components/HoldingsTable.jsx
+@@ -0,0 +1,153 @@
++import React from 'react';
++import { formatCurrency, formatPercent, getColorClass, formatNumber } from '../utils/formatters.js';
++
++function HoldingsTable({ holdings, currentPrices }) {
++  
++  const holdingsArray = Object.values(holdings).sort((a, b) => b.currentValue - a.currentValue);
++  
++  if (holdingsArray.length === 0) {
++    return (
++      <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
++        No holdings found
++      </div>
++    );
++  }
++  
++  return (
++    <div className="holdings-table-container">
++      <table className="data-table">
++        <thead>
++          <tr>
++            <th>Symbol</th>
++            <th className="hide-mobile">Company</th>
++            <th>Shares</th>
++            <th className="hide-mobile">Avg Cost</th>
++            <th>Current Price</th>
++            <th>Market Value</th>
++            <th className="hide-mobile">Total Cost</th>
++            <th>Gain/Loss</th>
++            <th className="hide-mobile">Return %</th>
++            <th className="hide-mobile">Day Change</th>
++          </tr>
++        </thead>
++        <tbody>
++          {holdingsArray.map(holding => {
++            const priceData = currentPrices[holding.symbol];
++            const dayChange = priceData ? 
++              (priceData.currentPrice - priceData.previousClose) * holding.shares : 0;
++            const dayChangePercent = priceData && priceData.previousClose > 0 ? 
++              ((priceData.currentPrice - priceData.previousClose) / priceData.previousClose) * 100 : 0;
++            
++            return (
++              <tr key={holding.symbol}>
++                <td style={{ fontWeight: 'bold', color: '#667eea' }}>
++                  {holding.symbol}
++                </td>
++                <td className="hide-mobile">{priceData?.name || 'Unknown'}</td>
++                <td>{formatNumber(holding.shares)}</td>
++                <td className="hide-mobile">{formatCurrency(holding.averageCost)}</td>
++                <td>{formatCurrency(priceData?.currentPrice || 0)}</td>
++                <td style={{ fontWeight: 'bold' }}>
++                  {formatCurrency(holding.currentValue)}
++                </td>
++                <td className="hide-mobile">{formatCurrency(holding.totalCost)}</td>
++                <td className={getColorClass(holding.unrealizedGain)}>
++                  {formatCurrency(holding.unrealizedGain)}
++                </td>
++                <td className={`hide-mobile ${getColorClass(holding.unrealizedGainPercent)}`}>
++                  {formatPercent(holding.unrealizedGainPercent)}
++                </td>
++                <td className={`hide-mobile ${getColorClass(dayChange)}`}>
++                  {formatCurrency(dayChange)}
++                  <br />
++                  <small className={getColorClass(dayChangePercent)}>
++                    ({formatPercent(dayChangePercent)})
++                  </small>
++                </td>
++              </tr>
++            );
++          })}
++        </tbody>
++      </table>
++      
++      <style jsx>{`
++        .holdings-table-container {
++          overflow-x: auto;
++          background: white;
++          border-radius: 8px;
++          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
++        }
++        
++        .data-table {
++          width: 100%;
++          border-collapse: collapse;
++          min-width: 800px;
++        }
++        
++        .data-table th,
++        .data-table td {
++          padding: 12px 8px;
++          text-align: left;
++          border-bottom: 1px solid #e5e7eb;
++        }
++        
++        .data-table th {
++          background-color: #f8f9fa;
++          font-weight: 600;
++          color: #374151;
++          font-size: 0.875rem;
++          text-transform: uppercase;
++          letter-spacing: 0.05em;
++        }
++        
++        .data-table td {
++          font-size: 0.875rem;
++        }
++        
++        .data-table tr:hover {
++          background-color: #f9fafb;
++        }
++        
++        .positive {
++          color: #10b981;
++          font-weight: 600;
++        }
++        
++        .negative {
++          color: #ef4444;
++          font-weight: 600;
++        }
++        
++        .neutral {
++          color: #6b7280;
++        }
++        
++        @media (max-width: 768px) {
++          .hide-mobile {
++            display: none;
++          }
++          
++          .data-table {
++            min-width: 400px;
++          }
++          
++          .data-table th,
++          .data-table td {
++            padding: 8px 4px;
++            font-size: 0.75rem;
++          }
++        }
++        
++        @media (max-width: 480px) {
++          .data-table th,
++          .data-table td {
++            padding: 6px 2px;
++            font-size: 0.7rem;
++          }
++        }
++      `}</style>
++    </div>
++  );
++}
++
++export default HoldingsTable;
+\ No newline at end of file
+diff --git a/repository_after/src/components/MarketDataProvider.jsx b/repository_after/src/components/MarketDataProvider.jsx
+new file mode 100644
+index 0000000..98d0e1a
+--- /dev/null
++++ b/repository_after/src/components/MarketDataProvider.jsx
+@@ -0,0 +1,66 @@
++import React, { createContext, useContext, useMemo } from 'react';
++import { 
++  generateCurrentPrices, 
++  generateSampleTransactions, 
++  generateDividends, 
++  generateStockSplits 
++} from '../utils/marketData.js';
++
++// Create context for market data
++const MarketDataContext = createContext();
++
++/**
++ * Market Data Provider Component
++ * Centralizes market data generation and provides it to child components
++ */
++export const MarketDataProvider = ({ children }) => {
++  // Generate all market data once and memoize it
++  const marketData = useMemo(() => {
++    const currentPrices = generateCurrentPrices();
++    const transactions = generateSampleTransactions();
++    const dividends = generateDividends(transactions);
++    const stockSplits = generateStockSplits();
++    
++    return {
++      currentPrices,
++      transactions,
++      dividends,
++      stockSplits
++    };
++  }, []); // Empty dependency array means this only runs once
++
++  if (!marketData) {
++    return (
++      <div style={{ textAlign: 'center', padding: '50px' }}>
++        <p>Loading market data...</p>
++      </div>
++    );
++  }
++
++  return (
++    <MarketDataContext.Provider value={marketData}>
++      {children}
++      <style jsx>{`
++        @media (max-width: 768px) {
++          .market-data-provider {
++            padding: 10px;
++          }
++        }
++      `}</style>
++    </MarketDataContext.Provider>
++  );
++};
++
++/**
++ * Custom hook to access market data
++ * @returns {object} Market data object containing prices, transactions, dividends, and splits
++ */
++export const useMarketData = () => {
++  const context = useContext(MarketDataContext);
++  if (!context) {
++    throw new Error('useMarketData must be used within a MarketDataProvider');
++  }
++  return context;
++};
++
++export default MarketDataProvider;
+\ No newline at end of file
+diff --git a/repository_after/src/components/PerformanceMetrics.jsx b/repository_after/src/components/PerformanceMetrics.jsx
+new file mode 100644
+index 0000000..9b678ca
+--- /dev/null
++++ b/repository_after/src/components/PerformanceMetrics.jsx
+@@ -0,0 +1,160 @@
++import React from 'react';
++import { formatCurrency, formatPercent, getColorClass } from '../utils/formatters.js';
++
++const PerformanceMetrics = ({ metrics }) => {
++  if (!metrics) {
++    return (
++      <div className="performance-metrics">
++        <p>Loading performance metrics...</p>
++      </div>
++    );
++  }
++
++  return (
++    <div className="performance-metrics">
++      <div className="metrics-grid">
++        <div className="metric-card">
++          <div className="metric-label">Total Return</div>
++          <div className={`metric-value ${getColorClass(metrics.totalReturn)}`}>
++            {formatCurrency(metrics.totalReturn)}
++          </div>
++          <div className={`metric-subtitle ${getColorClass(metrics.totalReturnPercent)}`}>
++            {formatPercent(metrics.totalReturnPercent)}
++          </div>
++        </div>
++
++        <div className="metric-card">
++          <div className="metric-label">Annualized Return</div>
++          <div className={`metric-value ${getColorClass(metrics.annualizedReturn)}`}>
++            {formatPercent(metrics.annualizedReturn)}
++          </div>
++          <div className="metric-subtitle">
++            Since inception
++          </div>
++        </div>
++
++        <div className="metric-card">
++          <div className="metric-label">Volatility</div>
++          <div className="metric-value">
++            {formatPercent(metrics.volatility)}
++          </div>
++          <div className="metric-subtitle">
++            Annualized
++          </div>
++        </div>
++
++        <div className="metric-card">
++          <div className="metric-label">Sharpe Ratio</div>
++          <div className={`metric-value ${getColorClass(metrics.sharpeRatio)}`}>
++            {metrics.sharpeRatio.toFixed(2)}
++          </div>
++          <div className="metric-subtitle">
++            Risk-adjusted return
++          </div>
++        </div>
++
++          <div className="metric-card">
++          <div className="metric-label">Max Drawdown</div>
++          <div className="metric-value negative">
++            -{formatPercent(Math.abs(metrics.maxDrawdown), false)}
++          </div>
++          <div className="metric-subtitle">
++            Largest decline
++          </div>
++        </div>
++
++        <div className="metric-card">
++          <div className="metric-label">Dividend Yield</div>
++          <div className={`metric-value ${getColorClass(metrics.dividendYield)}`}>
++            {formatPercent(metrics.dividendYield)}
++          </div>
++          <div className="metric-subtitle">
++            Annual income
++          </div>
++        </div>
++      </div>
++
++      <style jsx>{`
++        .performance-metrics {
++          padding: 20px;
++          background: white;
++          border-radius: 8px;
++          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
++        }
++
++        .metrics-grid {
++          display: grid;
++          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
++          gap: 16px;
++        }
++
++        .metric-card {
++          padding: 16px;
++          background: #f8f9fa;
++          border-radius: 6px;
++          border-left: 4px solid #667eea;
++          text-align: center;
++        }
++
++        .metric-label {
++          font-size: 0.85rem;
++          color: #666;
++          font-weight: 500;
++          margin-bottom: 8px;
++          text-transform: uppercase;
++          letter-spacing: 0.5px;
++        }
++
++        .metric-value {
++          font-size: 1.5rem;
++          font-weight: 700;
++          margin-bottom: 4px;
++          color: #333;
++        }
++
++        .metric-value.positive {
++          color: #10b981;
++        }
++
++        .metric-value.negative {
++          color: #ef4444;
++        }
++
++        .metric-value.neutral {
++          color: #6b7280;
++        }
++
++        .metric-subtitle {
++          font-size: 0.75rem;
++          color: #888;
++          font-weight: 500;
++        }
++
++        .metric-subtitle.positive {
++          color: #10b981;
++        }
++
++        .metric-subtitle.negative {
++          color: #ef4444;
++        }
++
++        @media (max-width: 768px) {
++          .metrics-grid {
++            grid-template-columns: repeat(2, 1fr);
++            gap: 12px;
++          }
++          
++          .metric-card {
++            padding: 12px;
++          }
++          
++          .metric-value {
++            font-size: 1.25rem;
++          }
++        }
++      `}</style>
++    </div>
++  );
++};
++
++export default PerformanceMetrics;
+\ No newline at end of file
+diff --git a/repository_after/src/components/PortfolioSummary.jsx b/repository_after/src/components/PortfolioSummary.jsx
+new file mode 100644
+index 0000000..5e2d816
+--- /dev/null
++++ b/repository_after/src/components/PortfolioSummary.jsx
+@@ -0,0 +1,161 @@
++import React from 'react';
++import { formatCurrency, formatPercent, getColorClass } from '../utils/formatters.js';
++
++function PortfolioSummary({ summary }) {
++  if (!summary) {
++    return (
++      <div className="portfolio-summary">
++        <p>Loading portfolio summary...</p>
++      </div>
++    );
++  }
++  
++  return (
++    <div className="portfolio-summary">
++      <div className="metrics-grid">
++        <div className="metric-card">
++          <div className="metric-value">
++            {formatCurrency(summary.totalValue)}
++          </div>
++          <div className="metric-label">Total Value</div>
++        </div>
++        
++        <div className="metric-card">
++          <div className="metric-value">
++            {formatCurrency(summary.totalCost)}
++          </div>
++          <div className="metric-label">Total Cost</div>
++        </div>
++        
++        <div className="metric-card">
++          <div className={`metric-value ${getColorClass(summary.totalGain)}`}>
++            {formatCurrency(summary.totalGain)}
++          </div>
++          <div className="metric-label">Total Gain/Loss</div>
++        </div>
++        
++        <div className="metric-card">
++          <div className={`metric-value ${getColorClass(summary.totalGainPercent)}`}>
++            {formatPercent(summary.totalGainPercent)}
++          </div>
++          <div className="metric-label">Total Return</div>
++        </div>
++        
++        <div className="metric-card">
++          <div className={`metric-value ${getColorClass(summary.dayChange)}`}>
++            {formatCurrency(summary.dayChange)}
++          </div>
++          <div className="metric-label">Day Change</div>
++        </div>
++        
++        <div className="metric-card">
++          <div className={`metric-value ${getColorClass(summary.dayChangePercent)}`}>
++            {formatPercent(summary.dayChangePercent)}
++          </div>
++          <div className="metric-label">Day Change %</div>
++        </div>
++        
++        <div className="metric-card">
++          <div className="metric-value positive">
++            {formatCurrency(summary.dividendIncome)}
++          </div>
++          <div className="metric-label">Dividend Income</div>
++        </div>
++      </div>
++      
++      <style jsx>{`
++        .portfolio-summary {
++          background: white;
++          border-radius: 8px;
++          padding: 20px;
++          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
++        }
++        
++        .metrics-grid {
++          display: grid;
++          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
++          gap: 16px;
++        }
++        
++        .metric-card {
++          text-align: center;
++          padding: 16px;
++          background: #f8f9fa;
++          border-radius: 6px;
++          border-left: 4px solid #667eea;
++        }
++        
++        .metric-value {
++          font-size: 1.5rem;
++          font-weight: 700;
++          margin-bottom: 8px;
++          color: #333;
++        }
++        
++        .metric-label {
++          font-size: 0.875rem;
++          color: #666;
++          font-weight: 500;
++          text-transform: uppercase;
++          letter-spacing: 0.5px;
++        }
++        
++        .positive {
++          color: #10b981;
++        }
++        
++        .negative {
++          color: #ef4444;
++        }
++        
++        .neutral {
++          color: #6b7280;
++        }
++        
++        @media (max-width: 768px) {
++          .portfolio-summary {
++            padding: 15px;
++          }
++          
++          .metrics-grid {
++            grid-template-columns: repeat(2, 1fr);
++            gap: 12px;
++          }
++          
++          .metric-card {
++            padding: 12px;
++          }
++          
++          .metric-value {
++            font-size: 1.25rem;
++          }
++          
++          .metric-label {
++            font-size: 0.75rem;
++          }
++        }
++        
++        @media (max-width: 480px) {
++          .portfolio-summary {
++            padding: 10px;
++          }
++          
++          .metrics-grid {
++            grid-template-columns: 1fr;
++            gap: 8px;
++          }
++          
++          .metric-card {
++            padding: 10px;
++          }
++          
++          .metric-value {
++            font-size: 1.1rem;
++          }
++        }
++      `}</style>
++    </div>
++  );
++}
++
++export default PortfolioSummary;
+\ No newline at end of file
+diff --git a/repository_after/src/components/SectorAllocation.jsx b/repository_after/src/components/SectorAllocation.jsx
+new file mode 100644
+index 0000000..7481828
+--- /dev/null
++++ b/repository_after/src/components/SectorAllocation.jsx
+@@ -0,0 +1,203 @@
++import React from 'react';
++import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
++import { formatCurrency } from '../utils/formatters.js';
++
++function SectorAllocation({ sectors }) {
++  
++  const CustomTooltip = ({ active, payload }) => {
++    if (active && payload && payload.length) {
++      const data = payload[0].payload;
++      return (
++        <div style={{
++          backgroundColor: 'white',
++          border: '1px solid #ccc',
++          borderRadius: '4px',
++          padding: '10px',
++          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
++        }}>
++          <p style={{ margin: 0, fontWeight: 'bold' }}>{data.sector}</p>
++          <p style={{ margin: '5px 0 0 0' }}>
++            Value: {formatCurrency(data.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
++          </p>
++          <p style={{ margin: '5px 0 0 0' }}>
++            Allocation: {data.percentage.toFixed(1)}%
++          </p>
++        </div>
++      );
++    }
++    return null;
++  };
++  
++  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percentage }) => {
++    if (percentage < 5) return null; // Don't show labels for small slices
++    
++    const RADIAN = Math.PI / 180;
++    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
++    const x = cx + radius * Math.cos(-midAngle * RADIAN);
++    const y = cy + radius * Math.sin(-midAngle * RADIAN);
++    
++    return (
++      <text 
++        x={x} 
++        y={y} 
++        fill="white" 
++        textAnchor={x > cx ? 'start' : 'end'} 
++        dominantBaseline="central"
++        fontSize={12}
++        fontWeight="bold"
++      >
++        {`${percentage.toFixed(0)}%`}
++      </text>
++    );
++  };
++  
++  if (!sectors || sectors.length === 0) {
++    return (
++      <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
++        No sector data available
++      </div>
++    );
++  }
++  
++  return (
++    <div className="sector-allocation">
++      <div className="chart-container">
++        <ResponsiveContainer width="100%" height="100%">
++          <PieChart>
++            <Pie
++              data={sectors}
++              cx="50%"
++              cy="50%"
++              labelLine={false}
++              label={CustomLabel}
++              outerRadius={100}
++              fill="#8884d8"
++              dataKey="percentage"
++            >
++              {sectors.map((entry, index) => (
++                <Cell key={`cell-${index}`} fill={entry.color} />
++              ))}
++            </Pie>
++            <Tooltip content={<CustomTooltip />} />
++          </PieChart>
++        </ResponsiveContainer>
++      </div>
++      
++      <div className="sector-table">
++        <table className="data-table">
++          <thead>
++            <tr>
++              <th>Sector</th>
++              <th>Value</th>
++              <th>Allocation</th>
++            </tr>
++          </thead>
++          <tbody>
++            {sectors
++              .sort((a, b) => b.percentage - a.percentage)
++              .map(sector => (
++                <tr key={sector.sector}>
++                  <td>
++                    <div style={{ display: 'flex', alignItems: 'center' }}>
++                      <div 
++                        style={{
++                          width: '12px',
++                          height: '12px',
++                          backgroundColor: sector.color,
++                          borderRadius: '2px',
++                          marginRight: '8px'
++                        }}
++                      ></div>
++                      {sector.sector}
++                    </div>
++                  </td>
++                  <td>{formatCurrency(sector.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
++                  <td>{sector.percentage.toFixed(1)}%</td>
++                </tr>
++              ))}
++          </tbody>
++        </table>
++      </div>
++      
++      <style jsx>{`
++        .sector-allocation {
++          background: white;
++          border-radius: 8px;
++          padding: 20px;
++          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
++        }
++        
++        .chart-container {
++          height: 300px;
++          width: 100%;
++          margin-bottom: 20px;
++        }
++        
++        .sector-table {
++          overflow-x: auto;
++        }
++        
++        .data-table {
++          width: 100%;
++          border-collapse: collapse;
++        }
++        
++        .data-table th,
++        .data-table td {
++          padding: 8px 12px;
++          text-align: left;
++          border-bottom: 1px solid #e5e7eb;
++        }
++        
++        .data-table th {
++          background-color: #f8f9fa;
++          font-weight: 600;
++          color: #374151;
++          font-size: 0.875rem;
++        }
++        
++        .data-table td {
++          font-size: 0.875rem;
++        }
++        
++        .data-table tr:hover {
++          background-color: #f9fafb;
++        }
++        
++        @media (max-width: 768px) {
++          .sector-allocation {
++            padding: 15px;
++          }
++          
++          .chart-container {
++            height: 250px;
++          }
++          
++          .data-table th,
++          .data-table td {
++            padding: 6px 8px;
++            font-size: 0.75rem;
++          }
++        }
++        
++        @media (max-width: 480px) {
++          .sector-allocation {
++            padding: 10px;
++          }
++          
++          .chart-container {
++            height: 200px;
++          }
++          
++          .data-table th,
++          .data-table td {
++            padding: 4px 6px;
++            font-size: 0.7rem;
++          }
++        }
++      `}</style>
++    </div>
++  );
++}
++
++export default SectorAllocation;
+\ No newline at end of file
+diff --git a/repository_after/src/components/TransactionHistory.jsx b/repository_after/src/components/TransactionHistory.jsx
+new file mode 100644
+index 0000000..24a562d
+--- /dev/null
++++ b/repository_after/src/components/TransactionHistory.jsx
+@@ -0,0 +1,213 @@
++import React from 'react';
++import { formatCurrency, formatDate, getTypeColor, getTypeIcon } from '../utils/formatters.js';
++
++const TransactionHistory = ({ transactions, dividends }) => {
++  if (!transactions && !dividends) {
++    return (
++      <div className="transaction-history">
++        <p>Loading transaction history...</p>
++      </div>
++    );
++  }
++
++  // Combine and sort transactions and dividends
++  const allEvents = [
++    ...(transactions || []).map(t => ({
++      ...t,
++      eventType: 'transaction',
++      amount: t.shares * t.price
++    })),
++    ...(dividends || []).map(d => ({
++      ...d,
++      eventType: 'dividend',
++      type: 'DIVIDEND'
++    }))
++  ].sort((a, b) => new Date(b.date) - new Date(a.date));
++
++  return (
++    <div className="transaction-history">
++      <div className="transaction-list">
++        {allEvents.length === 0 ? (
++          <div className="no-transactions">
++            <p>No recent transactions</p>
++          </div>
++        ) : (
++          allEvents.map((event, index) => (
++            <div key={`${event.eventType}-${event.id || index}`} className="transaction-item">
++              <div className="transaction-icon" style={{ color: getTypeColor(event.type) }}>
++                {getTypeIcon(event.type)}
++              </div>
++              
++              <div className="transaction-details">
++                <div className="transaction-main">
++                  <span className="transaction-type" style={{ color: getTypeColor(event.type) }}>
++                    {event.type}
++                  </span>
++                  <span className="transaction-symbol">{event.symbol}</span>
++                </div>
++                
++                <div className="transaction-info">
++                  {event.eventType === 'transaction' ? (
++                    <>
++                      <span className="shares">{event.shares.toLocaleString()} shares</span>
++                      <span className="price">@ {formatCurrency(event.price)}</span>
++                    </>
++                  ) : (
++                    <span className="dividend-info">Dividend payment</span>
++                  )}
++                </div>
++              </div>
++              
++              <div className="transaction-amount">
++                <div className="amount" style={{ color: getTypeColor(event.type) }}>
++                  {event.type === 'SELL' || event.type === 'DIVIDEND' ? '+' : '-'}
++                  {formatCurrency(Math.abs(event.amount))}
++                </div>
++                <div className="date">{formatDate(event.date)}</div>
++              </div>
++            </div>
++          ))
++        )}
++      </div>
++
++      <style jsx>{`
++        .transaction-history {
++          padding: 20px;
++          background: white;
++          border-radius: 8px;
++          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
++          max-height: 400px;
++          overflow-y: auto;
++        }
++
++        .transaction-list {
++          display: flex;
++          flex-direction: column;
++          gap: 12px;
++        }
++
++        .no-transactions {
++          text-align: center;
++          padding: 40px 20px;
++          color: #666;
++        }
++
++        .transaction-item {
++          display: flex;
++          align-items: center;
++          padding: 12px;
++          background: #f8f9fa;
++          border-radius: 6px;
++          border-left: 3px solid #e5e7eb;
++          transition: all 0.2s ease;
++        }
++
++        .transaction-item:hover {
++          background: #f1f5f9;
++          border-left-color: #667eea;
++        }
++
++        .transaction-icon {
++          font-size: 1.25rem;
++          font-weight: bold;
++          margin-right: 12px;
++          min-width: 24px;
++          text-align: center;
++        }
++
++        .transaction-details {
++          flex: 1;
++          min-width: 0;
++        }
++
++        .transaction-main {
++          display: flex;
++          align-items: center;
++          gap: 8px;
++          margin-bottom: 4px;
++        }
++
++        .transaction-type {
++          font-weight: 600;
++          font-size: 0.85rem;
++          text-transform: uppercase;
++          letter-spacing: 0.5px;
++        }
++
++        .transaction-symbol {
++          font-weight: 600;
++          color: #333;
++        }
++
++        .transaction-info {
++          display: flex;
++          align-items: center;
++          gap: 8px;
++          font-size: 0.85rem;
++          color: #666;
++        }
++
++        .shares, .price, .dividend-info {
++          white-space: nowrap;
++        }
++
++        .transaction-amount {
++          text-align: right;
++          min-width: 100px;
++        }
++
++        .amount {
++          font-weight: 600;
++          font-size: 0.95rem;
++          margin-bottom: 2px;
++        }
++
++        .date {
++          font-size: 0.75rem;
++          color: #888;
++        }
++
++        /* Custom scrollbar */
++        .transaction-history::-webkit-scrollbar {
++          width: 6px;
++        }
++
++        .transaction-history::-webkit-scrollbar-track {
++          background: #f1f1f1;
++          border-radius: 3px;
++        }
++
++        .transaction-history::-webkit-scrollbar-thumb {
++          background: #c1c1c1;
++          border-radius: 3px;
++        }
++
++        .transaction-history::-webkit-scrollbar-thumb:hover {
++          background: #a8a8a8;
++        }
++
++        @media (max-width: 768px) {
++          .transaction-item {
++            padding: 10px;
++          }
++          
++          .transaction-info {
++            flex-direction: column;
++            align-items: flex-start;
++            gap: 2px;
++          }
++          
++          .transaction-amount {
++            min-width: 80px;
++          }
++          
++          .amount {
++            font-size: 0.85rem;
++          }
++        }
++      `}</style>
++    </div>
++  );
++};
++
++export default TransactionHistory;
+\ No newline at end of file
+diff --git a/repository_after/src/index.css b/repository_after/src/index.css
+new file mode 100644
+index 0000000..6436d50
+--- /dev/null
++++ b/repository_after/src/index.css
+@@ -0,0 +1,188 @@
++/* Global styles for Investment Portfolio Dashboard */
++
++* {
++  margin: 0;
++  padding: 0;
++  box-sizing: border-box;
++}
++
++body {
++  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
++    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
++    sans-serif;
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++  background-color: #f5f5f5;
++  color: #333;
++  line-height: 1.6;
++}
++
++#root {
++  min-height: 100vh;
++}
++
++/* Dashboard Layout */
++.dashboard {
++  max-width: 1400px;
++  margin: 0 auto;
++  padding: 20px;
++}
++
++.dashboard-header {
++  text-align: center;
++  margin-bottom: 30px;
++  padding: 20px;
++  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
++  color: white;
++  border-radius: 10px;
++}
++
++.dashboard-header h1 {
++  font-size: 2.5rem;
++  margin-bottom: 10px;
++}
++
++.dashboard-header p {
++  font-size: 1.1rem;
++  opacity: 0.9;
++}
++
++/* Grid Layout */
++.dashboard-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
++  gap: 20px;
++  margin-bottom: 20px;
++}
++
++.dashboard-section {
++  background: white;
++  border-radius: 10px;
++  padding: 20px;
++  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
++  border: 1px solid #e0e0e0;
++}
++
++.section-title {
++  font-size: 1.3rem;
++  font-weight: 600;
++  margin-bottom: 15px;
++  color: #333;
++  border-bottom: 2px solid #667eea;
++  padding-bottom: 5px;
++}
++
++/* Tables */
++.data-table {
++  width: 100%;
++  border-collapse: collapse;
++  margin-top: 10px;
++}
++
++.data-table th,
++.data-table td {
++  padding: 12px;
++  text-align: left;
++  border-bottom: 1px solid #e0e0e0;
++}
++
++.data-table th {
++  background-color: #f8f9fa;
++  font-weight: 600;
++  color: #555;
++}
++
++.data-table tr:hover {
++  background-color: #f8f9fa;
++}
++
++/* Metrics */
++.metrics-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
++  gap: 15px;
++}
++
++.metric-card {
++  text-align: center;
++  padding: 15px;
++  background: #f8f9fa;
++  border-radius: 8px;
++  border: 1px solid #e0e0e0;
++}
++
++.metric-value {
++  font-size: 1.5rem;
++  font-weight: 700;
++  color: #333;
++  margin-bottom: 5px;
++}
++
++.metric-label {
++  font-size: 0.9rem;
++  color: #666;
++  text-transform: uppercase;
++  letter-spacing: 0.5px;
++}
++
++/* Colors for gains/losses */
++.positive {
++  color: #28a745;
++}
++
++.negative {
++  color: #dc3545;
++}
++
++.neutral {
++  color: #6c757d;
++}
++
++/* Chart container */
++.chart-container {
++  height: 300px;
++  margin-top: 15px;
++}
++
++/* Responsive design */
++@media (max-width: 768px) {
++  .dashboard {
++    padding: 10px;
++  }
++  
++  .dashboard-grid {
++    grid-template-columns: 1fr;
++    gap: 15px;
++  }
++  
++  .dashboard-header h1 {
++    font-size: 2rem;
++  }
++  
++  .metrics-grid {
++    grid-template-columns: repeat(2, 1fr);
++  }
++  
++  .data-table {
++    font-size: 0.9rem;
++  }
++  
++  .data-table th,
++  .data-table td {
++    padding: 8px;
++  }
++}
++
++@media (max-width: 480px) {
++  .metrics-grid {
++    grid-template-columns: 1fr;
++  }
++  
++  .dashboard-header h1 {
++    font-size: 1.5rem;
++  }
++  
++  .section-title {
++    font-size: 1.1rem;
++  }
++}
+\ No newline at end of file
+diff --git a/repository_after/src/main.jsx b/repository_after/src/main.jsx
+new file mode 100644
+index 0000000..0291fe5
+--- /dev/null
++++ b/repository_after/src/main.jsx
+@@ -0,0 +1,10 @@
++import React from 'react'
++import ReactDOM from 'react-dom/client'
++import App from './App.jsx'
++import './index.css'
++
++ReactDOM.createRoot(document.getElementById('root')).render(
++  <React.StrictMode>
++    <App />
++  </React.StrictMode>,
++)
+\ No newline at end of file
+diff --git a/repository_after/src/utils/formatters.js b/repository_after/src/utils/formatters.js
+new file mode 100644
+index 0000000..43d65a1
+--- /dev/null
++++ b/repository_after/src/utils/formatters.js
+@@ -0,0 +1,138 @@
++/**
++ * Reusable formatting utilities for the Investment Portfolio Analytics Dashboard
++ * These functions provide consistent formatting across all components
++ */
++
++/**
++ * Format a number as currency (USD)
++ * @param {number} value - The numeric value to format
++ * @param {object} options - Formatting options
++ * @returns {string} Formatted currency string
++ */
++export const formatCurrency = (value, options = {}) => {
++  const defaultOptions = {
++    style: 'currency',
++    currency: 'USD',
++    minimumFractionDigits: 2,
++    maximumFractionDigits: 2
++  };
++  
++  return new Intl.NumberFormat('en-US', { ...defaultOptions, ...options }).format(value);
++};
++
++/**
++ * Format a number as a percentage with optional sign
++ * @param {number} value - The numeric value to format as percentage
++ * @param {boolean} includeSign - Whether to include + sign for positive values
++ * @returns {string} Formatted percentage string
++ */
++export const formatPercent = (value, includeSign = true) => {
++  const sign = includeSign && value >= 0 ? '+' : '';
++  return `${sign}${value.toFixed(2)}%`;
++};
++
++/**
++ * Get CSS class name based on numeric value (positive/negative/neutral)
++ * @param {number} value - The numeric value to evaluate
++ * @returns {string} CSS class name
++ */
++export const getColorClass = (value) => {
++  if (value > 0) return 'positive';
++  if (value < 0) return 'negative';
++  return 'neutral';
++};
++
++/**
++ * Format a date string for display
++ * @param {Date|string} date - Date to format
++ * @param {object} options - Intl.DateTimeFormat options
++ * @returns {string} Formatted date string
++ */
++export const formatDate = (date, options = {}) => {
++  const defaultOptions = {
++    month: 'short',
++    day: 'numeric',
++    year: 'numeric'
++  };
++  
++  return new Intl.DateTimeFormat('en-US', { ...defaultOptions, ...options }).format(new Date(date));
++};
++
++/**
++ * Format a date for chart display (shorter format)
++ * @param {Date|string} dateStr - Date to format
++ * @returns {string} Formatted date string for charts
++ */
++export const formatChartDate = (dateStr) => {
++  const date = new Date(dateStr);
++  return date.toLocaleDateString('en-US', { 
++    month: 'short', 
++    day: 'numeric' 
++  });
++};
++
++/**
++ * Get transaction type icon
++ * @param {string} type - Transaction type (BUY, SELL, DIVIDEND)
++ * @returns {string} Icon character
++ */
++export const getTypeIcon = (type) => {
++  switch (type) {
++    case 'BUY': return '↗';
++    case 'SELL': return '↘';
++    case 'DIVIDEND': return '💰';
++    default: return '•';
++  }
++};
++
++/**
++ * Get color for transaction type
++ * @param {string} type - Transaction type (BUY, SELL, DIVIDEND)
++ * @returns {string} CSS color value
++ */
++export const getTypeColor = (type) => {
++  switch (type) {
++    case 'BUY': return '#10b981';
++    case 'SELL': return '#ef4444';
++    case 'DIVIDEND': return '#8b5cf6';
++    default: return '#6b7280';
++  }
++};
++
++/**
++ * Format large numbers with appropriate suffixes (K, M, B)
++ * @param {number} value - The numeric value to format
++ * @returns {string} Formatted number with suffix
++ */
++export const formatLargeNumber = (value) => {
++  if (Math.abs(value) >= 1e9) {
++    return (value / 1e9).toFixed(1) + 'B';
++  }
++  if (Math.abs(value) >= 1e6) {
++    return (value / 1e6).toFixed(1) + 'M';
++  }
++  if (Math.abs(value) >= 1e3) {
++    return (value / 1e3).toFixed(1) + 'K';
++  }
++  return value.toString();
++};
++
++/**
++ * Truncate text to specified length with ellipsis
++ * @param {string} text - Text to truncate
++ * @param {number} maxLength - Maximum length before truncation
++ * @returns {string} Truncated text
++ */
++export const truncateText = (text, maxLength = 20) => {
++  if (text.length <= maxLength) return text;
++  return text.substring(0, maxLength - 3) + '...';
++};
++
++/**
++ * Format number with thousands separators
++ * @param {number} value - The numeric value to format
++ * @returns {string} Formatted number string
++ */
++export const formatNumber = (value) => {
++  return new Intl.NumberFormat('en-US').format(value);
++};
+\ No newline at end of file
+diff --git a/repository_after/src/utils/marketData.js b/repository_after/src/utils/marketData.js
+new file mode 100644
+index 0000000..592f43f
+--- /dev/null
++++ b/repository_after/src/utils/marketData.js
+@@ -0,0 +1,240 @@
++// Market data simulation utilities - all data generated in memory
++
++// Sample stock universe with realistic data
++export const STOCK_UNIVERSE = [
++  { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', basePrice: 175.00 },
++  { symbol: 'MSFT', name: 'Microsoft Corporation', sector: 'Technology', basePrice: 380.00 },
++  { symbol: 'GOOGL', name: 'Alphabet Inc.', sector: 'Technology', basePrice: 140.00 },
++  { symbol: 'AMZN', name: 'Amazon.com Inc.', sector: 'Consumer Discretionary', basePrice: 155.00 },
++  { symbol: 'TSLA', name: 'Tesla Inc.', sector: 'Consumer Discretionary', basePrice: 250.00 },
++  { symbol: 'NVDA', name: 'NVIDIA Corporation', sector: 'Technology', basePrice: 480.00 },
++  { symbol: 'JPM', name: 'JPMorgan Chase & Co.', sector: 'Financials', basePrice: 155.00 },
++  { symbol: 'JNJ', name: 'Johnson & Johnson', sector: 'Healthcare', basePrice: 165.00 },
++  { symbol: 'V', name: 'Visa Inc.', sector: 'Financials', basePrice: 250.00 },
++  { symbol: 'PG', name: 'Procter & Gamble Co.', sector: 'Consumer Staples', basePrice: 155.00 },
++  { symbol: 'UNH', name: 'UnitedHealth Group Inc.', sector: 'Healthcare', basePrice: 520.00 },
++  { symbol: 'HD', name: 'Home Depot Inc.', sector: 'Consumer Discretionary', basePrice: 320.00 },
++  { symbol: 'MA', name: 'Mastercard Inc.', sector: 'Financials', basePrice: 380.00 },
++  { symbol: 'BAC', name: 'Bank of America Corp.', sector: 'Financials', basePrice: 32.00 },
++  { symbol: 'XOM', name: 'Exxon Mobil Corporation', sector: 'Energy', basePrice: 110.00 },
++  { symbol: 'ABBV', name: 'AbbVie Inc.', sector: 'Healthcare', basePrice: 155.00 },
++  { symbol: 'CVX', name: 'Chevron Corporation', sector: 'Energy', basePrice: 160.00 },
++  { symbol: 'LLY', name: 'Eli Lilly and Company', sector: 'Healthcare', basePrice: 580.00 },
++  { symbol: 'KO', name: 'Coca-Cola Company', sector: 'Consumer Staples', basePrice: 60.00 },
++  { symbol: 'PEP', name: 'PepsiCo Inc.', sector: 'Consumer Staples', basePrice: 170.00 }
++];
++
++// Sector colors for visualization
++export const SECTOR_COLORS = {
++  'Technology': '#4285f4',
++  'Healthcare': '#34a853',
++  'Financials': '#fbbc04',
++  'Consumer Discretionary': '#ea4335',
++  'Consumer Staples': '#9c27b0',
++  'Energy': '#ff9800',
++  'Industrials': '#795548',
++  'Materials': '#607d8b',
++  'Utilities': '#009688',
++  'Real Estate': '#e91e63'
++};
++
++// Generate realistic price movements using geometric Brownian motion
++export function generatePriceHistory(basePrice, days = 365, volatility = 0.2, drift = 0.08) {
++  const prices = [basePrice];
++  const dt = 1 / 365; // Daily time step
++  
++  for (let i = 1; i < days; i++) {
++    const randomShock = (Math.random() - 0.5) * 2; // Random between -1 and 1
++    const priceChange = drift * dt + volatility * Math.sqrt(dt) * randomShock;
++    const newPrice = prices[i - 1] * (1 + priceChange);
++    prices.push(Math.max(newPrice, 0.01)); // Prevent negative prices
++  }
++  
++  return prices;
++}
++
++// Generate current market prices with daily changes
++export function generateCurrentPrices() {
++  const currentDate = new Date();
++  const prices = {};
++  
++  STOCK_UNIVERSE.forEach(stock => {
++    const priceHistory = generatePriceHistory(stock.basePrice, 2);
++    const currentPrice = priceHistory[1];
++    const previousClose = priceHistory[0];
++    
++    prices[stock.symbol] = {
++      symbol: stock.symbol,
++      name: stock.name,
++      sector: stock.sector,
++      currentPrice: Math.round(currentPrice * 100) / 100,
++      previousClose: Math.round(previousClose * 100) / 100,
++      change: Math.round((currentPrice - previousClose) * 100) / 100,
++      changePercent: Math.round(((currentPrice - previousClose) / previousClose) * 10000) / 100
++    };
++  });
++  
++  return prices;
++}
++
++// Generate sample transactions with realistic patterns
++export function generateSampleTransactions() {
++  const transactions = [];
++  const startDate = new Date();
++  startDate.setFullYear(startDate.getFullYear() - 2); // 2 years of history
++  
++  let transactionId = 1;
++  
++  // Generate initial purchases for more stocks
++  STOCK_UNIVERSE.slice(0, 12).forEach((stock, index) => {
++    const purchaseDate = new Date(startDate);
++    purchaseDate.setDate(purchaseDate.getDate() + index * 20);
++    
++    // Initial purchase
++    transactions.push({
++      id: `txn_${transactionId++}`,
++      symbol: stock.symbol,
++      type: 'BUY',
++      shares: Math.floor(Math.random() * 100) + 50,
++      price: stock.basePrice * (0.9 + Math.random() * 0.2), // ±10% from base
++      date: new Date(purchaseDate),
++      fees: 9.99
++    });
++    
++    // Additional purchases over time
++    for (let i = 0; i < Math.floor(Math.random() * 4) + 2; i++) {
++      const additionalDate = new Date(purchaseDate);
++      additionalDate.setDate(additionalDate.getDate() + (i + 1) * 60);
++      
++      if (additionalDate < new Date()) {
++        transactions.push({
++          id: `txn_${transactionId++}`,
++          symbol: stock.symbol,
++          type: 'BUY',
++          shares: Math.floor(Math.random() * 50) + 25,
++          price: stock.basePrice * (0.85 + Math.random() * 0.3),
++          date: new Date(additionalDate),
++          fees: 9.99
++        });
++      }
++    }
++    
++    // Occasional sales
++    if (Math.random() > 0.7) {
++      const saleDate = new Date();
++      saleDate.setDate(saleDate.getDate() - Math.floor(Math.random() * 180));
++      
++      transactions.push({
++        id: `txn_${transactionId++}`,
++        symbol: stock.symbol,
++        type: 'SELL',
++        shares: Math.floor(Math.random() * 30) + 10,
++        price: stock.basePrice * (0.9 + Math.random() * 0.2),
++        date: new Date(saleDate),
++        fees: 9.99
++      });
++    }
++  });
++  
++  return transactions.sort((a, b) => a.date - b.date);
++}
++
++// Generate dividend payments
++export function generateDividends(transactions) {
++  const dividends = [];
++  const dividendYields = {
++    'AAPL': 0.005, 'MSFT': 0.007, 'GOOGL': 0.000, 'AMZN': 0.000,
++    'TSLA': 0.000, 'NVDA': 0.001, 'JPM': 0.025, 'JNJ': 0.026,
++    'V': 0.007, 'PG': 0.024
++  };
++  
++  let dividendId = 1;
++  
++  // Calculate holdings at different points in time for dividend calculations
++  const quarterlyDates = [];
++  const startDate = new Date();
++  startDate.setFullYear(startDate.getFullYear() - 2);
++  
++  for (let i = 0; i < 8; i++) {
++    const date = new Date(startDate);
++    date.setMonth(date.getMonth() + i * 3);
++    if (date < new Date()) {
++      quarterlyDates.push(date);
++    }
++  }
++  
++  quarterlyDates.forEach(date => {
++    const holdingsAtDate = calculateHoldingsAtDate(transactions, date);
++    
++    Object.entries(holdingsAtDate).forEach(([symbol, holding]) => {
++      const yield_ = dividendYields[symbol] || 0;
++      if (yield_ > 0 && holding.shares > 0) {
++        const stock = STOCK_UNIVERSE.find(s => s.symbol === symbol);
++        const quarterlyDividend = (stock.basePrice * yield_) / 4;
++        
++        dividends.push({
++          id: `div_${dividendId++}`,
++          symbol,
++          amount: Math.round(quarterlyDividend * holding.shares * 100) / 100,
++          date: new Date(date),
++          sharesOwned: holding.shares
++        });
++      }
++    });
++  });
++  
++  return dividends.sort((a, b) => a.date - b.date);
++}
++
++// Generate stock splits
++export function generateStockSplits() {
++  const splits = [];
++  const splitDate = new Date();
++  splitDate.setFullYear(splitDate.getFullYear() - 1);
++  splitDate.setMonth(6); // July of last year
++  
++  // AAPL had a 4:1 split
++  splits.push({
++    id: 'split_1',
++    symbol: 'AAPL',
++    ratio: 4,
++    date: new Date(splitDate)
++  });
++  
++  // TSLA had a 3:1 split
++  const teslaSplitDate = new Date(splitDate);
++  teslaSplitDate.setMonth(8); // September
++  splits.push({
++    id: 'split_2',
++    symbol: 'TSLA',
++    ratio: 3,
++    date: new Date(teslaSplitDate)
++  });
++  
++  return splits;
++}
++
++// Helper function to calculate holdings at a specific date
++function calculateHoldingsAtDate(transactions, targetDate) {
++  const holdings = {};
++  
++  transactions
++    .filter(t => t.date <= targetDate)
++    .forEach(transaction => {
++      if (!holdings[transaction.symbol]) {
++        holdings[transaction.symbol] = { shares: 0, totalCost: 0 };
++      }
++      
++      if (transaction.type === 'BUY') {
++        holdings[transaction.symbol].shares += transaction.shares;
++        holdings[transaction.symbol].totalCost += (transaction.shares * transaction.price) + transaction.fees;
++      } else if (transaction.type === 'SELL') {
++        holdings[transaction.symbol].shares -= transaction.shares;
++        // For simplicity, reduce total cost proportionally
++        const sellRatio = transaction.shares / (holdings[transaction.symbol].shares + transaction.shares);
++        holdings[transaction.symbol].totalCost *= (1 - sellRatio);
++      }
++    });
++  
++  return holdings;
++}
+\ No newline at end of file
+diff --git a/repository_before/.gitkeep b/repository_after/src/utils/marketSimulator.ts
+similarity index 100%
+rename from repository_before/.gitkeep
+rename to repository_after/src/utils/marketSimulator.ts
+diff --git a/repository_after/src/utils/portfolioEngine.js b/repository_after/src/utils/portfolioEngine.js
+new file mode 100644
+index 0000000..c63af35
+--- /dev/null
++++ b/repository_after/src/utils/portfolioEngine.js
+@@ -0,0 +1,328 @@
++// Portfolio calculation engine with FIFO logic and performance optimization
++
++// FIFO (First In, First Out) lot tracking for tax calculations
++export class FIFOLotTracker {
++  constructor() {
++    this.lots = {}; // symbol -> array of lots
++  }
++  
++  // Add shares to lot tracking (buy transaction)
++  addShares(symbol, shares, price, date, transactionId) {
++    if (!this.lots[symbol]) {
++      this.lots[symbol] = [];
++    }
++    
++    this.lots[symbol].push({
++      shares,
++      costBasis: price,
++      purchaseDate: date,
++      transactionId,
++      remainingShares: shares
++    });
++  }
++  
++  // Remove shares using FIFO logic (sell transaction)
++  removeShares(symbol, sharesToSell) {
++    if (!this.lots[symbol] || this.lots[symbol].length === 0) {
++      return { realizedGain: 0, soldLots: [] };
++    }
++    
++    let remainingToSell = sharesToSell;
++    let realizedGain = 0;
++    const soldLots = [];
++    
++    // Process lots in FIFO order
++    for (let i = 0; i < this.lots[symbol].length && remainingToSell > 0; i++) {
++      const lot = this.lots[symbol][i];
++      
++      if (lot.remainingShares > 0) {
++        const sharesToSellFromLot = Math.min(remainingToSell, lot.remainingShares);
++        
++        soldLots.push({
++          shares: sharesToSellFromLot,
++          costBasis: lot.costBasis,
++          purchaseDate: lot.purchaseDate
++        });
++        
++        lot.remainingShares -= sharesToSellFromLot;
++        remainingToSell -= sharesToSellFromLot;
++      }
++    }
++    
++    // Clean up empty lots
++    this.lots[symbol] = this.lots[symbol].filter(lot => lot.remainingShares > 0);
++    
++    return { realizedGain, soldLots };
++  }
++  
++  // Get current lots for a symbol
++  getCurrentLots(symbol) {
++    if (!this.lots[symbol]) return [];
++    
++    return this.lots[symbol]
++      .filter(lot => lot.remainingShares > 0)
++      .map(lot => ({
++        shares: lot.remainingShares,
++        costBasis: lot.costBasis,
++        purchaseDate: lot.purchaseDate,
++        transactionId: lot.transactionId
++      }));
++  }
++  
++  // Apply stock split to all lots
++  applyStockSplit(symbol, ratio) {
++    if (!this.lots[symbol]) return;
++    
++    this.lots[symbol].forEach(lot => {
++      lot.shares *= ratio;
++      lot.remainingShares *= ratio;
++      lot.costBasis /= ratio;
++    });
++  }
++}
++
++// Main portfolio calculation engine
++export class PortfolioEngine {
++  constructor() {
++    this.lotTracker = new FIFOLotTracker();
++    this.transactions = [];
++    this.dividends = [];
++    this.stockSplits = [];
++    this.currentPrices = {};
++  }
++  
++  // Set market data
++  setMarketData(transactions, dividends, stockSplits, currentPrices) {
++    this.transactions = [...transactions].sort((a, b) => a.date - b.date);
++    this.dividends = [...dividends].sort((a, b) => a.date - b.date);
++    this.stockSplits = [...stockSplits].sort((a, b) => a.date - b.date);
++    this.currentPrices = { ...currentPrices };
++    
++    this.processAllTransactions();
++  }
++  
++  // Process all transactions in chronological order - O(n) complexity
++  processAllTransactions() {
++    this.lotTracker = new FIFOLotTracker();
++    
++    // Create combined timeline of transactions and splits
++    const timeline = [
++      ...this.transactions.map(t => ({ ...t, type: t.type, eventType: 'transaction' })),
++      ...this.stockSplits.map(s => ({ ...s, eventType: 'split' }))
++    ].sort((a, b) => a.date - b.date);
++    
++    // Process events in chronological order
++    timeline.forEach(event => {
++      if (event.eventType === 'transaction') {
++        if (event.type === 'BUY') {
++          this.lotTracker.addShares(
++            event.symbol,
++            event.shares,
++            event.price,
++            event.date,
++            event.id
++          );
++        } else if (event.type === 'SELL') {
++          this.lotTracker.removeShares(event.symbol, event.shares);
++        }
++      } else if (event.eventType === 'split') {
++        this.lotTracker.applyStockSplit(event.symbol, event.ratio);
++      }
++    });
++  }
++  
++  // Calculate current holdings
++  getCurrentHoldings() {
++    const holdings = {};
++    
++    // Get all symbols with current lots
++    Object.keys(this.lotTracker.lots).forEach(symbol => {
++      const lots = this.lotTracker.getCurrentLots(symbol);
++      
++      if (lots.length > 0) {
++        const totalShares = lots.reduce((sum, lot) => sum + lot.shares, 0);
++        const totalCost = lots.reduce((sum, lot) => sum + (lot.shares * lot.costBasis), 0);
++        const averageCost = totalCost / totalShares;
++        
++        const currentPrice = this.currentPrices[symbol]?.currentPrice || 0;
++        const currentValue = totalShares * currentPrice;
++        const unrealizedGain = currentValue - totalCost;
++        const unrealizedGainPercent = totalCost > 0 ? (unrealizedGain / totalCost) * 100 : 0;
++        
++        holdings[symbol] = {
++          symbol,
++          shares: Math.round(totalShares * 100) / 100,
++          averageCost: Math.round(averageCost * 100) / 100,
++          currentValue: Math.round(currentValue * 100) / 100,
++          totalCost: Math.round(totalCost * 100) / 100,
++          unrealizedGain: Math.round(unrealizedGain * 100) / 100,
++          unrealizedGainPercent: Math.round(unrealizedGainPercent * 100) / 100,
++          lots: lots.map(lot => ({
++            ...lot,
++            shares: Math.round(lot.shares * 100) / 100,
++            costBasis: Math.round(lot.costBasis * 100) / 100
++          }))
++        };
++      }
++    });
++    
++    return holdings;
++  }
++  
++  // Calculate portfolio summary
++  getPortfolioSummary() {
++    const holdings = this.getCurrentHoldings();
++    const holdingValues = Object.values(holdings);
++    
++    const totalValue = holdingValues.reduce((sum, h) => sum + h.currentValue, 0);
++    const totalCost = holdingValues.reduce((sum, h) => sum + h.totalCost, 0);
++    const totalGain = totalValue - totalCost;
++    const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
++    
++    // Calculate day change
++    let dayChange = 0;
++    holdingValues.forEach(holding => {
++      const priceData = this.currentPrices[holding.symbol];
++      if (priceData) {
++        const dailyChange = priceData.currentPrice - priceData.previousClose;
++        dayChange += dailyChange * holding.shares;
++      }
++    });
++    
++    const dayChangePercent = totalValue > 0 ? (dayChange / (totalValue - dayChange)) * 100 : 0;
++    
++    // Calculate total dividend income
++    const dividendIncome = this.dividends.reduce((sum, div) => sum + div.amount, 0);
++    
++    return {
++      totalValue: Math.round(totalValue * 100) / 100,
++      totalCost: Math.round(totalCost * 100) / 100,
++      totalGain: Math.round(totalGain * 100) / 100,
++      totalGainPercent: Math.round(totalGainPercent * 100) / 100,
++      dayChange: Math.round(dayChange * 100) / 100,
++      dayChangePercent: Math.round(dayChangePercent * 100) / 100,
++      dividendIncome: Math.round(dividendIncome * 100) / 100
++    };
++  }
++  
++  // Calculate sector allocation
++  getSectorAllocation() {
++    const holdings = this.getCurrentHoldings();
++    const sectorTotals = {};
++    let totalValue = 0;
++    
++    Object.values(holdings).forEach(holding => {
++      const stock = this.currentPrices[holding.symbol];
++      if (stock) {
++        const sector = stock.sector;
++        sectorTotals[sector] = (sectorTotals[sector] || 0) + holding.currentValue;
++        totalValue += holding.currentValue;
++      }
++    });
++    
++    return Object.entries(sectorTotals).map(([sector, value]) => ({
++      sector,
++      value: Math.round(value * 100) / 100,
++      percentage: Math.round((value / totalValue) * 10000) / 100
++    }));
++  }
++  
++  // Generate historical portfolio value (simplified simulation)
++  getHistoricalData(days = 365) {
++    const historical = [];
++    const endDate = new Date();
++    const startDate = new Date(endDate);
++    startDate.setDate(startDate.getDate() - days);
++    
++    // Simulate historical values based on current holdings and price movements
++    const currentSummary = this.getPortfolioSummary();
++    const currentValue = currentSummary.totalValue;
++    
++    for (let i = 0; i < days; i++) {
++      const date = new Date(startDate);
++      date.setDate(date.getDate() + i);
++      
++      // Simple simulation: add some realistic volatility
++      const daysFromEnd = days - i;
++      const baseGrowth = Math.pow(1.08, daysFromEnd / 365); // 8% annual growth
++      const volatility = 0.02 * (Math.random() - 0.5); // ±1% daily volatility
++      const multiplier = baseGrowth * (1 + volatility);
++      
++      const historicalValue = currentValue / multiplier;
++      const dayChange = i > 0 ? historicalValue - historical[i - 1].value : 0;
++      const dayChangePercent = i > 0 && historical[i - 1].value > 0 
++        ? (dayChange / historical[i - 1].value) * 100 
++        : 0;
++      
++      historical.push({
++        date: new Date(date),
++        value: Math.round(historicalValue * 100) / 100,
++        dayChange: Math.round(dayChange * 100) / 100,
++        dayChangePercent: Math.round(dayChangePercent * 100) / 100
++      });
++    }
++    
++    return historical;
++  }
++  
++  // Calculate performance metrics
++  getPerformanceMetrics() {
++    const summary = this.getPortfolioSummary();
++    const historical = this.getHistoricalData();
++    
++    // Calculate annualized return
++    const totalReturnPercent = summary.totalGainPercent;
++    const yearsInvested = this.getInvestmentPeriodYears();
++    const annualizedReturn = yearsInvested > 0 
++      ? (Math.pow(1 + totalReturnPercent / 100, 1 / yearsInvested) - 1) * 100 
++      : 0;
++    
++    // Calculate volatility (standard deviation of daily returns)
++    const dailyReturns = historical.slice(1).map(point => point.dayChangePercent / 100);
++    const avgReturn = dailyReturns.reduce((sum, ret) => sum + ret, 0) / dailyReturns.length;
++    const variance = dailyReturns.reduce((sum, ret) => sum + Math.pow(ret - avgReturn, 2), 0) / dailyReturns.length;
++    const volatility = Math.sqrt(variance * 252) * 100; // Annualized volatility
++    
++    // Calculate Sharpe ratio (assuming 2% risk-free rate)
++    const riskFreeRate = 2;
++    const sharpeRatio = volatility > 0 ? (annualizedReturn - riskFreeRate) / volatility : 0;
++    
++    // Calculate max drawdown
++    let maxDrawdown = 0;
++    let peak = historical[0].value;
++    historical.forEach(point => {
++      if (point.value > peak) {
++        peak = point.value;
++      }
++      const drawdown = (peak - point.value) / peak;
++      maxDrawdown = Math.max(maxDrawdown, drawdown);
++    });
++    
++    // Calculate dividend yield
++    const dividendYield = summary.totalValue > 0 
++      ? (summary.dividendIncome / summary.totalValue) * 100 
++      : 0;
++    
++    return {
++      totalReturn: summary.totalGain,
++      totalReturnPercent: Math.round(totalReturnPercent * 100) / 100,
++      annualizedReturn: Math.round(annualizedReturn * 100) / 100,
++      volatility: Math.round(volatility * 100) / 100,
++      sharpeRatio: Math.round(sharpeRatio * 100) / 100,
++      maxDrawdown: Math.round(maxDrawdown * 10000) / 100,
++      dividendYield: Math.round(dividendYield * 100) / 100
++    };
++  }
++  
++  // Helper method to calculate investment period in years
++  getInvestmentPeriodYears() {
++    if (this.transactions.length === 0) return 0;
++    
++    const firstTransaction = this.transactions[0];
++    const now = new Date();
++    const diffTime = Math.abs(now - firstTransaction.date);
++    const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
++    
++    return diffYears;
++  }
++}
+\ No newline at end of file
+diff --git a/repository_after/vite.config.ts b/repository_after/vite.config.ts
+new file mode 100644
+index 0000000..377a893
+--- /dev/null
++++ b/repository_after/vite.config.ts
+@@ -0,0 +1,15 @@
++import { defineConfig } from 'vite'
++import react from '@vitejs/plugin-react'
++
++export default defineConfig({
++  plugins: [react()],
++  base: './',
++  build: {
++    outDir: 'dist',
++    sourcemap: true
++  },
++  server: {
++    port: 3000,
++    open: true
++  }
++})
+\ No newline at end of file
