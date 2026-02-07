@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS inventory_audit (
     product_id VARCHAR(50) NOT NULL,
     delta INTEGER NOT NULL,
     new_quantity INTEGER NOT NULL,
+    user_id VARCHAR(100) NOT NULL DEFAULT 'system',
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
