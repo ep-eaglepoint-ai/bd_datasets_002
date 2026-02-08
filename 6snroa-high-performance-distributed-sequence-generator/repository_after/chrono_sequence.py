@@ -16,23 +16,23 @@ class ChronoSequence:
     def next_id(self) -> int:
         # compute milliseconds since custom epoch
         timestamp = int((time.time() - CUSTOM_EPOCH) * 1000)
-        if timestamp < 0:
-            timestamp = 0
-
         prev = self.last_timestamp
         # detect clock rollback
         if prev != -1 and timestamp < prev:
             raise SystemError("Clock moved backwards")
         if timestamp == prev:
-            self.sequence += 1
-            if self.sequence > MAX_SEQUENCE:
+            if self.sequence == MAX_SEQUENCE:
                 # busy-wait until next millisecond
                 while True:
                     timestamp = int((time.time() - CUSTOM_EPOCH) * 1000)
+                    if timestamp < prev:
+                        raise SystemError("Clock moved backwards")
                     if timestamp > prev:
                         # reset sequence for new millisecond
                         self.sequence = 0
                         break
+            else:
+                self.sequence += 1
         elif timestamp > prev:
             self.sequence = 0
 

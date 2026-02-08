@@ -48,6 +48,7 @@ The staged approach enforces simplicity: initialize state first, compute timesta
 - **Chunk 3 tests** (`tests/test_sequence_state.py`): monkeypatch `repository_after.chrono_sequence.time.time` to simulate same and advancing ms; assert sequence behavior.
 - **Chunk 4 tests** (`tests/test_bit_layout.py`): assemble ID, extract fields via bit masks and shifts, verify widths and top bit zero.
 - **Chunk 5 tests** (`tests/test_uniqueness_and_order.py`): 1000+ generated IDs are unique and strictly increasing; later IDs larger than earlier ones.
+- **Edge cases** (`tests/test_edge_cases.py`): overflow blocking, sequence reset across ms, worker id bounds, and clock rollback detection.
 
 Automation: run the full test suite inside Docker (`docker compose run --rm test-after`) to ensure a hermetic, reproducible environment.
 
@@ -65,8 +66,11 @@ Automation: run the full test suite inside Docker (`docker compose run --rm test
 Flow (final design):
 1. `next_id()` reads `time.time()` and computes `timestamp_ms = int((time.time() - CUSTOM_EPOCH) * 1000)`.
 2. Compare `timestamp_ms` with `self.last_timestamp`:
-	- equal → `self.sequence += 1`
-	- greater → `self.sequence = 0`
+	- if `timestamp_ms < last_timestamp` → raise `SystemError` (clock rollback)
+	- if equal:
+		- if `sequence == MAX_SEQUENCE`: busy-wait until the next millisecond, then reset sequence to 0
+		- else increment `sequence`
+	- if greater → reset `sequence = 0`
 3. Update `self.last_timestamp = timestamp_ms`.
 4. Assemble 64-bit ID with bitwise shifts: `(timestamp_ms << 22) | (worker_id << 12) | sequence` and return `int`.
 
@@ -74,18 +78,18 @@ Flow (final design):
 **Guiding Question**: "What could go wrong in production?"
 
 **Objection 1**: Clock skew or time moving backwards.
-- Current staged implementation does not block or spin on overflow/backwards time — it preserves testability. In production you may want to clamp timestamp to `self.last_timestamp` or wait until the clock advances.
+- Now handled: if `timestamp_ms < last_timestamp`, `SystemError` is raised immediately (including during overflow wait).
 
 **Objection 2**: Sequence overflow (12 bits → 4096 IDs per ms).
-- Currently behavior is undefined after overflow; later chunks should decide to wait, error, or roll over.
+- Now handled: when `sequence == 4095` within the same millisecond, `next_id()` busy-waits until the clock advances, then resets sequence to 0.
 
 **Objection 3**: Multi-node worker id assignment.
-- Worker ID is an external responsibility; pilots should ensure unique assignment in deployment (static config, coordination service, or container startup logic).
+- Worker ID is validated locally to fit 10 bits (0..1023), but global uniqueness still requires external coordination.
 
 ### 8. Phase 8: VERIFY INVARIANTS / DEFINE CONSTRAINTS
 **Guiding Question**: "What invariants must hold at all times?"
-- `0 <= sequence < 4096` (eventual enforcement)
-- `last_timestamp >= 0` after first timestamp computation
+- `0 <= sequence <= 4095` (enforced with overflow wait)
+- `timestamp_ms >= last_timestamp` (rollback raises `SystemError`)
 - `worker_id` fits in 10 bits (0 <= worker_id < 1024)
 
 ### 9. Phase 9: EXECUTE (Ordered Implementation Plan)
@@ -100,10 +104,10 @@ Flow (final design):
 **Guiding Question**: "How do we know we met the goal?"
 
 Metrics:
-- Unit tests: focused, small, and deterministic; all pass locally and in Docker (`10 passed`).
-- Behavioral tests: timestamp monotonicity, uniqueness across 1000 IDs, explicit bit-width checks.
+- Unit tests: focused, small, and deterministic; the suite currently includes 14 tests across API/state, epoch, sequence, bit layout, uniqueness/order, and edge cases.
+- Behavioral tests: timestamp monotonicity, uniqueness across 1000 IDs, explicit bit-width checks, overflow blocking, and rollback detection.
 
-Acceptance: The component meets the stated success criteria and is ready for production-hardening steps (clock-skew handling, overflow behavior, worker-id provisioning).
+Acceptance: The component meets the stated success criteria; production hardening now focuses on concurrency safety and operational worker-id assignment.
 
 ### 11. Phase 11: DOCUMENT DECISIONS & NEXT ACTIONS
 **Decisions made**:
@@ -111,13 +115,11 @@ Acceptance: The component meets the stated success criteria and is ready for pro
 - Use test-first, staged development to lock API and internal state before adding complexity.
 
 **Next Actions / Chunk 7 (production hardening)**:
-1. Decide sequence overflow policy (spin/wait vs. error vs. masking).
-2. Add guard for time regression (clamp to previous timestamp or wait).
-3. Validate `worker_id` assignment and provide a small helper or docs for provisioning unique IDs.
-4. Add integration tests simulating concurrent worker processes (optional).
+1. Add explicit lock if true thread-safety is required under concurrency.
+2. Provide deployment docs for coordinated, unique worker ID assignment.
+3. Add integration tests simulating concurrent worker processes (optional).
 
 **Notes for reviewers**:
 - Tests currently patch `repository_after.chrono_sequence.time.time` where needed for determinism.
 - The Docker-based test harness uses `python:3.9-slim` and runs `pytest -q tests` ensuring CI parity.
-
-
+- If using `evaluation/evaluation.py`, ensure the latest report reflects the full test set (including `tests/test_edge_cases.py`).
