@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Dashboard - Atomic Versioned Content Engine</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .document-list {
+            list-style: none;
+            padding: 0;
+        }
+        .document-item {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .document-info h3 {
+            margin: 0 0 5px 0;
+        }
+        .document-info p {
+            margin: 0;
+            color: #666;
+        }
+        .live-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .no-live-badge {
+            background: #6c757d;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .create-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .create-form input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .create-form button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toast {
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .toast-success {
+            background: #28a745;
+        }
+        .toast-error {
+            background: #dc3545;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <div class="toast-container" id="toast-container"></div>
+    
+    <script>
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        const response = event.detail.xhr;
+        if (response.status >= 200 && response.status < 300) {
+            showToast('Success!', 'success');
+        } else if (response.status >= 400) {
+            const text = response.responseText;
+            // Extract error message from response
+            const match = text.match(/<div class="error">(.*?)<\/div>/);
+            const errorMsg = match ? match[1] : 'An error occurred';
+            showToast(errorMsg, 'error');
+        }
+    });
+    
+    function showToast(message, type) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    </script>
+    <h1>📄 Document Dashboard</h1>
+    
+    <div class="create-form">
+        <h2>Create New Document</h2>
+        <form hx-post="/api/documents/" hx-target="#document-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
+            <input type="text" name="slug" placeholder="Document slug (e.g., my-page)" required>
+            <input type="text" name="title" placeholder="Document title (optional)">
+            <input type="text" name="content" placeholder='Initial content JSON (optional, e.g., {"title": "Hello", "body": "World"})'>
+            <button type="submit">Create Document</button>
+        </form>
+    </div>
+    
+    <h2>All Documents</h2>
+    <ul class="document-list" id="document-list">
+        {% for doc in documents %}
+        <li class="document-item">
+            <div class="document-info">
+                <h3>{{ doc.slug }}</h3>
+                <p>
+                    {% if doc.title %}{{ doc.title }}{% else %}Untitled{% endif %}
+                    • Updated: {{ doc.updated_at|date:"Y-m-d H:i:s" }}
+                </p>
+                <p>
+                    Status: 
+                    {% if doc.live_version %}
+                        <span class="live-badge">LIVE (v{{ doc.live_version.version_number }})</span>
+                    {% else %}
+                        <span class="no-live-badge">DRAFT</span>
+                    {% endif %}
+                </p>
+            </div>
+            <a href="/admin/documents/{{ doc.id }}/" class="btn">View History</a>
+        </li>
+        {% empty %}
+        <li class="document-item">
+            <p>No documents yet. Create one above!</p>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

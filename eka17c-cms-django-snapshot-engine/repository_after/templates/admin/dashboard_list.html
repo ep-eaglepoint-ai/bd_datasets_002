@@ -1,0 +1,22 @@
+{% for doc in documents %}
+<li class="document-item">
+    <div class="document-info">
+        <h3>{{ doc.slug }}</h3>
+        <p>
+            {% if doc.title %}{{ doc.title }}{% else %}Untitled{% endif %}
+            • Updated: {{ doc.updated_at|date:"Y-m-d H:i:s" }}
+        </p>
+        <p>
+            Status: 
+            {% if doc.live_version %}
+                <span class="live-badge">LIVE (v{{ doc.live_version.version_number }})</span>
+            {% else %}
+                <span class="no-live-badge">DRAFT</span>
+            {% endif %}
+        </p>
+    </div>
+    <a href="/admin/documents/{{ doc.id }}/" class="btn">View History</a>
+</li>
+{% empty %}
+<li class="document-item">No documents found. Create one above.</li>
+{% endfor %}
