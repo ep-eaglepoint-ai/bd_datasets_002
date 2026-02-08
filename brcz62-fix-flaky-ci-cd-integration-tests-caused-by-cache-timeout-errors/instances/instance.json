@@ -1,0 +1,11 @@
+{
+            "instance_id": "BRCZ62",
+            "problem_statement": "The CI/CD integration test suite is unreliable, with approximately 20% of builds failing due to “Cache timeout” errors. Attempts to mitigate the issue by adding arbitrary sleep() delays have significantly increased execution time (to ~15 minutes per run) without resolving the underlying non-deterministic behavior. The failures are highly environment-dependent, with tests passing on developer machines but failing on low-powered CI runners such as t2.micro. A more robust and deterministic synchronization mechanism is required to ensure reliability and performance",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/brcz62-fix-flaky-ci-cd-integration-tests-caused-by-cache-timeout-errors",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": ["Async Cache Update", "Stress Test"],
+            "PASS_TO_PASS": ["Cache Functionality"]
+        }
+        
