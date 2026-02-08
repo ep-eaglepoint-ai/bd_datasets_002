@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.local
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+vendor/
+# Compiled binaries
+/main
+/crm-engine
+/app
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+
+# Logs
+*.log
+logs/
+
+# Reports
+evaluation/reports/
+evaluation/reports/*.json
+!evaluation/reports/.gitkeep
+
+# Docker
+*.pid
+.dockerignore
+
+# Test artifacts
+coverage.txt
+coverage.html
+*.test.exe
+
+# Temporary files
+tmp/
+temp/
+.tmp
+

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stateful Conflict CRM - Lead Management</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎯 Stateful Conflict CRM</h1>
+        <p class="subtitle">Optimistic Concurrency Control Lead Management System</p>
+
+        <!-- Notification Area -->
+        <div id="notification" class="notification hidden"></div>
+
+        <!-- Search Bar -->
+        <div class="search-section">
+            <input type="text" id="search-input" placeholder="Search leads by name, email, or status..."
+                hx-get="{{.BackendURL}}/api/leads/search" hx-trigger="keyup changed delay:500ms"
+                hx-target="#leads-table-body" hx-swap="innerHTML"
+                hx-vals='js:{q: document.getElementById("search-input").value}'>
+        </div>
+
+        <!-- Create Lead Form -->
+        <div class="form-section">
+            <h2>➕ Create New Lead</h2>
+            <form id="create-form" hx-post="{{.BackendURL}}/api/leads" hx-target="#notification" hx-swap="innerHTML">
+                <div class="form-group">
+                    <label>Name:</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Lead Score (0-100):</label>
+                    <input type="number" name="lead_score" min="0" max="100" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Lead</button>
+            </form>
+        </div>
+
+        <!-- Edit Lead Form -->
+        <div id="edit-form" class="form-section hidden">
+            <h2>✏️ Edit Lead</h2>
+            <div id="edit-form-content"></div>
+        </div>
+
+        <!-- Leads Table -->
+        <div class="table-section">
+            <h2>📊 All Leads</h2>
+            <table class="leads-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Score</th>
+                        <th>Status</th>
+                        <th>Version</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="leads-table-body" hx-get="{{.BackendURL}}/api/leads" hx-trigger="load, leadUpdated from:body"
+                    hx-swap="innerHTML">
+                    <tr>
+                        <td colspan="7" style="text-align: center;">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const backendURL = "{{.BackendURL}}";
+
+        // Handle search
+        htmx.on('#search-input', 'htmx:configRequest', function (evt) {
+            const searchValue = document.getElementById('search-input').value;
+            evt.detail.path = backendURL + '/api/leads/search?q=' + encodeURIComponent(searchValue);
+        });
+
+        // Render leads table
+        htmx.on('#leads-table-body', 'htmx:afterSwap', function (evt) {
+            const leads = JSON.parse(evt.detail.xhr.responseText);
+            const tbody = document.getElementById('leads-table-body');
+            tbody.innerHTML = '';
+
+            if (!leads || leads.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No leads found</td></tr>';
+                return;
+            }
+
+            leads.forEach(lead => {
+                const row = createLeadRow(lead);
+                tbody.appendChild(row);
+            });
+        });
+
+        // Create lead row
+        function createLeadRow(lead) {
+            const tr = document.createElement('tr');
+            tr.id = `lead-${lead.id}`;
+
+            const statusClass = (lead.status || "").toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+            // ID cell
+            const idTd = document.createElement('td');
+            idTd.textContent = lead.id;
+            tr.appendChild(idTd);
+
+            // Name cell
+            const nameTd = document.createElement('td');
+            nameTd.textContent = lead.name;
+            tr.appendChild(nameTd);
+
+            // Email cell
+            const emailTd = document.createElement('td');
+            emailTd.textContent = lead.email;
+            tr.appendChild(emailTd);
+
+            // Lead score cell
+            const scoreTd = document.createElement('td');
+            scoreTd.textContent = lead.lead_score;
+            tr.appendChild(scoreTd);
+
+            // Status cell with badge
+            const statusTd = document.createElement('td');
+            const statusSpan = document.createElement('span');
+            statusSpan.classList.add('status-badge');
+            if (statusClass) {
+                statusSpan.classList.add(`status-${statusClass}`);
+            }
+            statusSpan.textContent = lead.status;
+            statusTd.appendChild(statusSpan);
+            tr.appendChild(statusTd);
+
+            // Version cell with badge
+            const versionTd = document.createElement('td');
+            const versionSpan = document.createElement('span');
+            versionSpan.classList.add('version-badge');
+            versionSpan.textContent = 'v' + lead.version;
+            versionTd.appendChild(versionSpan);
+            tr.appendChild(versionTd);
+
+            // Actions cell with Edit/Delete buttons
+            const actionsTd = document.createElement('td');
+
+            const editButton = document.createElement('button');
+            editButton.className = 'btn btn-small';
+            editButton.textContent = 'Edit';
+            editButton.onclick = () => editLead(lead.id);
+            actionsTd.appendChild(editButton);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'btn btn-small btn-danger';
+            deleteButton.textContent = 'Delete';
+            deleteButton.style.marginLeft = '4px';
+            deleteButton.onclick = () => deleteLead(lead.id);
+            actionsTd.appendChild(deleteButton);
+
+            tr.appendChild(actionsTd);
+
+            return tr;
+        }
+
+        // Handle create lead form submission
+        htmx.on('#create-form', 'htmx:afterRequest', function (evt) {
+            if (evt.detail.successful) {
+                showNotification('✅ Lead created successfully!', 'success');
+                document.getElementById('create-form').reset();
+                htmx.trigger('#leads-table-body', 'leadUpdated');
+            } else {
+                showNotification('❌ Failed to create lead: ' + evt.detail.xhr.responseText, 'error');
+            }
+        });
+
+        // Edit lead function
+        function editLead(id) {
+            fetch(`${backendURL}/api/leads/${id}`)
+                .then(res => res.json())
+                .then(lead => {
+                    const editFormSection = document.getElementById('edit-form');
+                    const editFormContent = document.getElementById('edit-form-content');
+
+                    editFormContent.innerHTML = `
+                        <form id="update-form-${lead.id}">
+                            <div class="form-group">
+                                <label>Name:</label>
+                                <input type="text" id="name-${lead.id}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Email:</label>
+                                <input type="email" id="email-${lead.id}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Lead Score (0-100):</label>
+                                <input type="number" id="score-${lead.id}" min="0" max="100" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Status:</label>
+                                <select id="status-${lead.id}">
+                                    <option value="PROSPECT">PROSPECT</option>
+                                    <option value="QUALIFIED">QUALIFIED</option>
+                                    <option value="CONVERTED">CONVERTED</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Version: <span class="version-badge" id="version-badge-${lead.id}"></span></label>
+                                <input type="hidden" id="version-${lead.id}">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Update Lead</button>
+                            <button type="button" class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
+                        </form>
+                    `;
+
+                    // Safely populate form fields with lead data
+                    document.getElementById(`name-${lead.id}`).value = lead.name;
+                    document.getElementById(`email-${lead.id}`).value = lead.email;
+                    document.getElementById(`score-${lead.id}`).value = lead.lead_score;
+                    document.getElementById(`status-${lead.id}`).value = lead.status;
+                    document.getElementById(`version-${lead.id}`).value = lead.version;
+                    document.getElementById(`version-badge-${lead.id}`).textContent = 'v' + lead.version;
+
+                    document.getElementById(`update-form-${lead.id}`).onsubmit = (event) => updateLead(event, lead.id, lead.version);
+
+                    editFormSection.classList.remove('hidden');
+                    editFormSection.scrollIntoView({ behavior: 'smooth' });
+                })
+                .catch(err => {
+                    showNotification('❌ Failed to load lead: ' + err.message, 'error');
+                });
+        }
+
+        // Update lead function
+        function updateLead(event, id, version) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById(`name-${id}`).value,
+                email: document.getElementById(`email-${id}`).value,
+                lead_score: parseInt(document.getElementById(`score-${id}`).value),
+                status: document.getElementById(`status-${id}`).value,
+                version: version
+            };
+
+            fetch(`${backendURL}/api/leads/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+                .then(async res => {
+                    if (res.status === 409) {
+                        // Conflict - version mismatch
+                        const freshData = await res.json();
+                        const freshVersion = (freshData.fresh_data && freshData.fresh_data.version) || 'unknown';
+                        showNotification(
+                            `⚠️ CONFLICT DETECTED! The lead was modified by another user. Current version: ${freshVersion}. Please review the latest data and try again.`,
+                            'conflict'
+                        );
+                        // Reload the form with fresh data
+                        editLead(id);
+                        return null;
+                    } else if (res.status === 422) {
+                        // Unprocessable Entity - invalid state transition
+                        const error = await res.text();
+                        showNotification(`❌ Invalid state transition: ${error}`, 'error');
+                        return null;
+                    } else if (!res.ok) {
+                        throw new Error(await res.text());
+                    }
+                    return res.json();
+                })
+                .then(updatedLead => {
+                    if (updatedLead) {
+                        showNotification('✅ Lead updated successfully!', 'success');
+                        cancelEdit();
+                        htmx.trigger('#leads-table-body', 'leadUpdated');
+                    }
+                })
+                .catch(err => {
+                    showNotification('❌ Failed to update lead: ' + err.message, 'error');
+                });
+        }
+
+        // Cancel edit
+        function cancelEdit() {
+            document.getElementById('edit-form').classList.add('hidden');
+        }
+
+        // Delete lead function
+        function deleteLead(id) {
+            if (!confirm('Are you sure you want to delete this lead?')) {
+                return;
+            }
+
+            fetch(`${backendURL}/api/leads/${id}`, { method: 'DELETE' })
+                .then(res => {
+                    if (res.ok) {
+                        showNotification('✅ Lead deleted successfully!', 'success');
+                        htmx.trigger('#leads-table-body', 'leadUpdated');
+                    } else {
+                        throw new Error('Delete failed');
+                    }
+                })
+                .catch(err => {
+                    showNotification('❌ Failed to delete lead: ' + err.message, 'error');
+                });
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Handle HTMX errors
+        document.body.addEventListener('htmx:responseError', function (evt) {
+            showNotification('❌ Request failed: ' + evt.detail.error, 'error');
+        });
+    </script>
+</body>
+
+</html>

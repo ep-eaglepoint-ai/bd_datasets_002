@@ -1,0 +1,2 @@
+# Python dependencies for evaluation script only
+pytest>=7.4.0

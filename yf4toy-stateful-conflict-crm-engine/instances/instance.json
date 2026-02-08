@@ -1,0 +1,17 @@
+{
+    "instance_id": "YF4TOY",
+    "problem_statement": "Build a Go-based CRM server that enforces version-based optimistic locking and state machine validation, with an HTMX-driven UI served from the same server that handles 409 Conflict responses by surgically updating the user interface with diagnostic information.",
+    "test_patch": "tests/",
+    "environment_setup": "docker-compose.yml",
+    "language": "Go",
+    "FAIL_TO_PASS": [
+        "comprehensive/TestConcurrentUpdates",
+        "comprehensive/TestConcurrentUpdatesSameVersion",
+        "comprehensive/TestConversionWithInsufficientScore",
+        "comprehensive/TestConversionWithSufficientScore",
+        "comprehensive/TestVersionMismatchReturns409",
+        "comprehensive/TestConversionRejectionReturns422",
+        "comprehensive/TestSuccessfulUpdate"
+    ],
+    "PASS_TO_PASS": []
+}
