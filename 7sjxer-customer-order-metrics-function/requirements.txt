@@ -1,0 +1,2 @@
+# Python dependencies for evaluation scripts
+# Note: psql command-line tool is still required (provided by PostgreSQL client packages)
