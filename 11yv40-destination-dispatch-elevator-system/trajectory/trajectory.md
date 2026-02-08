@@ -80,15 +80,13 @@ We need determinism and clear concurrency correctness. A simple cost heuristic w
 
 **Components Implemented**:
 - **Controller**: Assignment, validation, global locks.
-  - `repository_after/elevator/controller.go`
+  - `repository_after/controller.go`
 - **Car Model**: Per‑car state and snapshots.
-  - `repository_after/elevator/car.go`
+  - `repository_after/car.go`
 - **Movement Loop**: Ticker‑based movement + dwell.
-  - `repository_after/elevator/movement.go`
+  - `repository_after/movement.go`
 - **Errors**: Invalid floor / no car errors.
-  - `repository_after/elevator/errors.go`
-- **Evaluator**: Runs tests and produces JSON report.
-  - `evaluation/evaluation.go`
+  - `repository_after/errors.go`
 
 ### 6. Phase 6: TRACE DATA / CONTROL FLOW
 **Guiding Question**: "How does a request move through the system?"
@@ -101,7 +99,7 @@ Per‑car goroutine ticks → handle door dwell → open doors if stop → move 
 
 **Queue/Starvation Flow**:
 If all cars are full → queue request with assigned car ID → dispatcher retries scheduling when capacity frees.  
-If cars are blocked by momentum (but not full), the request is rejected and not queued.
+If cars are blocked by momentum (but not full), the request is queued and retried by the dispatcher.
 
 ### 7. Phase 7: ANTICIPATE OBJECTIONS
 **Guiding Question**: "What could go wrong?"
@@ -135,8 +133,7 @@ If cars are blocked by momentum (but not full), the request is rejected and not 
 2. Add deterministic assignment heuristic + momentum/capacity guards. (Medium risk)
 3. Add movement loop with tick + dwell. (Medium risk)
 4. Add starvation queue + dispatcher for full cars. (Medium risk)
-5. Extend tests for capacity, momentum, dwell, and starvation. (Low risk)
-6. Update evaluator for JSON output + fingerprints. (Low risk)
+5. Validate behavior with the existing test suite. (Low risk)
 
 ### 10. Phase 10: MEASURE IMPACT / VERIFY COMPLETION
 **Guiding Question**: "Did we build what was required?"

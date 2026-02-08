@@ -76,6 +76,7 @@ func (c *Controller) RequestRide(from, to int) (int, error) {
         return -1, ErrInvalidFloor
     }
 
+    reqDir := direction(from, to)
     car, allFull, blockedByMomentum, err := c.assignCar(from, to)
     if err != nil {
         if allFull || blockedByMomentum {
@@ -98,8 +99,13 @@ func (c *Controller) RequestRide(from, to int) (int, error) {
     }
 
     if car.floor == from && car.doorsOpen && car.load < car.maxCapacity {
-        car.load++
-        car.dropoffs[to]++
+        upStops, downStops := car.pendingStopsByDirection()
+        if momentumAllows(car.direction, reqDir, upStops, downStops) {
+            car.load++
+            car.dropoffs[to]++
+            return car.id, nil
+        }
+        c.enqueuePending(car.id, from, to)
         return car.id, nil
     }
 
@@ -174,6 +180,12 @@ func (c *Controller) dispatchPending() {
             continue
         }
         if car.floor == req.from && car.doorsOpen && car.load < car.maxCapacity {
+            upStops, downStops := car.pendingStopsByDirection()
+            if !momentumAllows(car.direction, reqDir, upStops, downStops) {
+                car.mu.Unlock()
+                remaining = append(remaining, req)
+                continue
+            }
             car.load++
             car.dropoffs[req.to]++
             car.mu.Unlock()
@@ -338,17 +350,17 @@ func carCost(s carSnapshot, from, to int, reqDir Direction, relaxMomentum bool) 
         return int64(math.MaxInt64), false
     }
 
-    if s.doorsOpen && s.floor == from && s.load < s.maxCapacity {
-        return 0, true
-    }
-
     upStops, downStops, totalStops := pendingStops(s)
 
-    if !relaxMomentum {
-        if s.direction == Up && reqDir == Down && upStops > 0 {
-            return int64(math.MaxInt64), false
+    if s.doorsOpen && s.floor == from && s.load < s.maxCapacity {
+        if momentumAllows(s.direction, reqDir, upStops, downStops) {
+            return 0, true
         }
-        if s.direction == Down && reqDir == Up && downStops > 0 {
+        return int64(math.MaxInt64), false
+    }
+
+    if !relaxMomentum {
+        if !momentumAllows(s.direction, reqDir, upStops, downStops) {
             return int64(math.MaxInt64), false
         }
     }
@@ -381,6 +393,16 @@ func pendingStops(s carSnapshot) (upStops int, downStops int, total int) {
         }
     }
     return upStops, downStops, total
+}
+
+func momentumAllows(direction Direction, reqDir Direction, upStops int, downStops int) bool {
+    if direction == Up && reqDir == Down && upStops > 0 {
+        return false
+    }
+    if direction == Down && reqDir == Up && downStops > 0 {
+        return false
+    }
+    return true
 }
 
 func abs(v int) int {

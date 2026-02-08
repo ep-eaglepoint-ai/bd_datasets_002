@@ -70,6 +70,24 @@ type carSnapshot struct {
     dropoffs    map[int]int
 }
 
+func (c *Car) pendingStopsByDirection() (upStops int, downStops int) {
+    for floor, count := range c.pickups {
+        if floor > c.floor {
+            upStops += count
+        } else if floor < c.floor {
+            downStops += count
+        }
+    }
+    for floor, count := range c.dropoffs {
+        if floor > c.floor {
+            upStops += count
+        } else if floor < c.floor {
+            downStops += count
+        }
+    }
+    return upStops, downStops
+}
+
 func copyStops(in map[int]int) map[int]int {
     out := make(map[int]int, len(in))
     for k, v := range in {
