@@ -1,0 +1,46 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+      - "5001:5000"
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/eventbooking
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npm install && (cd repository_after/backend && node server.js) & (cd repository_after/frontend && npm run dev)"
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: eventbooking
+    ports:
+      - "5432:5432"
+
+  tests:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - API_URL=http://app:5000/api/bookings
+    command: sh -c "npm install && npm test"
+    depends_on:
+      - app
+
+  evaluate:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - API_URL=http://app:5000/api/bookings
+    command: sh -c "node evaluation/evaluation.js"
+    depends_on:
+      - app
