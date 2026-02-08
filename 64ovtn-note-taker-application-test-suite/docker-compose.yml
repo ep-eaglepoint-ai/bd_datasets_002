@@ -1,0 +1,41 @@
+services:
+  app-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/repository_before
+    environment:
+      - CI=true
+      - FORCE_COLOR=0
+      - TARGET_REPO=/app/repository_before
+      - APP_UNDER_TEST=/app/repository_before/src/App.jsx
+    command: npm test -- --runTestsByPath /app/tests/App.test.jsx
+    volumes:
+      - ./tests:/app/tests:ro
+
+  app-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/repository_after
+    environment:
+      - CI=true
+      - FORCE_COLOR=0
+      - TARGET_REPO=/app/repository_after
+      - APP_UNDER_TEST=/app/repository_after/src/App.jsx
+    command: npm test -- --runTestsByPath /app/tests/App.test.jsx
+    volumes:
+      - ./tests:/app/tests:ro
+
+  evaluation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - CI=true
+      - FORCE_COLOR=0
+    command: node evaluation/evaluation.js
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./tests:/app/tests:ro
