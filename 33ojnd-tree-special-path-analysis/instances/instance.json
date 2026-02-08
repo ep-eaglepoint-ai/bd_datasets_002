@@ -1,0 +1,11 @@
+{
+            "instance_id": "33OJND",
+            "problem_statement": "You are given a weighted, undirected tree rooted at node 0, where each node has an associated value. A valid path must move strictly downward (ancestor → descendant). All node values on the path must be distinct, except that one value may appear exactly twice. The length of a path is the sum of its edge weights. Return the maximum valid path length and the minimum number of nodes among paths achieving that length.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/33ojnd-tree-special-path-analysis",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [],
+            "PASS_TO_PASS": []
+        }
+        

@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+
+# Evaluation
+reports.json
+report.json
+evaluation/**/*.json
