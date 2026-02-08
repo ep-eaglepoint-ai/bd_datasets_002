@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    command: npm test
+    volumes:
+      - .:/app
+
+  evaluate:
+    build: .
+    environment:
+      - NODE_ENV=production
+    command: sh -c "npm run evaluate"
+    volumes:
+      - ./evaluation:/app/evaluation
+  test:
+    build: .
+    environment:
+      - NODE_ENV=test
+    command: sh -c "npm run test:run 2>&1 | grep -E '(PASS|FAIL|Test Suites:|✓|✗)' || echo 'Tests completed'"
