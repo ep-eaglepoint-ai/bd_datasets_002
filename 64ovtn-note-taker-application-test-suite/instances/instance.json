@@ -1,33 +1,10 @@
 {
-    "instance_id": "64OVTN",
-    "problem_statement": "The Note Taker Application is a React-based app that supports creating, editing, deleting, and organizing notes using tags, backed by an asynchronous in-memory mock API. The application includes form validation, dynamic tag management, tag-based filtering, and UI states driven by async operations. The task is to write comprehensive automated test suites using Jest and React Testing Library. Tests must validate core CRUD flows, tag behavior, filtering, validation, and async loading states.",
-    "base_commit": "repository_before/",
-    "test_patch": "tests/",
-    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/64ovtn-note-taker-application-test-suite",
-    "environment_setup": "Dockerfile",
-    "FAIL_TO_PASS": [
-        "App.test.jsx - Create Note - should update tag counts in TagFilter after creating note with tags",
-        "App.test.jsx - Form Validation - should show alert when submitting with empty title",
-        "App.test.jsx - Form Validation - should show alert when submitting with empty content",
-        "App.test.jsx - Tag Input and Management - should add tag chip when pressing Enter and clear input",
-        "App.test.jsx - Tag Input and Management - should not add duplicate tags",
-        "App.test.jsx - Tag Input and Management - should remove tag when clicking × button",
-        "App.test.jsx - Tag Filter - should show tags with correct counts after creating notes",
-        "App.test.jsx - Edit Note - should enter edit mode and pre-fill form when clicking edit button",
-        "App.test.jsx - Edit Note - should update note when submitting in edit mode",
-        "App.test.jsx - Delete Note - should not delete note when confirm returns false",
-        "App.test.jsx - Delete Note - should update tag counts after deletion"
-    ],
-    "PASS_TO_PASS": [
-        "App.test.jsx - Initial Render and Loading - should display header with application title",
-        "App.test.jsx - Initial Render and Loading - should display loading state on mount",
-        "App.test.jsx - Initial Render and Loading - should display empty state after loading completes",
-        "App.test.jsx - Initial Render and Loading - should display All Notes (0) initially",
-        "App.test.jsx - Create Note - should create note with title and content and add to list",
-        "App.test.jsx - Create Note - should increment All Notes count when note is created",
-        "App.test.jsx - Create Note - should display correct title and content after creation",
-        "App.test.jsx - Tag Input and Management - should add tag chip when pressing comma",
-        "App.test.jsx - Delete Note - should delete note when confirm returns true",
-        "App.test.jsx - Delete Note - should show empty state after deleting last note"
-    ]
+  "instance_id": "64OVTN",
+  "problem_statement": "The Note Taker Application is a React-based app that supports creating, editing, deleting, and organizing notes using tags, backed by an asynchronous in-memory mock API. The application includes form validation, dynamic tag management, tag-based filtering, and UI states driven by async operations. The task is to write comprehensive automated test suites using Jest and React Testing Library. Tests must validate core CRUD flows, tag behavior, filtering, validation, and async loading states.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/64ovtn-note-taker-application-test-suite",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": []
 }

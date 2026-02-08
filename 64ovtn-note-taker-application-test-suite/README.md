@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-### Run Tests (repository_before)
+### Run Meta Tests on repository_before
 ```bash
 docker compose run --rm app-before
 ```
@@ -15,9 +15,4 @@ docker compose run --rm app-after
 ### Run Evaluation
 ```bash
 docker compose run --rm evaluation
-```
-
-### Generate Patch
-```bash
-git diff --no-index repository_before/ repository_after/ > patches/diff.patch
 ```
