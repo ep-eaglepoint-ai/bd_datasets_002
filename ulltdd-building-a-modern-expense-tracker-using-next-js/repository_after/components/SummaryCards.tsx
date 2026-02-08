@@ -40,7 +40,9 @@ export function SummaryCards({ expenses }: SummaryCardsProps) {
                     <PieChart className="h-4 w-4 text-slate-500" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">${monthlyTotal.toFixed(2)}</div>
+                    <div className="text-2xl font-bold" data-testid="monthly-amount">
+                        ${monthlyTotal.toFixed(2)}
+                    </div>
                     <p className="text-xs text-slate-500">
                         For this month
                     </p>

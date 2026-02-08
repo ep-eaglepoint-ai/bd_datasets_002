@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Expense, ExpenseCategory } from "@/types"
 import { ExpenseForm } from "@/components/ExpenseForm"
 import { ExpenseList } from "@/components/ExpenseList"
@@ -11,32 +11,6 @@ export default function Home() {
   // State for expenses
   // Validating Requirement: "The application shall allow users to... add, edit, delete"
   const [expenses, setExpenses] = useState<Expense[]>([])
-
-  // Persistence: use localStorage to persist expenses across page reloads.
-  const STORAGE_KEY = "expenses_v1"
-
-  // Load persisted expenses on mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as Expense[]
-        setExpenses(parsed)
-      }
-    } catch (err) {
-      // If parsing fails, ignore and start fresh.
-      console.error("Failed to load expenses from localStorage", err)
-    }
-  }, [])
-
-  // Persist expenses on change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses))
-    } catch (err) {
-      console.error("Failed to save expenses to localStorage", err)
-    }
-  }, [expenses])
 
   // State for editing
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
@@ -110,7 +84,7 @@ export default function Home() {
         <SummaryCards expenses={filteredExpenses} />
 
         <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6" data-testid="expense-form-panel">
             <ExpenseForm
               onAddExpense={addExpense}
               onUpdateExpense={updateExpense}
@@ -119,7 +93,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6" data-testid="expense-list-panel">
             <FilterBar
               categoryFilter={categoryFilter}
               dateFilter={dateFilter}
