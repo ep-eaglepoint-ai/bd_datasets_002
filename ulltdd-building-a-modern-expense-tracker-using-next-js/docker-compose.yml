@@ -1,0 +1,18 @@
+services:
+  test:
+    build: .
+    volumes:
+      - .:/app
+      - repository_after_node_modules:/app/repository_after/node_modules
+    working_dir: /app/repository_after
+    command: sh -c "npm test"
+
+  evaluate:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app/repository_after
+    command: sh -c "npm install && node ../evaluation/evaluation.js"
+
+volumes:
+  repository_after_node_modules: {}
