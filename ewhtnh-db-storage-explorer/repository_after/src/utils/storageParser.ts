@@ -31,21 +31,42 @@ export class StorageParser {
     const dataView = new DataView(buffer)
     
     try {
-      const snapshot = this.detectFormatAndParse(buffer, dataView, file.name)
+      const snapshot = await this.detectFormatAndParse(buffer, dataView, file.name)
       return snapshot
     } catch (error) {
       throw new Error(`Failed to parse file: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
-  private static detectFormatAndParse(buffer: ArrayBuffer, dataView: DataView, filename: string): StorageSnapshot {
-    const firstBytes = new Uint8Array(buffer.slice(0, 16))
-    const hexString = Array.from(firstBytes).map(byte => ('0' + byte.toString(16)).slice(-2)).join('')
-    
-    if (this.isPostgreSQLDumpFormat(dataView)) {
-      return this.parsePostgreSQLDump(buffer, dataView, filename)
-    } else if (this.isJSONFormat(buffer)) {
+  static parseJSONData(data: unknown, filename: string): StorageSnapshot {
+    const validated = SnapshotSchema.parse(data)
+    return this.convertJSONToSnapshot(validated, filename)
+  }
+
+  static recomputeSnapshot(snapshot: StorageSnapshot): StorageSnapshot {
+    const freeSpaceMap = this.buildFreeSpaceMap(snapshot.heapPages)
+    const metrics = this.calculateMetrics(snapshot.heapPages, snapshot.indexPages, snapshot.metrics.totalPages)
+    const heatmapData = snapshot.heapPages.map(p => ({
+      pageNumber: p.header.pageNumber,
+      density: p.fillFactor,
+      fragmentation: p.deadTupleRatio
+    }))
+    const pageHeatmaps = this.buildPageHeatmaps(snapshot.heapPages)
+
+    return {
+      ...snapshot,
+      freeSpaceMap,
+      metrics,
+      heatmapData,
+      pageHeatmaps
+    }
+  }
+
+  private static async detectFormatAndParse(buffer: ArrayBuffer, dataView: DataView, filename: string): Promise<StorageSnapshot> {
+    if (this.isJSONFormat(buffer)) {
       return this.parseJSONDump(buffer, filename)
+    } else if (this.isPostgreSQLDumpFormat(dataView)) {
+      return this.parsePostgreSQLDump(buffer, dataView, filename)
     } else if (this.isBinaryPageFormat(dataView)) {
       return this.parseBinaryPages(buffer, dataView, filename)
     } else {
@@ -58,13 +79,29 @@ export class StorageParser {
     
     const lsn = dataView.getUint32(4, true)
     const checksum = dataView.getUint32(8, true)
+    const lower = dataView.getUint16(16, true)
+    const upper = dataView.getUint16(18, true)
     
-    return lsn !== 0 && checksum !== 0
+    return lsn !== 0 && checksum !== 0 && lower < this.PAGE_SIZE && upper < this.PAGE_SIZE
   }
 
   private static isJSONFormat(buffer: ArrayBuffer): boolean {
-    const text = new TextDecoder().decode(buffer.slice(0, 100))
-    return text.trim().startsWith('{') || text.trim().startsWith('[')
+    const bytes = new Uint8Array(buffer)
+    let i = 0
+    // skip BOM and whitespace
+    while (i < bytes.length) {
+      const b = bytes[i]
+      if (b === 0xEF && bytes[i + 1] === 0xBB && bytes[i + 2] === 0xBF) {
+        i += 3
+        continue
+      }
+      if (b === 0x20 || b === 0x0A || b === 0x0D || b === 0x09 || b === 0x00) {
+        i++
+        continue
+      }
+      return b === 0x7B || b === 0x5B // '{' or '['
+    }
+    return false
   }
 
   private static isBinaryPageFormat(dataView: DataView): boolean {
@@ -76,35 +113,50 @@ export class StorageParser {
     return lower > 0 && upper > 0 && lower < this.PAGE_SIZE && upper < this.PAGE_SIZE
   }
 
-  private static parsePostgreSQLDump(buffer: ArrayBuffer, dataView: DataView, filename: string): StorageSnapshot {
+  private static async parsePostgreSQLDump(buffer: ArrayBuffer, dataView: DataView, filename: string): Promise<StorageSnapshot> {
     const pages: HeapPage[] = []
     const indexPages: IndexPage[] = []
     const corruptedPages: number[] = []
     const parsingErrors: string[] = []
     
     const totalPages = Math.floor(buffer.byteLength / this.PAGE_SIZE)
+    const CHUNK_SIZE = 64
     
-    for (let pageNum = 0; pageNum < totalPages; pageNum++) {
-      const pageOffset = pageNum * this.PAGE_SIZE
-      const pageBuffer = buffer.slice(pageOffset, pageOffset + this.PAGE_SIZE)
-      const pageDataView = new DataView(pageBuffer)
-      
-      try {
-        const pageHeader = this.parsePageHeader(pageDataView, pageNum)
+    for (let start = 0; start < totalPages; start += CHUNK_SIZE) {
+      const end = Math.min(totalPages, start + CHUNK_SIZE)
+      for (let pageNum = start; pageNum < end; pageNum++) {
+        const pageOffset = pageNum * this.PAGE_SIZE
+        const pageBuffer = buffer.slice(pageOffset, pageOffset + this.PAGE_SIZE)
+        const pageDataView = new DataView(pageBuffer)
         
-        if (pageHeader.pageType === 'heap') {
-          const heapPage = this.parseHeapPage(pageBuffer, pageDataView, pageHeader)
-          pages.push(heapPage)
-        } else if (pageHeader.pageType === 'index' || pageHeader.pageType === 'btree') {
-          const indexPage = this.parseIndexPage(pageBuffer, pageDataView, pageHeader)
-          indexPages.push(indexPage)
+        try {
+          const pageHeader = this.parsePageHeader(pageDataView, pageNum)
+          
+          if (pageHeader.pageType === 'heap') {
+            const result = this.parseHeapPage(pageBuffer, pageDataView, pageHeader)
+            pages.push(result.page)
+            if (result.errors.length > 0) {
+              corruptedPages.push(pageNum)
+              parsingErrors.push(...result.errors)
+            }
+          } else if (pageHeader.pageType === 'index' || pageHeader.pageType === 'btree') {
+            const result = this.parseIndexPage(pageBuffer, pageDataView, pageHeader)
+            indexPages.push(result.page)
+            if (result.errors.length > 0) {
+              corruptedPages.push(pageNum)
+              parsingErrors.push(...result.errors)
+            }
+          }
+        } catch (error) {
+          corruptedPages.push(pageNum)
+          parsingErrors.push(`Page ${pageNum}: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
-      } catch (error) {
-        corruptedPages.push(pageNum)
-        parsingErrors.push(`Page ${pageNum}: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
+      await new Promise(resolve => setTimeout(resolve, 0))
     }
     
+    this.validateIndexReferences(indexPages, corruptedPages, parsingErrors)
+
     const freeSpaceMap = this.buildFreeSpaceMap(pages)
     const metrics = this.calculateMetrics(pages, indexPages, totalPages)
     const heatmapData = pages.map(p => ({
@@ -112,17 +164,19 @@ export class StorageParser {
       density: p.fillFactor,
       fragmentation: p.deadTupleRatio
     }))
+    const pageHeatmaps = this.buildPageHeatmaps(pages)
 
     return {
-      id: this.generateId(),
+      id: this.generateId(`pgdump:${filename}:${buffer.byteLength}:${pages.length}:${indexPages.length}`),
       name: filename,
-      timestamp: Date.now(),
+      timestamp: 0,
       databaseName: this.extractDatabaseName(filename),
       tableName: this.extractTableName(filename),
       heapPages: pages,
       indexPages,
       freeSpaceMap,
       heatmapData,
+      pageHeatmaps,
       metrics,
       corruptedPages,
       parsingErrors
@@ -142,7 +196,7 @@ export class StorageParser {
     }
   }
 
-  private static parseBinaryPages(buffer: ArrayBuffer, dataView: DataView, filename: string): StorageSnapshot {
+  private static parseBinaryPages(buffer: ArrayBuffer, dataView: DataView, filename: string): Promise<StorageSnapshot> {
     return this.parsePostgreSQLDump(buffer, dataView, filename)
   }
 
@@ -159,6 +213,23 @@ export class StorageParser {
     const flags = dataView.getUint16(14, true)
     const pruneXid = dataView.getUint32(12, true)
     
+    if (lower > this.PAGE_SIZE || upper > this.PAGE_SIZE) {
+      throw new Error('Invalid page header offsets')
+    }
+    // In PostgreSQL-style heap pages, lower should be <= upper; free space spans between them.
+    if (lower > upper) {
+      throw new Error('Corrupted page header: lower > upper')
+    }
+    if (lower < this.PAGE_HEADER_SIZE) {
+      throw new Error('Corrupted page header: lower < header size')
+    }
+    if (special > this.PAGE_SIZE) {
+      throw new Error('Corrupted page header: special > page size')
+    }
+    if (special !== 0 && special < upper) {
+      throw new Error('Corrupted page header: special < upper')
+    }
+
     let pageType: PageHeader['pageType'] = 'heap'
     if (flags & 0x0001) pageType = 'index'
     if (flags & 0x0002) pageType = 'btree'
@@ -177,29 +248,30 @@ export class StorageParser {
     }
   }
 
-  private static parseHeapPage(buffer: ArrayBuffer, dataView: DataView, header: PageHeader): HeapPage {
+  private static parseHeapPage(buffer: ArrayBuffer, dataView: DataView, header: PageHeader): { page: HeapPage; errors: string[] } {
     const linePointers: LinePointer[] = []
     const tuples: Tuple[] = []
+    const errors: string[] = []
     
     const numLinePointers = Math.floor((header.lower - this.PAGE_HEADER_SIZE) / this.LINE_POINTER_SIZE)
+    const specialOffset = header.special > 0 ? header.special : this.PAGE_SIZE
     
     for (let i = 0; i < numLinePointers; i++) {
       const offset = this.PAGE_HEADER_SIZE + (i * this.LINE_POINTER_SIZE)
-      const lpOffset = dataView.getUint16(offset, true)
-      const lpFlags = dataView.getUint16(offset + 2, true)
+      const raw = dataView.getUint32(offset, true)
+      const lpOffset = raw & 0x7fff
+      const lpFlags = (raw >> 15) & 0x3
+      const lpLength = (raw >> 17) & 0x7fff
       
-      if (lpOffset > 0) {
+      if (lpOffset > 0 && lpLength > 0) {
+        if (!this.isLinePointerValid(lpOffset, lpLength, header, specialOffset)) {
+          errors.push(`Page ${header.pageNumber} line pointer ${i} invalid bounds`)
+          continue
+        }
         const linePointer: LinePointer = {
           offset: lpOffset,
-          length: 0,
+          length: lpLength,
           flags: lpFlags
-        }
-        
-        if (i < numLinePointers - 1) {
-          const nextOffset = dataView.getUint16(offset + this.LINE_POINTER_SIZE, true)
-          linePointer.length = nextOffset - lpOffset
-        } else {
-          linePointer.length = header.upper - lpOffset
         }
         
         linePointers.push(linePointer)
@@ -208,28 +280,32 @@ export class StorageParser {
           const tuple = this.parseTuple(buffer, dataView, linePointer, header)
           tuples.push(tuple)
         } catch (error) {
-          console.warn(`Failed to parse tuple at offset ${lpOffset}:`, error)
+          const msg = `Page ${header.pageNumber} tuple ${lpOffset}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.warn(msg)
+          errors.push(msg)
         }
       }
     }
     
     const freeSpace = {
-      offset: header.upper,
-      length: header.lower - header.upper
+      offset: header.lower,
+      length: Math.max(0, header.upper - header.lower)
     }
     
     const fillFactor = ((this.PAGE_SIZE - freeSpace.length) / this.PAGE_SIZE) * 100
     const deadTuples = tuples.filter(t => t.isDead).length
     const deadTupleRatio = tuples.length > 0 ? deadTuples / tuples.length : 0
     
-    return {
+    const page: HeapPage = {
       header,
       linePointers,
       tuples,
+      rawBytes: new Uint8Array(buffer),
       freeSpace,
       fillFactor,
       deadTupleRatio
     }
+    return { page, errors }
   }
 
   private static parseTuple(buffer: ArrayBuffer, dataView: DataView, linePointer: LinePointer, pageHeader: PageHeader): Tuple {
@@ -249,11 +325,11 @@ export class StorageParser {
     const tHoff = tupleDataView.getUint8(16)
     
     const hasNulls = (tInfomask & 0x0001) !== 0
-    const numAttrs = tInfomask2 & 0x07FF
+    const numAttrs = Math.min(tInfomask2 & 0x07FF, 512)
     const nullBitmapSize = hasNulls ? Math.ceil((numAttrs + 1) / 8) : 0
     
     const nullBitmap: boolean[] = []
-    if (hasNulls && nullBitmapSize > 0) {
+    if (hasNulls && nullBitmapSize > 0 && (this.TUPLE_HEADER_SIZE + nullBitmapSize) <= tupleBuffer.byteLength) {
       for (let i = 0; i < numAttrs; i++) {
         const byteIndex = Math.floor(i / 8)
         const bitIndex = i % 8
@@ -266,7 +342,7 @@ export class StorageParser {
     const isDead = !isVisible
     
     const dataStart = tupleOffset + tHoff
-    const dataLength = linePointer.length - tHoff
+    const dataLength = Math.max(0, linePointer.length - tHoff)
     const data = buffer.slice(dataStart, dataStart + dataLength)
     
     const values = this.extractTupleValues(data, tupleDataView, tHoff, numAttrs, nullBitmap)
@@ -287,41 +363,56 @@ export class StorageParser {
       isVisible,
       isDead,
       values,
-      nullBitmap
+      nullBitmap,
+      offset: linePointer.offset,
+      length: linePointer.length
     }
   }
 
-  private static parseIndexPage(buffer: ArrayBuffer, dataView: DataView, header: PageHeader): IndexPage {
-    const specialOffset = header.special
+  private static parseIndexPage(buffer: ArrayBuffer, dataView: DataView, header: PageHeader): { page: IndexPage; errors: string[] } {
+    const specialOffset = header.special > 0 ? header.special : this.PAGE_SIZE
     const isLeaf = (header.flags & 0x0010) !== 0
-    
+    const errors: string[] = []
+
     const keys: string[] = []
     const childPointers: number[] = []
-    
-    let offset = this.PAGE_HEADER_SIZE
-    while (offset < specialOffset) {
-      const keySize = dataView.getUint16(offset, true)
-      offset += 2
-      
-      if (keySize > 0) {
-        const keyData = buffer.slice(offset, offset + keySize)
-        keys.push(new TextDecoder().decode(keyData))
-        offset += keySize
+
+    const numLinePointers = Math.floor((header.lower - this.PAGE_HEADER_SIZE) / this.LINE_POINTER_SIZE)
+    for (let i = 0; i < numLinePointers; i++) {
+      const offset = this.PAGE_HEADER_SIZE + (i * this.LINE_POINTER_SIZE)
+      const raw = dataView.getUint32(offset, true)
+      const lpOffset = raw & 0x7fff
+      const lpFlags = (raw >> 15) & 0x3
+      const lpLength = (raw >> 17) & 0x7fff
+
+      if (lpOffset === 0 || lpLength === 0) continue
+      if (!this.isLinePointerValid(lpOffset, lpLength, header, specialOffset)) {
+        errors.push(`Index page ${header.pageNumber} line pointer ${i} invalid bounds`)
+        continue
       }
-      
-      if (!isLeaf) {
-        const childPtr = dataView.getUint32(offset, true)
-        childPointers.push(childPtr)
-        offset += 4
+
+      const tupleBytes = buffer.slice(lpOffset, lpOffset + lpLength)
+      const tupleView = new DataView(tupleBytes)
+
+      // Deterministic, structure-aware decoding:
+      // For internal pages, the first 4 bytes are treated as a child pointer candidate.
+      if (!isLeaf && tupleBytes.byteLength >= 4) {
+        childPointers.push(tupleView.getUint32(0, true))
       }
+
+      const keyBytes = tupleBytes.byteLength > 4 ? tupleBytes.slice(4) : tupleBytes
+      keys.push(this.decodeKeyBytes(new Uint8Array(keyBytes)))
     }
-    
+
     const level = (header.flags >> 5) & 0x0F
-    const utilization = ((specialOffset - this.PAGE_HEADER_SIZE) / (this.PAGE_SIZE - this.PAGE_HEADER_SIZE)) * 100
-    
+    const utilization = Math.max(
+      0,
+      Math.min(100, ((specialOffset - header.lower) / (this.PAGE_SIZE - this.PAGE_HEADER_SIZE)) * 100)
+    )
+
     const keyRanges = this.calculateKeyRanges(keys)
-    
-    return {
+
+    const page: IndexPage = {
       header,
       node: {
         keys,
@@ -334,6 +425,7 @@ export class StorageParser {
       keyRanges,
       utilization
     }
+    return { page, errors }
   }
 
   private static buildFreeSpaceMap(pages: HeapPage[]): FreeSpaceMap {
@@ -372,7 +464,7 @@ export class StorageParser {
     const fragmentationRatio = this.calculateFragmentationRatio(pages)
     const bloatEstimate = this.calculateBloatEstimate(pages)
     const indexBloatEstimate = this.calculateIndexBloatEstimate(indexPages)
-    const pageDensity = usedPages / totalPages
+    const pageDensity = totalPages > 0 ? usedPages / totalPages : 0
     
     return {
       totalPages,
@@ -395,7 +487,8 @@ export class StorageParser {
     
     const freeSpaceVariance = this.calculateVariance(pages.map(p => p.freeSpace.length))
     const maxFreeSpace = Math.max(...pages.map(p => p.freeSpace.length))
-    
+
+    if (maxFreeSpace <= 0) return 0
     return (freeSpaceVariance / (maxFreeSpace * maxFreeSpace)) * 100
   }
 
@@ -497,10 +590,15 @@ export class StorageParser {
       return {
         header: pageData.header,
         linePointers: pageData.linePointers || [],
-        tuples,
+        tuples: (tuples || []).map((tuple: any) => ({
+          ...tuple,
+          offset: tuple.offset ?? tuple.linePointer?.offset,
+          length: tuple.length ?? tuple.linePointer?.length
+        })),
         freeSpace,
         fillFactor,
-        deadTupleRatio
+        deadTupleRatio,
+        rawBytes: Array.isArray(pageData.rawBytes) ? new Uint8Array(pageData.rawBytes) : undefined
       }
     })
     
@@ -520,17 +618,21 @@ export class StorageParser {
         fragmentation: typeof p.deadTupleRatio === 'number' ? p.deadTupleRatio : 0
       }))
       .sort((a, b) => a.pageNumber - b.pageNumber)
+    const pageHeatmaps = Array.isArray(data.pageHeatmaps)
+      ? data.pageHeatmaps
+      : this.buildPageHeatmaps(heapPages)
 
     return {
-      id: this.generateId(),
+      id: this.generateId(`json:${filename}:${heapPages.length}:${indexPages.length}:${data.totalPages || 0}`),
       name: filename,
-      timestamp: Date.now(),
+      timestamp: typeof data.timestamp === 'number' ? data.timestamp : 0,
       databaseName: data.databaseName || 'unknown',
       tableName: data.tableName || 'unknown',
       heapPages,
       indexPages,
       freeSpaceMap,
       heatmapData,
+      pageHeatmaps,
       metrics,
       corruptedPages: data.corruptedPages || [],
       parsingErrors: data.parsingErrors || []
@@ -547,8 +649,18 @@ export class StorageParser {
     return match ? match[1] : 'unknown'
   }
 
-  private static generateId(): string {
-    return Math.random().toString(36).substr(2, 9)
+  private static generateId(seed: string): string {
+    const hash = this.hashString(seed)
+    return `snap-${hash}`
+  }
+
+  private static hashString(input: string): string {
+    let hash = 5381
+    for (let i = 0; i < input.length; i++) {
+      hash = ((hash << 5) + hash) + input.charCodeAt(i)
+      hash = hash & 0xffffffff
+    }
+    return (hash >>> 0).toString(36)
   }
 
   static inspectBinary(snapshot: StorageSnapshot, pageNumber: number, offset: number, length: number): BinaryInspection[] {
@@ -558,13 +670,16 @@ export class StorageParser {
     if (!page) {
       throw new Error(`Page ${pageNumber} not found`)
     }
+    if (!page.rawBytes) {
+      throw new Error(`Page ${pageNumber} has no raw byte data`)
+    }
     
-    const pageBuffer = new ArrayBuffer(this.PAGE_SIZE)
-    const dataView = new DataView(pageBuffer)
+    const dataView = new DataView(page.rawBytes.buffer)
     
+    const maxOffset = Math.min(this.PAGE_SIZE, page.rawBytes.length)
     for (let i = 0; i < length; i++) {
       const currentOffset = offset + i
-      if (currentOffset >= this.PAGE_SIZE) break
+      if (currentOffset >= maxOffset) break
       
       const byte = dataView.getUint8(currentOffset)
       const bytes = [byte]
@@ -603,5 +718,56 @@ export class StorageParser {
       default:
         return 'Header metadata'
     }
+  }
+
+  private static buildPageHeatmaps(pages: HeapPage[]) {
+    return pages.map(page => {
+      const tupleCount = page.tuples.length
+      const deadRatio = page.deadTupleRatio
+      const freeRatio = page.freeSpace.length / this.PAGE_SIZE
+      return {
+        pageNumber: page.header.pageNumber,
+        accessFrequency: Math.max(0, Math.min(100, tupleCount * 3)),
+        modificationDensity: Math.max(0, Math.min(100, deadRatio * 100)),
+        storageChurn: Math.max(0, Math.min(100, (1 - freeRatio) * 100)),
+        lastAccessed: 0,
+        lastModified: 0
+      }
+    })
+  }
+
+  private static validateIndexReferences(indexPages: IndexPage[], corruptedPages: number[], parsingErrors: string[]) {
+    if (indexPages.length === 0) return
+    const pageNumbers = new Set(indexPages.map(p => p.header.pageNumber))
+    indexPages.forEach((page) => {
+      if (!page.node.childPointers || page.node.childPointers.length === 0) return
+      page.node.childPointers.forEach((ptr) => {
+        if (!pageNumbers.has(ptr)) {
+          parsingErrors.push(`Index page ${page.header.pageNumber} references missing child page ${ptr}`)
+          if (!corruptedPages.includes(page.header.pageNumber)) {
+            corruptedPages.push(page.header.pageNumber)
+          }
+        }
+      })
+    })
+  }
+
+  private static isLinePointerValid(offset: number, length: number, header: PageHeader, specialOffset: number): boolean {
+    const end = offset + length
+    if (offset < header.upper) return false
+    if (end > this.PAGE_SIZE) return false
+    if (specialOffset > 0 && end > specialOffset) return false
+    return true
+  }
+
+  private static decodeKeyBytes(bytes: Uint8Array): string {
+    if (bytes.length === 0) return ''
+    const printable = bytes.every(b => b >= 32 && b <= 126)
+    if (printable) {
+      return new TextDecoder().decode(bytes)
+    }
+    return Array.from(bytes)
+      .map(b => ('00' + b.toString(16)).slice(-2))
+      .join('')
   }
 }

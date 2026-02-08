@@ -43,6 +43,7 @@ export interface HeapPage {
   header: PageHeader
   linePointers: LinePointer[]
   tuples: Tuple[]
+  rawBytes?: Uint8Array
   freeSpace: {
     offset: number
     length: number
@@ -97,6 +98,9 @@ export interface HeatmapData {
   pageNumber: number
   density: number
   fragmentation: number
+  accessFrequency?: number
+  modificationDensity?: number
+  storageChurn?: number
 }
 
 export interface StorageSnapshot {
@@ -110,6 +114,7 @@ export interface StorageSnapshot {
   freeSpaceMap: FreeSpaceMap
   metrics: StorageMetrics
   heatmapData?: HeatmapData[]
+  pageHeatmaps?: PageHeatmap[]
   corruptedPages: number[]
   parsingErrors: string[]
 }

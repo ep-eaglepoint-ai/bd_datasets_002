@@ -116,9 +116,15 @@ export const useStorageStore = create<StorageState>()(
 
       setSelectedTuple: (tupleNumber) => set({ selectedTuple: tupleNumber }),
 
-      addInspectionLog: (log) => set((state) => ({
-        inspectionLogs: [...state.inspectionLogs, log]
-      })),
+      addInspectionLog: (log) => {
+        const frozen = Object.freeze({
+          ...log,
+          details: Object.freeze({ ...(log.details || {}) })
+        })
+        set((state) => ({
+          inspectionLogs: [...state.inspectionLogs, frozen]
+        }))
+      },
 
       addHeatmap: (heatmap) => set((state) => ({
         heatmaps: [...state.heatmaps, heatmap]

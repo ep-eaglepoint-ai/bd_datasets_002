@@ -10,41 +10,50 @@ interface BinaryInspectorProps {
 }
 
 export default function BinaryInspector({ snapshot, selectedPage, selectedTuple }: BinaryInspectorProps) {
+  const annotations = useMemo(() => {
+    if (selectedTuple) {
+      return buildTupleAnnotations(selectedTuple, !!selectedPage?.rawBytes)
+    }
+    if (selectedPage) {
+      return buildPageAnnotations(selectedPage)
+    }
+    return []
+  }, [selectedPage, selectedTuple])
+
   const binaryData = useMemo(() => {
     if (selectedTuple) {
+      if (selectedPage?.rawBytes && selectedTuple.offset !== undefined && selectedTuple.length !== undefined) {
+        const start = selectedTuple.offset
+        const end = start + selectedTuple.length
+        const raw = selectedPage.rawBytes.slice(start, end)
+        return {
+          type: 'tuple',
+          data: raw,
+          offset: start,
+          size: raw.length,
+          hasTupleHeader: true
+        }
+      }
       return {
         type: 'tuple',
         data: selectedTuple.data,
         offset: 0,
-        size: selectedTuple.data.length
+        size: selectedTuple.data.length,
+        hasTupleHeader: false
       }
     }
     
     if (selectedPage) {
-      const pageData = new Uint8Array(8192)
-      
-      const headerBytes = new TextEncoder().encode(JSON.stringify(selectedPage.header))
-      pageData.set(headerBytes.slice(0, 24), 0)
-      
-      selectedPage.linePointers.forEach((lp, index) => {
-        const offset = 24 + index * 4
-        pageData[offset] = lp.offset & 0xff
-        pageData[offset + 1] = (lp.offset >> 8) & 0xff
-        pageData[offset + 2] = (lp.offset >> 16) & 0xff
-        pageData[offset + 3] = (lp.offset >> 24) & 0xff
-      })
-      
-      selectedPage.tuples.forEach(tuple => {
-        if ((tuple.offset || 0) > 0) {
-          pageData.set(tuple.data, tuple.offset || 0)
-        }
-      })
+      if (!selectedPage.rawBytes) {
+        return null
+      }
       
       return {
         type: 'page',
-        data: pageData,
+        data: selectedPage.rawBytes,
         offset: 0,
-        size: 8192
+        size: selectedPage.rawBytes.length,
+        hasTupleHeader: false
       }
     }
     
@@ -93,6 +102,9 @@ export default function BinaryInspector({ snapshot, selectedPage, selectedTuple 
       interpretations.push(`i64: ${view.getInt32(0, true)}`)
       interpretations.push(`f64: ${view.getFloat64(0, true)}`)
     }
+
+    const label = getAnnotationLabel(annotations, offset)
+    if (label) interpretations.push(label)
     
     return interpretations
   }
@@ -101,7 +113,7 @@ export default function BinaryInspector({ snapshot, selectedPage, selectedTuple 
     return (
       <div className="p-6 text-center text-gray-500">
         <div className="text-lg font-medium">No binary data selected</div>
-        <div className="text-sm">Select a page or tuple to inspect binary data</div>
+        <div className="text-sm">Select a tuple or a page with raw byte data to inspect</div>
       </div>
     )
   }
@@ -134,6 +146,24 @@ export default function BinaryInspector({ snapshot, selectedPage, selectedTuple 
           </div>
         </div>
       </div>
+
+      {annotations.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-md font-medium text-gray-900 mb-2">Decoded Structure Map</h4>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {annotations.map((a, i) => (
+                <div key={`${a.label}-${i}`} className="flex justify-between">
+                  <span className="text-gray-700">{a.label}</span>
+                  <span className="font-mono text-gray-600">
+                    {a.start.toString(16).padStart(4, '0')}–{(a.end - 1).toString(16).padStart(4, '0')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="max-h-96 overflow-y-auto">
@@ -262,6 +292,79 @@ export default function BinaryInspector({ snapshot, selectedPage, selectedTuple 
       </div>
     </div>
   )
+}
+
+const PAGE_HEADER_SIZE = 24
+const LINE_POINTER_SIZE = 4
+const TUPLE_HEADER_SIZE = 23
+
+type Annotation = { start: number; end: number; label: string }
+
+function getAnnotationLabel(annotations: Annotation[], offset: number): string | null {
+  const match = annotations.find(a => offset >= a.start && offset < a.end)
+  return match ? match.label : null
+}
+
+function buildTupleAnnotations(tuple: Tuple, hasTupleHeader: boolean): Annotation[] {
+  if (!hasTupleHeader) {
+    return [{
+      start: 0,
+      end: tuple.data.length,
+      label: 'Tuple Data (no header bytes available)'
+    }]
+  }
+
+  const annotations: Annotation[] = [
+    { start: 0, end: 4, label: 'tXmin' },
+    { start: 4, end: 8, label: 'tXmax' },
+    { start: 8, end: 12, label: 'tCid' },
+    { start: 12, end: 14, label: 'tInfomask2' },
+    { start: 14, end: 16, label: 'tInfomask' },
+    { start: 16, end: 17, label: 'tHoff' }
+  ]
+
+  const nullBitmapBytes = tuple.nullBitmap.length > 0
+    ? Math.ceil(tuple.nullBitmap.length / 8)
+    : 0
+  if (nullBitmapBytes > 0) {
+    annotations.push({
+      start: TUPLE_HEADER_SIZE,
+      end: TUPLE_HEADER_SIZE + nullBitmapBytes,
+      label: 'Null Bitmap'
+    })
+  }
+
+  const dataStart = tuple.header.tHoff
+  annotations.push({
+    start: dataStart,
+    end: Math.max(dataStart, dataStart + tuple.data.length),
+    label: 'Tuple Data'
+  })
+
+  return annotations
+}
+
+function buildPageAnnotations(page: HeapPage): Annotation[] {
+  const annotations: Annotation[] = [
+    { start: 0, end: 4, label: 'Page Number' },
+    { start: 4, end: 8, label: 'LSN' },
+    { start: 8, end: 12, label: 'Checksum' },
+    { start: 12, end: 16, label: 'Prune Xid / Flags' },
+    { start: 16, end: 18, label: 'Lower' },
+    { start: 18, end: 20, label: 'Upper' },
+    { start: 20, end: 24, label: 'Special' }
+  ]
+
+  const lower = Math.max(page.header.lower, PAGE_HEADER_SIZE)
+  for (let off = PAGE_HEADER_SIZE; off + LINE_POINTER_SIZE <= lower; off += LINE_POINTER_SIZE) {
+    annotations.push({
+      start: off,
+      end: off + LINE_POINTER_SIZE,
+      label: `Line Pointer @${off.toString(16)}`
+    })
+  }
+
+  return annotations
 }
 
 function findRepeatingPatterns(data: Uint8Array): Array<{pattern: string, count: number, offsets: number[]}> {

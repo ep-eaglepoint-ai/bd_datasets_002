@@ -1,5 +1,13 @@
 import '@testing-library/jest-dom'
 import React from 'react'
+import { TextDecoder, TextEncoder } from 'util'
+
+if (typeof global.TextDecoder === 'undefined') {
+	global.TextDecoder = TextDecoder
+}
+if (typeof global.TextEncoder === 'undefined') {
+	global.TextEncoder = TextEncoder
+}
 
 // Ensure any imports of `react-dom/test-utils.act` delegate to `React.act`
 // This prevents the deprecation warning that occurs when libraries call

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { scaleLinear, interpolateRdYlGn } from 'd3'
 import AutoSizer from 'react-virtualized-auto-sizer'
 import { FixedSizeList as List } from 'react-window'
 import { StorageSnapshot, HeatmapData } from '@/types/storage'
@@ -10,6 +11,7 @@ interface FragmentationHeatmapProps {
 }
 
 export default function FragmentationHeatmap({ snapshot }: FragmentationHeatmapProps) {
+  const pageHeatmaps = useMemo(() => snapshot.pageHeatmaps || [], [snapshot.pageHeatmaps])
   const heatmapData = useMemo(() => {
     const pages = snapshot.heatmapData || []
     
@@ -39,23 +41,42 @@ export default function FragmentationHeatmap({ snapshot }: FragmentationHeatmapP
     }
   }, [snapshot.heatmapData])
 
+  const densityScale = useMemo(() => {
+    return scaleLinear()
+      .domain([heatmapData.minDensity, heatmapData.maxDensity || heatmapData.minDensity + 1])
+      .range([0, 1])
+      .clamp(true)
+  }, [heatmapData.minDensity, heatmapData.maxDensity])
+
+  const fragScale = useMemo(() => {
+    return scaleLinear()
+      .domain([heatmapData.minFragmentation, heatmapData.maxFragmentation || heatmapData.minFragmentation + 0.01])
+      .range([0, 1])
+      .clamp(true)
+  }, [heatmapData.minFragmentation, heatmapData.maxFragmentation])
+
   const getColorForDensity = (density: number) => {
-    const normalized = (density - heatmapData.minDensity) / (heatmapData.maxDensity - heatmapData.minDensity || 1)
-    
-    if (normalized > 0.8) return 'bg-green-600'
-    if (normalized > 0.6) return 'bg-green-500'
-    if (normalized > 0.4) return 'bg-yellow-500'
-    if (normalized > 0.2) return 'bg-orange-500'
-    return 'bg-red-500'
+    return interpolateRdYlGn(densityScale(density))
   }
 
   const getColorForFragmentation = (fragmentation: number) => {
-    if (fragmentation > 0.3) return 'bg-red-600'
-    if (fragmentation > 0.2) return 'bg-red-500'
-    if (fragmentation > 0.1) return 'bg-orange-500'
-    if (fragmentation > 0.05) return 'bg-yellow-500'
-    return 'bg-green-500'
+    return interpolateRdYlGn(1 - fragScale(fragmentation))
   }
+
+  const accessScale = useMemo(() => {
+    const max = pageHeatmaps.length > 0 ? Math.max(...pageHeatmaps.map(p => p.accessFrequency)) : 1
+    return scaleLinear().domain([0, max || 1]).range([0, 1]).clamp(true)
+  }, [pageHeatmaps])
+
+  const modificationScale = useMemo(() => {
+    const max = pageHeatmaps.length > 0 ? Math.max(...pageHeatmaps.map(p => p.modificationDensity)) : 1
+    return scaleLinear().domain([0, max || 1]).range([0, 1]).clamp(true)
+  }, [pageHeatmaps])
+
+  const churnScale = useMemo(() => {
+    const max = pageHeatmaps.length > 0 ? Math.max(...pageHeatmaps.map(p => p.storageChurn)) : 1
+    return scaleLinear().domain([0, max || 1]).range([0, 1]).clamp(true)
+  }, [pageHeatmaps])
 
   if (!heatmapData.pages || heatmapData.pages.length === 0) {
     return (
@@ -99,7 +120,8 @@ export default function FragmentationHeatmap({ snapshot }: FragmentationHeatmapP
               {heatmapData.pages.map((page, index) => (
                 <div
                   key={index}
-                  className={`aspect-square ${getColorForDensity(page.density)} cursor-pointer hover:opacity-80 rounded-sm`}
+                  className="aspect-square cursor-pointer hover:opacity-80 rounded-sm"
+                  style={{ backgroundColor: getColorForDensity(page.density) }}
                   title={`Page ${page.pageNumber}: ${page.density.toFixed(1)}% density, ${page.fragmentation.toFixed(1)}% fragmentation`}
                 ></div>
               ))}
@@ -128,7 +150,8 @@ export default function FragmentationHeatmap({ snapshot }: FragmentationHeatmapP
               {heatmapData.pages.map((page, index) => (
                 <div
                   key={index}
-                  className={`aspect-square ${getColorForFragmentation(page.fragmentation)} cursor-pointer hover:opacity-80 rounded-sm`}
+                  className="aspect-square cursor-pointer hover:opacity-80 rounded-sm"
+                  style={{ backgroundColor: getColorForFragmentation(page.fragmentation) }}
                   title={`Page ${page.pageNumber}: ${page.fragmentation.toFixed(1)}% fragmentation, ${page.density.toFixed(1)}% density`}
                 ></div>
               ))}
@@ -273,6 +296,53 @@ export default function FragmentationHeatmap({ snapshot }: FragmentationHeatmapP
           </div>
         </div>
       </div>
+
+      {pageHeatmaps.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-md font-medium text-gray-900 mb-3">Page-level Activity Heatmaps</h4>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div>
+              <h5 className="text-sm font-medium text-gray-900 mb-2">Access Frequency</h5>
+              <div className="grid grid-cols-20 gap-1 bg-gray-50 rounded-lg p-4">
+                {pageHeatmaps.map((page) => (
+                  <div
+                    key={`access-${page.pageNumber}`}
+                    className="aspect-square rounded-sm"
+                    style={{ backgroundColor: interpolateRdYlGn(accessScale(page.accessFrequency)) }}
+                    title={`Page ${page.pageNumber}: ${page.accessFrequency.toFixed(1)} access freq`}
+                  ></div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h5 className="text-sm font-medium text-gray-900 mb-2">Modification Density</h5>
+              <div className="grid grid-cols-20 gap-1 bg-gray-50 rounded-lg p-4">
+                {pageHeatmaps.map((page) => (
+                  <div
+                    key={`mod-${page.pageNumber}`}
+                    className="aspect-square rounded-sm"
+                    style={{ backgroundColor: interpolateRdYlGn(1 - modificationScale(page.modificationDensity)) }}
+                    title={`Page ${page.pageNumber}: ${page.modificationDensity.toFixed(1)}% modified`}
+                  ></div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h5 className="text-sm font-medium text-gray-900 mb-2">Storage Churn</h5>
+              <div className="grid grid-cols-20 gap-1 bg-gray-50 rounded-lg p-4">
+                {pageHeatmaps.map((page) => (
+                  <div
+                    key={`churn-${page.pageNumber}`}
+                    className="aspect-square rounded-sm"
+                    style={{ backgroundColor: interpolateRdYlGn(1 - churnScale(page.storageChurn)) }}
+                    title={`Page ${page.pageNumber}: ${page.storageChurn.toFixed(1)}% churn`}
+                  ></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

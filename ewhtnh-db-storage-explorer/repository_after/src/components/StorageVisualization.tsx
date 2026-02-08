@@ -7,16 +7,19 @@ import TupleInspector from './TupleInspector'
 import IndexVisualization from './IndexVisualization'
 import FragmentationHeatmap from './FragmentationHeatmap'
 import BinaryInspector from './BinaryInspector'
+import FreeSpaceMapView from './FreeSpaceMapView'
+import SnapshotComparison from './SnapshotComparison'
+import StorageSimulationPanel from './StorageSimulationPanel'
 import { StorageSnapshot } from '@/types/storage'
 
-type ViewMode = 'overview' | 'page-layout' | 'tuple-inspector' | 'index-visualization' | 'fragmentation' | 'binary-inspector'
+type ViewMode = 'overview' | 'page-layout' | 'tuple-inspector' | 'index-visualization' | 'fragmentation' | 'binary-inspector' | 'free-space' | 'comparison' | 'simulation'
 
 export default function StorageVisualization() {
   const { currentSnapshot, selectedPage, selectedTuple, setSelectedPage, setSelectedTuple } = useStorageStore()
   const [viewMode, setViewMode] = useState<ViewMode>('overview')
   const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredPages = useMemo(() => {
+  const filteredHeapPages = useMemo(() => {
     if (!currentSnapshot || !searchTerm) return currentSnapshot?.heapPages || []
     
     return currentSnapshot.heapPages.filter(page => 
@@ -62,7 +65,7 @@ export default function StorageVisualization() {
   const renderView = () => {
     switch (viewMode) {
       case 'overview':
-        return <OverviewView snapshot={currentSnapshot} onPageSelect={setSelectedPage} />
+        return <OverviewView snapshot={currentSnapshot} onPageSelect={setSelectedPage} filteredHeapPages={filteredHeapPages} />
       case 'page-layout':
         return <PageLayoutView page={selectedPageData} />
       case 'tuple-inspector':
@@ -73,8 +76,14 @@ export default function StorageVisualization() {
         return <FragmentationHeatmap snapshot={currentSnapshot} />
       case 'binary-inspector':
         return <BinaryInspector snapshot={currentSnapshot} selectedPage={selectedPageData || undefined} selectedTuple={selectedTupleData || undefined} />
+      case 'free-space':
+        return <FreeSpaceMapView snapshot={currentSnapshot} />
+      case 'comparison':
+        return <SnapshotComparison />
+      case 'simulation':
+        return <StorageSimulationPanel />
       default:
-        return <OverviewView snapshot={currentSnapshot} onPageSelect={setSelectedPage} />
+        return <OverviewView snapshot={currentSnapshot} onPageSelect={setSelectedPage} filteredHeapPages={filteredHeapPages} />
     }
   }
 
@@ -111,6 +120,9 @@ export default function StorageVisualization() {
               <option value="index-visualization">Index Visualization</option>
               <option value="fragmentation">Fragmentation Heatmap</option>
               <option value="binary-inspector">Binary Inspector</option>
+              <option value="free-space">Free Space Map</option>
+              <option value="comparison">Snapshot Comparison</option>
+              <option value="simulation">Simulation</option>
             </select>
           </div>
         </div>
@@ -145,15 +157,16 @@ export default function StorageVisualization() {
 interface OverviewViewProps {
   snapshot: StorageSnapshot
   onPageSelect: (pageNumber: number) => void
+  filteredHeapPages?: StorageSnapshot['heapPages']
 }
 
-function OverviewView({ snapshot, onPageSelect }: OverviewViewProps) {
+function OverviewView({ snapshot, onPageSelect, filteredHeapPages }: OverviewViewProps) {
   const [selectedPageType, setSelectedPageType] = useState<'all' | 'heap' | 'index'>('all')
 
   const filteredPages = selectedPageType === 'all' 
-    ? [...snapshot.heapPages, ...snapshot.indexPages]
+    ? [...(filteredHeapPages || snapshot.heapPages), ...snapshot.indexPages]
     : selectedPageType === 'heap' 
-    ? snapshot.heapPages
+    ? (filteredHeapPages || snapshot.heapPages)
     : snapshot.indexPages
 
   return (

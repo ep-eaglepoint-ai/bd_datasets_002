@@ -32,12 +32,12 @@ export default function FileImport({ onFileLoad }: FileImportProps) {
           const text = await file.text()
           const worker = new Worker('/workers/jsonParserWorker.js')
 
-          snapshot = await new Promise((resolve, reject) => {
+          const parsed = await new Promise<any>((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Worker timeout')), 15000)
             worker.onmessage = (e) => {
               clearTimeout(timeout)
               if (e.data.error) reject(new Error(e.data.error))
-              else resolve(e.data.snapshot)
+              else resolve(e.data)
             }
             worker.onerror = (err) => {
               clearTimeout(timeout)
@@ -45,6 +45,7 @@ export default function FileImport({ onFileLoad }: FileImportProps) {
             }
             worker.postMessage({ text, filename: file.name })
           })
+          snapshot = StorageParser.parseJSONData(parsed.data, parsed.filename || file.name)
         } catch (err) {
           // Worker failed; fallback to main-thread parsing
           console.warn('Worker parse failed, falling back to main parser:', err)

@@ -36,11 +36,11 @@ export const SnapshotSchemaZod = z
   .object({
     databaseName: z.string().optional(),
     tableName: z.string().optional(),
-    heapPages: z.array(HeapPageSchema).optional(),
-    indexPages: z.array(z.any()).optional(),
-    totalPages: z.number().optional(),
+    heapPages: z.array(HeapPageSchema),
+    indexPages: z.array(z.any()),
+    totalPages: z.number(),
   })
-  .strict()
+  .passthrough()
 
 export type SnapshotSchemaType = z.infer<typeof SnapshotSchemaZod>
 

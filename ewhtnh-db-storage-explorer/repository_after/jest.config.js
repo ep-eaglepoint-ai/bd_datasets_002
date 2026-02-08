@@ -10,6 +10,7 @@ const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^d3$': '<rootDir>/__mocks__/d3.js',
   },
   testEnvironment: 'jest-environment-jsdom',
   testMatch: ['**/tests/**/*.test.ts', '**/tests/**/*.test.tsx'],
