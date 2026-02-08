@@ -1,20 +1,16 @@
 package tests
 
 import (
+    "reflect"
     "sync"
     "testing"
+    "time"
 
+    main "example.com/repository_after"
 )
 
 func TestConcurrentReadersNoRace(t *testing.T) {
-    c := NewController()
-    if c == nil {
-        t.Fatalf("NewController returned nil")
-    }
-
-    for i := 0; i < 10; i++ {
-        c.AddCar(Car{ID: i, Floor: i})
-    }
+    c := main.NewControllerWithConfig(5, 1, 10, 8, 5*time.Millisecond, 10*time.Millisecond)
 
     var wg sync.WaitGroup
     readers := 50
@@ -24,11 +20,21 @@ func TestConcurrentReadersNoRace(t *testing.T) {
         go func() {
             defer wg.Done()
             for i := 0; i < loops; i++ {
-                _ = c.NumCars()
-                _ = c.Cars()
-                c.CarByID(i % 10)
+                _ = c.CarStates()
             }
         }()
     }
     wg.Wait()
+}
+
+func TestControllerEmbedsRWMutex(t *testing.T) {
+    c := main.NewControllerWithConfig(1, 1, 10, 8, 5*time.Millisecond, 10*time.Millisecond)
+    typ := reflect.TypeOf(*c)
+    field, ok := typ.FieldByName("RWMutex")
+    if !ok {
+        t.Fatalf("expected Controller to embed RWMutex")
+    }
+    if field.Anonymous != true {
+        t.Fatalf("expected RWMutex to be embedded")
+    }
 }

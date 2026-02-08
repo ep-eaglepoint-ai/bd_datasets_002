@@ -1,143 +1,163 @@
-# Trajectory: Destination Dispatch Elevator System
+# Trajectory: Destination Dispatch Elevator Controller (Go)
 
-
-### 1. Phase 1: AUDIT / REQUIREMENTS ANALYSIS
-**Guiding Question**: "What must this elevator controller do, and under what constraints?"
+### 1. Phase 1: REQUIREMENTS AND CONSTRAINTS
+**Guiding Question**: "What exactly needs to be built, and what are the constraints?"
 
 **Reasoning**:
-The project implements a deterministic destination-dispatch elevator controller in Go that is safe under concurrency, easy to test, and reproducible inside a containerized test harness. It must be educational and verifiable: deterministic assignment heuristics, simple movement simulation, and robust concurrency invariants.
+The goal is to build a destination‑dispatch elevator controller in Go that assigns a specific car immediately for each request, simulates movement and doors, and remains thread‑safe under concurrency. Assignment must respect direction momentum and capacity constraints, and the system must avoid starvation under high load.
 
 **Key Requirements**:
-- **Thread-safety**: `Controller` state must be protected (use `sync.RWMutex`).
-- **Deterministic Scheduling**: assignment must be deterministic (no randomness) and explainable.
-- **Capacity Safety**: never allow car load to exceed `MaxCapacity` (atomic boarding).
-- **Movement Simulation**: cars advance one floor per tick; doors enforce dwell.
-- **Immediate API**: `RequestRide(from,to)` returns assigned car id immediately; `RequestAndBoard` performs atomic assign+board.
-- **Testability & CI**: tests run `go test -v` (race on host), and an `evaluation` tool writes JSON reports to `evaluation/YYYY-MM-DD/HH-MM-SS/report.json`.
-- **Containerization**: `docker-compose` orchestrates `test-after` and `evaluate` using the repo root `Dockerfile` (Go 1.18 stage).
+- **Directional Momentum**: A car moving UP must not service a DOWN request until its UP requests are done (or idle).
+- **Capacity Guard**: If `currentLoad >= maxCapacity`, assignment cost must be infinity so the car is not chosen.
+- **Thread Safety**: Global controller state must be protected by `sync.RWMutex`.
+- **Immediate Assignment**: `RequestRide(from,to)` must return a car ID immediately (O(1) or O(N_cars)).
+- **Heuristic Assignment**: Must use a cost heuristic (distance + stop penalties). No random/round‑robin.
+- **Movement Simulation**: Cars move one floor per tick with real time passing.
+- **Door Dwell**: Doors stay open for a dwell period; no movement during dwell.
+- **Immediate Boarding at Open Doors**: If doors are open at the request floor, board without movement.
+- **Invalid Floors**: Handle floors outside bounds gracefully.
+- **Starvation Robustness**: Edge requests must still get served during heavy traffic.
 
-**Constraints**:
-- Use Go 1.18 (project requirement).
-- No external scheduling services or random tie-breaking.
-- Tests must be runnable with `go test -race` on developer host; evaluator runs tests without `-race` inside its container (CGO constraints).
+**Constraints Analysis**:
+- **Language**: Go 1.18+ only, standard libs (`sync`, `time`, optional `container/heap`).
+- **No External Dependencies**: Must be a self‑contained library.
 
 ### 2. Phase 2: QUESTION ASSUMPTIONS
-**Guiding Question**: "Are simpler options acceptable while satisfying requirements?"
+**Guiding Question**: "Is there a simpler way that still satisfies the requirements?"
 
 **Reasoning**:
-Deterministic heuristics (distance + large direction-penalty + ID tiebreak) are simpler and safer for reproducible tests than an optimal but non-deterministic scheduler. Simpler movement simulation (1 floor/tick, door dwell) is sufficient to validate timing-related tests.
+We need determinism and clear concurrency correctness. A simple cost heuristic with strict momentum rules is sufficient to satisfy the problem statement without adding complex optimizers.
 
 **Scope Refinement**:
-- Keep assignment heuristic simple but documented.
-- Make boarding atomic rather than attempting optimistic concurrency that is fragile under high concurrency.
+- **Initial Assumption**: A sophisticated optimizer might be required.
+- **Refinement**: A deterministic heuristic (distance + stop penalty) is acceptable and easier to test.
+- **Rationale**: The prompt emphasizes correctness and constraints over optimal global scheduling.
 
 ### 3. Phase 3: DEFINE SUCCESS CRITERIA
-**Guiding Question**: "How do we measure 'done'?"
+**Guiding Question**: "What does 'done' mean in measurable terms?"
 
-Success Criteria:
-1. `Controller` compiles and exports `NewController()`, `RequestRide(from,to)`, `RequestAndBoard(from,to)` and `OpenDoors(carID,ticks)`.
-2. All unit and integration tests in `tests/after` pass.
-3. `RequestAndBoard` preserves capacity invariant under concurrent requests (test asserts load <= MaxCapacity).
-4. Movement/dwell tests assert correct timing (one floor/tick) and no movement while doors open.
-5. Evaluator writes a JSON report under `evaluation/YYYY-MM-DD/HH-MM-SS/report.json` that includes per-test entries and summary counts.
-6. Docker workflow: `docker compose build test-after` and `docker compose run --rm test-after` execute tests and exit with success.
+**Success Criteria**:
+1. `RequestRide` returns a car ID immediately for valid floors.
+2. Cars never exceed capacity at any time.
+3. Directional momentum is never violated.
+4. Movement advances one floor per tick and respects door dwell.
+5. Invalid floors return an error without panics.
+6. Starvation protection exists and queued requests eventually get scheduled.
+7. All tests pass with deterministic outcomes.
 
 ### 4. Phase 4: MAP REQUIREMENTS TO VALIDATION (Test Strategy)
-**Guiding Question**: "How will we prove correctness and completeness?"
+**Guiding Question**: "How will we prove the solution is correct and complete?"
 
-Test Strategy:
-- **Unit Tests** (`tests/after/*.go`):
-  - `controller_test.go`: concurrent readers + basic getters.
-  - `request_test.go`: invalid/valid floor validation for `RequestRide`.
-  - `assignment_test.go`: deterministic assignment, tie-breaks, capacity penalization, direction momentum.
-  - `concurrent_board_test.go`: many goroutines calling `RequestAndBoard`, assert capacity invariant.
-  - `movement_test.go` and `dwell_test.go`: timing and door dwell behavior.
-- **Integration**: `docker compose run --rm test-after` runs the test runner script and prints verbose test output; evaluator parses it into JSON.
-- **Evaluator Validation**: `evaluation/evaluation.go` produces a JSON file containing `results.after.tests` array with `name`, `status`, `duration_ms`, and `failureMessages`.
+**Test Strategy**:
+- **Assignment Tests**:
+  - `TestDeterministicAssignmentChooseLowestIDInitially`
+  - `TestDirectionalMomentumBlocking`
+  - `TestPenalizeFullCapacityAndTieBreakByID`
+  - `TestAssignmentAvoidsFullCars`
+  - `tests/assignment_test.go`
+- **Capacity/Concurrency**:
+  - `TestConcurrentRequestRideDoesNotOverfill`
+  - `tests/concurrent_board_test.go`
+- **Movement/Dwell**:
+  - `TestMovementSim`
+  - `TestDoorDwellPreventsMovement`
+  - `tests/movement_test.go`, `tests/dwell_test.go`
+- **Request Validation + Open‑Door Boarding**:
+  - `TestRequestRideInvalidFloors`
+  - `TestRequestRideValidFloorsReturnsCar`
+  - `TestRequestRideBoardsWhenDoorsOpenAtFloor`
+  - `tests/request_test.go`
+- **Controller RWMutex**:
+  - `TestConcurrentReadersNoRace`
+  - `TestControllerEmbedsRWMutex`
+  - `tests/controller_test.go`
+- **Starvation Queue**:
+  - `TestQueuedRequestEventuallyAssigned`
+  - `tests/starvation_test.go`
 
 ### 5. Phase 5: SCOPE THE SOLUTION
-**Guiding Question**: "What minimal components fulfill requirements?"
+**Guiding Question**: "What is the minimal implementation that meets all requirements?"
 
-Components to create or verify:
-- `tests/elevator` (package): `controller.go`, `car.go`, `movement.go`, `errors.go`, `heuristics.go` — thread-safe controller and car model.
-- `tests/after` (tests): unit + integration tests described above.
-- `evaluation/evaluation.go`: runs the test runner (`tests/run_tests.sh`), parses `go test -v` output, and writes timestamped JSON report.
-- `Dockerfile` (root): multi-stage; `golang:1.18-alpine` stage runs Go tests; `docker-compose.yml` services `test-after` (build target `golang`) and `evaluate`.
-- `tests/run_tests.sh`: runs `go test -v ./after/...` and prints a summary; supports `NO_RACE=1` for evaluator container.
+**Components Implemented**:
+- **Controller**: Assignment, validation, global locks.
+  - `repository_after/elevator/controller.go`
+- **Car Model**: Per‑car state and snapshots.
+  - `repository_after/elevator/car.go`
+- **Movement Loop**: Ticker‑based movement + dwell.
+  - `repository_after/elevator/movement.go`
+- **Errors**: Invalid floor / no car errors.
+  - `repository_after/elevator/errors.go`
+- **Evaluator**: Runs tests and produces JSON report.
+  - `evaluation/evaluation.go`
 
 ### 6. Phase 6: TRACE DATA / CONTROL FLOW
-**Guiding Question**: "How does a request flow through the system?"
+**Guiding Question**: "How does a request move through the system?"
 
-RequestRide Flow:
-User (test) → call `Controller.RequestRide(from,to)` → validate floors → attempt `assignCar(from,to)` under read lock → if found return ID; otherwise create new car under write lock and return new ID.
+**RequestRide Flow**:
+Validate floors → `assignCar` (cost heuristic + momentum + capacity) → schedule pickup/dropoff under car lock → return car ID immediately.
 
-RequestAndBoard Flow:
-User (concurrent) → call `Controller.RequestAndBoard(from,to)` → validate floors → acquire write lock → `assignCarLocked(from,to)` → if car found and capacity allows increment `Load` atomically and return ID; otherwise create new car with `Load=1`.
+**Movement Flow**:
+Per‑car goroutine ticks → handle door dwell → open doors if stop → move one floor per tick.
 
-Movement/Doors Flow:
-`StartMovement(tick)` goroutine → each tick: for each car under write lock, if `DoorDwellTicks>0` decrement and keep doors open; else move one floor depending on `Direction` and decrement pending stops; doors open logic used for boarding tests.
+**Queue/Starvation Flow**:
+If all cars are full → queue request with assigned car ID → dispatcher retries scheduling when capacity frees.  
+If cars are blocked by momentum (but not full), the request is rejected and not queued.
 
-Evaluator Flow:
-`evaluation` runs `cd tests && NO_RACE=1 sh run_tests.sh` → captures `=== RUN` and `--- PASS/FAIL` lines → builds JSON report and writes under `evaluation/YYYY-MM-DD/HH-MM-SS/report.json` so host can read it.
+### 7. Phase 7: ANTICIPATE OBJECTIONS
+**Guiding Question**: "What could go wrong?"
 
-### 7. Phase 7: ANTICIPATE OBJECTIONS / TRADE-OFFS
-**Guiding Question**: "What could go wrong and why these choices?"
+**Objection 1**: "Why not reassign to other cars dynamically?"
+- **Counter**: The prompt requires immutable assignment from the user’s perspective. Deterministic assignment is simpler and testable.
 
-Objection 1: "Deterministic heuristic is not optimal."
-- Counter: Determinism is required for reproducible testing; a pluggable heuristic interface can be added later for optimization.
+**Objection 2**: "Is the heuristic too simple?"
+- **Counter**: The requirement is heuristic-based assignment, not optimal scheduling.
 
-Objection 2: "Movement simulation is simplified." 
-- Counter: The simulation is intentionally minimal (1 floor/tick) to make timing tests deterministic and easy to reason about.
-
-Objection 3: "No persistence / real scheduler." 
-- Counter: This project is an in-memory controller with tests focused on logic. Persistence or distributed scheduling is out-of-scope for now.
+**Objection 3**: "Queueing when full breaks immediate assignment."
+- **Counter**: We still return a car ID immediately while deferring scheduling until capacity frees.
 
 ### 8. Phase 8: VERIFY INVARIANTS / DEFINE CONSTRAINTS
-**Guiding Question**: "What invariants must hold?"
+**Guiding Question**: "What must always hold true?"
 
-Must-hold invariants:
-- **Capacity invariant**: For any car, `Load` <= `MaxCapacity`. Tests must assert this after concurrent boarding.
-- **Atomicity**: `RequestAndBoard` must be atomic (Lock held across assignment + increment).
-- **Determinism**: `assignCar` must produce the same chosen `car.ID` given identical state.
-- **No movement while doors open**: `DoorDwellTicks>0` prevents floor movement that tick.
+**Must Satisfy**:
+- Capacity never exceeds max.
+- Momentum rule never violated.
+- Doors prevent movement during dwell.
+- RWMutex protects controller global state.
 
-### 9. Phase 9: EXECUTE WITH SURGICAL PRECISION (Ordered Implementation)
-1. Implement and test `Controller` skeleton with RW locking and safe getters. (Low risk)
-2. Implement deterministic `assignCar` (distance + direction penalty + ID tie-break). Add unit tests. (Low risk)
-3. Implement `RequestRide` and `RequestAndBoard` with proper validation and atomic boarding tests. (Medium risk)
-4. Implement `StartMovement` and door dwell logic; add timing tests. (Medium risk)
-5. Add evaluator script (`evaluation/evaluation.go`) that runs `tests/run_tests.sh`, parses verbose output, and writes JSON. (Low risk)
-6. Wire up `docker-compose.yml` to build `test-after` from `Dockerfile` `golang` stage and run `test-after` and `evaluate`. (Low risk)
-7. Run CI locally: `docker compose build test-after` then `docker compose run --rm test-after` then `docker compose run --rm evaluate`. (Verification)
+**Must Not Violate**:
+- No teleporting; movement must be tick‑based.
+- No random/round‑robin assignment.
+
+### 9. Phase 9: EXECUTE WITH SURGICAL PRECISION
+**Guiding Question**: "In what order were changes made?"
+
+1. Implement controller + car state with locking. (Low risk)
+2. Add deterministic assignment heuristic + momentum/capacity guards. (Medium risk)
+3. Add movement loop with tick + dwell. (Medium risk)
+4. Add starvation queue + dispatcher for full cars. (Medium risk)
+5. Extend tests for capacity, momentum, dwell, and starvation. (Low risk)
+6. Update evaluator for JSON output + fingerprints. (Low risk)
 
 ### 10. Phase 10: MEASURE IMPACT / VERIFY COMPLETION
-**Guiding Question**: "How will we measure success?"
+**Guiding Question**: "Did we build what was required?"
 
-Metrics:
-- Test suite passes: `go test -v ./after/...` (host) and `NO_RACE=1` inside evaluator container.
-- Evaluator JSON includes `results.after.tests` entries and an accurate `summary` with `total`, `passed`, `failed`.
-- Race checks: run `go test -race` locally for additional validation (CI may run full race-enabled tests).
-- Deterministic assignment reproducibility is validated by unit tests asserting exact selected IDs for given states.
+**Requirements Completion**:
+- **REQ‑1 Momentum**: Enforced in `carCost` (no relax).
+- **REQ‑2 Capacity**: Full cars return infinite cost; assignment avoids them.
+- **REQ‑3 RWMutex**: Verified via reflection test.
+- **REQ‑4 Immediate ID**: `RequestRide` returns a car ID immediately.
+- **REQ‑5 Heuristic**: Distance + stop penalty.
+- **REQ‑6 Movement**: Tick‑based one‑floor movement.
+- **REQ‑7 Dwell**: Doors open block movement.
+- **REQ‑8 Open‑Door Boarding**: Explicit test added.
+- **REQ‑9 Invalid Floors**: Validated with error returns.
+
+**Quality Metrics**:
+- **Tests**: Suite covers assignment, capacity, movement, dwell, invalid floors, concurrency, and starvation.
 
 ### 11. Phase 11: DOCUMENT THE DECISION
-**Problem**: Provide a deterministic, testable elevator destination-dispatch controller implemented in Go and verified by containerized tests and an evaluator.
-
-**Solution**: Implement a lock-protected `Controller` with deterministic assignment, atomic boarding, simple movement simulation, door dwell handling, and a test/evaluation pipeline (`docker-compose`, evaluator writing timestamped JSON).
-
-**Trade-offs**: Simplicity and determinism were prioritized over optimal global scheduling and distributed persistence. This makes the project easier to test, explain, and teach.
-
-**When to revisit**: If real-world performance or distributed operation is required:
-- Add persistent store for car state and requests.
-- Replace deterministic heuristic with an optimizer (but keep a deterministic test-mode).
-
----
-Files of interest (examples):
-- `tests/elevator/controller.go` — controller implementation (thread-safety, assign, RequestAndBoard)
-- `tests/after/*_test.go` — unit and integration tests
-- `tests/run_tests.sh` — test runner used by `test-after`
-- `evaluation/evaluation.go` — produces JSON reports at `evaluation/YYYY-MM-DD/HH-MM-SS/report.json`
-- `docker-compose.yml` — orchestrates `test-after` (golang:1.18 stage) and `evaluate`
-
-If you want, I can commit this trajectory into the repo and/or expand any phase into a checklist of concrete commits and PRs.
-# Trajectory
-
+**Problem**: Build a deterministic, thread‑safe destination‑dispatch controller in Go with realistic movement simulation and capacity/momentum constraints.  
+**Solution**: Implemented a lock‑protected controller with a heuristic assignment algorithm, per‑car movement goroutines, door dwell, and a starvation‑safe queue while preserving immediate ID assignment.  
+**Trade‑offs**: Determinism and simplicity over globally optimal scheduling.  
+**When to revisit**: If optimal throughput is required, consider pluggable schedulers.  
+**Test Coverage**: Unit tests cover assignment, movement, dwell, invalid floors, concurrency, capacity, and starvation behavior.

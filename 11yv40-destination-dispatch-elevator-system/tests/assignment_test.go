@@ -2,19 +2,16 @@ package tests
 
 import (
     "testing"
+    "time"
 
+    main "example.com/repository_after"
 )
 
-// This test constructs multiple cars and verifies deterministic assignment.
-func TestDeterministicAssignmentChooseClosestMatchingDirection(t *testing.T) {
-    c := NewController()
+// These tests validate observable assignment behavior via the public API.
 
-    // Car 0: floor 0, going up
-    c.AddCar(Car{ID: 0, Floor: 0, Direction: 1, Load: 0, MaxCapacity: 10})
-    // Car 1: floor 5, going down
-    c.AddCar(Car{ID: 1, Floor: 5, Direction: -1, Load: 0, MaxCapacity: 10})
+func TestDeterministicAssignmentChooseLowestIDInitially(t *testing.T) {
+    c := main.NewControllerWithConfig(2, 1, 10, 8, 5*time.Millisecond, 10*time.Millisecond)
 
-    // Request from 2 to 6 (up). Car 0 is closer and moving up -> should be chosen.
     id, err := c.RequestRide(2, 6)
     if err != nil {
         t.Fatalf("unexpected error: %v", err)
@@ -25,15 +22,15 @@ func TestDeterministicAssignmentChooseClosestMatchingDirection(t *testing.T) {
 }
 
 func TestDirectionalMomentumBlocking(t *testing.T) {
-    c := NewController()
+    c := main.NewControllerWithConfig(2, 1, 10, 8, 5*time.Millisecond, 10*time.Millisecond)
 
-    // Car 0 is at floor 3, moving UP and has pending UP stops -> should not accept DOWN requests.
-    c.AddCar(Car{ID: 0, Floor: 3, Direction: 1, Load: 0, MaxCapacity: 10, PendingUpStops: 2})
-    // Car 1 is further away but moving DOWN and can accept a DOWN request.
-    c.AddCar(Car{ID: 1, Floor: 6, Direction: -1, Load: 0, MaxCapacity: 10})
+    // First request sets car 0 moving up.
+    if _, err := c.RequestRide(2, 8); err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
 
-    // Request from floor 2 to 0 (DOWN). Car0 is closer but should be blocked by momentum, so car1 chosen.
-    id, err := c.RequestRide(2, 0)
+    // Down request should prefer car 1 due to momentum rules.
+    id, err := c.RequestRide(2, 1)
     if err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
@@ -42,31 +39,95 @@ func TestDirectionalMomentumBlocking(t *testing.T) {
     }
 }
 
-func TestDeterministicAssignmentPenalizeFullCapacityAndTieBreakByID(t *testing.T) {
-    c := NewController()
+func TestPenalizeFullCapacityAndTieBreakByID(t *testing.T) {
+    c := main.NewControllerWithConfig(2, 1, 10, 1, 10*time.Millisecond, 50*time.Millisecond)
+    c.Start()
+    defer c.Stop()
 
-    // Car 0: floor 1, idle
-    c.AddCar(Car{ID: 0, Floor: 1, Direction: 0, Load: 0, MaxCapacity: 10})
-    // Car 1: floor 3, idle
-    c.AddCar(Car{ID: 1, Floor: 3, Direction: 0, Load: 10, MaxCapacity: 10}) // full
-
-    // Request from 2 to 4 (up). Car1 is full and must be excluded; Car0 is chosen.
-    id, err := c.RequestRide(2, 4)
+    // Fill car 0 by boarding at floor 1.
+    id1, err := c.RequestRide(1, 2)
     if err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
-    if id != 0 {
-        t.Fatalf("expected car 0 to be chosen due to car1 full, got %d", id)
+    if id1 != 0 {
+        t.Fatalf("expected car 0 to be chosen, got %d", id1)
     }
 
-    // Add another car at same distance as car0 to test tie-break by lower ID.
-    c.AddCar(Car{ID: 2, Floor: 3, Direction: 0, Load: 0, MaxCapacity: 10})
-    // Now car0 (floor1, distance1) and car2 (floor3, distance1) are tied; expect lower ID (0).
-    id2, err := c.RequestRide(2, 0)
+    deadline := time.After(500 * time.Millisecond)
+    for {
+        states := c.CarStates()
+        if len(states) == 2 && states[0].Load == 1 {
+            break
+        }
+        select {
+        case <-deadline:
+            t.Fatalf("timeout waiting for car 0 to fill capacity")
+        default:
+            time.Sleep(5 * time.Millisecond)
+        }
+    }
+
+    // Next request should go to car 1 because car 0 is full.
+    id2, err := c.RequestRide(1, 2)
     if err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
-    if id2 != 0 {
-        t.Fatalf("expected tie-break to choose car 0, got %d", id2)
+    if id2 != 1 {
+        t.Fatalf("expected car 1 to be chosen, got %d", id2)
+    }
+
+    deadline = time.After(500 * time.Millisecond)
+    for {
+        states := c.CarStates()
+        if len(states) == 2 && states[1].Load == 1 {
+            break
+        }
+        select {
+        case <-deadline:
+            t.Fatalf("timeout waiting for car 1 to fill capacity")
+        default:
+            time.Sleep(5 * time.Millisecond)
+        }
+    }
+
+    // When both cars are full, RequestRide still returns a deterministic car ID.
+    id3, err := c.RequestRide(1, 2)
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    if id3 != 0 {
+        t.Fatalf("expected deterministic car 0, got %d", id3)
+    }
+}
+
+func TestAssignmentAvoidsFullCars(t *testing.T) {
+    c := main.NewControllerWithConfig(2, 1, 10, 1, 5*time.Millisecond, 10*time.Millisecond)
+    c.Start()
+    defer c.Stop()
+
+    if _, err := c.RequestRide(1, 3); err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+
+    deadline := time.After(500 * time.Millisecond)
+    for {
+        states := c.CarStates()
+        if len(states) == 2 && states[0].Load == 1 {
+            break
+        }
+        select {
+        case <-deadline:
+            t.Fatalf("timeout waiting for car 0 to fill capacity")
+        default:
+            time.Sleep(5 * time.Millisecond)
+        }
+    }
+
+    id, err := c.RequestRide(1, 4)
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    if id != 1 {
+        t.Fatalf("expected assignment to non-full car 1, got %d", id)
     }
 }

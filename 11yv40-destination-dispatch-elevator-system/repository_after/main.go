@@ -1,13 +1,18 @@
-package main
+package repository_after
 
 import (
     "fmt"
-    "example.com/repository_after/elevator"
+    "time"
 )
 
 func main() {
-    // Minimal placeholder to exercise compile-time usage.
-    _ = elevator.Controller{}
-    fmt.Println("placeholder main")
-}
+    controller := NewController(2)
+    controller.Start()
+    defer controller.Stop()
 
+    if id, err := controller.RequestRide(1, 20); err == nil {
+        fmt.Println("assigned car:", id)
+    }
+
+    time.Sleep(500 * time.Millisecond)
+}

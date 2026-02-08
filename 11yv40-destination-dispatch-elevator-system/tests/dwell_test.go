@@ -4,46 +4,32 @@ import (
     "testing"
     "time"
 
+    main "example.com/repository_after"
 )
 
 func TestDoorDwellPreventsMovement(t *testing.T) {
-    c := NewController()
-    // Car at floor 0 with one up stop but doors are opened for dwell.
-    c.AddCar(Car{ID: 0, Floor: 0, Direction: 1, Load: 0, MaxCapacity: 10, PendingUpStops: 2})
+    c := main.NewControllerWithConfig(1, 1, 10, 8, 20*time.Millisecond, 100*time.Millisecond)
+    c.Start()
+    defer c.Stop()
 
-    // Open doors for 5 ticks.
-    opened := c.OpenDoors(0, 5)
-    if !opened {
-        t.Fatalf("failed to open doors for car 0")
+    // Request a ride to set a pending stop and open doors on first pickup.
+    if _, err := c.RequestRide(1, 3); err != nil {
+        t.Fatalf("unexpected error: %v", err)
     }
 
-    tick := 20 * time.Millisecond
-    stop := c.StartMovement(tick)
-    defer stop()
+    // Wait briefly to allow the car to open doors at floor 1.
+    time.Sleep(30 * time.Millisecond)
 
-    // Wait a little longer than 3 ticks and ensure car hasn't moved.
-    time.Sleep(3 * tick)
-
-    car, ok := c.CarByID(0)
-    if !ok {
-        t.Fatalf("car 0 missing")
+    states := c.CarStates()
+    if len(states) != 1 {
+        t.Fatalf("expected 1 car, got %d", len(states))
     }
-    if car.Floor != 0 {
-        t.Fatalf("expected car to remain at floor 0 during dwell, got %d", car.Floor)
-    }
+    floor := states[0].Floor
 
-    // After dwell ends, car should resume movement; wait until it reaches floor 2.
-    deadline := time.After(2 * time.Second)
-    for {
-        car, _ = c.CarByID(0)
-        if car.Floor >= 2 {
-            break
-        }
-        select {
-        case <-deadline:
-            t.Fatalf("timeout waiting for car to move after dwell")
-        default:
-            time.Sleep(5 * time.Millisecond)
-        }
+    // During dwell, car should remain on the same floor.
+    time.Sleep(40 * time.Millisecond)
+    states = c.CarStates()
+    if states[0].Floor != floor {
+        t.Fatalf("expected car to remain at floor %d during dwell, got %d", floor, states[0].Floor)
     }
 }

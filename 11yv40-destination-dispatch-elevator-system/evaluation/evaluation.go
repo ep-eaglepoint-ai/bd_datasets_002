@@ -2,8 +2,10 @@ package main
 
 import (
     "crypto/rand"
+    "crypto/sha256"
     "encoding/json"
     "fmt"
+    "io"
     "os"
     "os/exec"
     "path/filepath"
@@ -43,7 +45,7 @@ func main() {
     start := time.Now().UTC()
     runID := newRunID()
 
-    cmd := exec.Command("sh", "-c", "cd tests && NO_RACE=1 sh run_tests.sh")
+    cmd := exec.Command("sh", "-c", "cd tests && NO_RACE=1 go test -json .")
     out, err := cmd.CombinedOutput()
     output := string(out)
     if err != nil {
@@ -51,63 +53,35 @@ func main() {
         fmt.Fprintln(os.Stderr, "test runner returned error:", err)
     }
 
-    lines := strings.Split(output, "\n")
     tests := map[string]*TestResult{}
-    var currentTest string
-    for _, line := range lines {
-        if strings.HasPrefix(line, "=== RUN") {
-            parts := strings.Fields(line)
-            if len(parts) >= 3 {
-                name := parts[2]
-                currentTest = name
-                if _, ok := tests[name]; !ok {
-                    tests[name] = &TestResult{Name: name}
-                }
-            }
+    dec := json.NewDecoder(strings.NewReader(output))
+    for dec.More() {
+        var ev goTestEvent
+        if err := dec.Decode(&ev); err != nil {
+            break
+        }
+        if ev.Test == "" {
             continue
         }
-        if strings.HasPrefix(line, "--- ") {
-            // Line format: '--- PASS: TestName (0.00s)'
-            rest := strings.TrimPrefix(line, "--- ")
-            parts := strings.Fields(rest)
-            if len(parts) >= 2 {
-                statusField := strings.TrimSuffix(parts[0], ":") // PASS, FAIL, SKIP
-                name := parts[1]
-                dur := int64(0)
-                if len(parts) >= 3 {
-                    d := strings.Trim(parts[2], "()s")
-                    if parsed, err := time.ParseDuration(d + "s"); err == nil {
-                        dur = parsed.Milliseconds()
-                    }
-                }
-                tr, ok := tests[name]
-                if !ok {
-                    tr = &TestResult{Name: name}
-                    tests[name] = tr
-                }
-                switch statusField {
-                case "PASS":
-                    tr.Status = "passed"
-                case "FAIL":
-                    tr.Status = "failed"
-                case "SKIP":
-                    tr.Status = "skipped"
-                default:
-                    tr.Status = strings.ToLower(statusField)
-                }
-                tr.DurationMs = dur
-            }
-            currentTest = ""
-            continue
+        tr, ok := tests[ev.Test]
+        if !ok {
+            tr = &TestResult{Name: ev.Test}
+            tests[ev.Test] = tr
         }
-        // capture indented output lines for the current test (failure details)
-        if currentTest != "" {
-            trimmed := strings.TrimSpace(line)
-            if trimmed != "" {
-                tr := tests[currentTest]
-                if tr != nil {
-                    tr.FailureMessages = append(tr.FailureMessages, trimmed)
-                }
+        switch ev.Action {
+        case "pass":
+            tr.Status = "passed"
+            tr.DurationMs = int64(ev.Elapsed * 1000)
+        case "fail":
+            tr.Status = "failed"
+            tr.DurationMs = int64(ev.Elapsed * 1000)
+        case "skip":
+            tr.Status = "skipped"
+            tr.DurationMs = int64(ev.Elapsed * 1000)
+        case "output":
+            trimmed := strings.TrimSpace(ev.Output)
+            if trimmed != "" && (tr.Status == "failed" || strings.Contains(trimmed, "FAIL")) {
+                tr.FailureMessages = append(tr.FailureMessages, trimmed)
             }
         }
     }
@@ -139,9 +113,24 @@ func main() {
     report["started_at"] = start.Format(time.RFC3339)
     report["finished_at"] = finish.Format(time.RFC3339)
     report["duration_seconds"] = duration
-    report["success"] = failed == 0
+    report["go_test_command"] = "cd tests && NO_RACE=1 go test -json ."
+    if hash, files, hashErr := hashDir("tests"); hashErr == nil {
+        report["tests_fingerprint_sha256"] = hash
+        report["tests_files"] = files
+    } else {
+        report["tests_fingerprint_error"] = hashErr.Error()
+    }
+    if hash, files, hashErr := hashDir("repository_after"); hashErr == nil {
+        report["repository_after_fingerprint_sha256"] = hash
+        report["repository_after_files"] = files
+    } else {
+        report["repository_after_fingerprint_error"] = hashErr.Error()
+    }
+    report["success"] = failed == 0 && err == nil && total > 0
     if err != nil {
         report["error"] = err.Error()
+    } else if total == 0 {
+        report["error"] = "no tests discovered"
     } else {
         report["error"] = nil
     }
@@ -158,8 +147,12 @@ func main() {
     report["environment"] = env
 
     after := map[string]interface{}{}
-    after["success"] = failed == 0
-    after["exit_code"] = 0
+    after["success"] = failed == 0 && err == nil && total > 0
+    if err != nil || total == 0 {
+        after["exit_code"] = 1
+    } else {
+        after["exit_code"] = 0
+    }
     after["tests"] = results
     summary := map[string]interface{}{
         "total":   total,
@@ -172,7 +165,7 @@ func main() {
     after["summary"] = summary
 
     comparison := map[string]interface{}{
-        "after_tests_passed": failed == 0,
+        "after_tests_passed": failed == 0 && err == nil && total > 0,
         "after_total":        total,
         "after_passed":       passed,
         "after_failed":       failed,
@@ -207,3 +200,37 @@ func main() {
     _ = runID
 }
 
+func hashDir(root string) (string, []string, error) {
+    h := sha256.New()
+    files := []string{}
+    err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+        if info.IsDir() {
+            return nil
+        }
+        rel, relErr := filepath.Rel(root, path)
+        if relErr != nil {
+            return relErr
+        }
+        files = append(files, rel)
+        if _, err := h.Write([]byte(rel)); err != nil {
+            return err
+        }
+        f, err := os.Open(path)
+        if err != nil {
+            return err
+        }
+        if _, err := io.Copy(h, f); err != nil {
+            f.Close()
+            return err
+        }
+        f.Close()
+        return nil
+    })
+    if err != nil {
+        return "", nil, err
+    }
+    return fmt.Sprintf("%x", h.Sum(nil)), files, nil
+}

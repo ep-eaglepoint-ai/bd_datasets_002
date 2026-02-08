@@ -4,26 +4,25 @@ import (
     "testing"
     "time"
 
+    main "example.com/repository_after"
 )
 
 func TestMovementSim(t *testing.T) {
-    c := NewController()
-    // Start car at floor 0 with 3 up stops.
-    c.AddCar(Car{ID: 0, Floor: 0, Direction: 1, Load: 0, MaxCapacity: 10, PendingUpStops: 3})
-
     tick := 20 * time.Millisecond
-    stop := c.StartMovement(tick)
-    defer stop()
+    c := main.NewControllerWithConfig(1, 1, 10, 8, tick, 10*time.Millisecond)
+    c.Start()
+    defer c.Stop()
+
+    if _, err := c.RequestRide(1, 4); err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
 
     start := time.Now()
-
-    // Wait until car reaches floor 3 or timeout
     deadline := time.After(2 * time.Second)
     for {
-        if car, ok := c.CarByID(0); ok {
-            if car.Floor >= 3 {
-                break
-            }
+        states := c.CarStates()
+        if len(states) == 1 && states[0].Floor >= 4 {
+            break
         }
         select {
         case <-deadline:
@@ -34,8 +33,7 @@ func TestMovementSim(t *testing.T) {
     }
 
     elapsed := time.Since(start)
-    expected := 3 * tick
-    if elapsed < expected {
-        t.Fatalf("movement too fast: elapsed %v, expected >= %v", elapsed, expected)
+    if elapsed < 3*tick {
+        t.Fatalf("movement too fast: elapsed %v, expected >= %v", elapsed, 3*tick)
     }
 }
