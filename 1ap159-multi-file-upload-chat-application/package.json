@@ -1,0 +1,30 @@
+{
+  "name": "1ap159-meta-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:before": "cross-env REPO_MODE=before jest --no-cache",
+    "test:after": "cross-env REPO_MODE=after jest --no-cache",
+    "test:meta": "node tests/run-meta.js",
+    "evaluation": "node evaluation/evaluation.js"
+  },
+  "dependencies": {
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "cross-env": "^7.0.3",
+    "identity-obj-proxy": "^3.0.0",
+    "lucide-react": "^0.562.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "@babel/preset-react": "^7.23.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}

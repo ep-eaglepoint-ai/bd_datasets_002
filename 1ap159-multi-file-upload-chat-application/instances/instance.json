@@ -1,0 +1,34 @@
+{
+            "instance_id": "1AP159",
+            "problem_statement": "Support agents need to share multiple files with customers directly inside a chat interface while receiving real-time feedback on upload progress. The existing chat application only supports plain text messages and lacks file upload visibility. This limitation reduces usability, transparency, and user confidence during large or multiple file transfers. The system must be refactored to support concurrent multi-file uploads with accurate progress tracking and responsive UI behavior.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/1ap159-multi-file-upload-chat-application",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [
+                "Req 1: drag-and-drop and click-to-select file uploads",
+                "Req 2: supported formats jpg, png, gif, pdf, txt",
+                "Req 3: maximum 4 files per message",
+                "Req 4: per-file size limit 3MB",
+                "Req 5: total upload size 8MB per message",
+                "Req 6: each file has its own progress indicator",
+                "Req 7: all files upload in parallel, not sequentially",
+                "Req 8: progress increases smoothly from 0% to 100%",
+                "Req 9: each file displays simulated upload speed (800–1500 KB/s)",
+                "Req 10: progress bars animate smoothly with CSS transitions",
+                "Req 11: before send: preview with name (truncate), size, remove ×, no progress",
+                "Req 12: after send: progress bar, percentage, speed, spinner per file",
+                "Req 13: after completion: replace progress with checkmark ✓",
+                "Req 14: messages appear in chat immediately (optimistic UI)",
+                "Req 15: Send button disabled while files are uploading",
+                "Req 16: message state changes to \"complete\" when all files complete",
+                "Req 17: application uses useReducer for state management",
+                "Req 18: useState is not used for upload or message state",
+                "Req 19: no external libraries for uploads or state management",
+                "preview shows name (truncate), size, remove when file selected"
+            ],
+            "PASS_TO_PASS": [
+                "message appears immediately on send (optimistic)"
+            ]
+        }
+        
