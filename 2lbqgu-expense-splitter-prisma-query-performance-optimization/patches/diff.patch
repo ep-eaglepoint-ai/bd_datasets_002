@@ -1,0 +1,201 @@
+diff --git a/repository_before/app/groups/[id]/page.tsx b/repository_after/app/groups/[id]/page.tsx
+index 5d9ba37..53ec06d 100644
+--- a/repository_before/app/groups/[id]/page.tsx
++++ b/repository_after/app/groups/[id]/page.tsx
+@@ -8,25 +8,28 @@ import AddMemberForm from './AddMemberForm'
+ import SettlementButton from './SettlementButton'
+ 
+ async function getGroup(id: string) {
+-  const group = await prisma.group.findUnique({
+-    where: { id },
+-    include: {
+-      members: {
+-        include: { user: true },
+-      },
+-      expenses: {
+-        include: {
+-          paidBy: true,
+-          splits: {
+-            include: { user: true },
++  const [group, expenseCount] = await Promise.all([
++    prisma.group.findUnique({
++      where: { id },
++      include: {
++        members: {
++          include: { user: true },
++        },
++        expenses: {
++          take: 50,
++          include: {
++            paidBy: true,
+           },
++          orderBy: { date: 'desc' },
+         },
+-        orderBy: { date: 'desc' },
+       },
+-    },
+-  })
++    }),
++    prisma.expense.count({
++      where: { groupId: id },
++    }),
++  ])
+ 
+-  return group
++  return { ...group, totalExpenses: expenseCount }
+ }
+ 
+ export default async function GroupPage({ params }: { params: { id: string } }) {
+@@ -58,7 +61,12 @@ export default async function GroupPage({ params }: { params: { id: string } })
+           </div>
+ 
+           <div className="bg-white rounded-xl shadow-sm border p-6">
+-            <h2 className="text-xl font-semibold mb-4">Expenses</h2>
++            <div className="flex justify-between items-center mb-4">
++              <h2 className="text-xl font-semibold">Expenses</h2>
++              <span className="text-sm text-gray-500">
++                Showing {group.expenses.length} of {group.totalExpenses} expenses
++              </span>
++            </div>
+             <div className="space-y-3">
+               {group.expenses.map((expense) => (
+                 <div key={expense.id} className="flex justify-between p-4 bg-gray-50 rounded-lg">
+@@ -69,6 +77,13 @@ export default async function GroupPage({ params }: { params: { id: string } })
+                   <p className="text-lg font-semibold text-emerald-600">{formatCents(expense.amount)}</p>
+                 </div>
+               ))}
++              {group.totalExpenses > 50 && (
++                <div className="text-center py-4">
++                  <p className="text-sm text-gray-500">
++                    {group.totalExpenses - 50} more expenses not shown
++                  </p>
++                </div>
++              )}
+             </div>
+           </div>
+         </div>
+diff --git a/repository_before/lib/balance-utils.ts b/repository_after/lib/balance-utils.ts
+index 6e5c006..ef0f9da 100644
+--- a/repository_before/lib/balance-utils.ts
++++ b/repository_after/lib/balance-utils.ts
+@@ -2,57 +2,82 @@ import { prisma } from './prisma'
+ import { UserBalance } from './settlement-utils'
+ 
+ export async function calculateGroupBalances(groupId: string): Promise<UserBalance[]> {
+-  const members = await prisma.groupMember.findMany({
+-    where: { groupId },
+-    include: { user: true },
+-  })
+-
+-  const balances: UserBalance[] = []
+-
+-  for (const member of members) {
+-    const expensesPaid = await prisma.expense.aggregate({
+-      where: { groupId, paidById: member.userId },
++  const [members, expensesPaidData, expenseSplitsData, settlementsPaidData, settlementsReceivedData] = await Promise.all([
++    prisma.groupMember.findMany({
++      where: { groupId },
++      include: { user: true },
++    }),
++    prisma.expense.groupBy({
++      by: ['paidById'],
++      where: { groupId },
+       _sum: { amount: true },
+-    })
+-
+-    const expenseSplits = await prisma.expenseSplit.aggregate({
+-      where: {
+-        userId: member.userId,
+-        expense: { groupId },
+-      },
++    }),
++    prisma.expenseSplit.groupBy({
++      by: ['userId'],
++      where: { expense: { groupId } },
+       _sum: { amount: true },
+-    })
+-
+-    const settlementsPaid = await prisma.settlement.aggregate({
+-      where: { groupId, paidById: member.userId },
++    }),
++    prisma.settlement.groupBy({
++      by: ['paidById'],
++      where: { groupId },
+       _sum: { amount: true },
+-    })
+-
+-    const settlementsReceived = await prisma.settlement.aggregate({
+-      where: { groupId, receivedById: member.userId },
++    }),
++    prisma.settlement.groupBy({
++      by: ['receivedById'],
++      where: { groupId },
+       _sum: { amount: true },
+-    })
++    }),
++  ])
+ 
+-    const totalPaid = expensesPaid._sum.amount || 0
+-    const totalOwed = expenseSplits._sum.amount || 0
+-    const totalSettlementsPaid = settlementsPaid._sum.amount || 0
+-    const totalSettlementsReceived = settlementsReceived._sum.amount || 0
++  const expensesPaidMap = new Map(expensesPaidData.map(item => [item.paidById, item._sum.amount || 0]))
++  const expenseSplitsMap = new Map(expenseSplitsData.map(item => [item.userId, item._sum.amount || 0]))
++  const settlementsPaidMap = new Map(settlementsPaidData.map(item => [item.paidById, item._sum.amount || 0]))
++  const settlementsReceivedMap = new Map(settlementsReceivedData.map(item => [item.receivedById, item._sum.amount || 0]))
++
++  return members.map(member => {
++    const totalPaid = expensesPaidMap.get(member.userId) || 0
++    const totalOwed = expenseSplitsMap.get(member.userId) || 0
++    const totalSettlementsPaid = settlementsPaidMap.get(member.userId) || 0
++    const totalSettlementsReceived = settlementsReceivedMap.get(member.userId) || 0
+ 
+     const balance = totalPaid - totalOwed - totalSettlementsPaid + totalSettlementsReceived
+ 
+-    balances.push({
++    return {
+       userId: member.userId,
+       name: member.user.name || member.user.email,
+       balance,
+-    })
+-  }
+-
+-  return balances
++    }
++  })
+ }
+ 
+ export async function getUserBalanceInGroup(groupId: string, userId: string): Promise<number> {
+-  const balances = await calculateGroupBalances(groupId)
+-  const userBalance = balances.find(b => b.userId === userId)
+-  return userBalance?.balance || 0
++  const [expensesPaid, expenseSplits, settlementsPaid, settlementsReceived] = await Promise.all([
++    prisma.expense.aggregate({
++      where: { groupId, paidById: userId },
++      _sum: { amount: true },
++    }),
++    prisma.expenseSplit.aggregate({
++      where: {
++        userId,
++        expense: { groupId },
++      },
++      _sum: { amount: true },
++    }),
++    prisma.settlement.aggregate({
++      where: { groupId, paidById: userId },
++      _sum: { amount: true },
++    }),
++    prisma.settlement.aggregate({
++      where: { groupId, receivedById: userId },
++      _sum: { amount: true },
++    }),
++  ])
++
++  const totalPaid = expensesPaid._sum.amount || 0
++  const totalOwed = expenseSplits._sum.amount || 0
++  const totalSettlementsPaid = settlementsPaid._sum.amount || 0
++  const totalSettlementsReceived = settlementsReceived._sum.amount || 0
++
++  return totalPaid - totalOwed - totalSettlementsPaid + totalSettlementsReceived
+ }
+ 
