@@ -1,0 +1,19 @@
+{
+            "instance_id": "EFGC48",
+            "problem_statement": "The ledger service is vulnerable to race conditions and duplicate processing of the same intent. The goal is to ensure that every transaction is processed exactly once per idempotency key and that account balances remain consistent under high concurrent load.",
+            "base_commit": "repository_before/",
+            "test_patch": "tests/",
+            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/efgc48-idempotent-financial-transaction-ledger",
+            "environment_setup": "Dockerfile",
+            "FAIL_TO_PASS": [
+                "test_atomicity_and_rollback",
+                "test_balance_check_prevents_overdraft",
+                "test_concurrent_withdrawals",
+                "test_idempotency_retry_after_failure",
+                "test_idempotency_store_returns_original_result",
+                "test_in_progress_transaction_raises_exception"
+            ],
+            "PASS_TO_PASS": [
+                "test_basic_fund_transfer"
+            ]
+}
