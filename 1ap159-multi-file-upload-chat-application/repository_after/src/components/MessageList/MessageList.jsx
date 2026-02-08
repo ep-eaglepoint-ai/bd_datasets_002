@@ -1,15 +1,15 @@
-import React, { useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
-import MessageItem from '../MessageItem/MessageItem';
-import TypingIndicator from '../TypingIndicator/TypingIndicator';
+import React, { useEffect, useRef } from "react";
+import MessageItem from "../MessageItem/MessageItem";
+import TypingIndicator from "../TypingIndicator/TypingIndicator";
+import { useChat } from "../../state/chatContext";
 
 export default function MessageList() {
-  const messages = useSelector((state) => state.chat.messages);
-  const isTyping = useSelector((state) => state.chat.isTyping);
+  const { state } = useChat();
+  const { messages, isTyping } = state;
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
   return (
