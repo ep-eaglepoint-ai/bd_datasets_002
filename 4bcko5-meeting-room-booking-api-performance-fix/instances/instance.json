@@ -1,0 +1,23 @@
+{
+  "instance_id": "4BCKO5",
+  "problem_statement": "The meeting room booking API shows severe performance degradation under production load. During peak usage with 200 concurrent users, the /api/rooms endpoint takes 8-12 seconds to respond instead of <100ms. Monitoring logs reveal 47 database queries executed for just 3 rooms. The /api/bookings/mine endpoint response time increases linearly with user booking count, and /api/rooms/:id/bookings performs full table scans despite date filtering. Database CPU spikes to 95% while application CPU remains at 5%. The codebase requires optimization to achieve sub-200ms response times while maintaining identical API behavior and all existing business logic.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/4bcko5-meeting-room-booking-api-performance-fix",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "tests/1-performance-requirements.test.js::test_req_3_room_bookings_performance_with_indexes",
+    "tests/2-query-optimization.test.js::test_req_10_technical_constraints_indexes"
+  ],
+  "PASS_TO_PASS": [
+    "tests/1-performance-requirements.test.js::test_req_1_rooms_endpoint_performance",
+    "tests/1-performance-requirements.test.js::test_req_2_bookings_mine_constant_time",
+    "tests/1-performance-requirements.test.js::test_req_4_post_booking_performance",
+    "tests/2-query-optimization.test.js::test_req_5_max_3_queries_per_request",
+    "tests/2-query-optimization.test.js::test_req_6_connection_pool_management",
+    "tests/2-query-optimization.test.js::test_req_10_no_new_tables",
+    "tests/3-business-rules.test.js::test_req_8_api_response_structure",
+    "tests/3-business-rules.test.js::test_req_9_business_rules_validation",
+    "tests/4-stability.test.js::test_req_7_memory_stability"
+  ]
+}

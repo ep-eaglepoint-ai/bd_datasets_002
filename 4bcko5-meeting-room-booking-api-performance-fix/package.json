@@ -1,0 +1,17 @@
+{
+  "name": "booking-api-performance-evaluation",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run-all-tests.js",
+    "test:performance": "node tests/1-performance-requirements.test.js",
+    "test:queries": "node tests/2-query-optimization.test.js",
+    "test:business": "node tests/3-business-rules.test.js",
+    "test:stability": "node tests/4-stability.test.js",
+    "evaluate": "node evaluation/evaluation.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "pg": "^8.11.0"
+  }
+}

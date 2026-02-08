@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  # Database for BEFORE version
+  db-before:
+    image: postgres:15-alpine
+    container_name: booking-api-db-before
+    environment:
+      POSTGRES_DB: booking_system_before
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_before:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - booking-network
+
+  # Database for AFTER version
+  db-after:
+    image: postgres:15-alpine
+    container_name: booking-api-db-after
+    environment:
+      POSTGRES_DB: booking_system_after
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data_after:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - booking-network
+
+  # Before version server (unoptimized)
+  server-before:
+    build:
+      context: ./repository_before
+      dockerfile: ../Dockerfile.server
+    container_name: booking-api-server-before
+    environment:
+      DB_HOST: db-before
+      DB_PORT: 5432
+      DB_NAME: booking_system_before
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PORT: 5000
+      JWT_SECRET: booking-secret-key
+    ports:
+      - "5000:5000"
+    depends_on:
+      db-before:
+        condition: service_healthy
+    networks:
+      - booking-network
+
+  # After version server (optimized)
+  server-after:
+    build:
+      context: ./repository_after
+      dockerfile: ../Dockerfile.server
+    container_name: booking-api-server-after
+    environment:
+      DB_HOST: db-after
+      DB_PORT: 5432
+      DB_NAME: booking_system_after
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PORT: 5001
+      JWT_SECRET: booking-secret-key
+    ports:
+      - "5001:5001"
+    depends_on:
+      db-after:
+        condition: service_healthy
+    networks:
+      - booking-network
+
+  # Test runner for BEFORE version
+  test-before:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: booking-api-test-before
+    environment:
+      API_URL: http://server-before:5000
+      DB_HOST: db-before
+      DB_PORT: 5432
+      DB_NAME: booking_system_before
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      - server-before
+    networks:
+      - booking-network
+    volumes:
+      - ./evaluation:/app/evaluation
+    command: ["sh", "-c", "sleep 15 && echo '\n=== TESTING BEFORE VERSION (Unoptimized) ===\n' && npm test"]
+
+  # Test runner for AFTER version
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: booking-api-test-after
+    environment:
+      API_URL: http://server-after:5001
+      DB_HOST: db-after
+      DB_PORT: 5432
+      DB_NAME: booking_system_after
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      - server-after
+    networks:
+      - booking-network
+    volumes:
+      - ./evaluation:/app/evaluation
+    command: ["sh", "-c", "sleep 15 && echo '\n=== TESTING AFTER VERSION (Optimized) ===\n' && npm test"]
+
+  # Evaluation runner (tests both and compares)
+  evaluate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: booking-api-evaluate
+    environment:
+      API_URL_BEFORE: http://server-before:5000
+      API_URL_AFTER: http://server-after:5001
+      DB_HOST_BEFORE: db-before
+      DB_HOST_AFTER: db-after
+      DB_HOST: db-before
+      DB_PORT: 5432
+      DB_NAME: booking_system_before
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      - server-before
+      - server-after
+    networks:
+      - booking-network
+    volumes:
+      - ./evaluation:/app/evaluation
+      - ./repository_before:/app/repository_before:ro
+      - ./repository_after:/app/repository_after:ro
+    command: ["sh", "-c", "sleep 20 && echo '\n=== RUNNING FULL EVALUATION ===\n' && npm run evaluate && echo '\n=== Results saved to evaluation/reports/ ===\n'"]
+
+volumes:
+  postgres_data_before:
+  postgres_data_after:
+
+networks:
+  booking-network:
+    driver: bridge
