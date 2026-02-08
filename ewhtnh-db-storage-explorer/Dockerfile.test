@@ -1,0 +1,23 @@
+FROM node:18-alpine
+
+# Install Python for evaluation
+RUN apk add --no-cache python3 py3-pip
+
+# Install dependencies with cache
+WORKDIR /app
+COPY repository_after/package*.json ./
+RUN --mount=type=cache,target=/root/.npm npm install
+
+# Install uuid and ts-node for evaluation script
+RUN npm install uuid @types/uuid ts-node typescript
+
+# Set up Python
+RUN pip3 install --no-cache-dir --break-system-packages pytest
+
+# Copy source code
+COPY repository_after/ .
+
+# Copy evaluation script
+COPY evaluation/evaluation.js /app/evaluation/
+
+CMD ["npm", "test"]

@@ -1,0 +1,26 @@
+services:
+  app:
+    build: .
+    command: -q tests
+    volumes:
+      - .:/app
+  
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app/repository_after
+    command: npm test
+    
+  evaluate:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    command: node evaluation/evaluation.js
