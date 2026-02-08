@@ -1,0 +1,21 @@
+{
+  "instance_id": "oxrvxf-web-tesing",
+  "problem_statement": "Create a Playwright test suite for a draggable Kanban board application that covers all user workflows task CRUD, drag-and-drop, inline editing, modal interactions, and localStorage persistence using both isolated component tests via page.evaluate() and full end-to-end simulations. Implement meta-tests to validate the test suite's quality, ensuring every test has meaningful assertions, handles edge cases, and would fail if the underlying implementation broke, while verifying proper Playwright structure, async usage, and browser context isolation. The meta-test suite must run independently and produce a health report on test integrity and coverage.",
+  "base_commit": "repository_before/",
+  "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/oxrvxf-web-tesing",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "Solution tests should fail in repository_before (no tests exist)",
+    "Solution tests should pass in repository_after (tests implemented)",
+    "Meta-tests should fail if solution tests lack assertions",
+    "Meta-tests should fail if solution tests lack proper isolation",
+    "Meta-tests should fail if solution tests have missing await statements"
+  ],
+  "PASS_TO_PASS": [
+    "Application functionality remains unchanged",
+    "All existing features work as before",
+    "LocalStorage persistence continues to work",
+    "Drag-and-drop functionality preserved",
+    "Modal interactions unchanged"
+  ]
+}

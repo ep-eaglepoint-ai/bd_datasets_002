@@ -1,0 +1,9 @@
+{
+  "name": "meta-test-suite",
+  "version": "1.0.0",
+  "description": "Meta-tests to validate test suite quality",
+  "scripts": {
+    "test": "node test-runner.js"
+  },
+  "devDependencies": {}
+}
