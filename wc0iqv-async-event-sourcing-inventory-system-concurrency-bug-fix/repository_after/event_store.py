@@ -34,15 +34,19 @@ class EventStore:
         self._aggregate_locks: Dict[str, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
 
-    def _get_aggregate_lock(self, aggregate_id: str) -> asyncio.Lock:
+    async def _get_aggregate_lock(self, aggregate_id: str) -> asyncio.Lock:
         """Get or create a lock for a specific aggregate."""
-        if aggregate_id not in self._aggregate_locks:
-            self._aggregate_locks[aggregate_id] = asyncio.Lock()
-        return self._aggregate_locks[aggregate_id]
+        if aggregate_id in self._aggregate_locks:
+            return self._aggregate_locks[aggregate_id]
+
+        async with self._global_lock:
+            if aggregate_id not in self._aggregate_locks:
+                self._aggregate_locks[aggregate_id] = asyncio.Lock()
+            return self._aggregate_locks[aggregate_id]
 
     async def append_event(self, aggregate_id: str, event_type: str, data: Dict[str, Any]) -> Event:
         """Append an event atomically with proper version management."""
-        lock = self._get_aggregate_lock(aggregate_id)
+        lock = await self._get_aggregate_lock(aggregate_id)
 
         async with lock:
             # Initialize event list if needed
@@ -83,14 +87,14 @@ class EventStore:
 
     async def get_events(self, aggregate_id: str, from_version: int = 0) -> List[Event]:
         """Get events for an aggregate from a specific version."""
-        lock = self._get_aggregate_lock(aggregate_id)
+        lock = await self._get_aggregate_lock(aggregate_id)
         async with lock:
             events = self._in_memory_events.get(aggregate_id, [])
             return [e for e in events if e.version > from_version]
 
     async def get_events_snapshot_safe(self, aggregate_id: str, from_version: int = 0, to_version: Optional[int] = None) -> List[Event]:
         """Get events within a version range for snapshot-safe reads."""
-        lock = self._get_aggregate_lock(aggregate_id)
+        lock = await self._get_aggregate_lock(aggregate_id)
         async with lock:
             events = self._in_memory_events.get(aggregate_id, [])
             filtered = [e for e in events if e.version > from_version]
@@ -100,14 +104,14 @@ class EventStore:
 
     async def get_current_version(self, aggregate_id: str) -> int:
         """Get the current version of an aggregate atomically."""
-        lock = self._get_aggregate_lock(aggregate_id)
+        lock = await self._get_aggregate_lock(aggregate_id)
         async with lock:
             events = self._in_memory_events.get(aggregate_id, [])
             return len(events)
 
     async def create_snapshot(self, aggregate_id: str, state: Dict[str, Any], version: Optional[int] = None):
         """Create a snapshot at a specific version with consistency guarantee."""
-        lock = self._get_aggregate_lock(aggregate_id)
+        lock = await self._get_aggregate_lock(aggregate_id)
 
         async with lock:
             events = self._in_memory_events.get(aggregate_id, [])
@@ -241,7 +245,7 @@ class InventoryAggregate:
             raise ValueError("Quantity must be positive")
 
         # Use aggregate-level lock for atomic check-and-remove
-        lock = self.event_store._get_aggregate_lock(self.aggregate_id)
+        lock = await self.event_store._get_aggregate_lock(self.aggregate_id)
 
         async with lock:
             # Reload state within lock to get accurate count

@@ -1,5 +1,5 @@
 diff --git a/repository_before/event_store.py b/repository_after/event_store.py
-index ae7fb5e..199ebe0 100644
+index ae7fb5e..8058612 100644
 --- a/repository_before/event_store.py
 +++ b/repository_after/event_store.py
 @@ -22,6 +22,7 @@ class Snapshot:
@@ -10,7 +10,7 @@ index ae7fb5e..199ebe0 100644
  class EventStore:
      def __init__(self, db_pool: asyncpg.Pool):
          self.db_pool = db_pool
-@@ -29,92 +30,169 @@ class EventStore:
+@@ -29,92 +30,173 @@ class EventStore:
          self._snapshot_lock = asyncio.Lock()
          self._in_memory_events: Dict[str, List[Event]] = {}
          self._snapshots: Dict[str, Snapshot] = {}
@@ -19,11 +19,15 @@ index ae7fb5e..199ebe0 100644
 +        self._aggregate_locks: Dict[str, asyncio.Lock] = {}
 +        self._global_lock = asyncio.Lock()
 +
-+    def _get_aggregate_lock(self, aggregate_id: str) -> asyncio.Lock:
++    async def _get_aggregate_lock(self, aggregate_id: str) -> asyncio.Lock:
 +        """Get or create a lock for a specific aggregate."""
-+        if aggregate_id not in self._aggregate_locks:
-+            self._aggregate_locks[aggregate_id] = asyncio.Lock()
-+        return self._aggregate_locks[aggregate_id]
++        if aggregate_id in self._aggregate_locks:
++            return self._aggregate_locks[aggregate_id]
++
++        async with self._global_lock:
++            if aggregate_id not in self._aggregate_locks:
++                self._aggregate_locks[aggregate_id] = asyncio.Lock()
++            return self._aggregate_locks[aggregate_id]
 +
      async def append_event(self, aggregate_id: str, event_type: str, data: Dict[str, Any]) -> Event:
 -        events = self._in_memory_events.get(aggregate_id, [])
@@ -43,7 +47,7 @@ index ae7fb5e..199ebe0 100644
 -        self._in_memory_events[aggregate_id].append(event)
 -        
 +        """Append an event atomically with proper version management."""
-+        lock = self._get_aggregate_lock(aggregate_id)
++        lock = await self._get_aggregate_lock(aggregate_id)
 +
 +        async with lock:
 +            # Initialize event list if needed
@@ -106,14 +110,14 @@ index ae7fb5e..199ebe0 100644
 -        self._snapshots[aggregate_id] = snapshot
 -        
 +        """Get events for an aggregate from a specific version."""
-+        lock = self._get_aggregate_lock(aggregate_id)
++        lock = await self._get_aggregate_lock(aggregate_id)
 +        async with lock:
 +            events = self._in_memory_events.get(aggregate_id, [])
 +            return [e for e in events if e.version > from_version]
 +
 +    async def get_events_snapshot_safe(self, aggregate_id: str, from_version: int = 0, to_version: Optional[int] = None) -> List[Event]:
 +        """Get events within a version range for snapshot-safe reads."""
-+        lock = self._get_aggregate_lock(aggregate_id)
++        lock = await self._get_aggregate_lock(aggregate_id)
 +        async with lock:
 +            events = self._in_memory_events.get(aggregate_id, [])
 +            filtered = [e for e in events if e.version > from_version]
@@ -123,14 +127,14 @@ index ae7fb5e..199ebe0 100644
 +
 +    async def get_current_version(self, aggregate_id: str) -> int:
 +        """Get the current version of an aggregate atomically."""
-+        lock = self._get_aggregate_lock(aggregate_id)
++        lock = await self._get_aggregate_lock(aggregate_id)
 +        async with lock:
 +            events = self._in_memory_events.get(aggregate_id, [])
 +            return len(events)
 +
 +    async def create_snapshot(self, aggregate_id: str, state: Dict[str, Any], version: Optional[int] = None):
 +        """Create a snapshot at a specific version with consistency guarantee."""
-+        lock = self._get_aggregate_lock(aggregate_id)
++        lock = await self._get_aggregate_lock(aggregate_id)
 +
 +        async with lock:
 +            events = self._in_memory_events.get(aggregate_id, [])
@@ -179,10 +183,12 @@ index ae7fb5e..199ebe0 100644
          events = await self.get_events(aggregate_id, from_version)
 -        
 +
-+        for event in events:
-+            state = apply_fn(state, event)
+         for event in events:
+             state = apply_fn(state, event)
+-        
 +
-+        return state
+         return state
+-    
 +
 +    async def replay_events_to_version(self, aggregate_id: str, apply_fn: Callable[[Dict, Event], Dict], to_version: int) -> Dict[str, Any]:
 +        """Replay events up to a specific version for consistent snapshots."""
@@ -197,12 +203,10 @@ index ae7fb5e..199ebe0 100644
 +
 +        events = await self.get_events_snapshot_safe(aggregate_id, from_version, to_version)
 +
-         for event in events:
-             state = apply_fn(state, event)
--        
++        for event in events:
++            state = apply_fn(state, event)
 +
-         return state
--    
++        return state
 +
      def subscribe(self, event_type: str, handler: Callable):
 +        """Subscribe a handler to an event type."""
@@ -230,7 +234,7 @@ index ae7fb5e..199ebe0 100644
  
  
  class InventoryAggregate:
-@@ -123,53 +201,93 @@ class InventoryAggregate:
+@@ -123,53 +205,93 @@ class InventoryAggregate:
          self.aggregate_id = aggregate_id
          self._state: Dict[str, int] = {}
          self._version = 0
@@ -295,7 +299,7 @@ index ae7fb5e..199ebe0 100644
 -    
 +
 +        # Use aggregate-level lock for atomic check-and-remove
-+        lock = self.event_store._get_aggregate_lock(self.aggregate_id)
++        lock = await self.event_store._get_aggregate_lock(self.aggregate_id)
 +
 +        async with lock:
 +            # Reload state within lock to get accurate count
@@ -345,7 +349,7 @@ index ae7fb5e..199ebe0 100644
          await self.load()
          return self._state.get(item_id, 0)
  
-@@ -180,35 +298,47 @@ class SnapshotWorker:
+@@ -180,35 +302,47 @@ class SnapshotWorker:
          self.interval = interval_seconds
          self._running = False
          self._aggregates_to_snapshot: List[str] = []
@@ -405,7 +409,7 @@ index ae7fb5e..199ebe0 100644
          if event.event_type == "StockAdded":
              item_id = event.data["item_id"]
              quantity = event.data["quantity"]
-@@ -224,25 +354,28 @@ class ReadModelProjection:
+@@ -224,25 +358,28 @@ class ReadModelProjection:
      def __init__(self):
          self._stock_levels: Dict[str, Dict[str, int]] = {}
          self._lock = asyncio.Lock()
