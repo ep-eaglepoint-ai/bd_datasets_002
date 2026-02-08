@@ -1,0 +1,5 @@
+# Task Specific
+reports/
+
+# OS
+.DS_Store
