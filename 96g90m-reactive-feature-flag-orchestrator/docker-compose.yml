@@ -1,0 +1,39 @@
+services:
+  app:
+    image: feature-flag-orchestrator
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+
+  test:
+    image: feature-flag-orchestrator
+    depends_on:
+      - app
+    working_dir: /app
+    command: sh -c "sleep 5 && npm test"
+    environment:
+      - BASE_URL=http://app:3000/api/flags
+      - NODE_ENV=test
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
+
+  evaluation:
+    image: feature-flag-orchestrator
+    depends_on:
+      - app
+    working_dir: /app
+    command: sh -c "sleep 5 && npx tsx /app/evaluation/evaluation.ts"
+    environment:
+      - BASE_URL=http://app:3000/api/flags
+      - NODE_ENV=test
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/repository_after/node_modules
