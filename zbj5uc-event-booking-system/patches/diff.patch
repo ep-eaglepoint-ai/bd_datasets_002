@@ -44,101 +44,245 @@ index 0000000..692a82f
 +}
 diff --git a/repository_after/backend/routes.js b/repository_after/backend/routes.js
 new file mode 100644
-index 0000000..4d97fc9
+index 0000000..079fdb1
 --- /dev/null
 +++ b/repository_after/backend/routes.js
-@@ -0,0 +1,81 @@
-+const express = require('express');
+@@ -0,0 +1,225 @@
++const express = require("express");
 +const router = express.Router();
-+const db = require('./db');
++const db = require("./db");
++
++const isValidDate = (value) =>
++  /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
++
++const isValidTime = (value) => {
++  if (!/^\d{2}:\d{2}$/.test(value)) return false;
++  const [hours, minutes] = value.split(":").map(Number);
++  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
++};
++
++const toMinutes = (value) => {
++  const [hours, minutes] = value.split(":").map(Number);
++  return hours * 60 + minutes;
++};
++
++const validateBooking = (payload) => {
++  const errors = {};
++  const eventName =
++    typeof payload.eventName === "string" ? payload.eventName.trim() : "";
++  const venueName =
++    typeof payload.venueName === "string" ? payload.venueName.trim() : "";
++  const organizerName =
++    typeof payload.organizerName === "string"
++      ? payload.organizerName.trim()
++      : "";
++  const date = typeof payload.date === "string" ? payload.date.trim() : "";
++  const startTime =
++    typeof payload.startTime === "string" ? payload.startTime.trim() : "";
++  const endTime =
++    typeof payload.endTime === "string" ? payload.endTime.trim() : "";
++  const attendeeCount = Number(payload.attendeeCount);
++  const notes = typeof payload.notes === "string" ? payload.notes.trim() : "";
++
++  if (!eventName) {
++    errors.eventName = "Event name is required.";
++  } else if (eventName.length > 200) {
++    errors.eventName = "Event name must be 1-200 characters.";
++  }
++
++  if (!venueName) {
++    errors.venueName = "Venue/room name is required.";
++  }
++
++  if (!organizerName) {
++    errors.organizerName = "Organizer name is required.";
++  }
++
++  if (!date) {
++    errors.date = "Date is required.";
++  } else if (!isValidDate(date)) {
++    errors.date = "Date must be a valid date (YYYY-MM-DD).";
++  }
++
++  if (!startTime) {
++    errors.startTime = "Start time is required.";
++  } else if (!isValidTime(startTime)) {
++    errors.startTime = "Start time must be a valid time (HH:MM).";
++  }
++
++  if (!endTime) {
++    errors.endTime = "End time is required.";
++  } else if (!isValidTime(endTime)) {
++    errors.endTime = "End time must be a valid time (HH:MM).";
++  }
++
++  if (isValidTime(startTime) && isValidTime(endTime)) {
++    if (toMinutes(endTime) <= toMinutes(startTime)) {
++      errors.endTime = "End time must be after start time.";
++    }
++  }
++
++  if (!Number.isInteger(attendeeCount) || attendeeCount <= 0) {
++    errors.attendeeCount = "Attendee count must be a positive integer.";
++  }
++
++  if (notes && notes.length > 500) {
++    errors.notes = "Notes must be 500 characters or less.";
++  }
++
++  return {
++    isValid: Object.keys(errors).length === 0,
++    errors,
++    normalized: {
++      eventName,
++      venueName,
++      organizerName,
++      date,
++      startTime,
++      endTime,
++      attendeeCount,
++      notes: notes || null,
++    },
++  };
++};
 +
 +// GET all bookings
-+router.get('/bookings', async (req, res) => {
-+    try {
-+        const result = await db.query('SELECT * FROM bookings ORDER BY date, time');
-+        res.json(result.rows);
-+    } catch (err) {
-+        console.error(err);
-+        res.status(500).json({ error: 'Server error' });
++router.get("/bookings", async (req, res) => {
++  try {
++    const result = await db.query(
++      "SELECT * FROM bookings ORDER BY date, start_time",
++    );
++    res.json(result.rows);
++  } catch (err) {
++    console.error(err);
++    res.status(500).json({ error: "Server error" });
++  }
++});
++
++// GET a single booking
++router.get("/bookings/:id", async (req, res) => {
++  const { id } = req.params;
++  try {
++    const result = await db.query("SELECT * FROM bookings WHERE id = $1", [id]);
++    if (result.rows.length === 0) {
++      return res.status(404).json({ error: "Booking not found" });
 +    }
++    res.json(result.rows[0]);
++  } catch (err) {
++    console.error(err);
++    res.status(500).json({ error: "Server error" });
++  }
 +});
 +
 +// POST a new booking
-+router.post('/bookings', async (req, res) => {
-+    const { title, date, time, description } = req.body;
++router.post("/bookings", async (req, res) => {
++  const { isValid, errors, normalized } = validateBooking(req.body);
 +
-+    // Simple validation (can be enhanced)
-+    if (!title || !date || !time) {
-+        return res.status(400).json({ error: 'Title, date, and time are required' });
-+    }
++  if (!isValid) {
++    return res.status(400).json({ error: "Validation failed", fields: errors });
++  }
 +
-+    try {
-+        // Prevent simple database errors by validating types/content if needed, relies on DB for now
-+        const result = await db.query(
-+            'INSERT INTO bookings (title, date, time, description) VALUES ($1, $2, $3, $4) RETURNING *',
-+            [title, date, time, description]
-+        );
-+        res.status(201).json(result.rows[0]);
-+    } catch (err) {
-+        console.error(err);
-+        res.status(500).json({ error: 'Server error' });
-+    }
++  try {
++    const result = await db.query(
++      `INSERT INTO bookings
++                (event_name, venue_name, date, start_time, end_time, organizer_name, attendee_count, notes)
++             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
++             RETURNING *`,
++      [
++        normalized.eventName,
++        normalized.venueName,
++        normalized.date,
++        normalized.startTime,
++        normalized.endTime,
++        normalized.organizerName,
++        normalized.attendeeCount,
++        normalized.notes,
++      ],
++    );
++    res.status(201).json(result.rows[0]);
++  } catch (err) {
++    console.error(err);
++    res.status(500).json({ error: "Server error" });
++  }
 +});
 +
 +// PUT (update) a booking
-+router.put('/bookings/:id', async (req, res) => {
-+    const { id } = req.params;
-+    const { title, date, time, description } = req.body;
++router.put("/bookings/:id", async (req, res) => {
++  const { id } = req.params;
++  const { isValid, errors, normalized } = validateBooking(req.body);
 +
-+    if (!title || !date || !time) {
-+        return res.status(400).json({ error: 'Title, date, and time are required' });
++  if (!isValid) {
++    return res.status(400).json({ error: "Validation failed", fields: errors });
++  }
++
++  try {
++    const result = await db.query(
++      `UPDATE bookings
++             SET event_name = $1,
++                 venue_name = $2,
++                 date = $3,
++                 start_time = $4,
++                 end_time = $5,
++                 organizer_name = $6,
++                 attendee_count = $7,
++                 notes = $8
++             WHERE id = $9
++             RETURNING *`,
++      [
++        normalized.eventName,
++        normalized.venueName,
++        normalized.date,
++        normalized.startTime,
++        normalized.endTime,
++        normalized.organizerName,
++        normalized.attendeeCount,
++        normalized.notes,
++        id,
++      ],
++    );
++
++    if (result.rows.length === 0) {
++      return res.status(404).json({ error: "Booking not found" });
 +    }
 +
-+    try {
-+        const result = await db.query(
-+            'UPDATE bookings SET title = $1, date = $2, time = $3, description = $4 WHERE id = $5 RETURNING *',
-+            [title, date, time, description, id]
-+        );
-+
-+        if (result.rows.length === 0) {
-+            return res.status(404).json({ error: 'Booking not found' });
-+        }
-+
-+        res.json(result.rows[0]);
-+    } catch (err) {
-+        console.error(err);
-+        res.status(500).json({ error: 'Server error' });
-+    }
++    res.json(result.rows[0]);
++  } catch (err) {
++    console.error(err);
++    res.status(500).json({ error: "Server error" });
++  }
 +});
 +
 +// DELETE a booking
-+router.delete('/bookings/:id', async (req, res) => {
-+    const { id } = req.params;
-+    try {
-+        const result = await db.query('DELETE FROM bookings WHERE id = $1 RETURNING *', [id]);
++router.delete("/bookings/:id", async (req, res) => {
++  const { id } = req.params;
++  try {
++    const result = await db.query(
++      "DELETE FROM bookings WHERE id = $1 RETURNING *",
++      [id],
++    );
 +
-+        if (result.rows.length === 0) {
-+            return res.status(404).json({ error: 'Booking not found' });
-+        }
-+
-+        res.json({ message: 'Booking deleted successfully' });
-+    } catch (err) {
-+        console.error(err);
-+        res.status(500).json({ error: 'Server error' });
++    if (result.rows.length === 0) {
++      return res.status(404).json({ error: "Booking not found" });
 +    }
++
++    res.json({ message: "Booking deleted successfully" });
++  } catch (err) {
++    console.error(err);
++    res.status(500).json({ error: "Server error" });
++  }
 +});
 +
 +module.exports = router;
 diff --git a/repository_after/backend/server.js b/repository_after/backend/server.js
 new file mode 100644
-index 0000000..7543909
+index 0000000..19a4c74
 --- /dev/null
 +++ b/repository_after/backend/server.js
-@@ -0,0 +1,43 @@
-+const express = require('express');
-+const cors = require('cors');
-+const db = require('./db');
-+require('dotenv').config();
+@@ -0,0 +1,70 @@
++const express = require("express");
++const cors = require("cors");
++const db = require("./db");
++require("dotenv").config();
 +
 +const app = express();
 +const PORT = process.env.PORT || 5000;
@@ -147,36 +291,63 @@ index 0000000..7543909
 +app.use(express.json());
 +
 +// Basic health check
-+app.get('/', (req, res) => {
-+    res.send('Event Booking API is running');
++app.get("/", (req, res) => {
++  res.send("Event Booking API is running");
 +});
 +
 +// Routes will be imported here
-+const routes = require('./routes');
-+app.use('/api', routes);
++const routes = require("./routes");
++app.use("/api", routes);
 +
 +// Initialize DB table
 +const initDb = async () => {
-+    try {
-+        await db.query(`
++  try {
++    await db.query(`
 +            CREATE TABLE IF NOT EXISTS bookings (
 +                id SERIAL PRIMARY KEY,
-+                title VARCHAR(255) NOT NULL,
++                event_name VARCHAR(200) NOT NULL,
++                venue_name VARCHAR(200) NOT NULL,
 +                date DATE NOT NULL,
-+                time TIME NOT NULL,
-+                description TEXT,
++                start_time TIME NOT NULL,
++                end_time TIME NOT NULL,
++                organizer_name VARCHAR(200) NOT NULL,
++                attendee_count INTEGER NOT NULL,
++                notes VARCHAR(500),
 +                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 +            );
 +        `);
-+        console.log('Database initialized');
-+    } catch (err) {
-+        console.error('Error initializing database:', err);
-+    }
++
++    await db.query(
++      `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS event_name VARCHAR(200);`,
++    );
++    await db.query(
++      `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS venue_name VARCHAR(200);`,
++    );
++    await db.query(
++      `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS start_time TIME;`,
++    );
++    await db.query(
++      `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS end_time TIME;`,
++    );
++    await db.query(
++      `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(200);`,
++    );
++    await db.query(
++      `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS attendee_count INTEGER;`,
++    );
++    await db.query(
++      `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes VARCHAR(500);`,
++    );
++
++    console.log("Database initialized");
++  } catch (err) {
++    console.error("Error initializing database:", err);
++  }
 +};
 +
 +app.listen(PORT, async () => {
-+    console.log(`Server is running on port ${PORT}`);
-+    await initDb();
++  console.log(`Server is running on port ${PORT}`);
++  await initDb();
 +});
 diff --git a/repository_after/frontend/.gitignore b/repository_after/frontend/.gitignore
 new file mode 100644
@@ -313,113 +484,149 @@ index 0000000..d41ad63
 +}
 diff --git a/repository_after/frontend/src/App.jsx b/repository_after/frontend/src/App.jsx
 new file mode 100644
-index 0000000..60885cf
+index 0000000..fe011a0
 --- /dev/null
 +++ b/repository_after/frontend/src/App.jsx
-@@ -0,0 +1,132 @@
-+import React, { useState, useEffect } from 'react';
-+import BookingList from './components/BookingList';
-+import BookingForm from './components/BookingForm';
+@@ -0,0 +1,183 @@
++import React, { useState, useEffect } from "react";
++import BookingList from "./components/BookingList";
++import BookingForm from "./components/BookingForm";
 +
 +// API Base URL (assuming proxy or CORS setup, for now hardcoded to backend port if running locally, or relative if proxied)
 +// In development with docker-compose, we might need to point to localhost:5000 if not proxying.
 +// But browsers run outside docker, so localhost:5000 works if port mapped.
-+const API_URL = 'http://localhost:5001/api/bookings';
++const API_URL = "http://localhost:5001/api/bookings";
 +
 +function App() {
 +  const [bookings, setBookings] = useState([]);
-+  const [view, setView] = useState('list'); // 'list' or 'form'
++  const [view, setView] = useState("list"); // 'list' or 'form'
 +  const [editingBooking, setEditingBooking] = useState(null);
 +  const [error, setError] = useState(null);
 +  const [successMsg, setSuccessMsg] = useState(null);
++  const [formErrors, setFormErrors] = useState({});
 +
 +  useEffect(() => {
 +    fetchBookings();
 +  }, []);
 +
++  const normalizeBooking = (booking) => ({
++    id: booking.id,
++    eventName: booking.event_name ?? booking.eventName ?? "",
++    venueName: booking.venue_name ?? booking.venueName ?? "",
++    date: booking.date,
++    startTime: booking.start_time ?? booking.startTime ?? "",
++    endTime: booking.end_time ?? booking.endTime ?? "",
++    organizerName: booking.organizer_name ?? booking.organizerName ?? "",
++    attendeeCount: booking.attendee_count ?? booking.attendeeCount ?? 0,
++    notes: booking.notes ?? "",
++  });
++
 +  const fetchBookings = async () => {
 +    try {
 +      const response = await fetch(API_URL);
-+      if (!response.ok) throw new Error('Failed to fetch bookings');
++      if (!response.ok) throw new Error("Failed to fetch bookings");
 +      const data = await response.json();
-+      setBookings(data);
++      const normalized = Array.isArray(data) ? data.map(normalizeBooking) : [];
++      normalized.sort((a, b) => {
++        if (a.date === b.date) {
++          return a.startTime.localeCompare(b.startTime);
++        }
++        return a.date.localeCompare(b.date);
++      });
++      setBookings(normalized);
 +      setError(null);
 +    } catch (err) {
 +      console.error(err);
-+      setError('Could not load bookings. Please try again.');
++      setError("Could not load bookings. Please try again.");
 +    }
 +  };
 +
 +  const handleSave = async (bookingData) => {
 +    try {
++      setFormErrors({});
 +      let response;
 +      if (editingBooking) {
 +        // Update
 +        response = await fetch(`${API_URL}/${editingBooking.id}`, {
-+          method: 'PUT',
-+          headers: { 'Content-Type': 'application/json' },
++          method: "PUT",
++          headers: { "Content-Type": "application/json" },
 +          body: JSON.stringify(bookingData),
 +        });
 +      } else {
 +        // Create
 +        response = await fetch(API_URL, {
-+          method: 'POST',
-+          headers: { 'Content-Type': 'application/json' },
++          method: "POST",
++          headers: { "Content-Type": "application/json" },
 +          body: JSON.stringify(bookingData),
 +        });
 +      }
 +
-+      if (!response.ok) throw new Error('Failed to save booking');
++      if (!response.ok) {
++        const payload = await response.json().catch(() => ({}));
++        if (payload.fields) {
++          setFormErrors(payload.fields);
++        }
++        throw new Error(payload.error || "Failed to save booking");
++      }
 +
 +      await fetchBookings();
-+      setView('list');
++      setView("list");
 +      setEditingBooking(null);
-+      setSuccessMsg(editingBooking ? 'Booking updated successfully!' : 'Booking created successfully!');
++      setSuccessMsg(
++        editingBooking
++          ? "Booking updated successfully!"
++          : "Booking created successfully!",
++      );
 +      setTimeout(() => setSuccessMsg(null), 3000);
 +    } catch (err) {
 +      console.error(err);
-+      setError('Failed to save booking. Please try again.');
++      setError(err.message || "Failed to save booking. Please try again.");
 +    }
 +  };
 +
 +  const handleDelete = async (id) => {
 +    try {
 +      const response = await fetch(`${API_URL}/${id}`, {
-+        method: 'DELETE',
++        method: "DELETE",
 +      });
 +
-+      if (!response.ok) throw new Error('Failed to delete booking');
++      if (!response.ok) throw new Error("Failed to delete booking");
 +
 +      await fetchBookings();
-+      setSuccessMsg('Booking deleted successfully!');
++      setSuccessMsg("Booking deleted successfully!");
 +      setTimeout(() => setSuccessMsg(null), 3000);
 +    } catch (err) {
 +      console.error(err);
-+      setError('Failed to delete booking.');
++      setError("Failed to delete booking.");
 +    }
 +  };
 +
 +  const startCreate = () => {
 +    setEditingBooking(null);
-+    setView('form');
++    setView("form");
++    setFormErrors({});
 +  };
 +
 +  const startEdit = (booking) => {
 +    setEditingBooking(booking);
-+    setView('form');
++    setView("form");
++    setFormErrors({});
 +  };
 +
 +  const cancelForm = () => {
-+    setView('list');
++    setView("list");
 +    setEditingBooking(null);
++    setFormErrors({});
 +  };
 +
 +  return (
 +    <div className="min-h-screen bg-gray-100 p-8">
 +      <div className="max-w-6xl mx-auto">
 +        <header className="flex justify-between items-center mb-8">
-+          <h1 className="text-3xl font-bold text-gray-800">Event Booking System</h1>
-+          {view === 'list' && (
++          <h1 className="text-3xl font-bold text-gray-800">
++            Event Booking System
++          </h1>
++          {view === "list" && (
 +            <button onClick={startCreate} className="btn-primary">
 +              + New Booking
 +            </button>
@@ -427,21 +634,36 @@ index 0000000..60885cf
 +        </header>
 +
 +        {error && (
-+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
++          <div
++            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
++            role="alert"
++          >
 +            <span className="block sm:inline">{error}</span>
 +          </div>
 +        )}
 +
 +        {successMsg && (
-+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
++          <div
++            className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4"
++            role="alert"
++          >
 +            <span className="block sm:inline">{successMsg}</span>
 +          </div>
 +        )}
 +
-+        {view === 'list' ? (
-+          <BookingList bookings={bookings} onEdit={startEdit} onDelete={handleDelete} />
++        {view === "list" ? (
++          <BookingList
++            bookings={bookings}
++            onEdit={startEdit}
++            onDelete={handleDelete}
++          />
 +        ) : (
-+          <BookingForm bookingToEdit={editingBooking} onSave={handleSave} onCancel={cancelForm} />
++          <BookingForm
++            bookingToEdit={editingBooking}
++            onSave={handleSave}
++            onCancel={cancelForm}
++            serverErrors={formErrors}
++          />
 +        )}
 +      </div>
 +    </div>
@@ -451,218 +673,399 @@ index 0000000..60885cf
 +export default App;
 diff --git a/repository_after/frontend/src/components/BookingForm.jsx b/repository_after/frontend/src/components/BookingForm.jsx
 new file mode 100644
-index 0000000..009099a
+index 0000000..3750119
 --- /dev/null
 +++ b/repository_after/frontend/src/components/BookingForm.jsx
-@@ -0,0 +1,144 @@
-+import React, { useState, useEffect } from 'react';
+@@ -0,0 +1,306 @@
++import React, { useState, useEffect } from "react";
 +
-+const BookingForm = ({ bookingToEdit, onSave, onCancel }) => {
-+    const [formData, setFormData] = useState({
-+        title: '',
-+        date: '',
-+        time: '',
-+        description: '',
-+    });
-+    const [errors, setErrors] = useState({});
++const BookingForm = ({
++  bookingToEdit,
++  onSave,
++  onCancel,
++  serverErrors = {},
++}) => {
++  const [formData, setFormData] = useState({
++    eventName: "",
++    venueName: "",
++    date: "",
++    startTime: "",
++    endTime: "",
++    organizerName: "",
++    attendeeCount: "",
++    notes: "",
++  });
++  const [errors, setErrors] = useState({});
 +
-+    useEffect(() => {
-+        if (bookingToEdit) {
-+            // Format date to YYYY-MM-DD for input
-+            const dateObj = new Date(bookingToEdit.date);
-+            const year = dateObj.getFullYear();
-+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-+            const day = String(dateObj.getDate()).padStart(2, '0');
-+            const formattedDate = `${year}-${month}-${day}`;
++  useEffect(() => {
++    if (bookingToEdit) {
++      const dateObj = new Date(bookingToEdit.date);
++      const year = dateObj.getFullYear();
++      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
++      const day = String(dateObj.getDate()).padStart(2, "0");
++      const formattedDate = `${year}-${month}-${day}`;
 +
-+            setFormData({
-+                title: bookingToEdit.title,
-+                date: formattedDate,
-+                time: bookingToEdit.time,
-+                description: bookingToEdit.description || '',
-+            });
-+        } else {
-+            setFormData({
-+                title: '',
-+                date: '',
-+                time: '',
-+                description: '',
-+            });
-+        }
-+    }, [bookingToEdit]);
++      setFormData({
++        eventName: bookingToEdit.eventName,
++        venueName: bookingToEdit.venueName,
++        date: formattedDate,
++        startTime: bookingToEdit.startTime,
++        endTime: bookingToEdit.endTime,
++        organizerName: bookingToEdit.organizerName,
++        attendeeCount: String(bookingToEdit.attendeeCount || ""),
++        notes: bookingToEdit.notes || "",
++      });
++    } else {
++      setFormData({
++        eventName: "",
++        venueName: "",
++        date: "",
++        startTime: "",
++        endTime: "",
++        organizerName: "",
++        attendeeCount: "",
++        notes: "",
++      });
++    }
++    setErrors({});
++  }, [bookingToEdit]);
 +
-+    const validate = () => {
-+        const newErrors = {};
-+        if (!formData.title.trim()) newErrors.title = 'Title is required';
-+        if (!formData.date) newErrors.date = 'Date is required';
-+        if (!formData.time) newErrors.time = 'Time is required';
-+        setErrors(newErrors);
-+        return Object.keys(newErrors).length === 0;
-+    };
++  useEffect(() => {
++    if (serverErrors && Object.keys(serverErrors).length > 0) {
++      setErrors((prev) => ({ ...prev, ...serverErrors }));
++    }
++  }, [serverErrors]);
 +
-+    const handleSubmit = (e) => {
-+        e.preventDefault();
-+        if (validate()) {
-+            onSave(formData);
-+        }
-+    };
++  const validate = () => {
++    const newErrors = {};
++    const eventName = formData.eventName.trim();
++    const venueName = formData.venueName.trim();
++    const organizerName = formData.organizerName.trim();
++    const attendeeCount = Number(formData.attendeeCount);
 +
-+    const handleChange = (e) => {
-+        const { name, value } = e.target;
-+        setFormData((prev) => ({ ...prev, [name]: value }));
-+        // Clear error for this field
-+        if (errors[name]) {
-+            setErrors((prev) => ({ ...prev, [name]: null }));
-+        }
-+    };
++    if (!eventName) newErrors.eventName = "Event name is required.";
++    if (eventName && eventName.length > 200)
++      newErrors.eventName = "Event name must be 1-200 characters.";
++    if (!venueName) newErrors.venueName = "Venue/room name is required.";
++    if (!organizerName) newErrors.organizerName = "Organizer name is required.";
++    if (!formData.date) newErrors.date = "Date is required.";
++    if (!formData.startTime) newErrors.startTime = "Start time is required.";
++    if (!formData.endTime) newErrors.endTime = "End time is required.";
 +
-+    return (
-+        <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-+            <h2 className="text-xl font-bold mb-4">{bookingToEdit ? 'Edit Booking' : 'Create Booking'}</h2>
-+            <form onSubmit={handleSubmit}>
-+                <div className="mb-4">
-+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="title">
-+                        Event Title *
-+                    </label>
-+                    <input
-+                        className={`input-field ${errors.title ? 'border-red-500' : ''}`}
-+                        id="title"
-+                        name="title"
-+                        type="text"
-+                        placeholder="Event Title"
-+                        value={formData.title}
-+                        onChange={handleChange}
-+                    />
-+                    {errors.title && <p className="text-red-500 text-xs italic">{errors.title}</p>}
-+                </div>
-+                <div className="mb-4 flex flex-col md:flex-row gap-4">
-+                    <div className="w-full md:w-1/2">
-+                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="date">
-+                            Date *
-+                        </label>
-+                        <input
-+                            className={`input-field ${errors.date ? 'border-red-500' : ''}`}
-+                            id="date"
-+                            name="date"
-+                            type="date"
-+                            value={formData.date}
-+                            onChange={handleChange}
-+                        />
-+                        {errors.date && <p className="text-red-500 text-xs italic">{errors.date}</p>}
-+                    </div>
-+                    <div className="w-full md:w-1/2">
-+                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="time">
-+                            Time *
-+                        </label>
-+                        <input
-+                            className={`input-field ${errors.time ? 'border-red-500' : ''}`}
-+                            id="time"
-+                            name="time"
-+                            type="time"
-+                            value={formData.time}
-+                            onChange={handleChange}
-+                        />
-+                        {errors.time && <p className="text-red-500 text-xs italic">{errors.time}</p>}
-+                    </div>
-+                </div>
-+                <div className="mb-6">
-+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
-+                        Description (Optional)
-+                    </label>
-+                    <textarea
-+                        className="input-field"
-+                        id="description"
-+                        name="description"
-+                        placeholder="Event Description"
-+                        value={formData.description}
-+                        onChange={handleChange}
-+                    ></textarea>
-+                </div>
-+                <div className="flex items-center justify-between">
-+                    <button
-+                        className="btn-primary"
-+                        type="submit"
-+                    >
-+                        {bookingToEdit ? 'Update Booking' : 'Create Booking'}
-+                    </button>
-+                    <button
-+                        className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-+                        type="button"
-+                        onClick={onCancel}
-+                    >
-+                        Cancel
-+                    </button>
-+                </div>
-+            </form>
++    if (formData.startTime && formData.endTime) {
++      if (formData.endTime <= formData.startTime) {
++        newErrors.endTime = "End time must be after start time.";
++      }
++    }
++
++    if (!Number.isInteger(attendeeCount) || attendeeCount <= 0) {
++      newErrors.attendeeCount = "Attendee count must be a positive integer.";
++    }
++
++    if (formData.notes && formData.notes.length > 500) {
++      newErrors.notes = "Notes must be 500 characters or less.";
++    }
++
++    setErrors(newErrors);
++    return Object.keys(newErrors).length === 0;
++  };
++
++  const handleSubmit = (e) => {
++    e.preventDefault();
++    if (validate()) {
++      onSave({
++        eventName: formData.eventName.trim(),
++        venueName: formData.venueName.trim(),
++        date: formData.date,
++        startTime: formData.startTime,
++        endTime: formData.endTime,
++        organizerName: formData.organizerName.trim(),
++        attendeeCount: Number(formData.attendeeCount),
++        notes: formData.notes.trim(),
++      });
++    }
++  };
++
++  const handleChange = (e) => {
++    const { name, value } = e.target;
++    setFormData((prev) => ({ ...prev, [name]: value }));
++    // Clear error for this field
++    if (errors[name]) {
++      setErrors((prev) => ({ ...prev, [name]: null }));
++    }
++  };
++
++  return (
++    <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
++      <h2 className="text-xl font-bold mb-4">
++        {bookingToEdit ? "Edit Booking" : "Create Booking"}
++      </h2>
++      <form onSubmit={handleSubmit}>
++        <div className="mb-4">
++          <label
++            className="block text-gray-700 text-sm font-bold mb-2"
++            htmlFor="eventName"
++          >
++            Event Name *
++          </label>
++          <input
++            className={`input-field ${errors.eventName ? "border-red-500" : ""}`}
++            id="eventName"
++            name="eventName"
++            type="text"
++            placeholder="Community Workshop"
++            value={formData.eventName}
++            onChange={handleChange}
++          />
++          {errors.eventName && (
++            <p className="text-red-500 text-xs italic">{errors.eventName}</p>
++          )}
 +        </div>
-+    );
++        <div className="mb-4">
++          <label
++            className="block text-gray-700 text-sm font-bold mb-2"
++            htmlFor="venueName"
++          >
++            Venue / Room Name *
++          </label>
++          <input
++            className={`input-field ${errors.venueName ? "border-red-500" : ""}`}
++            id="venueName"
++            name="venueName"
++            type="text"
++            placeholder="Conference Room A"
++            value={formData.venueName}
++            onChange={handleChange}
++          />
++          {errors.venueName && (
++            <p className="text-red-500 text-xs italic">{errors.venueName}</p>
++          )}
++        </div>
++        <div className="mb-4 flex flex-col md:flex-row gap-4">
++          <div className="w-full md:w-1/3">
++            <label
++              className="block text-gray-700 text-sm font-bold mb-2"
++              htmlFor="date"
++            >
++              Date *
++            </label>
++            <input
++              className={`input-field ${errors.date ? "border-red-500" : ""}`}
++              id="date"
++              name="date"
++              type="date"
++              value={formData.date}
++              onChange={handleChange}
++            />
++            {errors.date && (
++              <p className="text-red-500 text-xs italic">{errors.date}</p>
++            )}
++          </div>
++          <div className="w-full md:w-1/3">
++            <label
++              className="block text-gray-700 text-sm font-bold mb-2"
++              htmlFor="startTime"
++            >
++              Start Time *
++            </label>
++            <input
++              className={`input-field ${errors.startTime ? "border-red-500" : ""}`}
++              id="startTime"
++              name="startTime"
++              type="time"
++              value={formData.startTime}
++              onChange={handleChange}
++            />
++            {errors.startTime && (
++              <p className="text-red-500 text-xs italic">{errors.startTime}</p>
++            )}
++          </div>
++          <div className="w-full md:w-1/3">
++            <label
++              className="block text-gray-700 text-sm font-bold mb-2"
++              htmlFor="endTime"
++            >
++              End Time *
++            </label>
++            <input
++              className={`input-field ${errors.endTime ? "border-red-500" : ""}`}
++              id="endTime"
++              name="endTime"
++              type="time"
++              value={formData.endTime}
++              onChange={handleChange}
++            />
++            {errors.endTime && (
++              <p className="text-red-500 text-xs italic">{errors.endTime}</p>
++            )}
++          </div>
++        </div>
++        <div className="mb-4 flex flex-col md:flex-row gap-4">
++          <div className="w-full md:w-1/2">
++            <label
++              className="block text-gray-700 text-sm font-bold mb-2"
++              htmlFor="organizerName"
++            >
++              Organizer Name *
++            </label>
++            <input
++              className={`input-field ${errors.organizerName ? "border-red-500" : ""}`}
++              id="organizerName"
++              name="organizerName"
++              type="text"
++              placeholder="Alex Johnson"
++              value={formData.organizerName}
++              onChange={handleChange}
++            />
++            {errors.organizerName && (
++              <p className="text-red-500 text-xs italic">
++                {errors.organizerName}
++              </p>
++            )}
++          </div>
++          <div className="w-full md:w-1/2">
++            <label
++              className="block text-gray-700 text-sm font-bold mb-2"
++              htmlFor="attendeeCount"
++            >
++              Attendee Count *
++            </label>
++            <input
++              className={`input-field ${errors.attendeeCount ? "border-red-500" : ""}`}
++              id="attendeeCount"
++              name="attendeeCount"
++              type="number"
++              min="1"
++              value={formData.attendeeCount}
++              onChange={handleChange}
++            />
++            {errors.attendeeCount && (
++              <p className="text-red-500 text-xs italic">
++                {errors.attendeeCount}
++              </p>
++            )}
++          </div>
++        </div>
++        <div className="mb-6">
++          <label
++            className="block text-gray-700 text-sm font-bold mb-2"
++            htmlFor="notes"
++          >
++            Additional Notes (Optional)
++          </label>
++          <textarea
++            className={`input-field ${errors.notes ? "border-red-500" : ""}`}
++            id="notes"
++            name="notes"
++            placeholder="Accessibility needs, setup details, etc."
++            value={formData.notes}
++            onChange={handleChange}
++          ></textarea>
++          {errors.notes && (
++            <p className="text-red-500 text-xs italic">{errors.notes}</p>
++          )}
++        </div>
++        <div className="flex items-center justify-between">
++          <button className="btn-primary" type="submit">
++            {bookingToEdit ? "Update Booking" : "Create Booking"}
++          </button>
++          <button
++            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
++            type="button"
++            onClick={onCancel}
++          >
++            Cancel
++          </button>
++        </div>
++      </form>
++    </div>
++  );
 +};
 +
 +export default BookingForm;
 diff --git a/repository_after/frontend/src/components/BookingList.jsx b/repository_after/frontend/src/components/BookingList.jsx
 new file mode 100644
-index 0000000..ed7f6ef
+index 0000000..d42f31a
 --- /dev/null
 +++ b/repository_after/frontend/src/components/BookingList.jsx
-@@ -0,0 +1,61 @@
-+import React from 'react';
+@@ -0,0 +1,80 @@
++import React from "react";
 +
 +const BookingList = ({ bookings, onEdit, onDelete }) => {
-+
-+    if (!bookings || bookings.length === 0) {
-+        return (
-+            <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 text-center">
-+                <p className="text-gray-600 text-lg">No bookings found.</p>
-+                <p className="text-gray-500">Create a new booking to get started.</p>
-+            </div>
-+        );
-+    }
-+
-+    const handleDeleteClick = (booking) => {
-+        if (window.confirm(`Are you sure you want to delete "${booking.title}"?`)) {
-+            onDelete(booking.id);
-+        }
-+    };
-+
-+    // Helper to format date nicely
-+    const formatDate = (dateString, timeString) => {
-+        const date = new Date(dateString);
-+        return `${date.toLocaleDateString()} at ${timeString}`;
-+    }
-+
++  if (!bookings || bookings.length === 0) {
 +    return (
-+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-+            {bookings.map((booking) => (
-+                <div key={booking.id} className="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-200">
-+                    <div className="px-6 py-4">
-+                        <div className="font-bold text-xl mb-2 text-blue-800">{booking.title}</div>
-+                        <p className="text-gray-700 text-base mb-2">
-+                            <span className="font-semibold">When:</span> {formatDate(booking.date, booking.time)}
-+                        </p>
-+                        {booking.description && (
-+                            <p className="text-gray-700 text-base mb-4">
-+                                <span className="font-semibold">Description:</span> {booking.description}
-+                            </p>
-+                        )}
-+                    </div>
-+                    <div className="px-6 pt-4 pb-4 flex justify-end gap-2 bg-gray-50">
-+                        <button
-+                            onClick={() => onEdit(booking)}
-+                            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded text-sm transition"
-+                        >
-+                            Edit
-+                        </button>
-+                        <button
-+                            onClick={() => handleDeleteClick(booking)}
-+                            className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded text-sm transition"
-+                        >
-+                            Delete
-+                        </button>
-+                    </div>
-+                </div>
-+            ))}
-+        </div>
++      <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 text-center">
++        <p className="text-gray-600 text-lg">No bookings found.</p>
++        <p className="text-gray-500">Create a new booking to get started.</p>
++      </div>
 +    );
++  }
++
++  const handleDeleteClick = (booking) => {
++    if (window.confirm(`Are you sure you want to delete "${booking.title}"?`)) {
++      onDelete(booking.id);
++    }
++  };
++
++  const formatDate = (dateString) => {
++    const date = new Date(dateString);
++    return date.toLocaleDateString();
++  };
++
++  return (
++    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
++      {bookings.map((booking) => (
++        <div
++          key={booking.id}
++          className="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-200"
++        >
++          <div className="px-6 py-4">
++            <div className="font-bold text-xl mb-2 text-blue-800">
++              {booking.eventName}
++            </div>
++            <p className="text-gray-700 text-base mb-2">
++              <span className="font-semibold">Venue:</span> {booking.venueName}
++            </p>
++            <p className="text-gray-700 text-base mb-2">
++              <span className="font-semibold">Date:</span>{" "}
++              {formatDate(booking.date)}
++            </p>
++            <p className="text-gray-700 text-base mb-2">
++              <span className="font-semibold">Time:</span> {booking.startTime} -{" "}
++              {booking.endTime}
++            </p>
++            <p className="text-gray-700 text-base mb-2">
++              <span className="font-semibold">Organizer:</span>{" "}
++              {booking.organizerName}
++            </p>
++            <p className="text-gray-700 text-base mb-2">
++              <span className="font-semibold">Attendees:</span>{" "}
++              {booking.attendeeCount}
++            </p>
++            {booking.notes && (
++              <p className="text-gray-700 text-base mb-4">
++                <span className="font-semibold">Notes:</span> {booking.notes}
++              </p>
++            )}
++          </div>
++          <div className="px-6 pt-4 pb-4 flex justify-end gap-2 bg-gray-50">
++            <button
++              onClick={() => onEdit(booking)}
++              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded text-sm transition"
++            >
++              Edit
++            </button>
++            <button
++              onClick={() => handleDeleteClick(booking)}
++              className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded text-sm transition"
++            >
++              Delete
++            </button>
++          </div>
++        </div>
++      ))}
++    </div>
++  );
 +};
 +
 +export default BookingList;
