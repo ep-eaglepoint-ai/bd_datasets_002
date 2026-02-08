@@ -1,0 +1,17 @@
+services:
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: golang
+    command: ["/bin/sh", "-c", "cd /src/tests && NO_RACE=1 sh run_tests.sh"]
+  evaluate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: golang
+    tty: true
+    volumes:
+      - ./:/src
+    working_dir: /src
+    command: ["/bin/sh", "-c", "go run evaluation/evaluation.go"]
