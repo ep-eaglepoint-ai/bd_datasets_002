@@ -1,11 +1,10 @@
 {
-            "instance_id": "7sjxer-customer-order-metrics-function",
-            "problem_statement": "This function is used by customer dashboards and internal analytics to calculate order metrics. It runs frequently on large datasets and has become a performance bottleneck due to repeated queries, row-by-row processing, and unnecessary intermediate variables. The function must be optimized without changing its behavior or output.",
-            "base_commit": "repository_before/",
-            "test_patch": "tests/",
-            "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/7sjxer-customer-order-metrics-function",
-            "environment_setup": "Dockerfile",
-            "FAIL_TO_PASS": [],
-            "PASS_TO_PASS": []
-        }
-        
+  "instance_id": "7sjxer-customer-order-metrics-function",
+  "problem_statement": "This function is used by customer dashboards and internal analytics to calculate order metrics. It runs frequently on large datasets and has become a performance bottleneck due to repeated queries, row-by-row processing, and unnecessary intermediate variables. The function must be optimized without changing its behavior or output.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/7sjxer-customer-order-metrics-function",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [],
+  "PASS_TO_PASS": []
+}
