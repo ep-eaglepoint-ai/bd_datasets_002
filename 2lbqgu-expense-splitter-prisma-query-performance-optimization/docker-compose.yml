@@ -7,15 +7,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: ["sh", "-c", "sleep 3 && node evaluation/evaluation.js"]
+    command: ["sh", "-c", "sleep 3 && npm run evaluation"]
     volumes:
       - .:/host:rw
     networks:
       - app-network
     profiles:
       - evaluation
-  
-  test:
+
+  test-before:
     build:
       context: .
       dockerfile: Dockerfile
@@ -25,11 +25,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: ["sh", "-c", "sleep 3 && npm test"]
+    command: ["sh", "-c", "sleep 3 && npm run test:before"]
     networks:
       - app-network
     profiles:
-      - test
+      - test-before
+
+  test-after:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/expense_splitter
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "sleep 3 && npm run test:after"]
+    networks:
+      - app-network
+    profiles:
+      - test-after
   
   db:
     image: postgres:15-alpine

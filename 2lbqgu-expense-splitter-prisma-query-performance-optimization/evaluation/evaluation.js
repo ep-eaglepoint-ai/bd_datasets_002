@@ -27,7 +27,12 @@ function getGitInfo() {
   return gitInfo;
 }
 
-function runJestTests(testProject, testName, expectSuccess = true) {
+function runJestTests(
+  testProject,
+  testName,
+  expectSuccess = true,
+  extraArgs = [],
+) {
   console.log("\n" + "=".repeat(60));
   console.log(`RUNNING TESTS: ${testName}`);
   console.log(`Expected outcome: ${expectSuccess ? "PASS" : "FAIL"}`);
@@ -65,16 +70,20 @@ function runJestTests(testProject, testName, expectSuccess = true) {
     let stderr = "";
 
     try {
-      const result = spawnSync("npx", ["jest", "--json", "--runInBand"], {
-        cwd: projectDir,
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          CI: "true",
-          NODE_OPTIONS: "--experimental-vm-modules",
+      const result = spawnSync(
+        "npx",
+        ["jest", "--json", "--runInBand", ...extraArgs],
+        {
+          cwd: projectDir,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            CI: "true",
+            NODE_OPTIONS: "--experimental-vm-modules",
+          },
+          maxBuffer: 10 * 1024 * 1024, // 10MB buffer
         },
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      });
+      );
 
       output = result.stdout || "";
       stderr = result.stderr || "";
@@ -248,7 +257,12 @@ console.log(
 console.log("  8. Balance values must remain cent-accurate");
 
 // Run tests from root directory (where jest.config.js and tests/ are located)
-const afterResults = runJestTests(".", "repository_after", true);
+const beforeResults = runJestTests(".", "repository_before", false, [
+  "--testPathPattern=tests/before",
+]);
+const afterResults = runJestTests(".", "repository_after", true, [
+  "--testPathPattern=tests/after",
+]);
 
 const finishedAt = new Date();
 const duration = (finishedAt - startedAt) / 1000;
@@ -263,6 +277,7 @@ function mapTestsToPythonic(tests, repoName) {
 }
 
 const allTests = [
+  ...mapTestsToPythonic(beforeResults.tests, "repository_before"),
   ...mapTestsToPythonic(afterResults.tests, "repository_after"),
 ];
 
@@ -305,7 +320,7 @@ const algorithm_validation = {
   },
 };
 
-const overallSuccess = afterResults.success;
+const overallSuccess = beforeResults.success && afterResults.success;
 const summary = {
   unit_tests_passed: unit_tests.success,
   validation_passed: algorithm_validation.success,
@@ -313,6 +328,7 @@ const summary = {
   total_tests: unit_tests.summary.total,
   tests_passed: unit_tests.summary.passed,
   tests_failed: unit_tests.summary.failed,
+  repository_before_met_expectation: beforeResults.success,
   repository_after_met_expectation: afterResults.success,
 };
 
@@ -348,6 +364,12 @@ const paths = writeReportVariants(outputPath, reportJson);
 console.log("\n" + "=".repeat(60));
 console.log("EVALUATION RESULTS");
 console.log("=".repeat(60));
+
+console.log(`\nrepository_before (expected to FAIL):`);
+console.log(
+  `  Tests: ${beforeResults.summary.passed} passed, ${beforeResults.summary.failed} failed`,
+);
+console.log(`  Met expectation: ${beforeResults.success ? "✅ YES" : "❌ NO"}`);
 
 console.log(`\nrepository_after (expected to PASS):`);
 console.log(

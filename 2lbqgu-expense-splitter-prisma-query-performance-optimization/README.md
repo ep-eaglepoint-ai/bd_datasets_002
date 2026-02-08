@@ -1,14 +1,18 @@
-# Prisma Expense splitting
+# Prisma Expense Splitting – Performance Optimization
 
-## Commands
-
-### Test repository_after
+### Run tests against `repository_before`
 
 ```bash
-docker compose run --rm --build test
+docker compose run --rm --build test-before
 ```
 
-### Generate evaluation report
+### Run tests against `repository_after`
+
+```bash
+docker compose run --rm --build test-after
+```
+
+### Run evaluation (runs both and generates report)
 
 ```bash
 docker compose run --rm --build evaluation

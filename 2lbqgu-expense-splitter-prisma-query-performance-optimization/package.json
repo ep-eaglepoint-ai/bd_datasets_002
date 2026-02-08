@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "test": "jest",
+    "test:before": "jest --testPathPattern=tests/before",
+    "test:after": "jest --testPathPattern=tests/after",
+    "evaluation": "node evaluation/evaluation.js",
     "test:watch": "jest --watch"
   },
   "devDependencies": {

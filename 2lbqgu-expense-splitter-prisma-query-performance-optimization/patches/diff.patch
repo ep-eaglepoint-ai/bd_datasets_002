@@ -1,7 +1,8 @@
-diff -Nur '--exclude=node_modules' '--exclude=package-lock.json' '--exclude=.next' repository_before/app/groups/[id]/page.tsx repository_after/app/groups/[id]/page.tsx
---- repository_before/app/groups/[id]/page.tsx	2026-01-26 20:40:50.504650193 +0300
-+++ repository_after/app/groups/[id]/page.tsx	2026-01-26 20:46:18.980695737 +0300
-@@ -8,25 +8,28 @@
+diff --git a/repository_before/app/groups/[id]/page.tsx b/repository_after/app/groups/[id]/page.tsx
+index 5d9ba37..53ec06d 100644
+--- a/repository_before/app/groups/[id]/page.tsx
++++ b/repository_after/app/groups/[id]/page.tsx
+@@ -8,25 +8,28 @@ import AddMemberForm from './AddMemberForm'
  import SettlementButton from './SettlementButton'
  
  async function getGroup(id: string) {
@@ -45,7 +46,7 @@ diff -Nur '--exclude=node_modules' '--exclude=package-lock.json' '--exclude=.nex
  }
  
  export default async function GroupPage({ params }: { params: { id: string } }) {
-@@ -58,7 +61,12 @@
+@@ -58,7 +61,12 @@ export default async function GroupPage({ params }: { params: { id: string } })
            </div>
  
            <div className="bg-white rounded-xl shadow-sm border p-6">
@@ -59,7 +60,7 @@ diff -Nur '--exclude=node_modules' '--exclude=package-lock.json' '--exclude=.nex
              <div className="space-y-3">
                {group.expenses.map((expense) => (
                  <div key={expense.id} className="flex justify-between p-4 bg-gray-50 rounded-lg">
-@@ -69,6 +77,13 @@
+@@ -69,6 +77,13 @@ export default async function GroupPage({ params }: { params: { id: string } })
                    <p className="text-lg font-semibold text-emerald-600">{formatCents(expense.amount)}</p>
                  </div>
                ))}
@@ -73,10 +74,11 @@ diff -Nur '--exclude=node_modules' '--exclude=package-lock.json' '--exclude=.nex
              </div>
            </div>
          </div>
-diff -Nur '--exclude=node_modules' '--exclude=package-lock.json' '--exclude=.next' repository_before/lib/balance-utils.ts repository_after/lib/balance-utils.ts
---- repository_before/lib/balance-utils.ts	2026-01-26 20:40:50.505953165 +0300
-+++ repository_after/lib/balance-utils.ts	2026-01-26 20:46:00.297189134 +0300
-@@ -2,57 +2,82 @@
+diff --git a/repository_before/lib/balance-utils.ts b/repository_after/lib/balance-utils.ts
+index 6e5c006..ef0f9da 100644
+--- a/repository_before/lib/balance-utils.ts
++++ b/repository_after/lib/balance-utils.ts
+@@ -2,57 +2,82 @@ import { prisma } from './prisma'
  import { UserBalance } from './settlement-utils'
  
  export async function calculateGroupBalances(groupId: string): Promise<UserBalance[]> {
@@ -197,13 +199,3 @@ diff -Nur '--exclude=node_modules' '--exclude=package-lock.json' '--exclude=.nex
 +  return totalPaid - totalOwed - totalSettlementsPaid + totalSettlementsReceived
  }
  
-diff -Nur '--exclude=node_modules' '--exclude=package-lock.json' '--exclude=.next' repository_before/prisma/schema.prisma repository_after/prisma/schema.prisma
---- repository_before/prisma/schema.prisma	2026-01-26 20:40:50.508639792 +0300
-+++ repository_after/prisma/schema.prisma	2026-01-26 22:10:37.934188498 +0300
-@@ -1,5 +1,6 @@
- generator client {
-   provider = "prisma-client-js"
-+  binaryTargets = ["native", "debian-openssl-3.0.x"]
- }
- 
- datasource db {
