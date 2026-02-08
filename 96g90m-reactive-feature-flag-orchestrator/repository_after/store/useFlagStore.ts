@@ -20,7 +20,7 @@ interface FlagStoreState {
   updateFlagValue: (flagId: string, newValue: any) => void;
   updateFlagType: (flagId: string, newType: any) => void;
   sync: () => Promise<void>;
-  discard: () => void;
+  discard: () => Promise<void>;
 }
 
 export const useFlagStore = create<FlagStoreState>((set, get) => ({
@@ -187,15 +187,21 @@ export const useFlagStore = create<FlagStoreState>((set, get) => ({
     }
   },
 
-  discard: () => {
-    const { persistedState } = get();
-    if (persistedState) {
+  discard: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await fetch("/api/flags");
+      if (!res.ok) throw new Error("Failed to fetch flags");
+      const data = await res.json();
       set({
-        draftState: JSON.parse(JSON.stringify(persistedState)), // Deep copy to detach references
+        persistedState: data,
+        draftState: data,
         isDirty: false,
         validationErrors: {},
-        error: null,
+        isLoading: false,
       });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
     }
   },
 }));

@@ -86,6 +86,19 @@ export default function Home() {
           </div>
         </div>
 
+        {Object.keys(validationErrors).length > 0 && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-sm text-red-200">
+            <div className="font-semibold mb-2">Validation errors</div>
+            <ul className="list-disc list-inside space-y-1">
+              {Object.entries(validationErrors).flatMap(([flagId, messages]) =>
+                messages.map((message, index) => (
+                  <li key={`${flagId}-${index}`}>{message}</li>
+                )),
+              )}
+            </ul>
+          </div>
+        )}
+
         {/* Flag List */}
         <div className="space-y-4">
           {draftState?.flags.map((flag) => (

@@ -6,5 +6,5 @@
   "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/96g90m-reactive-feature-flag-orchestrator",
   "environment_setup": "Dockerfile",
   "FAIL_TO_PASS": [],
-  "PASS_TO_PASS": ["tests/test_requirements.test.ts"]
+  "PASS_TO_PASS": []
 }
