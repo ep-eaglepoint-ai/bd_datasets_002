@@ -1,14 +1,24 @@
-import { create } from 'zustand';
-import { Document, AnalyticsResult, Annotation, Snapshot, ProductivityMetrics, StylisticEvolution } from './types';
-import * as storage from './storage';
-import * as analysis from './textAnalysis';
-import * as advancedAnalysis from './advancedAnalysis';
-import * as comprehensiveAnalytics from './comprehensiveAnalytics';
-import * as csvExport from './csvExport';
-import { analyzeTopicsComprehensive } from './comprehensiveAnalytics';
+import { create } from "zustand";
+import {
+  Document,
+  AnalyticsResult,
+  Annotation,
+  Snapshot,
+  ProductivityMetrics,
+  StylisticEvolution,
+} from "./types";
+import * as storage from "./storage";
+import * as analysis from "./textAnalysis";
+import * as advancedAnalysis from "./advancedAnalysis";
+import * as comprehensiveAnalytics from "./comprehensiveAnalytics";
+import * as csvExport from "./csvExport";
+import { analyzeTopicsComprehensive } from "./comprehensiveAnalytics";
 
 // Analytics cache for memoization
-const analyticsCache = new Map<string, { content: string; result: AnalyticsResult }>();
+const analyticsCache = new Map<
+  string,
+  { content: string; result: AnalyticsResult }
+>();
 
 // Batch queue for operations
 let batchQueue: Array<() => Promise<void>> = [];
@@ -19,12 +29,12 @@ const BATCH_DELAY = 100; // ms
 let analyticsWorker: Worker | null = null;
 
 function getAnalyticsWorker(): Worker | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   if (!analyticsWorker) {
     try {
-      analyticsWorker = new Worker('/analytics.worker.js');
+      analyticsWorker = new Worker("/analytics.worker.js");
     } catch (e) {
-      console.warn('Failed to create analytics worker:', e);
+      console.warn("Failed to create analytics worker:", e);
       return null;
     }
   }
@@ -44,7 +54,9 @@ interface AppState {
   workerProgress: { completed: number; total: number } | null;
 
   loadDocuments: () => Promise<void>;
-  addDocument: (doc: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addDocument: (
+    doc: Omit<Document, "id" | "createdAt" | "updatedAt">,
+  ) => Promise<void>;
   updateDocument: (id: string, updates: Partial<Document>) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   setCurrentDocument: (doc: Document | null) => void;
@@ -52,6 +64,7 @@ interface AppState {
   analyzeDocumentWithWorker: (documentId: string) => Promise<void>;
   addAnnotation: (documentId: string, content: string) => Promise<void>;
   createSnapshot: (documentId: string) => Promise<void>;
+  restoreSnapshot: (snapshot: Snapshot) => Promise<void>;
   loadSnapshots: (documentId: string) => Promise<void>;
   computeProductivityMetrics: () => void;
   computeStylisticEvolution: () => void;
@@ -80,9 +93,9 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const docs = await storage.getAllDocuments();
       const analyticsData = await storage.getAllAnalytics();
-      
+
       const analyticsMap = new Map<string, AnalyticsResult>();
-      analyticsData.forEach(a => analyticsMap.set(a.documentId, a));
+      analyticsData.forEach((a) => analyticsMap.set(a.documentId, a));
 
       set({ documents: docs, analytics: analyticsMap, loading: false });
     } catch (error) {
@@ -103,16 +116,16 @@ export const useStore = create<AppState>((set, get) => ({
       };
 
       await storage.saveDocument(doc);
-      
+
       // Add document to state FIRST, before analyzing
-      set(state => ({
+      set((state) => ({
         documents: [...state.documents, doc],
         loading: false,
       }));
 
       // Now analyze the document (it exists in state now)
       await get().analyzeDocument(doc.id);
-      
+
       // Automatically create snapshot on import
       await get().createSnapshot(doc.id);
     } catch (error) {
@@ -123,8 +136,8 @@ export const useStore = create<AppState>((set, get) => ({
   updateDocument: async (id, updates) => {
     set({ loading: true, error: null });
     try {
-      const existing = get().documents.find(d => d.id === id);
-      if (!existing) throw new Error('Document not found');
+      const existing = get().documents.find((d) => d.id === id);
+      if (!existing) throw new Error("Document not found");
 
       const updated = {
         ...existing,
@@ -133,19 +146,20 @@ export const useStore = create<AppState>((set, get) => ({
       };
 
       await storage.saveDocument(updated);
-      
+
       // Create snapshot before updating content
       if (updates.content && existing.content !== updates.content) {
         await get().createSnapshot(id);
       }
-      
+
       if (updates.content) {
         await get().analyzeDocument(id);
       }
 
-      set(state => ({
-        documents: state.documents.map(d => d.id === id ? updated : d),
-        currentDocument: state.currentDocument?.id === id ? updated : state.currentDocument,
+      set((state) => ({
+        documents: state.documents.map((d) => (d.id === id ? updated : d)),
+        currentDocument:
+          state.currentDocument?.id === id ? updated : state.currentDocument,
         loading: false,
       }));
     } catch (error) {
@@ -157,10 +171,11 @@ export const useStore = create<AppState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await storage.deleteDocument(id);
-      
-      set(state => ({
-        documents: state.documents.filter(d => d.id !== id),
-        currentDocument: state.currentDocument?.id === id ? null : state.currentDocument,
+
+      set((state) => ({
+        documents: state.documents.filter((d) => d.id !== id),
+        currentDocument:
+          state.currentDocument?.id === id ? null : state.currentDocument,
         loading: false,
       }));
     } catch (error) {
@@ -174,14 +189,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   analyzeDocument: async (documentId, force = false) => {
     try {
-      const doc = get().documents.find(d => d.id === documentId);
-      if (!doc) throw new Error('Document not found');
+      const doc = get().documents.find((d) => d.id === documentId);
+      if (!doc) throw new Error("Document not found");
 
       // Check cache for memoized analytics (incremental recalculation)
       const cached = analyticsCache.get(documentId);
       if (!force && cached && cached.content === doc.content) {
         // Use cached result
-        set(state => {
+        set((state) => {
           const newAnalytics = new Map(state.analytics);
           newAnalytics.set(documentId, cached.result);
           return { analytics: newAnalytics };
@@ -189,47 +204,72 @@ export const useStore = create<AppState>((set, get) => ({
         return;
       }
 
+      const shouldUseWorker = doc.content.length > 5000;
+      const worker = getAnalyticsWorker();
+      if (shouldUseWorker && worker) {
+        await get().analyzeDocumentWithWorker(documentId);
+        return;
+      }
+
       // Basic metrics
       const basicMetrics = analysis.countBasicMetrics(doc.content);
-      
+
       // Advanced sentiment analysis (Requirement #4)
-      const advancedSentiment = comprehensiveAnalytics.analyzeAdvancedSentiment(doc.content);
-      
+      const advancedSentiment = comprehensiveAnalytics.analyzeAdvancedSentiment(
+        doc.content,
+      );
+
       // Enhanced readability with edge cases (Requirement #6)
-      const readability = comprehensiveAnalytics.calculateEnhancedReadability(doc.content);
-      
+      const readability = comprehensiveAnalytics.calculateEnhancedReadability(
+        doc.content,
+      );
+
       // Lexical richness with advanced metrics
       const lexicalRichness = analysis.calculateLexicalRichness(doc.content);
-      const advancedLexical = advancedAnalysis.calculateAdvancedLexicalMetrics(doc.content);
-      
+      const advancedLexical = advancedAnalysis.calculateAdvancedLexicalMetrics(
+        doc.content,
+      );
+
       // Advanced sentence structure (Requirement #7)
-      const advancedSyntax = comprehensiveAnalytics.analyzeAdvancedSentenceStructure(doc.content);
-      
+      const advancedSyntax =
+        comprehensiveAnalytics.analyzeAdvancedSentenceStructure(doc.content);
+
       // Style metrics with rhythm and function words
       const styleMetrics = analysis.analyzeStyleMetrics(doc.content);
-      
+
       // Stylistic fingerprint (Requirement #8)
-      const stylisticFingerprint = comprehensiveAnalytics.computeStylisticFingerprint(doc.content);
-      
+      const stylisticFingerprint =
+        comprehensiveAnalytics.computeStylisticFingerprint(doc.content);
+
       // Grammar patterns (Requirement #11)
-      const grammarMetrics = comprehensiveAnalytics.analyzeGrammarPatternsComprehensive(doc.content);
-      
+      const grammarMetrics =
+        comprehensiveAnalytics.analyzeGrammarPatternsComprehensive(doc.content);
+
       // Topic analysis (Requirement #9)
       const comprehensiveTopics = analyzeTopicsComprehensive(doc.content);
       const keywords = comprehensiveTopics.keywords;
-      
+
       // Repetition analysis (Requirement #10)
-      const repetitionAnalysis = comprehensiveAnalytics.analyzeRepetition(doc.content);
-      
+      const repetitionAnalysis = comprehensiveAnalytics.analyzeRepetition(
+        doc.content,
+      );
+
       // Uncertainty indicators (Requirement #23)
-      const partialResult = { 
-        sentiment: { 
-          ...advancedSentiment, 
-          polarity: advancedSentiment.polarity as 'positive' | 'negative' | 'neutral' 
-        }, 
-        readability 
+      const partialResult = {
+        sentiment: {
+          ...advancedSentiment,
+          polarity: advancedSentiment.polarity as
+            | "positive"
+            | "negative"
+            | "neutral",
+        },
+        readability,
       };
-      const uncertaintyIndicators = comprehensiveAnalytics.calculateUncertaintyIndicators(doc.content, partialResult);
+      const uncertaintyIndicators =
+        comprehensiveAnalytics.calculateUncertaintyIndicators(
+          doc.content,
+          partialResult,
+        );
 
       const analyticsResult: AnalyticsResult = {
         documentId,
@@ -237,12 +277,17 @@ export const useStore = create<AppState>((set, get) => ({
         ...basicMetrics,
         sentiment: {
           ...advancedSentiment,
-          polarity: advancedSentiment.polarity as 'positive' | 'negative' | 'neutral',
+          polarity: advancedSentiment.polarity as
+            | "positive"
+            | "negative"
+            | "neutral",
         },
         readability,
         lexicalRichness: {
           ...lexicalRichness,
-          movingAverageTTR: (advancedLexical as { movingAverageTTR?: number }).movingAverageTTR || lexicalRichness.typeTokenRatio,
+          movingAverageTTR:
+            (advancedLexical as { movingAverageTTR?: number })
+              .movingAverageTTR || lexicalRichness.typeTokenRatio,
           repetitionRate: advancedLexical.repetitionRate,
           rareWordUsage: advancedLexical.rareWordUsage,
         },
@@ -252,12 +297,14 @@ export const useStore = create<AppState>((set, get) => ({
           coordinationFrequency: advancedSyntax.coordinationFrequency,
           syntacticVariation: advancedSyntax.syntacticVariation,
           rhythmPatterns: stylisticFingerprint.rhythmPatterns,
-          functionWordRatio: (Object.values(stylisticFingerprint.functionWordProfile) as number[]).reduce((a, b) => a + b, 0),
+          functionWordRatio: (
+            Object.values(stylisticFingerprint.functionWordProfile) as number[]
+          ).reduce((a, b) => a + b, 0),
           sentenceLengthDistribution: advancedSyntax.sentenceLengthDistribution,
         },
         grammarMetrics,
         topicAnalysis: {
-          keywords: comprehensiveTopics.keywords.map(k => k.word),
+          keywords: comprehensiveTopics.keywords.map((k) => k.word),
           dominantTopics: comprehensiveTopics.dominantTopics,
           nGrams: comprehensiveTopics.nGrams,
           enhancedKeywords: comprehensiveTopics.keywords, // TF-IDF weighted
@@ -265,7 +312,7 @@ export const useStore = create<AppState>((set, get) => ({
           domainAnalysis: comprehensiveTopics.domain,
           thematicAnalysis: comprehensiveTopics.thematicAnalysis,
           coherenceScore: comprehensiveTopics.coherenceScore,
-          topicSummary: comprehensiveTopics.summary
+          topicSummary: comprehensiveTopics.summary,
         },
         repetitionAnalysis,
         stylisticFingerprint,
@@ -276,19 +323,22 @@ export const useStore = create<AppState>((set, get) => ({
       };
 
       // Cache the result
-      analyticsCache.set(documentId, { content: doc.content, result: analyticsResult });
+      analyticsCache.set(documentId, {
+        content: doc.content,
+        result: analyticsResult,
+      });
 
       await storage.saveAnalytics(analyticsResult);
 
-      set(state => {
+      set((state) => {
         const newAnalytics = new Map(state.analytics);
         newAnalytics.set(documentId, analyticsResult);
         return { analytics: newAnalytics };
       });
-      
+
       // Automatically create snapshot after analytics recalculation
       await get().createSnapshot(documentId);
-      
+
       // Update productivity metrics after new analysis
       get().computeProductivityMetrics();
     } catch (error) {
@@ -303,50 +353,57 @@ export const useStore = create<AppState>((set, get) => ({
       return get().analyzeDocument(documentId, true);
     }
 
-    const doc = get().documents.find(d => d.id === documentId);
+    const doc = get().documents.find((d) => d.id === documentId);
     if (!doc) {
-      set({ error: 'Document not found' });
+      set({ error: "Document not found" });
       return;
     }
 
     return new Promise<void>((resolve, reject) => {
       const handleMessage = (e: MessageEvent) => {
         const { type, payload } = e.data;
-        
-        if (type === 'ANALYSIS_COMPLETE' && payload.documentId === documentId) {
-          worker.removeEventListener('message', handleMessage);
-          
+
+        if (type === "ANALYSIS_COMPLETE" && payload.documentId === documentId) {
+          worker.removeEventListener("message", handleMessage);
+
           const analyticsResult: AnalyticsResult = {
             documentId,
             timestamp: Date.now(),
             ...payload.result,
           };
 
-          analyticsCache.set(documentId, { content: doc.content, result: analyticsResult });
+          analyticsCache.set(documentId, {
+            content: doc.content,
+            result: analyticsResult,
+          });
 
-          set(state => {
+          set((state) => {
             const newAnalytics = new Map(state.analytics);
             newAnalytics.set(documentId, analyticsResult);
             return { analytics: newAnalytics, workerProgress: null };
           });
 
-          storage.saveAnalytics(analyticsResult).then(() => {
+          storage.saveAnalytics(analyticsResult).then(async () => {
+            await get().createSnapshot(documentId);
             get().computeProductivityMetrics();
             resolve();
           });
-        } else if (type === 'ANALYSIS_ERROR' && payload.documentId === documentId) {
-          worker.removeEventListener('message', handleMessage);
+        } else if (
+          type === "ANALYSIS_ERROR" &&
+          payload.documentId === documentId
+        ) {
+          worker.removeEventListener("message", handleMessage);
           set({ error: payload.error, workerProgress: null });
           reject(new Error(payload.error));
-        } else if (type === 'BATCH_PROGRESS') {
+        } else if (type === "BATCH_PROGRESS") {
           set({ workerProgress: payload });
         }
       };
 
-      worker.addEventListener('message', handleMessage);
+      worker.addEventListener("message", handleMessage);
       worker.postMessage({
-        type: 'ANALYZE_TEXT',
-        payload: { documentId, content: doc.content }
+        type: "ANALYZE_TEXT",
+        payload: { documentId, content: doc.content },
       });
     });
   },
@@ -362,7 +419,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       await storage.saveAnnotation(annotation);
 
-      set(state => {
+      set((state) => {
         const newAnnotations = new Map(state.annotations);
         const existing = newAnnotations.get(documentId) || [];
         newAnnotations.set(documentId, [...existing, annotation]);
@@ -375,9 +432,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   createSnapshot: async (documentId) => {
     try {
-      const doc = get().documents.find(d => d.id === documentId);
+      const doc = get().documents.find((d) => d.id === documentId);
       const analyticsResult = get().analytics.get(documentId);
-      
+
       if (!doc || !analyticsResult) return;
 
       const snapshot: Snapshot = {
@@ -390,7 +447,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       await storage.saveSnapshot(snapshot);
 
-      set(state => {
+      set((state) => {
         const newSnapshots = new Map(state.snapshots);
         const existing = newSnapshots.get(documentId) || [];
         newSnapshots.set(documentId, [...existing, snapshot]);
@@ -401,10 +458,45 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  restoreSnapshot: async (snapshot) => {
+    try {
+      const existing = get().documents.find(
+        (d) => d.id === snapshot.documentId,
+      );
+      if (!existing) throw new Error("Document not found");
+
+      const updated = {
+        ...existing,
+        content: snapshot.content,
+        updatedAt: Date.now(),
+      };
+
+      await storage.saveDocument(updated);
+      await storage.saveAnalytics(snapshot.analytics);
+
+      set((state) => {
+        const newAnalytics = new Map(state.analytics);
+        newAnalytics.set(snapshot.documentId, snapshot.analytics);
+        return {
+          documents: state.documents.map((d) =>
+            d.id === updated.id ? updated : d,
+          ),
+          currentDocument:
+            state.currentDocument?.id === updated.id
+              ? updated
+              : state.currentDocument,
+          analytics: newAnalytics,
+        };
+      });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
   loadSnapshots: async (documentId) => {
     try {
       const snapshots = await storage.getSnapshotsByDocument(documentId);
-      set(state => {
+      set((state) => {
         const newSnapshots = new Map(state.snapshots);
         newSnapshots.set(documentId, snapshots);
         return { snapshots: newSnapshots };
@@ -416,11 +508,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   batchOperation: (operation) => {
     batchQueue.push(operation);
-    
+
     if (batchTimeout) {
       clearTimeout(batchTimeout);
     }
-    
+
     batchTimeout = setTimeout(() => {
       get().flushBatch();
     }, BATCH_DELAY);
@@ -429,13 +521,13 @@ export const useStore = create<AppState>((set, get) => ({
   flushBatch: async () => {
     const operations = [...batchQueue];
     batchQueue = [];
-    
+
     if (batchTimeout) {
       clearTimeout(batchTimeout);
       batchTimeout = null;
     }
-    
-    await Promise.all(operations.map(op => op()));
+
+    await Promise.all(operations.map((op) => op()));
   },
 
   exportData: async () => {
@@ -449,31 +541,42 @@ export const useStore = create<AppState>((set, get) => ({
 
   computeProductivityMetrics: () => {
     const { documents, analytics } = get();
-    const productivityMetrics = comprehensiveAnalytics.calculateProductivityMetrics(documents, analytics);
+    const productivityMetrics =
+      comprehensiveAnalytics.calculateProductivityMetrics(documents, analytics);
     set({ productivityMetrics });
   },
 
   computeStylisticEvolution: () => {
     const { documents, analytics } = get();
-    const stylisticEvolution = comprehensiveAnalytics.trackStylisticEvolution(documents, analytics);
+    const stylisticEvolution = comprehensiveAnalytics.trackStylisticEvolution(
+      documents,
+      analytics,
+    );
     set({ stylisticEvolution });
   },
 
   exportLongitudinalReport: () => {
-    const { documents, analytics, productivityMetrics, stylisticEvolution } = get();
-    const topicAnalysis = comprehensiveAnalytics.detectTopicDrift(documents, analytics);
+    const { documents, analytics, productivityMetrics, stylisticEvolution } =
+      get();
+    const topicAnalysis = comprehensiveAnalytics.detectTopicDrift(
+      documents,
+      analytics,
+    );
     return csvExport.exportLongitudinalReportCSV(
       documents,
       analytics,
       productivityMetrics,
       stylisticEvolution,
-      topicAnalysis
+      topicAnalysis,
     );
   },
 
   exportVisualizationData: () => {
     const { productivityMetrics, stylisticEvolution } = get();
-    return csvExport.exportVisualizationDataCSV(productivityMetrics, stylisticEvolution);
+    return csvExport.exportVisualizationDataCSV(
+      productivityMetrics,
+      stylisticEvolution,
+    );
   },
 
   exportDocumentCSV: (documentId: string) => {

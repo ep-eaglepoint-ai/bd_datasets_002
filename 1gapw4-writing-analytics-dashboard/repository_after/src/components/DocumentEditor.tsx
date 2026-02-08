@@ -1,38 +1,41 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useStore } from '@/lib/store';
+import { useState } from "react";
+import { useStore } from "@/lib/store";
 
 export default function DocumentEditor() {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [project, setProject] = useState('');
-  const [category, setCategory] = useState('');
-  const [tags, setTags] = useState('');
-  
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [project, setProject] = useState("");
+  const [category, setCategory] = useState("");
+  const [tags, setTags] = useState("");
+
   const { addDocument, loading } = useStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!title.trim() || !content.trim()) {
-      alert('Please enter both title and content');
+
+    if (!title.trim() || content.length === 0) {
+      alert("Please enter both title and content");
       return;
     }
 
     await addDocument({
       title: title.trim(),
-      content: content.trim(),
+      content,
       project: project.trim() || undefined,
       category: category.trim() || undefined,
-      tags: tags.split(',').map(t => t.trim()).filter(t => t),
+      tags: tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t),
     });
 
-    setTitle('');
-    setContent('');
-    setProject('');
-    setCategory('');
-    setTags('');
+    setTitle("");
+    setContent("");
+    setProject("");
+    setCategory("");
+    setTags("");
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,7 +47,7 @@ export default function DocumentEditor() {
       const text = event.target?.result as string;
       setContent(text);
       if (!title) {
-        setTitle(file.name.replace(/\.[^/.]+$/, ''));
+        setTitle(file.name.replace(/\.[^/.]+$/, ""));
       }
     };
     reader.readAsText(file);
@@ -53,7 +56,7 @@ export default function DocumentEditor() {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h2 className="text-2xl font-bold mb-4">Write or Import Document</h2>
-      
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -128,7 +131,7 @@ export default function DocumentEditor() {
             disabled={loading}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {loading ? 'Saving...' : 'Save Document'}
+            {loading ? "Saving..." : "Save Document"}
           </button>
 
           <label className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 cursor-pointer">
@@ -144,11 +147,11 @@ export default function DocumentEditor() {
           <button
             type="button"
             onClick={() => {
-              setTitle('');
-              setContent('');
-              setProject('');
-              setCategory('');
-              setTags('');
+              setTitle("");
+              setContent("");
+              setProject("");
+              setCategory("");
+              setTags("");
             }}
             className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
           >
@@ -158,7 +161,8 @@ export default function DocumentEditor() {
 
         {content && (
           <div className="text-sm text-gray-600">
-            {content.split(/\s+/).filter(w => w).length} words, {content.length} characters
+            {content.split(/\s+/).filter((w) => w).length} words,{" "}
+            {content.length} characters
           </div>
         )}
       </form>

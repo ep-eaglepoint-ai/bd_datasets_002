@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Snapshot, Document, AnalyticsResult } from '@/lib/types';
+import { useState, useEffect } from "react";
+import { Snapshot, Document, AnalyticsResult } from "@/lib/types";
 
 interface SnapshotManagerProps {
   document: Document;
   analytics: AnalyticsResult | null;
   snapshots: Snapshot[];
-  onCreateSnapshot: (snapshot: Snapshot) => void;
+  onCreateSnapshot: () => void;
   onRestoreSnapshot: (snapshot: Snapshot) => void;
 }
 
@@ -19,27 +19,20 @@ export default function SnapshotManager({
   onRestoreSnapshot,
 }: SnapshotManagerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(
+    null,
+  );
 
   const handleCreateSnapshot = () => {
     if (!analytics) return;
-
-    const snapshot: Snapshot = {
-      id: `snap-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      documentId: document.id,
-      content: document.content,
-      analytics: analytics,
-      timestamp: Date.now(),
-    };
-
-    onCreateSnapshot(snapshot);
+    onCreateSnapshot();
   };
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
 
-  const docSnapshots = snapshots.filter(s => s.documentId === document.id);
+  const docSnapshots = snapshots.filter((s) => s.documentId === document.id);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4">
@@ -54,7 +47,7 @@ export default function SnapshotManager({
           </span>
         </h3>
         <button className="text-gray-500 hover:text-gray-700">
-          {isExpanded ? '▼' : '▶'}
+          {isExpanded ? "▼" : "▶"}
         </button>
       </div>
 
@@ -83,8 +76,8 @@ export default function SnapshotManager({
                     key={snapshot.id}
                     className={`border rounded-lg p-3 cursor-pointer transition ${
                       selectedSnapshot?.id === snapshot.id
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? "border-indigo-500 bg-indigo-50"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
                     onClick={() => setSelectedSnapshot(snapshot)}
                   >
@@ -94,7 +87,7 @@ export default function SnapshotManager({
                           {formatDate(snapshot.timestamp)}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {snapshot.analytics.wordCount} words • 
+                          {snapshot.analytics.wordCount} words •
                           {snapshot.analytics.sentenceCount} sentences
                         </p>
                       </div>
@@ -120,19 +113,29 @@ export default function SnapshotManager({
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-gray-500">Words:</span>
-                  <span className="ml-1 font-medium">{selectedSnapshot.analytics.wordCount}</span>
+                  <span className="ml-1 font-medium">
+                    {selectedSnapshot.analytics.wordCount}
+                  </span>
                 </div>
                 <div>
                   <span className="text-gray-500">Sentences:</span>
-                  <span className="ml-1 font-medium">{selectedSnapshot.analytics.sentenceCount}</span>
+                  <span className="ml-1 font-medium">
+                    {selectedSnapshot.analytics.sentenceCount}
+                  </span>
                 </div>
                 <div>
                   <span className="text-gray-500">Sentiment:</span>
-                  <span className="ml-1 font-medium">{selectedSnapshot.analytics.sentiment.polarity}</span>
+                  <span className="ml-1 font-medium">
+                    {selectedSnapshot.analytics.sentiment.polarity}
+                  </span>
                 </div>
                 <div>
                   <span className="text-gray-500">Readability:</span>
-                  <span className="ml-1 font-medium">{selectedSnapshot.analytics.readability.fleschReadingEase.toFixed(1)}</span>
+                  <span className="ml-1 font-medium">
+                    {selectedSnapshot.analytics.readability.fleschReadingEase.toFixed(
+                      1,
+                    )}
+                  </span>
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2 truncate">
