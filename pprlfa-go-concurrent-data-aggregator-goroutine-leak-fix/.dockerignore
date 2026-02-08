@@ -1,0 +1,24 @@
+# Git
+.git
+.gitignore
+
+ 
+
+# Reports and outputs
+evaluation/reports/
+ 
+# OS files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Build artifacts (if any)
+*.exe
+*.test
+*.out

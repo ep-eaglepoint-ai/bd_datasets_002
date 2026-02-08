@@ -1,0 +1,30 @@
+{
+  "instance_id": "PPRLFA",
+  "problem_statement": "Noticed critical memory growth during load testing of the data aggregation service. The FetchAndAggregate function in aggregator.go spawns worker goroutines to fetch data from multiple sources but memory usage grows from 50MB to 8GB over 4 hours under sustained load. Profiling with pprof shows 47,000+ blocked goroutines waiting on channel operations. The service handles 100 requests/second but after 2 hours, response times degrade from 50ms to 12 seconds. Restarting the service temporarily fixes the issue but it recurs. Must fix all goroutine leaks while preserving concurrent data fetching behavior, proper error aggregation, and timeout handling for downstream service calls.",
+  "base_commit": "repository_before/",
+  "test_patch": "tests/",
+  "repo": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/pprlfa-go-concurrent-data-aggregator-goroutine-leak-fix",
+  "environment_setup": "Dockerfile",
+  "FAIL_TO_PASS": [
+    "TestFetchAndAggregate_TimeoutGoroutineLeak",
+    "TestProcessBatch_ContextCancellationGoroutineLeak",
+    "TestStreamResults_ReceiverStopsConsumingGoroutineLeak",
+    "TestFetchAndAggregate_ContextCancellationPropagation",
+    "TestFetchAndAggregate_BufferedChannelsPreventBlocking",
+    "TestFetchAndAggregate_TimerCleanup",
+    "TestMultipleOperations_NoGoroutineLeaks",
+    "TestFetchAndAggregate_EdgeCases/ContextAlreadyCancelled",
+    "TestStreamResults_EdgeCases/ContextAlreadyCancelled"
+  ],
+  "PASS_TO_PASS": [
+    "TestFetchAndAggregate_ChannelClosingSemantics",
+    "TestStreamResults_FireAndForgetBehavior",
+    "TestFetchAndAggregate_ConcurrentExecution",
+    "TestFetchAndAggregate_EdgeCases/EmptySourceList",
+    "TestFetchAndAggregate_EdgeCases/SingleSource",
+    "TestFetchAndAggregate_EdgeCases/AllSourcesFailing",
+    "TestProcessBatch_EdgeCases/EmptyBatchList",
+    "TestProcessBatch_EdgeCases/SingleBatch",
+    "TestStreamResults_EdgeCases/EmptySourceList"
+  ]
+}
