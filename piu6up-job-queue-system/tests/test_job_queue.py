@@ -152,6 +152,44 @@ class TestJobQueue:
         assert dequeued is not None
         assert dequeued.job_id == job.job_id
 
+    def test_dequeue_skips_future_jobs(self):
+        """Test that dequeue skips future-scheduled jobs to find ready ones."""
+        queue = JobQueue()
+
+        future_job = Job.create(
+            job_type="future", priority=10, scheduled_at=time.time() + 3600
+        )
+        ready_job = Job.create(job_type="ready", priority=1)
+
+        queue.enqueue(future_job)
+        queue.enqueue(ready_job)
+
+        dequeued = queue.dequeue()
+        assert dequeued is not None
+        assert dequeued.job_id == ready_job.job_id
+
+    def test_dequeue_skips_blocked_jobs(self):
+        """Test that dequeue skips dependency-blocked jobs to find ready ones."""
+        queue = JobQueue()
+
+        dependency = Job.create(job_type="dep")
+        blocked = Job.create(
+            job_type="blocked", priority=10, depends_on=[dependency.job_id]
+        )
+        ready = Job.create(job_type="ready", priority=1)
+
+        queue.enqueue(dependency)
+        queue.enqueue(blocked)
+        queue.enqueue(ready)
+
+        dequeued = queue.dequeue()
+        assert dequeued is not None
+        assert dequeued.job_id == dependency.job_id
+
+        dequeued = queue.dequeue()
+        assert dequeued is not None
+        assert dequeued.job_id == ready.job_id
+
     def test_get_job(self):
         """Test retrieving a job by ID."""
         queue = JobQueue()
@@ -271,6 +309,24 @@ class TestJobDependencies:
 
         # Main job should be marked failed
         assert result is None or main_job.status == JobStatus.FAILED
+
+    def test_failed_dependency_wakes_dependents(self):
+        """Test that failed dependency failure propagates to dependents."""
+        queue = JobQueue()
+
+        dep_job = Job.create(job_type="dependency")
+        main_job = Job.create(job_type="main", depends_on=[dep_job.job_id])
+
+        queue.enqueue(dep_job)
+        queue.enqueue(main_job)
+
+        dep_job.status = JobStatus.FAILED
+        queue.update_status(dep_job.job_id, JobStatus.FAILED)
+
+        queue.dequeue()
+        queue.dequeue()
+
+        assert main_job.status == JobStatus.FAILED
 
 
 class TestWorker:
@@ -398,6 +454,30 @@ class TestWorker:
         worker.stop(wait=True)
         time.sleep(0.1)
         assert not worker.is_alive()
+
+
+class TestDeadLetterReplay:
+    """Tests for dead letter replay behavior."""
+
+    def test_replay_dead_letter_preserves_job_id(self):
+        """Test that replaying dead jobs preserves job_id."""
+        manager = JobQueueManager()
+
+        def failing_handler(payload):
+            raise Exception("fail")
+
+        manager.register_handler("fail", failing_handler)
+        job_id = manager.submit("fail", payload={"x": 1}, max_retries=0)
+        manager.start_workers()
+
+        manager.wait_for_completion([job_id], timeout=2)
+        manager.stop_workers(graceful=True)
+
+        dead_letter = manager.get_dead_letter_queue()
+        assert dead_letter.size == 1
+
+        replayed_job_id = manager.replay_dead_letter(job_id)
+        assert replayed_job_id == job_id
 
 
 class TestEventHandler:
