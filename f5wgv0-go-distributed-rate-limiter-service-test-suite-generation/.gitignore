@@ -1,0 +1,146 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.local
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+.yarn/
+.pnp.*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.a
+bin/
+vendor/
+*.test
+*.out
+*.o
+*.obj
+go.work
+go.work.sum
+
+# Go coverage files
+coverage.out
+coverage.html
+coverage.xml
+*.coverprofile
+*.cover
+mock_coverage.out
+*.coverage
+
+# Go module cache (if accidentally committed)
+go.sum.bak
+
+# Evaluation reports (JSON files in timestamped directories)
+evaluation/reports/
+
+# Log files
+*.log
+logs/
+*.log.*
+*.log.[0-9]*
+*.log.[0-9][0-9]*
+
+# Test artifacts
+test-results/
+.testcontainers/
+tests/resources/
+*.test.log
+test-output/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*.swn
+*~
+.cache/
+*.orig
+*.rej
+*.patch.bak
+
+# Backup files
+*.bak
+*.backup
+*.old
+docker-compose.yml.bak
+
+# Build and package directories
+build/
+dist/
+pkg/
+target/
+out/
+_output/
+
+# Docker
+.dockerignore.bak
+docker-compose.override.yml
+.docker/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# Generated proto files (if not committed)
+# Uncomment if proto files should be regenerated
+# repository_after/proto/*.pb.go
+# repository_after/proto/*_grpc.pb.go
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Compiled binaries
+ratelimiter
+ratelimiter.exe
+main
+main.exe
