@@ -3,10 +3,10 @@ deleted file mode 100644
 index e69de29..0000000
 diff --git a/repository_after/car.go b/repository_after/car.go
 new file mode 100644
-index 0000000..a5090e7
+index 0000000..62fcd2d
 --- /dev/null
 +++ b/repository_after/car.go
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,97 @@
 +package repository_after
 +
 +import (
@@ -79,6 +79,24 @@ index 0000000..a5090e7
 +    dropoffs    map[int]int
 +}
 +
++func (c *Car) pendingStopsByDirection() (upStops int, downStops int) {
++    for floor, count := range c.pickups {
++        if floor > c.floor {
++            upStops += count
++        } else if floor < c.floor {
++            downStops += count
++        }
++    }
++    for floor, count := range c.dropoffs {
++        if floor > c.floor {
++            upStops += count
++        } else if floor < c.floor {
++            downStops += count
++        }
++    }
++    return upStops, downStops
++}
++
 +func copyStops(in map[int]int) map[int]int {
 +    out := make(map[int]int, len(in))
 +    for k, v := range in {
@@ -88,10 +106,10 @@ index 0000000..a5090e7
 +}
 diff --git a/repository_after/controller.go b/repository_after/controller.go
 new file mode 100644
-index 0000000..5a611b8
+index 0000000..6e4bc5a
 --- /dev/null
 +++ b/repository_after/controller.go
-@@ -0,0 +1,391 @@
+@@ -0,0 +1,413 @@
 +package repository_after
 +
 +import (
@@ -170,6 +188,7 @@ index 0000000..5a611b8
 +        return -1, ErrInvalidFloor
 +    }
 +
++    reqDir := direction(from, to)
 +    car, allFull, blockedByMomentum, err := c.assignCar(from, to)
 +    if err != nil {
 +        if allFull || blockedByMomentum {
@@ -192,8 +211,13 @@ index 0000000..5a611b8
 +    }
 +
 +    if car.floor == from && car.doorsOpen && car.load < car.maxCapacity {
-+        car.load++
-+        car.dropoffs[to]++
++        upStops, downStops := car.pendingStopsByDirection()
++        if momentumAllows(car.direction, reqDir, upStops, downStops) {
++            car.load++
++            car.dropoffs[to]++
++            return car.id, nil
++        }
++        c.enqueuePending(car.id, from, to)
 +        return car.id, nil
 +    }
 +
@@ -268,6 +292,12 @@ index 0000000..5a611b8
 +            continue
 +        }
 +        if car.floor == req.from && car.doorsOpen && car.load < car.maxCapacity {
++            upStops, downStops := car.pendingStopsByDirection()
++            if !momentumAllows(car.direction, reqDir, upStops, downStops) {
++                car.mu.Unlock()
++                remaining = append(remaining, req)
++                continue
++            }
 +            car.load++
 +            car.dropoffs[req.to]++
 +            car.mu.Unlock()
@@ -432,17 +462,17 @@ index 0000000..5a611b8
 +        return int64(math.MaxInt64), false
 +    }
 +
-+    if s.doorsOpen && s.floor == from && s.load < s.maxCapacity {
-+        return 0, true
-+    }
-+
 +    upStops, downStops, totalStops := pendingStops(s)
 +
-+    if !relaxMomentum {
-+        if s.direction == Up && reqDir == Down && upStops > 0 {
-+            return int64(math.MaxInt64), false
++    if s.doorsOpen && s.floor == from && s.load < s.maxCapacity {
++        if momentumAllows(s.direction, reqDir, upStops, downStops) {
++            return 0, true
 +        }
-+        if s.direction == Down && reqDir == Up && downStops > 0 {
++        return int64(math.MaxInt64), false
++    }
++
++    if !relaxMomentum {
++        if !momentumAllows(s.direction, reqDir, upStops, downStops) {
 +            return int64(math.MaxInt64), false
 +        }
 +    }
@@ -475,6 +505,16 @@ index 0000000..5a611b8
 +        }
 +    }
 +    return upStops, downStops, total
++}
++
++func momentumAllows(direction Direction, reqDir Direction, upStops int, downStops int) bool {
++    if direction == Up && reqDir == Down && upStops > 0 {
++        return false
++    }
++    if direction == Down && reqDir == Up && downStops > 0 {
++        return false
++    }
++    return true
 +}
 +
 +func abs(v int) int {
