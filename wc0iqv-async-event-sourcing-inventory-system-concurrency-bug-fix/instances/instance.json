@@ -1,0 +1,33 @@
+{
+    "instance_id": "WC0IQV",
+    "problem_statement": "Noticed data inconsistencies when load testing an event-sourced inventory management system that tracks stock movements across warehouses. The issue appeared while testing the EventStore, InventoryAggregate, SnapshotWorker, and ReadModelProjection classes in event_store.py. During concurrent processing of shipments and orders, stock counts occasionally show negative values for items that should have positive inventory. Replaying events from the beginning produces different final states than the current read model displays. The inconsistencies correlate with high concurrency periods exceeding one hundred simultaneous operations. Snapshot restoration sometimes loses events appended after snapshot creation began. The audit log confirms all events were recorded but computed state does not match. The system uses Python asyncio with in-memory event store backed by PostgreSQL for durability.",
+    "base_commit": "repository_before/",
+    "test_patch": "tests/",
+    "github_url": "https://github.com/ep-eaglepoint-ai/bd_datasets_002/tree/main/wc0iqv-async-event-sourcing-inventory-system-concurrency-bug-fix",
+    "environment_setup": "Dockerfile",
+    "FAIL_TO_PASS": [
+        "tests/test_event_store.py::TestSnapshotConsistency::test_snapshot_captures_exact_version",
+        "tests/test_event_store.py::TestSnapshotConsistency::test_replay_from_snapshot_equals_full_replay",
+        "tests/test_event_store.py::TestNonBlockingHandlers::test_slow_handler_does_not_block_persistence",
+        "tests/test_event_store.py::TestNonBlockingHandlers::test_handler_exception_does_not_break_system"
+    ],
+    "PASS_TO_PASS": [
+        "tests/test_event_store.py::TestStockLevelAccuracy::test_concurrent_add_stock_accuracy",
+        "tests/test_event_store.py::TestStockLevelAccuracy::test_concurrent_mixed_operations_accuracy",
+        "tests/test_event_store.py::TestStockLevelAccuracy::test_version_numbers_are_sequential",
+        "tests/test_event_store.py::TestEventReplayConsistency::test_replay_matches_read_model_single_item",
+        "tests/test_event_store.py::TestEventReplayConsistency::test_replay_matches_read_model_concurrent",
+        "tests/test_event_store.py::TestSnapshotConsistency::test_snapshot_during_concurrent_writes",
+        "tests/test_event_store.py::TestAtomicStockRemoval::test_concurrent_remove_only_one_succeeds",
+        "tests/test_event_store.py::TestAtomicStockRemoval::test_concurrent_remove_insufficient_stock",
+        "tests/test_event_store.py::TestAtomicStockRemoval::test_remove_stock_validation",
+        "tests/test_event_store.py::TestHighConcurrency::test_500_concurrent_operations",
+        "tests/test_event_store.py::TestHighConcurrency::test_no_deadlock_under_load",
+        "tests/test_event_store.py::TestSnapshotNonBlocking::test_snapshot_does_not_block_other_aggregates",
+        "tests/test_event_store.py::TestReadModelConsistency::test_read_model_no_partial_updates",
+        "tests/test_event_store.py::TestBackwardCompatibility::test_event_dataclass_unchanged",
+        "tests/test_event_store.py::TestBackwardCompatibility::test_snapshot_dataclass_unchanged",
+        "tests/test_event_store.py::TestBackwardCompatibility::test_existing_api_compatibility",
+        "tests/test_event_store.py::TestIntegration::test_full_workflow_with_snapshots_and_replay"
+    ]
+}
