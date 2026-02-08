@@ -1,0 +1,170 @@
+{
+  "timestamp": "2026-01-29T11:54:12.020Z",
+  "repository_after": {
+    "passed": 40,
+    "failed": 0,
+    "total": 40,
+    "tests": [
+      {
+        "name": "TestJob - test_job_create_valid",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_create_default_values",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_create_invalid_job_type",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_create_invalid_priority",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_create_negative_retries",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_comparison_by_priority",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_comparison_by_scheduled_time",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_comparison_by_created_time",
+        "passed": true
+      },
+      {
+        "name": "TestJob - test_job_serialization",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_enqueue_dequeue",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_priority_ordering",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_scheduled_job_not_ready",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_scheduled_job_ready",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_get_job",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_get_job_not_found",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_update_status",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_ready_count",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_export_import",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueue - test_duplicate_job_raises",
+        "passed": true
+      },
+      {
+        "name": "TestJobDependencies - test_dependency_satisfied",
+        "passed": true
+      },
+      {
+        "name": "TestJobDependencies - test_dependency_not_satisfied",
+        "passed": true
+      },
+      {
+        "name": "TestJobDependencies - test_dependency_failed_marks_job_failed",
+        "passed": true
+      },
+      {
+        "name": "TestWorker - test_worker_executes_job",
+        "passed": true
+      },
+      {
+        "name": "TestWorker - test_worker_handles_failure",
+        "passed": true
+      },
+      {
+        "name": "TestWorker - test_worker_retries_with_backoff",
+        "passed": true
+      },
+      {
+        "name": "TestWorker - test_worker_timeout",
+        "passed": true
+      },
+      {
+        "name": "TestWorker - test_worker_graceful_shutdown",
+        "passed": true
+      },
+      {
+        "name": "TestEventHandler - test_event_callbacks",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_create_queue",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_register_handler",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_submit_without_handler",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_stats",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_context_manager",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_dead_letter_queue",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_replay_dead_letter",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_start_stop_workers",
+        "passed": true
+      },
+      {
+        "name": "TestJobQueueManager - test_manager_multiple_queues",
+        "passed": true
+      },
+      {
+        "name": "TestThreadSafety - test_concurrent_enqueue",
+        "passed": true
+      },
+      {
+        "name": "TestThreadSafety - test_concurrent_enqueue_dequeue",
+        "passed": true
+      },
+      {
+        "name": "TestThreadSafety - test_stress_test",
+        "passed": true
+      }
+    ]
+  }
+}
